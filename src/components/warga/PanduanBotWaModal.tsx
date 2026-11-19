@@ -16,7 +16,6 @@ import {
   NOMINAL_IPL_STANDAR,
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
-  WA_PENGURUS,
   type Warga,
 } from '../../types';
 import {
@@ -27,6 +26,7 @@ import {
   getNamaBulan,
   getSingkatBulan,
 } from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
 
 type GuideTabId = 'verifikasi' | 'saldo' | 'setor';
 
@@ -65,8 +65,10 @@ export function PanduanBotWaModal({
   onGoToSetor,
   onToast,
 }: PanduanBotWaModalProps) {
+  const { brand } = useAppBrand();
   const [activeTab, setActiveTab] = useState<GuideTabId>('verifikasi');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const botWaNumber = brand.wa_bot?.trim() || '';
 
   useEffect(() => {
     if (!open) return;
@@ -337,7 +339,9 @@ export function PanduanBotWaModal({
 
                 {activeSection.formats.map((item) => {
                   const isCopied = copiedId === item.id;
-                  const waHref = buildWhatsAppLink(WA_PENGURUS, item.contohSiapKirim);
+                  const waHref = botWaNumber
+                    ? buildWhatsAppLink(botWaNumber, item.contohSiapKirim)
+                    : '';
                   return (
                     <article
                       key={item.id}
@@ -395,16 +399,33 @@ export function PanduanBotWaModal({
                             )}
                           </button>
 
-                          <a
-                            href={waHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[42px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            <span>Kirim via WhatsApp</span>
-                            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                          </a>
+                          {waHref ? (
+                            <a
+                              href={waHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-[42px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Kirim ke Bot WA</span>
+                              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleCopyFormat(item);
+                                onToast?.(
+                                  'info',
+                                  'Format disalin. Nomor Bot WA belum diisi Bendahara — kirim manual ke nomor Bot WA.'
+                                );
+                              }}
+                              className="min-h-[42px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                            >
+                              <Bot className="w-4 h-4 text-[#059669]" />
+                              <span>Salin untuk Bot WA</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </article>

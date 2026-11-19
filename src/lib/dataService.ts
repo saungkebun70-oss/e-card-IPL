@@ -2209,31 +2209,77 @@ export async function savePaymentConfigAdmin(
 }
 
 // =========================================================================
-// Pengaturan Identitas Aplikasi (Nama Aplikasi, Sub-Nama, Kop & Logo)
+// Pengaturan Identitas Aplikasi (Nama, Sub-Nama, Kop, Logo & No. WA Pengurus)
 // =========================================================================
+
+function sanitizePengurusWaMap(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string' && v.trim()) {
+      const norm = normalizeWaNumber(v);
+      if (norm.length >= 9) {
+        result[k.trim().toLowerCase()] = norm;
+      }
+    }
+  }
+  return result;
+}
+
+function mergeAppBrandConfig(
+  base: AppBrandConfig,
+  incoming?: Partial<AppBrandConfig> | null
+): AppBrandConfig {
+  if (!incoming) return base;
+  const rawWaPengurus =
+    typeof incoming.wa_pengurus === 'string' && incoming.wa_pengurus.trim()
+      ? normalizeWaNumber(incoming.wa_pengurus)
+      : base.wa_pengurus;
+  const rawWaBot =
+    typeof incoming.wa_bot === 'string' && incoming.wa_bot.trim()
+      ? normalizeWaNumber(incoming.wa_bot)
+      : base.wa_bot;
+
+  return {
+    ...base,
+    ...incoming,
+    app_name:
+      typeof incoming.app_name === 'string' && incoming.app_name.trim()
+        ? incoming.app_name.trim()
+        : base.app_name,
+    app_subtitle:
+      typeof incoming.app_subtitle === 'string' && incoming.app_subtitle.trim()
+        ? incoming.app_subtitle.trim()
+        : base.app_subtitle,
+    kop_resmi:
+      typeof incoming.kop_resmi === 'string' && incoming.kop_resmi.trim()
+        ? incoming.kop_resmi.trim()
+        : base.kop_resmi,
+    logo_url:
+      typeof incoming.logo_url === 'string' && incoming.logo_url.trim()
+        ? incoming.logo_url.trim()
+        : incoming.logo_url === null
+          ? null
+          : base.logo_url,
+    wa_pengurus: rawWaPengurus || DEFAULT_APP_BRAND_CONFIG.wa_pengurus,
+    wa_pengurus_label:
+      typeof incoming.wa_pengurus_label === 'string' && incoming.wa_pengurus_label.trim()
+        ? incoming.wa_pengurus_label.trim()
+        : base.wa_pengurus_label,
+    wa_bot: incoming.wa_bot === '' ? '' : rawWaBot,
+    pengurus_wa_map:
+      incoming.pengurus_wa_map !== undefined
+        ? sanitizePengurusWaMap(incoming.pengurus_wa_map)
+        : base.pengurus_wa_map,
+  };
+}
 
 export function readLocalAppBrandConfig(): AppBrandConfig {
   try {
     const raw = safeStorageGet(STORAGE_KEYS.BRAND_CONFIG);
     if (!raw) return DEFAULT_APP_BRAND_CONFIG;
     const parsed = JSON.parse(raw) as Partial<AppBrandConfig>;
-    return {
-      ...DEFAULT_APP_BRAND_CONFIG,
-      ...parsed,
-      app_name:
-        typeof parsed.app_name === 'string' && parsed.app_name.trim()
-          ? parsed.app_name.trim()
-          : DEFAULT_APP_BRAND_CONFIG.app_name,
-      app_subtitle:
-        typeof parsed.app_subtitle === 'string' && parsed.app_subtitle.trim()
-          ? parsed.app_subtitle.trim()
-          : DEFAULT_APP_BRAND_CONFIG.app_subtitle,
-      kop_resmi:
-        typeof parsed.kop_resmi === 'string' && parsed.kop_resmi.trim()
-          ? parsed.kop_resmi.trim()
-          : DEFAULT_APP_BRAND_CONFIG.kop_resmi,
-      logo_url: typeof parsed.logo_url === 'string' && parsed.logo_url.trim() ? parsed.logo_url : null,
-    };
+    return mergeAppBrandConfig(DEFAULT_APP_BRAND_CONFIG, parsed);
   } catch {
     return DEFAULT_APP_BRAND_CONFIG;
   }
@@ -2255,24 +2301,7 @@ export async function fetchAppBrandConfig(session?: SessionUser | null): Promise
         .maybeSingle();
 
       if (!error && data) {
-        const row = data as Partial<AppBrandConfig>;
-        const merged: AppBrandConfig = {
-          ...DEFAULT_APP_BRAND_CONFIG,
-          ...row,
-          app_name:
-            typeof row.app_name === 'string' && row.app_name.trim()
-              ? row.app_name.trim()
-              : DEFAULT_APP_BRAND_CONFIG.app_name,
-          app_subtitle:
-            typeof row.app_subtitle === 'string' && row.app_subtitle.trim()
-              ? row.app_subtitle.trim()
-              : DEFAULT_APP_BRAND_CONFIG.app_subtitle,
-          kop_resmi:
-            typeof row.kop_resmi === 'string' && row.kop_resmi.trim()
-              ? row.kop_resmi.trim()
-              : DEFAULT_APP_BRAND_CONFIG.kop_resmi,
-          logo_url: typeof row.logo_url === 'string' && row.logo_url.trim() ? row.logo_url : null,
-        };
+        const merged = mergeAppBrandConfig(localConfig, data as Partial<AppBrandConfig>);
         writeLocalAppBrandConfig(merged);
         return merged;
       }
@@ -2322,23 +2351,44 @@ export async function uploadAppLogoAdmin(
 
 export async function saveAppBrandConfigAdmin(
   session: SessionUser,
-  config: Pick<AppBrandConfig, 'app_name' | 'app_subtitle' | 'kop_resmi' | 'logo_url'>
+  config: Pick<
+    AppBrandConfig,
+    | 'app_name'
+    | 'app_subtitle'
+    | 'kop_resmi'
+    | 'logo_url'
+    | 'wa_pengurus'
+    | 'wa_pengurus_label'
+    | 'wa_bot'
+    | 'pengurus_wa_map'
+  >
 ): Promise<ServiceResult<AppBrandConfig>> {
   if (!isBendaharaFullAccess(session)) {
     return {
-      error: 'Akses ditolak: perubahan nama aplikasi dan logo hanya dapat dilakukan oleh Bendahara.',
+      error: 'Akses ditolak: perubahan pengaturan aplikasi & WA pengurus hanya dapat dilakukan oleh Bendahara.',
     };
   }
 
   const cleanName = config.app_name.trim();
   const cleanSubtitle = config.app_subtitle.trim();
   const cleanKop = config.kop_resmi.trim();
+  const cleanWaPengurus = normalizeWaNumber(config.wa_pengurus || '');
+  const cleanWaBot = config.wa_bot?.trim() ? normalizeWaNumber(config.wa_bot) : '';
 
   if (!cleanName) {
     return { error: 'Nama aplikasi tidak boleh kosong.' };
   }
   if (!cleanSubtitle) {
     return { error: 'Sub-nama / keterangan perumahan tidak boleh kosong.' };
+  }
+  if (!cleanWaPengurus || cleanWaPengurus.length < 10) {
+    return { error: 'Nomor WhatsApp utama Pengurus tidak valid (minimal 10 digit, contoh: 0812xxxx).' };
+  }
+  if (cleanWaBot && cleanWaBot === cleanWaPengurus) {
+    return {
+      error:
+        'Nomor WA Pengurus tidak boleh sama dengan Nomor WA Bot. Gunakan nomor pribadi/resmi pengurus agar chat warga tidak masuk ke bot otomatis.',
+    };
   }
 
   const updated: AppBrandConfig = {
@@ -2347,6 +2397,10 @@ export async function saveAppBrandConfigAdmin(
     app_subtitle: cleanSubtitle,
     kop_resmi: cleanKop || DEFAULT_APP_BRAND_CONFIG.kop_resmi,
     logo_url: config.logo_url?.trim() || null,
+    wa_pengurus: cleanWaPengurus,
+    wa_pengurus_label: config.wa_pengurus_label?.trim() || DEFAULT_APP_BRAND_CONFIG.wa_pengurus_label,
+    wa_bot: cleanWaBot,
+    pengurus_wa_map: sanitizePengurusWaMap(config.pengurus_wa_map),
     updated_at: new Date().toISOString(),
     updated_by: session.blok_rumah,
   };
@@ -2362,19 +2416,19 @@ export async function saveAppBrandConfigAdmin(
         .select()
         .single();
       if (!error && data) {
-        const persisted = data as AppBrandConfig;
+        const persisted = mergeAppBrandConfig(updated, data as Partial<AppBrandConfig>);
         writeLocalAppBrandConfig(persisted);
         await recordAuditLog({
           session,
           action: 'UPDATE_APP_BRAND',
           entity: 'app_settings',
           entity_id: updated.id,
-          summary: `Bendahara ${session.nama_warga} memperbarui identitas aplikasi menjadi "${persisted.app_name}".`,
+          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan aplikasi "${persisted.app_name}" & No. WA Pengurus (+${persisted.wa_pengurus}).`,
         });
         return { data: persisted };
       }
     } catch {
-      // Tetap tersimpan lokal tanpa error bila tabel app_settings belum dibuat di Supabase
+      // Tetap tersimpan lokal tanpa error bila tabel/kolom app_settings belum diperbarui di Supabase
     }
   }
 
@@ -2383,7 +2437,7 @@ export async function saveAppBrandConfigAdmin(
     action: 'UPDATE_APP_BRAND',
     entity: 'app_settings',
     entity_id: updated.id,
-    summary: `Bendahara ${session.nama_warga} memperbarui identitas aplikasi menjadi "${updated.app_name}".`,
+    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan aplikasi "${updated.app_name}" & No. WA Pengurus (+${updated.wa_pengurus}).`,
   });
 
   return { data: updated };

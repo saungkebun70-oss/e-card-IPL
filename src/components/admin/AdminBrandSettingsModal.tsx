@@ -9,15 +9,21 @@ import {
   Sparkles,
   Image as ImageIcon,
   CheckCircle2,
+  Phone,
+  Bot,
+  AlertTriangle,
+  Users,
 } from 'lucide-react';
 import {
   DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
+  SUSUNAN_PENGURUS,
   type AppBrandConfig,
   type SessionUser,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
 import { compressLogoImage } from '../../lib/imageCompressor';
+import { normalizeWaNumber } from '../../lib/format';
 import { saveAppBrandConfigAdmin, uploadAppLogoAdmin } from '../../lib/dataService';
 import { BrandLogo } from '../BrandLogo';
 
@@ -26,17 +32,22 @@ interface AdminBrandSettingsModalProps {
   session: SessionUser;
   onClose: () => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
+  initialTab?: 'brand' | 'wa';
 }
+
+type ModalTab = 'brand' | 'wa';
 
 export function AdminBrandSettingsModal({
   open,
   session,
   onClose,
   onToast,
+  initialTab = 'brand',
 }: AdminBrandSettingsModalProps) {
   const { brand, setBrand } = useAppBrand();
   const canEdit = isBendaharaFullAccess(session);
 
+  const [activeTab, setActiveTab] = useState<ModalTab>(initialTab);
   const [draft, setDraft] = useState<AppBrandConfig>(brand);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,9 +56,13 @@ export function AdminBrandSettingsModal({
 
   useEffect(() => {
     if (open) {
-      setDraft(brand);
+      setDraft({
+        ...brand,
+        pengurus_wa_map: { ...(brand.pengurus_wa_map || {}) },
+      });
+      setActiveTab(initialTab);
     }
-  }, [open, brand]);
+  }, [open, brand, initialTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +76,10 @@ export function AdminBrandSettingsModal({
   }, [open, saving, uploadingLogo, onClose]);
 
   if (!open) return null;
+
+  const normWaPengurus = normalizeWaNumber(draft.wa_pengurus || '');
+  const normWaBot = draft.wa_bot?.trim() ? normalizeWaNumber(draft.wa_bot) : '';
+  const isSameAsBot = Boolean(normWaPengurus && normWaBot && normWaPengurus === normWaBot);
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,10 +128,23 @@ export function AdminBrandSettingsModal({
     if (!canEdit) return;
     setDraft({
       ...DEFAULT_APP_BRAND_CONFIG,
+      pengurus_wa_map: {},
       updated_at: new Date().toISOString(),
       updated_by: session.blok_rumah,
     });
-    onToast('info', 'Semua kolom diisi ulang dengan identitas bawaan. Klik "Simpan Pengaturan" untuk menyimpan.');
+    onToast('info', 'Kolom diisi ulang ke setelan awal. Klik "Simpan Pengaturan" untuk menyimpan.');
+  };
+
+  const handlePengurusWaChange = (username: string, value: string) => {
+    setDraft((prev) => {
+      const nextMap = { ...(prev.pengurus_wa_map || {}) };
+      if (!value.trim()) {
+        delete nextMap[username];
+      } else {
+        nextMap[username] = value;
+      }
+      return { ...prev, pengurus_wa_map: nextMap };
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -120,11 +152,26 @@ export function AdminBrandSettingsModal({
     if (!canEdit || saving || uploadingLogo) return;
 
     if (!draft.app_name.trim()) {
+      setActiveTab('brand');
       onToast('error', 'Nama aplikasi wajib diisi.');
       return;
     }
     if (!draft.app_subtitle.trim()) {
+      setActiveTab('brand');
       onToast('error', 'Sub-nama / keterangan perumahan wajib diisi.');
+      return;
+    }
+    if (!normWaPengurus || normWaPengurus.length < 10) {
+      setActiveTab('wa');
+      onToast('error', 'Nomor WhatsApp utama Pengurus tidak valid (minimal 10 digit, contoh: 0812xxxx).');
+      return;
+    }
+    if (isSameAsBot) {
+      setActiveTab('wa');
+      onToast(
+        'error',
+        'Nomor WA Pengurus tidak boleh sama dengan Nomor WA Bot agar pesan warga ke pengurus tidak masuk ke bot.'
+      );
       return;
     }
 
@@ -135,15 +182,19 @@ export function AdminBrandSettingsModal({
         app_subtitle: draft.app_subtitle,
         kop_resmi: draft.kop_resmi,
         logo_url: draft.logo_url,
+        wa_pengurus: draft.wa_pengurus,
+        wa_pengurus_label: draft.wa_pengurus_label,
+        wa_bot: draft.wa_bot,
+        pengurus_wa_map: draft.pengurus_wa_map,
       });
 
       if (res.error || !res.data) {
-        onToast('error', res.error || 'Gagal menyimpan pengaturan nama dan logo aplikasi.');
+        onToast('error', res.error || 'Gagal menyimpan pengaturan aplikasi & WA pengurus.');
       } else {
         setBrand(res.data);
         onToast(
           'success',
-          `Identitas aplikasi "${res.data.app_name}" dan logo berhasil diperbarui di seluruh halaman.`
+          `Pengaturan aplikasi "${res.data.app_name}" & No. WA Pengurus (+${res.data.wa_pengurus}) berhasil disimpan.`
         );
         onClose();
       }
@@ -189,10 +240,10 @@ export function AdminBrandSettingsModal({
                 id="brand-settings-title"
                 className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight"
               >
-                Pengaturan Nama Aplikasi &amp; Logo
+                Pengaturan Nama, Logo &amp; WA Pengurus
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Perubahan otomatis tampil di Portal Warga, Portal Admin, e-Card, Kwitansi, dan tab browser.
+                Atur identitas aplikasi dan pisahkan nomor WhatsApp Pengurus dari nomor Bot WA.
               </p>
             </div>
           </div>
@@ -201,11 +252,49 @@ export function AdminBrandSettingsModal({
             type="button"
             disabled={saving || uploadingLogo}
             onClick={onClose}
-            aria-label="Tutup Pengaturan Nama & Logo"
+            aria-label="Tutup Pengaturan Aplikasi"
             className="min-h-[40px] min-w-[40px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-40"
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-5 sm:px-6 pt-3 pb-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
+          <div role="tablist" className="grid grid-cols-2 gap-1 p-1 bg-slate-200/70 rounded-xl">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'brand'}
+              onClick={() => setActiveTab('brand')}
+              className={`min-h-[40px] px-3 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                activeTab === 'brand'
+                  ? 'bg-white text-[#0F172A] shadow-sm'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <Sparkles
+                className={`w-3.5 h-3.5 ${activeTab === 'brand' ? 'text-[#059669]' : 'text-slate-500'}`}
+              />
+              <span>Nama &amp; Logo</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'wa'}
+              onClick={() => setActiveTab('wa')}
+              className={`min-h-[40px] px-3 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                activeTab === 'wa'
+                  ? 'bg-white text-[#0F172A] shadow-sm'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <Phone
+                className={`w-3.5 h-3.5 ${activeTab === 'wa' ? 'text-[#059669]' : 'text-slate-500'}`}
+              />
+              <span>No. WA Pengurus &amp; Bot</span>
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -214,184 +303,346 @@ export function AdminBrandSettingsModal({
             <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 text-xs text-amber-900">
               <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                Mode lihat saja. Pengubahan nama aplikasi dan logo khusus untuk akun{' '}
-                <strong>Bendahara</strong> (akses penuh).
+                Mode lihat saja. Pengubahan nama aplikasi, logo, dan nomor WhatsApp pengurus khusus
+                untuk akun <strong>Bendahara</strong> (akses penuh).
               </span>
             </div>
           )}
 
-          {/* Pratinjau Langsung Header Gelap & Kartu Terang */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-600">Pratinjau Tampilan Langsung</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-xl bg-[#0F172A] p-4 border border-slate-800 flex items-center gap-3">
-                <BrandLogo
-                  size="md"
-                  srcOverride={draft.logo_url}
-                  altOverride={`Pratinjau Logo ${draft.app_name}`}
-                  className="border-white/15"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">
-                    {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
-                  </p>
-                  <p className="text-xs text-emerald-400 truncate mt-0.5">
-                    {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
-                  </p>
+          {activeTab === 'brand' ? (
+            <>
+              {/* Pratinjau Langsung Header Gelap & Kartu Terang */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-600">Pratinjau Tampilan Langsung</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-[#0F172A] p-4 border border-slate-800 flex items-center gap-3">
+                    <BrandLogo
+                      size="md"
+                      srcOverride={draft.logo_url}
+                      altOverride={`Pratinjau Logo ${draft.app_name}`}
+                      className="border-white/15"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">
+                        {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
+                      </p>
+                      <p className="text-xs text-emerald-400 truncate mt-0.5">
+                        {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 flex items-center gap-3">
+                    <BrandLogo
+                      size="md"
+                      srcOverride={draft.logo_url}
+                      altOverride={`Pratinjau Logo ${draft.app_name}`}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[#0F172A] truncate">
+                        {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 flex items-center gap-3">
-                <BrandLogo
-                  size="md"
-                  srcOverride={draft.logo_url}
-                  altOverride={`Pratinjau Logo ${draft.app_name}`}
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#0F172A] truncate">
-                    {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">
-                    {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
-                  </p>
+              {/* Unggah Logo */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <BrandLogo
+                    size="lg"
+                    srcOverride={draft.logo_url}
+                    altOverride={`Logo ${draft.app_name}`}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-[#059669] shrink-0" />
+                      <span>Logo Aplikasi</span>
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Format PNG (disarankan transparan), JPG, WebP, atau SVG. Otomatis dioptimalkan
+                      agar tajam dan cepat dimuat di iOS, Android, dan browser desktop.
+                    </p>
+                    <p className="text-[11px] font-medium text-emerald-700 mt-1 inline-flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {draft.logo_url ? 'Menggunakan logo kustom' : 'Menggunakan logo bawaan'}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Unggah Logo */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <BrandLogo
-                  size="lg"
-                  srcOverride={draft.logo_url}
-                  altOverride={`Logo ${draft.app_name}`}
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Logo Aplikasi</span>
-                  </p>
-                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Format PNG (disarankan transparan), JPG, WebP, atau SVG. Otomatis dioptimalkan
-                    agar tajam dan cepat dimuat di iOS, Android, dan browser desktop.
-                  </p>
-                  <p className="text-[11px] font-medium text-emerald-700 mt-1 inline-flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>{draft.logo_url ? 'Menggunakan logo kustom' : 'Menggunakan logo bawaan'}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
+                {canEdit && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadLogo}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingLogo || saving}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      {uploadingLogo ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Mengunggah Logo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          <span>{draft.logo_url ? 'Ganti Logo' : 'Unggah Logo Baru'}</span>
+                        </>
+                      )}
+                    </button>
 
-            {canEdit && (
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUploadLogo}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  disabled={uploadingLogo || saving}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  {uploadingLogo ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Mengunggah Logo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      <span>{draft.logo_url ? 'Ganti Logo' : 'Unggah Logo Baru'}</span>
-                    </>
-                  )}
-                </button>
-
-                {draft.logo_url && (
-                  <button
-                    type="button"
-                    disabled={uploadingLogo || saving}
-                    onClick={handleResetLogoOnly}
-                    className="min-h-[42px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Gunakan Logo Bawaan</span>
-                  </button>
+                    {draft.logo_url && (
+                      <button
+                        type="button"
+                        disabled={uploadingLogo || saving}
+                        onClick={handleResetLogoOnly}
+                        className="min-h-[42px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Gunakan Logo Bawaan</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Input Nama Aplikasi & Keterangan */}
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="brand-app-name"
-                className="block text-sm font-semibold text-[#0F172A] mb-1.5"
-              >
-                Nama Aplikasi
-              </label>
-              <input
-                id="brand-app-name"
-                type="text"
-                required
-                maxLength={60}
-                disabled={!canEdit || saving}
-                value={draft.app_name}
-                onChange={(e) => setDraft((prev) => ({ ...prev, app_name: e.target.value }))}
-                placeholder="Contoh: e-Card Verifikasi"
-                className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
-              />
-            </div>
+              {/* Input Nama Aplikasi & Keterangan */}
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="brand-app-name"
+                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                  >
+                    Nama Aplikasi
+                  </label>
+                  <input
+                    id="brand-app-name"
+                    type="text"
+                    required
+                    maxLength={60}
+                    disabled={!canEdit || saving}
+                    value={draft.app_name}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, app_name: e.target.value }))}
+                    placeholder="Contoh: e-Card Verifikasi"
+                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                  />
+                </div>
 
-            <div>
-              <label
-                htmlFor="brand-app-subtitle"
-                className="block text-sm font-semibold text-[#0F172A] mb-1.5"
-              >
-                Sub-Nama / Nama Perumahan
-              </label>
-              <input
-                id="brand-app-subtitle"
-                type="text"
-                required
-                maxLength={90}
-                disabled={!canEdit || saving}
-                value={draft.app_subtitle}
-                onChange={(e) => setDraft((prev) => ({ ...prev, app_subtitle: e.target.value }))}
-                placeholder="Contoh: IPL Digital — Perumahan Saung Kebun"
-                className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
-              />
-            </div>
+                <div>
+                  <label
+                    htmlFor="brand-app-subtitle"
+                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                  >
+                    Sub-Nama / Nama Perumahan
+                  </label>
+                  <input
+                    id="brand-app-subtitle"
+                    type="text"
+                    required
+                    maxLength={90}
+                    disabled={!canEdit || saving}
+                    value={draft.app_subtitle}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, app_subtitle: e.target.value }))}
+                    placeholder="Contoh: IPL Digital — Perumahan Saung Kebun"
+                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                  />
+                </div>
 
-            <div>
-              <label
-                htmlFor="brand-kop-resmi"
-                className="block text-sm font-semibold text-[#0F172A] mb-1.5"
-              >
-                Kop Resmi / Alamat Sekretariat
-              </label>
-              <textarea
-                id="brand-kop-resmi"
-                rows={2}
-                maxLength={220}
-                disabled={!canEdit || saving}
-                value={draft.kop_resmi}
-                onChange={(e) => setDraft((prev) => ({ ...prev, kop_resmi: e.target.value }))}
-                placeholder="Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500 resize-none"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Ditampilkan pada footer halaman login, sidebar, kartu e-Card, dan kwitansi digital resmi.
-              </p>
-            </div>
-          </div>
+                <div>
+                  <label
+                    htmlFor="brand-kop-resmi"
+                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                  >
+                    Kop Resmi / Alamat Sekretariat
+                  </label>
+                  <textarea
+                    id="brand-kop-resmi"
+                    rows={2}
+                    maxLength={220}
+                    disabled={!canEdit || saving}
+                    value={draft.kop_resmi}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, kop_resmi: e.target.value }))}
+                    placeholder="Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500 resize-none"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {isSameAsBot && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3 text-xs text-red-800"
+                >
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Nomor WA Pengurus sama dengan Nomor WA Bot.</strong> Gunakan nomor WA
+                    pribadi/resmi pengurus agar saat warga klik tombol{' '}
+                    <em>Hubungi Pengurus via WhatsApp</em> tidak diarahkan ke nomor Bot otomatis.
+                  </span>
+                </div>
+              )}
+
+              {/* Bagian 1: Nomor WA Utama Pengurus (Bukan Bot) */}
+              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-4">
+                <div>
+                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-[#059669]" />
+                    <span>Nomor WhatsApp Pengurus (Bukan Nomor Bot)</span>
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    Nomor ini dituju langsung ketika warga menekan tombol{' '}
+                    <strong>Hubungi Pengurus via WhatsApp</strong> di halaman Profil &amp; Akun.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="wa-pengurus-utama"
+                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                    >
+                      Nomor WA Utama Pengurus
+                    </label>
+                    <input
+                      id="wa-pengurus-utama"
+                      type="tel"
+                      inputMode="tel"
+                      required
+                      disabled={!canEdit || saving}
+                      value={draft.wa_pengurus}
+                      onChange={(e) =>
+                        setDraft((prev) => ({ ...prev, wa_pengurus: e.target.value }))
+                      }
+                      placeholder="Contoh: 081234567890"
+                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                    {normWaPengurus && (
+                      <p className="text-[11px] font-mono text-emerald-700 mt-1">
+                        Tujuan WA: +{normWaPengurus}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="wa-pengurus-label"
+                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                    >
+                      Nama / Jabatan Penerima
+                    </label>
+                    <input
+                      id="wa-pengurus-label"
+                      type="text"
+                      maxLength={60}
+                      disabled={!canEdit || saving}
+                      value={draft.wa_pengurus_label}
+                      onChange={(e) =>
+                        setDraft((prev) => ({ ...prev, wa_pengurus_label: e.target.value }))
+                      }
+                      placeholder="Contoh: Andriansyah (Bendahara)"
+                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bagian 2: Nomor WA Masing-Masing Pengurus (Profil Lingkungan) */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                <div>
+                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#059669]" />
+                    <span>Nomor WA per Pengurus (Halaman Profil Lingkungan)</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    Opsional. Jika dikosongkan, tombol WhatsApp pengurus tersebut akan otomatis
+                    diarahkan ke Nomor WA Utama Pengurus di atas (tetap bukan nomor bot).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {SUSUNAN_PENGURUS.map((p) => (
+                    <div key={p.username}>
+                      <label
+                        htmlFor={`wa-pengurus-${p.username}`}
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        {p.nama}{' '}
+                        <span className="font-normal text-slate-500">
+                          ({p.jabatan} · {p.blokRumah})
+                        </span>
+                      </label>
+                      <input
+                        id={`wa-pengurus-${p.username}`}
+                        type="tel"
+                        inputMode="tel"
+                        disabled={!canEdit || saving}
+                        value={draft.pengurus_wa_map?.[p.username] || ''}
+                        onChange={(e) => handlePengurusWaChange(p.username, e.target.value)}
+                        placeholder={`Default: +${normWaPengurus || '628...'}`}
+                        className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bagian 3: Nomor WA Khusus Bot Otomatis (Terpisah) */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                <div>
+                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-slate-700" />
+                    <span>Nomor WhatsApp Khusus Bot Otomatis (Terpisah)</span>
+                  </p>
+                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    Nomor WA perangkat yang terhubung di Fonnte/Wablas. Hanya digunakan di modal{' '}
+                    <strong>Panduan Bot WA Warga</strong> untuk perintah otomatis{' '}
+                    <span className="font-mono">CEK#</span>,{' '}
+                    <span className="font-mono">SALDO#</span>, dan{' '}
+                    <span className="font-mono">VERIFIKASI#</span>.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="wa-bot-khusus"
+                    className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                  >
+                    Nomor WA Bot Otomatis (Opsional)
+                  </label>
+                  <input
+                    id="wa-bot-khusus"
+                    type="tel"
+                    inputMode="tel"
+                    disabled={!canEdit || saving}
+                    value={draft.wa_bot}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, wa_bot: e.target.value }))}
+                    placeholder="Masukkan nomor HP yang dipakai Bot Fonnte (contoh: 0851xxxx)"
+                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#0F172A] focus:outline-none focus:ring-2 focus:ring-slate-900/15 disabled:bg-slate-100 disabled:text-slate-500"
+                  />
+                  {normWaBot && (
+                    <p className="text-[11px] font-mono text-slate-600 mt-1">
+                      Tujuan Bot Otomatis: +{normWaBot}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
@@ -422,7 +673,7 @@ export function AdminBrandSettingsModal({
             {canEdit && (
               <button
                 type="submit"
-                disabled={saving || uploadingLogo}
+                disabled={saving || uploadingLogo || isSameAsBot}
                 className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 {saving ? (

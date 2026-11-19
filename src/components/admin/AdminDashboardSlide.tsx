@@ -266,7 +266,7 @@ export function AdminDashboardSlide({
             className="min-h-[40px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-900 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <Sparkles className="w-4 h-4 text-[#059669] shrink-0" />
-            <span>Nama &amp; Logo</span>
+            <span>Nama, Logo &amp; WA</span>
           </button>
           <button
             type="button"

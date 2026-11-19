@@ -16,14 +16,13 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  KOP_RESMI,
   SUSUNAN_PENGURUS,
-  WA_PENGURUS,
   type AdminJabatan,
   type PengurusItem,
   type Warga,
 } from '../../types';
 import { buildWhatsAppLink, copyToClipboard } from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
 
 interface PengurusProfileDetail extends PengurusItem {
   inisial: string;
@@ -176,6 +175,7 @@ export function ProfilLingkungan({
   onSelectTitipPengurus,
   onToast,
 }: ProfilLingkunganProps) {
+  const { brand } = useAppBrand();
   const [viewMode, setViewMode] = useState<'daftar' | 'struktur'>('daftar');
   const [jabatanFilter, setJabatanFilter] = useState<'Semua' | AdminJabatan>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,8 +230,9 @@ export function ProfilLingkungan({
   };
 
   const buildWaPengurusHref = (p: PengurusProfileDetail) => {
+    const targetWa = brand.pengurus_wa_map?.[p.username] || brand.wa_pengurus;
     const msg = `Halo ${p.nama} (${p.jabatan} Perumahan Saung Kebun), saya ${profil.nama_warga} dari Blok ${profil.blok_rumah}. Saya ingin berkoordinasi terkait keperluan lingkungan / iuran IPL.`;
-    return buildWhatsAppLink(WA_PENGURUS, msg);
+    return buildWhatsAppLink(targetWa, msg);
   };
 
   const pembina = ENRICHED_PENGURUS.find((p) => p.jabatan === 'Pembina');
@@ -708,7 +709,7 @@ export function ProfilLingkungan({
           {/* Catatan Sekretariat */}
           <div className="mt-4 px-1 flex items-start gap-2.5 text-xs text-slate-500 leading-relaxed">
             <Building2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-            <p>{KOP_RESMI}</p>
+            <p>{brand.kop_resmi}</p>
           </div>
         </aside>
       </div>

@@ -49,6 +49,10 @@ export interface AppBrandConfig {
   app_subtitle: string;
   kop_resmi: string;
   logo_url: string | null;
+  wa_pengurus: string;
+  wa_pengurus_label: string;
+  wa_bot: string;
+  pengurus_wa_map: Record<string, string>;
   updated_at: string;
   updated_by?: string | null;
 }
@@ -273,6 +277,10 @@ export const DEFAULT_APP_BRAND_CONFIG: AppBrandConfig = {
   app_subtitle: SUB_NAMA_APLIKASI,
   kop_resmi: KOP_RESMI,
   logo_url: null,
+  wa_pengurus: WA_PENGURUS,
+  wa_pengurus_label: 'Andriansyah (Bendahara)',
+  wa_bot: '',
+  pengurus_wa_map: {},
   updated_at: '2026-11-01T07:00:00.000Z',
   updated_by: 'andriansyah',
 };

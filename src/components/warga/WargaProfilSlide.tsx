@@ -10,7 +10,7 @@ import {
   Bot,
   BookOpen,
 } from 'lucide-react';
-import { WA_PENGURUS, type Warga } from '../../types';
+import { type Warga } from '../../types';
 import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
@@ -38,8 +38,8 @@ export function WargaProfilSlide({
   const { brand } = useAppBrand();
   const [panduanWaOpen, setPanduanWaOpen] = useState(false);
   const [panduanAppOpen, setPanduanAppOpen] = useState(false);
-  const waMessage = `Halo Pengurus Lingkungan Perumahan Saung Kebun, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal e-Card IPL Digital.`;
-  const waHref = buildWhatsAppLink(WA_PENGURUS, waMessage);
+  const waMessage = `Halo ${brand.wa_pengurus_label || 'Pengurus Lingkungan Perumahan Saung Kebun'}, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal ${brand.app_name}.`;
+  const waHref = buildWhatsAppLink(brand.wa_pengurus, waMessage);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -143,10 +143,15 @@ export function WargaProfilSlide({
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+            className="w-full min-h-[52px] px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white font-semibold text-sm flex flex-col items-center justify-center transition-colors text-center"
           >
-            <MessageCircle className="w-4 h-4" />
-            <span>Hubungi Pengurus via WhatsApp</span>
+            <span className="inline-flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 shrink-0" />
+              <span>Hubungi Pengurus via WhatsApp</span>
+            </span>
+            <span className="text-[11px] font-normal text-emerald-100 mt-0.5">
+              {brand.wa_pengurus_label} · <span className="font-mono">+{brand.wa_pengurus}</span>
+            </span>
           </a>
 
           <button

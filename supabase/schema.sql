@@ -136,16 +136,26 @@ create table if not exists public.payment_config (
   updated_by text
 );
 
--- 10. Tabel Pengaturan Identitas Aplikasi (Nama Aplikasi, Sub-Nama, Kop & Logo) — Edit Khusus Bendahara
+-- 10. Tabel Pengaturan Identitas Aplikasi & No. WA Pengurus/Bot — Edit Khusus Bendahara
 create table if not exists public.app_settings (
   id text primary key default 'default-app-brand',
   app_name text not null default 'e-Card Verifikasi',
   app_subtitle text not null default 'IPL Digital — Perumahan Saung Kebun',
   kop_resmi text not null default 'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)',
   logo_url text,
+  wa_pengurus text not null default '6281234567890',
+  wa_pengurus_label text not null default 'Andriansyah (Bendahara)',
+  wa_bot text not null default '',
+  pengurus_wa_map jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
   updated_by text
 );
+
+-- Pastikan kolom WA Pengurus & Bot tersedia pada tabel app_settings yang sudah ada
+alter table public.app_settings add column if not exists wa_pengurus text not null default '6281234567890';
+alter table public.app_settings add column if not exists wa_pengurus_label text not null default 'Andriansyah (Bendahara)';
+alter table public.app_settings add column if not exists wa_bot text not null default '';
+alter table public.app_settings add column if not exists pengurus_wa_map jsonb not null default '{}'::jsonb;
 
 -- Indeks Performa untuk Akses Konkuren Tinggi (Ratusan KK & Ribuan Transaksi)
 create index if not exists idx_users_warga_aktif_blok on public.users_warga (aktif, blok_rumah);
@@ -553,14 +563,18 @@ values (
 )
 on conflict (id) do nothing;
 
--- Pengaturan Identitas Aplikasi Awal (Nama & Logo)
-insert into public.app_settings (id, app_name, app_subtitle, kop_resmi, logo_url, updated_by)
+-- Pengaturan Identitas Aplikasi Awal (Nama, Logo & No. WA Pengurus/Bot Terpisah)
+insert into public.app_settings (id, app_name, app_subtitle, kop_resmi, logo_url, wa_pengurus, wa_pengurus_label, wa_bot, pengurus_wa_map, updated_by)
 values (
   'default-app-brand',
   'e-Card Verifikasi',
   'IPL Digital — Perumahan Saung Kebun',
   'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)',
   null,
+  '6281234567890',
+  'Andriansyah (Bendahara)',
+  '',
+  '{}'::jsonb,
   'andriansyah'
 )
 on conflict (id) do nothing;
