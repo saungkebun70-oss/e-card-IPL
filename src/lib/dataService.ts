@@ -7,9 +7,13 @@ import {
   type BotWaConfig,
   type BotWaLog,
   type MetodeBayar,
+  type NotificationCategory,
+  type NotificationTargetScope,
+  type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
   type StatusHunian,
+  type SystemNotification,
   type TransaksiIPL,
   type Warga,
 } from '../types';
@@ -30,6 +34,7 @@ import {
   LOCAL_ADMIN_ACCOUNTS,
   SEED_BOT_WA_CONFIG,
   SEED_BOT_WA_LOGS,
+  SEED_PAYMENT_CONFIG,
   SEED_TRANSAKSI,
   SEED_WARGA,
 } from './seedData';
@@ -37,12 +42,14 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const STORAGE_KEYS = {
   SESSION: 'saungkebun_session_v1',
-  WARGA: 'saungkebun_warga_v1',
-  TRANSAKSI: 'saungkebun_transaksi_v1',
-  STATUS: 'saungkebun_status_v1',
+  WARGA: 'saungkebun_warga_v2',
+  TRANSAKSI: 'saungkebun_transaksi_v2',
+  STATUS: 'saungkebun_status_v2',
   BOT_CONFIG: 'saungkebun_bot_config_v1',
   BOT_LOGS: 'saungkebun_bot_logs_v1',
   LOGIN_ATTEMPTS: 'saungkebun_login_attempts_v1',
+  SYSTEM_NOTIFICATIONS: 'saungkebun_system_notifications_v1',
+  PAYMENT_CONFIG: 'saungkebun_payment_config_v1',
 } as const;
 
 const MAX_FAILED_PIN_ATTEMPTS = 5;
@@ -410,6 +417,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     profil: Warga;
     statusBulanan: StatusEcardBulanan[];
     riwayat: TransaksiIPL[];
+    notifications: SystemNotification[];
+    paymentConfig: PaymentConfig;
   }>
 > {
   if (session.role !== 'warga') {
@@ -419,7 +428,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const [profilRes, statusRes, trxRes] = await Promise.all([
+      const [profilRes, statusRes, trxRes, notifications, paymentConfig] = await Promise.all([
         supabase
           .from('users_warga')
           .select('*')
@@ -436,6 +445,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
           .select('*')
           .eq('blok_rumah', session.blok_rumah)
           .order('tanggal_setor', { ascending: false }),
+        fetchSystemNotifications(session),
+        fetchPaymentConfig(session),
       ]);
 
       if (profilRes.error) throw profilRes.error;
@@ -461,11 +472,18 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         );
       });
 
+      const profil = profilRes.data as Warga;
+      const relevantNotifications = notifications
+        .filter((n) => n.target_scope === 'all_units' || profil.status_hunian !== 'Kosong')
+        .map(({ recipient_blocks: _omit, ...safeNotif }) => safeNotif);
+
       return {
         data: {
-          profil: profilRes.data as Warga,
+          profil,
           statusBulanan: complete12,
           riwayat: (trxRes.data || []) as TransaksiIPL[],
+          notifications: relevantNotifications,
+          paymentConfig,
         },
       };
     } catch (err) {
@@ -489,7 +507,16 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     .filter((t) => t.blok_rumah === session.blok_rumah)
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
 
-  return { data: { profil, statusBulanan, riwayat } };
+  const [notifications, paymentConfig] = await Promise.all([
+    fetchSystemNotifications(session),
+    fetchPaymentConfig(session),
+  ]);
+
+  const safeNotifications = notifications
+    .filter((n) => n.target_scope === 'all_units' || profil.status_hunian !== 'Kosong')
+    .map(({ recipient_blocks: _omit, ...safeNotif }) => safeNotif);
+
+  return { data: { profil, statusBulanan, riwayat, notifications: safeNotifications, paymentConfig } };
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -501,6 +528,13 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+export type SetorSubmitStage =
+  | 'idle'
+  | 'uploading_proof'
+  | 'saving_transaction'
+  | 'syncing_ecard'
+  | 'refreshing';
+
 export async function submitSetoranWarga(
   session: SessionUser,
   payload: {
@@ -510,6 +544,7 @@ export async function submitSetoranWarga(
     nominal: number;
     keterangan?: string;
     buktiFile: File;
+    onStageChange?: (stage: SetorSubmitStage) => void;
   }
 ): Promise<ServiceResult<TransaksiIPL>> {
   if (session.role !== 'warga') {
@@ -532,6 +567,7 @@ export async function submitSetoranWarga(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
+      payload.onStageChange?.('uploading_proof');
       const ext = payload.buktiFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const safeBlok = session.blok_rumah.replace(/[^A-Z0-9]/gi, '_');
       const filePath = `${safeBlok}/${Date.now()}.${ext}`;
@@ -548,6 +584,7 @@ export async function submitSetoranWarga(
       const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
       const buktiUrl = publicUrlData.publicUrl;
 
+      payload.onStageChange?.('saving_transaction');
       const { data: inserted, error: insertError } = await supabase
         .from('transaksi_ipl')
         .insert({
@@ -569,6 +606,7 @@ export async function submitSetoranWarga(
 
       if (insertError) throw insertError;
 
+      payload.onStageChange?.('syncing_ecard');
       // Sinkronkan status bulan menjadi Menunggu Verifikasi
       for (const bulan of sortedBulan) {
         await supabase.from('status_ecard_bulanan').upsert(
@@ -601,7 +639,10 @@ export async function submitSetoranWarga(
 
   // Fallback lokal
   try {
+    payload.onStageChange?.('uploading_proof');
     const buktiUrl = await fileToDataUrl(payload.buktiFile);
+
+    payload.onStageChange?.('saving_transaction');
     const newTrx: TransaksiIPL = {
       id: `trx-${Date.now()}`,
       no_kwitansi: noKwitansi,
@@ -623,6 +664,8 @@ export async function submitSetoranWarga(
 
     const existing = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI);
     writeLocal(STORAGE_KEYS.TRANSAKSI, [newTrx, ...existing]);
+
+    payload.onStageChange?.('syncing_ecard');
     syncLocalStatusForHouse(session.blok_rumah);
 
     await recordAuditLog({
@@ -650,6 +693,8 @@ export interface AdminSnapshot {
   statusList: StatusEcardBulanan[];
   botConfig: BotWaConfig;
   botLogs: BotWaLog[];
+  notifications: SystemNotification[];
+  paymentConfig: PaymentConfig;
 }
 
 export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceResult<AdminSnapshot>> {
@@ -660,22 +705,25 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const [wargaRes, trxRes, statusRes, botCfgRes, botLogRes] = await Promise.all([
-        supabase
-          .from('users_warga')
-          .select('*')
-          .neq('role', 'admin')
-          .order('blok_rumah', { ascending: true }),
-        supabase
-          .from('transaksi_ipl')
-          .select('*')
-          .eq('tahun', TAHUN_AKTIF)
-          .order('tanggal_setor', { ascending: false })
-          .limit(1000),
-        supabase.from('status_ecard_bulanan').select('*').eq('tahun', TAHUN_AKTIF),
-        supabase.from('bot_wa_config').select('*').limit(1).maybeSingle(),
-        supabase.from('bot_wa_logs').select('*').order('created_at', { ascending: false }).limit(200),
-      ]);
+      const [wargaRes, trxRes, statusRes, botCfgRes, botLogRes, notifications, paymentConfig] =
+        await Promise.all([
+          supabase
+            .from('users_warga')
+            .select('*')
+            .neq('role', 'admin')
+            .order('blok_rumah', { ascending: true }),
+          supabase
+            .from('transaksi_ipl')
+            .select('*')
+            .eq('tahun', TAHUN_AKTIF)
+            .order('tanggal_setor', { ascending: false })
+            .limit(1000),
+          supabase.from('status_ecard_bulanan').select('*').eq('tahun', TAHUN_AKTIF),
+          supabase.from('bot_wa_config').select('*').limit(1).maybeSingle(),
+          supabase.from('bot_wa_logs').select('*').order('created_at', { ascending: false }).limit(200),
+          fetchSystemNotifications(session),
+          fetchPaymentConfig(session),
+        ]);
 
       if (wargaRes.error) throw wargaRes.error;
       if (trxRes.error) throw trxRes.error;
@@ -688,6 +736,8 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
           statusList: (statusRes.data || []) as StatusEcardBulanan[],
           botConfig: (botCfgRes.data as BotWaConfig | null) || SEED_BOT_WA_CONFIG,
           botLogs: (botLogRes.data || []) as BotWaLog[],
+          notifications,
+          paymentConfig,
         },
       };
     } catch (err) {
@@ -697,7 +747,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
 
   ensureLocalStoreInitialized();
   const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA).sort((a, b) =>
-    a.blok_rumah.localeCompare(b.blok_rumah)
+    a.blok_rumah.localeCompare(b.blok_rumah, undefined, { numeric: true })
   );
   for (const w of wargaList) {
     syncLocalStatusForHouse(w.blok_rumah);
@@ -711,9 +761,13 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+  const [notifications, paymentConfig] = await Promise.all([
+    fetchSystemNotifications(session),
+    fetchPaymentConfig(session),
+  ]);
 
   return {
-    data: { wargaList, transaksiList, statusList, botConfig, botLogs },
+    data: { wargaList, transaksiList, statusList, botConfig, botLogs, notifications, paymentConfig },
   };
 }
 
@@ -1286,4 +1340,317 @@ export async function triggerManualWaReminderAdmin(
         : 'Bot WA sedang nonaktif. Aktifkan sakelar Bot WA terlebih dahulu untuk mengirim pesan.',
     },
   };
+}
+
+// =========================================================================
+// Pengumuman / Notifikasi Massal Sistem untuk Seluruh Akun Warga
+// =========================================================================
+
+function readLocalNotifications(): SystemNotification[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SYSTEM_NOTIFICATIONS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SystemNotification[];
+    return Array.isArray(parsed)
+      ? parsed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalNotifications(list: SystemNotification[]) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SYSTEM_NOTIFICATIONS, JSON.stringify(list.slice(0, 100)));
+  } catch {
+    // Abaikan jika penyimpanan lokal penuh
+  }
+}
+
+export async function fetchSystemNotifications(
+  session: SessionUser
+): Promise<SystemNotification[]> {
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('system_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && Array.isArray(data)) {
+        return data as SystemNotification[];
+      }
+    } catch {
+      // Fallback bersih ke localStorage jika tabel system_notifications belum dijalankan di Supabase
+    }
+  }
+  return readLocalNotifications();
+}
+
+export async function sendBulkSystemNotificationAdmin(
+  session: SessionUser,
+  payload: {
+    title: string;
+    message: string;
+    category: NotificationCategory;
+    target_scope: NotificationTargetScope;
+    wargaList: Warga[];
+  }
+): Promise<ServiceResult<SystemNotification>> {
+  if (session.role !== 'admin') {
+    return { error: 'Akses ditolak: hanya Pengurus yang dapat mengirim pengumuman sistem.' };
+  }
+
+  const cleanTitle = payload.title.trim();
+  const cleanMessage = payload.message.trim();
+  if (!cleanTitle) return { error: 'Judul pengumuman wajib diisi.' };
+  if (!cleanMessage) return { error: 'Isi pesan pengumuman wajib diisi.' };
+
+  const recipients = payload.wargaList.filter((w) => {
+    if (!w.aktif) return false;
+    return payload.target_scope === 'all_units' ? true : w.status_hunian !== 'Kosong';
+  });
+
+  if (recipients.length === 0) {
+    return { error: 'Tidak ada akun warga aktif yang memenuhi target pengiriman.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const recipientBlocks = recipients.map((w) => w.blok_rumah);
+  const senderJabatan = session.jabatan || 'Pengurus';
+
+  let saved: SystemNotification = {
+    id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: cleanTitle,
+    message: cleanMessage,
+    category: payload.category,
+    target_scope: payload.target_scope,
+    recipient_count: recipients.length,
+    recipient_blocks: recipientBlocks,
+    sender_name: session.nama_warga,
+    sender_jabatan: senderJabatan,
+    created_at: nowIso,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('system_notifications')
+        .insert({
+          title: saved.title,
+          message: saved.message,
+          category: saved.category,
+          target_scope: saved.target_scope,
+          recipient_count: saved.recipient_count,
+          recipient_blocks: recipientBlocks,
+          sender_name: saved.sender_name,
+          sender_jabatan: saved.sender_jabatan,
+          created_at: nowIso,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        saved = data as SystemNotification;
+      } else {
+        // Fallback aman bila tabel system_notifications belum ditambahkan di Supabase
+        writeLocalNotifications([saved, ...readLocalNotifications()]);
+      }
+    } catch {
+      writeLocalNotifications([saved, ...readLocalNotifications()]);
+    }
+  } else {
+    writeLocalNotifications([saved, ...readLocalNotifications()]);
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'SEND_BULK_NOTIFICATION',
+    entity: 'system_notifications',
+    entity_id: saved.id,
+    summary: `Mengirim pengumuman sistem "${cleanTitle}" (${payload.category}) ke ${recipients.length} akun warga.`,
+    metadata: {
+      category: payload.category,
+      target_scope: payload.target_scope,
+      recipient_count: recipients.length,
+    },
+  });
+
+  return { data: saved };
+}
+
+export async function deleteSystemNotificationAdmin(
+  session: SessionUser,
+  notif: SystemNotification
+): Promise<ServiceResult<boolean>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: penghapusan pengumuman sistem khusus Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      await supabase.from('system_notifications').delete().eq('id', notif.id);
+    } catch {
+      // Lanjut bersihkan fallback lokal
+    }
+  }
+
+  const filtered = readLocalNotifications().filter((n) => n.id !== notif.id);
+  writeLocalNotifications(filtered);
+
+  await recordAuditLog({
+    session,
+    action: 'DELETE_BULK_NOTIFICATION',
+    entity: 'system_notifications',
+    entity_id: notif.id,
+    summary: `Menghapus pengumuman sistem "${notif.title}".`,
+  });
+
+  return { data: true };
+}
+
+// =========================================================================
+// Pengaturan Metode Pembayaran (QRIS & Nomor Rekening) — Khusus Bendahara
+// =========================================================================
+
+function readLocalPaymentConfig(): PaymentConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PAYMENT_CONFIG);
+    if (!raw) return SEED_PAYMENT_CONFIG;
+    const parsed = JSON.parse(raw) as Partial<PaymentConfig>;
+    return {
+      ...SEED_PAYMENT_CONFIG,
+      ...parsed,
+      rekening_list: Array.isArray(parsed.rekening_list)
+        ? parsed.rekening_list
+        : SEED_PAYMENT_CONFIG.rekening_list,
+    };
+  } catch {
+    return SEED_PAYMENT_CONFIG;
+  }
+}
+
+function writeLocalPaymentConfig(config: PaymentConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PAYMENT_CONFIG, JSON.stringify(config));
+  } catch {
+    // Abaikan jika kuota localStorage penuh
+  }
+}
+
+export async function fetchPaymentConfig(session: SessionUser): Promise<PaymentConfig> {
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('payment_config')
+        .select('*')
+        .eq('id', 'default-payment-config')
+        .maybeSingle();
+      if (!error && data) {
+        const row = data as Partial<PaymentConfig>;
+        return {
+          ...SEED_PAYMENT_CONFIG,
+          ...row,
+          rekening_list: Array.isArray(row.rekening_list)
+            ? row.rekening_list
+            : SEED_PAYMENT_CONFIG.rekening_list,
+        };
+      }
+    } catch {
+      // Fallback aman ke localStorage jika tabel payment_config belum dijalankan di Supabase
+    }
+  }
+  return readLocalPaymentConfig();
+}
+
+export async function uploadQrisImageAdmin(
+  session: SessionUser,
+  file: File
+): Promise<ServiceResult<string>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: unggah gambar QRIS hanya dapat dilakukan oleh Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `qris/qris-saungkebun-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('bukti-ipl')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        return { data: publicUrlData.publicUrl };
+      }
+    } catch {
+      // Lanjut fallback data URL
+    }
+  }
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    return { data: dataUrl };
+  } catch (err) {
+    return { error: parseFriendlyError(err, 'Gagal membaca file gambar QRIS.') };
+  }
+}
+
+export async function savePaymentConfigAdmin(
+  session: SessionUser,
+  config: PaymentConfig
+): Promise<ServiceResult<PaymentConfig>> {
+  if (!isBendaharaFullAccess(session)) {
+    return {
+      error:
+        'Akses ditolak: perubahan pengaturan QRIS dan nomor rekening transfer hanya dapat dilakukan oleh Bendahara.',
+    };
+  }
+
+  const updated: PaymentConfig = {
+    ...config,
+    id: 'default-payment-config',
+    updated_at: new Date().toISOString(),
+    updated_by: session.blok_rumah,
+  };
+
+  writeLocalPaymentConfig(updated);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('payment_config')
+        .upsert(updated, { onConflict: 'id' })
+        .select()
+        .single();
+      if (!error && data) {
+        await recordAuditLog({
+          session,
+          action: 'UPDATE_PAYMENT_CONFIG',
+          entity: 'payment_config',
+          entity_id: updated.id,
+          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+        });
+        return { data: data as PaymentConfig };
+      }
+    } catch {
+      // Tetap berhasil tersimpan lokal bila tabel belum ditambahkan di Supabase
+    }
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'UPDATE_PAYMENT_CONFIG',
+    entity: 'payment_config',
+    entity_id: updated.id,
+    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+  });
+
+  return { data: updated };
 }

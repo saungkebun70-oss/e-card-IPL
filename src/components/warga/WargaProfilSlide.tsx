@@ -1,13 +1,14 @@
-import { MessageCircle, LogOut, ShieldCheck, Home, Phone, User } from 'lucide-react';
+import { MessageCircle, LogOut, ShieldCheck, Home, Phone, User, Building2 } from 'lucide-react';
 import { KOP_RESMI, WA_PENGURUS, type Warga } from '../../types';
 import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
 
 interface WargaProfilSlideProps {
   profil: Warga;
+  onOpenLingkungan?: () => void;
   onLogout: () => void;
 }
 
-export function WargaProfilSlide({ profil, onLogout }: WargaProfilSlideProps) {
+export function WargaProfilSlide({ profil, onOpenLingkungan, onLogout }: WargaProfilSlideProps) {
   const waMessage = `Halo Pengurus Lingkungan Perumahan Saung Kebun, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal e-Card IPL Digital.`;
   const waHref = buildWhatsAppLink(WA_PENGURUS, waMessage);
 
@@ -80,6 +81,17 @@ export function WargaProfilSlide({ profil, onLogout }: WargaProfilSlideProps) {
         </div>
 
         <div className="space-y-3 pt-1">
+          {onOpenLingkungan && (
+            <button
+              type="button"
+              onClick={onOpenLingkungan}
+              className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Building2 className="w-4 h-4 text-[#059669]" />
+              <span>Lihat Profil Lingkungan &amp; Pengurus</span>
+            </button>
+          )}
+
           <a
             href={waHref}
             target="_blank"

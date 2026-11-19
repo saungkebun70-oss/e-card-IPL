@@ -152,7 +152,7 @@ export function AppShell({
               </div>
             ) : (
               <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 shrink-0">
-                <span>Sekretariat Blok B03/07</span>
+                <span>Sekretariat Blok B3/7</span>
               </div>
             )}
           </div>
@@ -181,7 +181,9 @@ export function AppShell({
         aria-label="Navigasi Bawah"
         className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe"
       >
-        <div className="grid grid-cols-4 h-16 max-w-2xl mx-auto">
+        <div
+          className={`grid ${navItems.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} h-16 max-w-2xl mx-auto`}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab;

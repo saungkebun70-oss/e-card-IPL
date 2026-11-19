@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import {
   CheckCircle2,
   XCircle,
@@ -8,13 +8,24 @@ import {
   History,
   RefreshCw,
   AlertTriangle,
+  Megaphone,
+  Send,
+  Loader2,
+  Trash2,
+  Users,
+  QrCode,
 } from 'lucide-react';
 import {
+  BULK_NOTIFICATION_TEMPLATES,
   isBendaharaFullAccess,
   TAHUN_AKTIF,
   type AuditLogEntry,
+  type NotificationCategory,
+  type NotificationTargetScope,
+  type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
+  type SystemNotification,
   type TransaksiIPL,
   type Warga,
 } from '../../types';
@@ -25,14 +36,28 @@ import {
   getCurrentBillingMonth,
   getNamaBulan,
 } from '../../lib/format';
-import { verifyTransaksiAdmin } from '../../lib/dataService';
+import {
+  deleteSystemNotificationAdmin,
+  sendBulkSystemNotificationAdmin,
+  verifyTransaksiAdmin,
+} from '../../lib/dataService';
 import { fetchAuditLogs } from '../../lib/auditLogger';
+import { AdminPaymentSettingsModal } from './AdminPaymentSettingsModal';
+
+const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
+  'Perawatan & Fasilitas',
+  'Pengumuman Umum',
+  'Keamanan',
+  'Keuangan & IPL',
+];
 
 interface AdminDashboardSlideProps {
   session: SessionUser;
   wargaList: Warga[];
   transaksiList: TransaksiIPL[];
   statusList: StatusEcardBulanan[];
+  notifications: SystemNotification[];
+  paymentConfig: PaymentConfig;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -42,6 +67,8 @@ export function AdminDashboardSlide({
   wargaList,
   transaksiList,
   statusList,
+  notifications,
+  paymentConfig,
   onRefresh,
   onToast,
 }: AdminDashboardSlideProps) {
@@ -56,6 +83,16 @@ export function AdminDashboardSlide({
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [visiblePendingCount, setVisiblePendingCount] = useState(15);
   const [visibleAuditCount, setVisibleAuditCount] = useState(20);
+  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(false);
+
+  // State Modal Kirim Notifikasi Massal Sistem
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [notifCategory, setNotifCategory] = useState<NotificationCategory>('Perawatan & Fasilitas');
+  const [notifScope, setNotifScope] = useState<NotificationTargetScope>('all_active');
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifMessage, setNotifMessage] = useState('');
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [deletingNotifId, setDeletingNotifId] = useState<string | null>(null);
 
   const currentMonth = getCurrentBillingMonth();
   const currentMonthName = getNamaBulan(currentMonth);
@@ -140,9 +177,76 @@ export function AdminDashboardSlide({
     }
   };
 
+  const allRegisteredActiveCount = wargaList.filter((w) => w.aktif).length;
+  const targetRecipientCount =
+    notifScope === 'all_units' ? allRegisteredActiveCount : activeWarga.length;
+
+  const openBroadcastModal = () => {
+    setBroadcastOpen(true);
+  };
+
+  const handleApplyTemplate = (tpl: (typeof BULK_NOTIFICATION_TEMPLATES)[number]) => {
+    setNotifCategory(tpl.category);
+    setNotifTitle(tpl.title);
+    setNotifMessage(tpl.message);
+  };
+
+  const handleSendBulkNotification = async (e: FormEvent) => {
+    e.preventDefault();
+    if (sendingBroadcast) return;
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      onToast('error', 'Judul dan isi pesan pengumuman wajib diisi.');
+      return;
+    }
+
+    setSendingBroadcast(true);
+    try {
+      // Simulasi jeda pengiriman sistem singkat agar umpan balik terasa natural
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      const res = await sendBulkSystemNotificationAdmin(session, {
+        title: notifTitle,
+        message: notifMessage,
+        category: notifCategory,
+        target_scope: notifScope,
+        wargaList,
+      });
+
+      if (res.error || !res.data) {
+        onToast('error', res.error || 'Gagal mengirim pengumuman sistem.');
+      } else {
+        onToast(
+          'success',
+          `Pesan sistem "${res.data.title}" berhasil dikirim ke ${res.data.recipient_count} akun warga.`
+        );
+        setNotifTitle('');
+        setNotifMessage('');
+        setBroadcastOpen(false);
+        await onRefresh();
+      }
+    } finally {
+      setSendingBroadcast(false);
+    }
+  };
+
+  const handleDeleteNotification = async (notif: SystemNotification) => {
+    if (!canManageFull || deletingNotifId) return;
+    setDeletingNotifId(notif.id);
+    try {
+      const res = await deleteSystemNotificationAdmin(session, notif);
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast('info', `Pengumuman "${notif.title}" telah dihapus dari beranda warga.`);
+        await onRefresh();
+      }
+    } finally {
+      setDeletingNotifId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header Kontekstual + Aksi Log Aktivitas Server */}
+      {/* Header Kontekstual + Aksi Pengumuman Massal & Log Aktivitas */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-sm text-slate-600">
@@ -152,14 +256,30 @@ export function AdminDashboardSlide({
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPaymentSettingsOpen(true)}
+            className="min-h-[40px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <QrCode className="w-4 h-4 shrink-0" />
+            <span>QRIS &amp; Rekening</span>
+          </button>
+          <button
+            type="button"
+            onClick={openBroadcastModal}
+            className="min-h-[40px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Megaphone className="w-4 h-4 shrink-0" />
+            <span>Kirim Pengumuman</span>
+          </button>
           <button
             type="button"
             onClick={openAuditDrawer}
             className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <History className="w-4 h-4 text-slate-500" />
-            <span>Log Aktivitas Server</span>
+            <span>Log Aktivitas</span>
           </button>
           <button
             type="button"
@@ -360,6 +480,88 @@ export function AdminDashboardSlide({
             </div>
           )}
           </>
+        )}
+      </section>
+
+      {/* Riwayat Pengumuman / Pesan Sistem Massal ke Warga */}
+      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-[#0F172A]">
+              Pengumuman Sistem ke Seluruh Warga
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Pesan massal yang tampil langsung pada beranda Portal Warga untuk informasi jadwal
+              perawatan, keamanan, atau rapat lingkungan.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openBroadcastModal}
+            className="min-h-[38px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <Megaphone className="w-3.5 h-3.5 shrink-0" />
+            <span>Buat Pengumuman Baru</span>
+          </button>
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <Megaphone className="w-9 h-9 text-slate-300 mx-auto" />
+            <h3 className="text-sm font-bold text-[#0F172A] mt-3">
+              Belum Ada Pengumuman Sistem Terkirim
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              Gunakan fitur pengumuman massal untuk menyiarkan jadwal perawatan lingkungan, kerja
+              bakti, atau informasi penting ke seluruh akun warga sekaligus.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {notifications.slice(0, 6).map((notif) => (
+              <article
+                key={notif.id}
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                    <span className="font-semibold text-emerald-700">{notif.category}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums">
+                      {formatTanggalWaktu(notif.created_at)}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono font-semibold text-[#0F172A] tabular-nums">
+                      Terkirim ke {notif.recipient_count} akun warga
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-[#0F172A]">{notif.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                    {notif.message}
+                  </p>
+                  <p className="text-[11px] text-slate-400 pt-0.5">
+                    Dikirim oleh {notif.sender_name} ({notif.sender_jabatan}) · Target:{' '}
+                    {notif.target_scope === 'all_units'
+                      ? 'Seluruh unit terdaftar'
+                      : 'Semua rumah aktif dihuni'}
+                  </p>
+                </div>
+
+                {canManageFull && (
+                  <button
+                    type="button"
+                    disabled={deletingNotifId === notif.id}
+                    onClick={() => void handleDeleteNotification(notif)}
+                    aria-label={`Hapus pengumuman ${notif.title}`}
+                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-medium text-slate-500 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{deletingNotifId === notif.id ? 'Menghapus...' : 'Hapus'}</span>
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
         )}
       </section>
 
@@ -568,6 +770,242 @@ export function AdminDashboardSlide({
           </div>
         </div>
       )}
+      {/* Modal Kirim Notifikasi / Pengumuman Massal Sistem */}
+      {broadcastOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="broadcast-modal-title"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !sendingBroadcast && setBroadcastOpen(false)}
+        >
+          <form
+            onSubmit={handleSendBulkNotification}
+            className="bg-white rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                  <Megaphone className="w-4 h-4 text-[#059669]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="broadcast-modal-title" className="text-base font-bold text-[#0F172A]">
+                    Kirim Pengumuman Massal Sistem
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Pesan sistem akan langsung muncul pada beranda seluruh akun warga target.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={sendingBroadcast}
+                onClick={() => setBroadcastOpen(false)}
+                aria-label="Tutup modal pengumuman"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Template Cepat */}
+              <div>
+                <p className="text-xs font-semibold text-slate-600 mb-2">
+                  Gunakan Template Cepat (Opsional)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {BULK_NOTIFICATION_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      disabled={sendingBroadcast}
+                      onClick={() => handleApplyTemplate(tpl)}
+                      className="min-h-[34px] px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-medium text-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Kategori Pengumuman */}
+              <div>
+                <p className="text-xs font-semibold text-[#0F172A] mb-2">Kategori Pesan</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {NOTIFICATION_CATEGORIES.map((cat) => {
+                    const active = notifCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        disabled={sendingBroadcast}
+                        onClick={() => setNotifCategory(cat)}
+                        className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold transition-colors cursor-pointer text-left ${
+                          active
+                            ? 'bg-[#0F172A] border-[#0F172A] text-white'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Target Penerima */}
+              <div>
+                <p className="text-xs font-semibold text-[#0F172A] mb-2">Target Akun Warga</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    disabled={sendingBroadcast}
+                    onClick={() => setNotifScope('all_active')}
+                    className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                      notifScope === 'all_active'
+                        ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-[#0F172A]">Rumah Aktif Dihuni</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700 tabular-nums">
+                        {activeWarga.length} akun
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Warga berstatus Tetap &amp; Kontrak aktif.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={sendingBroadcast}
+                    onClick={() => setNotifScope('all_units')}
+                    className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                      notifScope === 'all_units'
+                        ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-[#0F172A]">Seluruh Unit Terdaftar</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700 tabular-nums">
+                        {allRegisteredActiveCount} akun
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Termasuk pemilik rumah berstatus Kosong.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Judul */}
+              <div>
+                <label
+                  htmlFor="notif-title-input"
+                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                >
+                  Judul Pengumuman
+                </label>
+                <input
+                  id="notif-title-input"
+                  type="text"
+                  required
+                  maxLength={120}
+                  disabled={sendingBroadcast}
+                  value={notifTitle}
+                  onChange={(e) => setNotifTitle(e.target.value)}
+                  placeholder="Contoh: Jadwal Perawatan Saluran Air & Kerja Bakti Minggu Ini"
+                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                />
+              </div>
+
+              {/* Isi Pesan */}
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label
+                    htmlFor="notif-message-input"
+                    className="block text-xs font-semibold text-[#0F172A]"
+                  >
+                    Isi Pesan Sistem
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                    {notifMessage.length}/600
+                  </span>
+                </div>
+                <textarea
+                  id="notif-message-input"
+                  rows={4}
+                  required
+                  maxLength={600}
+                  disabled={sendingBroadcast}
+                  value={notifMessage}
+                  onChange={(e) => setNotifMessage(e.target.value)}
+                  placeholder="Tuliskan detail tanggal, waktu, lokasi, atau imbauan yang perlu diketahui seluruh warga..."
+                  className="w-full rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs text-slate-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Penerima pesan sistem</span>
+                </span>
+                <span className="font-mono font-bold text-[#0F172A] tabular-nums">
+                  {targetRecipientCount} akun warga
+                </span>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={sendingBroadcast}
+                onClick={() => setBroadcastOpen(false)}
+                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  sendingBroadcast ||
+                  !notifTitle.trim() ||
+                  !notifMessage.trim() ||
+                  targetRecipientCount === 0
+                }
+                aria-busy={sendingBroadcast}
+                className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              >
+                {sendingBroadcast ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span>Mengirim ke {targetRecipientCount} akun...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 shrink-0" />
+                    <span>Kirim ke {targetRecipientCount} Akun Warga</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Modal Pengaturan Pembayaran (QRIS, Nomor Rekening & Susunan Pengurus) */}
+      <AdminPaymentSettingsModal
+        open={paymentSettingsOpen}
+        session={session}
+        paymentConfig={paymentConfig}
+        onClose={() => setPaymentSettingsOpen(false)}
+        onSaved={onRefresh}
+        onToast={onToast}
+      />
     </div>
   );
 }

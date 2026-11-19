@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   CheckCircle2,
   Clock,
@@ -6,6 +7,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Building2,
+  Megaphone,
+  Check,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -16,14 +19,32 @@ import {
   TANGGAL_TERBIT_TAGIHAN,
   type StatusBulanEcard,
   type StatusEcardBulanan,
+  type SystemNotification,
   type Warga,
 } from '../../types';
-import { formatRupiah, getCurrentBillingMonth, getNamaBulan } from '../../lib/format';
+import {
+  formatRupiah,
+  formatTanggalWaktu,
+  getCurrentBillingMonth,
+  getNamaBulan,
+} from '../../lib/format';
 
 interface WargaHomeSlideProps {
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
+  notifications: SystemNotification[];
   onQuickPayMonth: (bulan: number) => void;
+}
+
+function loadReadNotificationIds(blokRumah: string): string[] {
+  try {
+    const raw = localStorage.getItem(`saungkebun_notif_read_v1:${blokRumah}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as string[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function getMonthCellStyles(status: StatusBulanEcard) {
@@ -63,8 +84,33 @@ function getMonthCellStyles(status: StatusBulanEcard) {
 export function WargaHomeSlide({
   profil,
   statusBulanan,
+  notifications,
   onQuickPayMonth,
 }: WargaHomeSlideProps) {
+  const [readIds, setReadIds] = useState<string[]>(() =>
+    loadReadNotificationIds(profil.blok_rumah)
+  );
+  const [showReadHistory, setShowReadHistory] = useState(false);
+
+  const markAsRead = (notifId: string) => {
+    setReadIds((prev) => {
+      if (prev.includes(notifId)) return prev;
+      const next = [...prev, notifId];
+      try {
+        localStorage.setItem(
+          `saungkebun_notif_read_v1:${profil.blok_rumah}`,
+          JSON.stringify(next.slice(-100))
+        );
+      } catch {
+        // Abaikan jika penyimpanan penuh
+      }
+      return next;
+    });
+  };
+
+  const unreadNotifications = notifications.filter((n) => !readIds.includes(n.id));
+  const displayedNotifications = showReadHistory ? notifications.slice(0, 5) : unreadNotifications.slice(0, 3);
+
   const currentMonth = getCurrentBillingMonth();
   const currentMonthName = getNamaBulan(currentMonth);
 
@@ -98,6 +144,95 @@ export function WargaHomeSlide({
 
   return (
     <div className="space-y-6">
+      {/* Pengumuman / Pesan Sistem Resmi dari Pengurus */}
+      {notifications.length > 0 && (
+        <section
+          aria-label="Pengumuman Pengurus Lingkungan"
+          className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+        >
+          <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
+              <Megaphone className="w-4 h-4 text-[#059669] shrink-0" />
+              <span>Pengumuman Pengurus</span>
+              {unreadNotifications.length > 0 && (
+                <>
+                  <span aria-hidden="true" className="text-slate-300 font-normal">·</span>
+                  <span className="text-xs font-mono font-semibold text-emerald-700 tabular-nums">
+                    {unreadNotifications.length} baru
+                  </span>
+                </>
+              )}
+            </div>
+            {notifications.length > unreadNotifications.length && (
+              <button
+                type="button"
+                onClick={() => setShowReadHistory((v) => !v)}
+                className="text-xs font-semibold text-slate-600 hover:text-[#0F172A] cursor-pointer whitespace-nowrap"
+              >
+                {showReadHistory
+                  ? 'Sembunyikan yang sudah dibaca'
+                  : `Lihat semua (${notifications.length})`}
+              </button>
+            )}
+          </div>
+
+          {displayedNotifications.length === 0 ? (
+            <div className="px-5 py-3.5 text-xs text-slate-500 flex items-center justify-between gap-2">
+              <span>Semua pengumuman terbaru sudah Anda baca.</span>
+              <button
+                type="button"
+                onClick={() => setShowReadHistory(true)}
+                className="font-semibold text-emerald-700 hover:underline cursor-pointer whitespace-nowrap"
+              >
+                Lihat arsip
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {displayedNotifications.map((notif) => {
+                const isRead = readIds.includes(notif.id);
+                return (
+                  <article
+                    key={notif.id}
+                    className={`px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
+                      isRead ? 'bg-slate-50/50' : 'bg-white'
+                    }`}
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                        <span className="font-semibold text-emerald-700">{notif.category}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono tabular-nums">
+                          {formatTanggalWaktu(notif.created_at)}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          {notif.sender_name} ({notif.sender_jabatan})
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-[#0F172A]">{notif.title}</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                        {notif.message}
+                      </p>
+                    </div>
+                    {!isRead && (
+                      <button
+                        type="button"
+                        onClick={() => markAsRead(notif.id)}
+                        className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-500 hover:text-emerald-700 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Tandai Dibaca</span>
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Baris Atas: e-Card Verifikasi (Focal Anchor) + Ringkasan Siklus Tagihan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* e-Card Verifikasi Digital */}

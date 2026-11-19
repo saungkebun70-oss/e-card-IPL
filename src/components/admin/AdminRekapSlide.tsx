@@ -84,11 +84,11 @@ export function AdminRekapSlide({
   const cashSummary = useMemo(() => calculateCashAllocation(transaksiList), [transaksiList]);
 
   const blokOptions = useMemo(() => {
-    const prefixes = new Set<string>(['B03', 'B05', 'B06', 'B07', 'B08']);
+    const prefixes = new Set<string>(['B3', 'B5', 'B6', 'B7', 'B8']);
     for (const w of wargaList) {
       prefixes.add(extractBlokPrefix(w.blok_rumah));
     }
-    return ['Semua', ...Array.from(prefixes).sort()];
+    return ['Semua', ...Array.from(prefixes).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
   }, [wargaList]);
 
   const filteredWarga = useMemo(() => {
@@ -135,7 +135,7 @@ export function AdminRekapSlide({
     setSelectedMonths(defaultBulan);
     setNominalInput(String((first?.nominal_iuran || NOMINAL_IPL_STANDAR) * defaultBulan.length));
     const matchedPetugas = PETUGAS_PENERIMA.find(
-      (p) => p.toLowerCase() === session.nama_warga.toLowerCase()
+      (p) => p.toLowerCase().includes(session.nama_warga.toLowerCase())
     );
     setPetugas(matchedPetugas || PETUGAS_PENERIMA[0]);
     setKeterangan('');

@@ -174,12 +174,12 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={tab === 'warga' ? 'Contoh: B03/07' : 'Masukkan username pengurus'}
+                placeholder={tab === 'warga' ? 'Contoh: B3/7' : 'Masukkan username pengurus'}
                 className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 font-mono"
               />
               {tab === 'warga' && (
                 <p className="text-xs text-slate-500 mt-1.5">
-                  Gunakan format Blok dan Nomor Rumah sesuai data pengurus, misalnya <span className="font-mono text-slate-700">B03/07</span>.
+                  Gunakan format Blok dan Nomor Rumah sesuai data pengurus, misalnya <span className="font-mono text-slate-700">B3/7</span> atau <span className="font-mono text-slate-700">B7/16</span>.
                 </p>
               )}
             </div>

@@ -18,11 +18,38 @@ export type StatusBulanEcard =
   | 'Belum Bayar'
   | 'Belum Tagihan';
 
-export type MetodeBayar = 'Transfer Bank' | 'E-Wallet' | 'Setor Tunai';
+export type MetodeBayar = 'QRIS' | 'Transfer Bank' | 'E-Wallet' | 'Setor Tunai';
 
 export type StatusVerifikasi = 'Pending' | 'Terverifikasi' | 'Ditolak';
 
 export type BotProvider = 'Fonnte' | 'Wablas';
+
+export interface RekeningPembayaran {
+  id: string;
+  bank: string;
+  nomor: string;
+  atasNama: string;
+  tipe: 'Transfer Bank' | 'E-Wallet';
+}
+
+export interface PaymentConfig {
+  id: string;
+  qris_aktif: boolean;
+  qris_image_url: string | null;
+  qris_label: string;
+  qris_catatan: string;
+  rekening_list: RekeningPembayaran[];
+  updated_at: string;
+  updated_by?: string | null;
+}
+
+export interface PengurusItem {
+  jabatan: AdminJabatan;
+  nama: string;
+  username: string;
+  blokRumah: string;
+  permission: AdminPermission;
+}
 
 export interface SessionUser {
   role: UserRole;
@@ -120,6 +147,56 @@ export interface AuditLogEntry {
   metadata?: Record<string, unknown>;
 }
 
+export type NotificationCategory =
+  | 'Perawatan & Fasilitas'
+  | 'Pengumuman Umum'
+  | 'Keamanan'
+  | 'Keuangan & IPL';
+
+export type NotificationTargetScope = 'all_active' | 'all_units';
+
+export interface SystemNotification {
+  id: string;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  target_scope: NotificationTargetScope;
+  recipient_count: number;
+  recipient_blocks?: string[];
+  sender_name: string;
+  sender_jabatan: string;
+  created_at: string;
+}
+
+export const BULK_NOTIFICATION_TEMPLATES: Array<{
+  label: string;
+  category: NotificationCategory;
+  title: string;
+  message: string;
+}> = [
+  {
+    label: 'Jadwal Perawatan / Kerja Bakti',
+    category: 'Perawatan & Fasilitas',
+    title: 'Jadwal Perawatan Saluran & Kerja Bakti Lingkungan',
+    message:
+      'Diberitahukan kepada seluruh warga Perumahan Saung Kebun bahwa akan dilaksanakan perawatan saluran air dan kerja bakti lingkungan pada hari Minggu pukul 07.30 WIB. Mohon partisipasi warga dan pastikan kendaraan tidak menghalangi area saluran utama.',
+  },
+  {
+    label: 'Pemeliharaan Air / Listrik',
+    category: 'Perawatan & Fasilitas',
+    title: 'Informasi Pemeliharaan Jaringan Air & Penerangan Jalan',
+    message:
+      'Akan dilakukan pengecekan dan perawatan instalasi penerangan jalan serta pompa lingkungan besok pukul 09.00–12.00 WIB. Mohon maaf atas ketidaknyamanan sementara selama proses pekerjaan berlangsung.',
+  },
+  {
+    label: 'Rapat & Koordinasi Warga',
+    category: 'Pengumuman Umum',
+    title: 'Undangan Pertemuan Rutin Warga Perumahan Saung Kebun',
+    message:
+      'Mengundang seluruh kepala keluarga Perumahan Saung Kebun untuk menghadiri pertemuan rutin warga di area Sekretariat Blok B03/07 pada hari Sabtu pukul 19.30 WIB guna membahas program kebersihan dan keamanan lingkungan.',
+  },
+];
+
 export const TAHUN_AKTIF = 2026;
 export const NOMINAL_IPL_STANDAR = 100000;
 export const TANGGAL_TERBIT_TAGIHAN = 1;
@@ -131,35 +208,53 @@ export const KOP_RESMI =
   'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B03/07)';
 export const WA_PENGURUS = '6281234567890';
 
-export const PETUGAS_PENERIMA: string[] = [
-  'Erlangga',
-  'Andriansyah',
-  'Doni',
-  'Wahyu',
-  'Pa Iwan',
-  'Deny',
+export const SUSUNAN_PENGURUS: PengurusItem[] = [
+  { jabatan: 'Pembina', nama: 'Bp. Iwan', username: 'bpiwan', blokRumah: 'B8/5', permission: 'add_only' },
+  { jabatan: 'Ketua', nama: 'Erlangga', username: 'erlangga', blokRumah: 'B3/7', permission: 'add_only' },
+  { jabatan: 'Bendahara', nama: 'Andriansyah', username: 'andriansyah', blokRumah: 'B7/16', permission: 'full' },
+  { jabatan: 'Humas', nama: 'Doni', username: 'doni', blokRumah: 'B5/21', permission: 'add_only' },
+  { jabatan: 'Humas', nama: 'Wahyu', username: 'wahyu', blokRumah: 'B5/24', permission: 'add_only' },
+  { jabatan: 'Seksi Olahraga', nama: 'Deny', username: 'deny', blokRumah: 'B8/6', permission: 'add_only' },
 ];
 
-export const REKENING_KAS = [
+export const PETUGAS_PENERIMA: string[] = SUSUNAN_PENGURUS.map(
+  (p) => `${p.nama} (${p.jabatan})`
+);
+
+export const REKENING_KAS: RekeningPembayaran[] = [
   {
+    id: 'rek-bca-default',
     bank: 'Bank BCA',
     nomor: '7401829304',
-    atasNama: 'Kas Lingkungan Perumahan Saung Kebun',
-    tipe: 'Transfer Bank' as const,
+    atasNama: 'Kas Lingkungan Perumahan Saung Kebun (Bendahara Andriansyah)',
+    tipe: 'Transfer Bank',
   },
   {
+    id: 'rek-mandiri-default',
     bank: 'Bank Mandiri',
     nomor: '1730009845120',
-    atasNama: 'Pengurus Lingkungan Saung Kebun',
-    tipe: 'Transfer Bank' as const,
+    atasNama: 'Pengurus Lingkungan Perumahan Saung Kebun',
+    tipe: 'Transfer Bank',
   },
   {
+    id: 'rek-ewallet-default',
     bank: 'DANA / GoPay / OVO',
     nomor: '081234567890',
-    atasNama: 'Bendahara Saung Kebun (Erlangga)',
-    tipe: 'E-Wallet' as const,
+    atasNama: 'Bendahara Saung Kebun (Andriansyah)',
+    tipe: 'E-Wallet',
   },
 ];
+
+export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
+  id: 'default-payment-config',
+  qris_aktif: false,
+  qris_image_url: null,
+  qris_label: 'QRIS Kas Lingkungan Perumahan Saung Kebun',
+  qris_catatan: 'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
+  rekening_list: REKENING_KAS,
+  updated_at: '2026-11-01T07:00:00.000Z',
+  updated_by: 'andriansyah',
+};
 
 export const BULAN_LIST = [
   { angka: 1, nama: 'Januari', singkat: 'Jan' },

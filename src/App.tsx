@@ -3,6 +3,7 @@ import {
   CreditCard,
   Upload,
   ReceiptText,
+  Building2,
   UserCircle2,
   LayoutDashboard,
   Users,
@@ -12,8 +13,10 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
+  type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
+  type SystemNotification,
   type TransaksiIPL,
   type Warga,
 } from './types';
@@ -30,6 +33,7 @@ import { ToastContainer, type ToastMessage } from './components/Toast';
 import { WargaHomeSlide } from './components/warga/WargaHomeSlide';
 import { WargaSetorSlide } from './components/warga/WargaSetorSlide';
 import { WargaRiwayatSlide } from './components/warga/WargaRiwayatSlide';
+import { ProfilLingkungan } from './components/warga/ProfilLingkungan';
 import { WargaProfilSlide } from './components/warga/WargaProfilSlide';
 import { AdminDashboardSlide } from './components/admin/AdminDashboardSlide';
 import { AdminWargaSlide } from './components/admin/AdminWargaSlide';
@@ -46,8 +50,11 @@ export default function App() {
     profil: Warga;
     statusBulanan: StatusEcardBulanan[];
     riwayat: TransaksiIPL[];
+    notifications: SystemNotification[];
+    paymentConfig: PaymentConfig;
   } | null>(null);
   const [preselectedMonth, setPreselectedMonth] = useState<number | null>(null);
+  const [preselectedPetugas, setPreselectedPetugas] = useState<string | null>(null);
 
   // State Portal Admin
   const [adminData, setAdminData] = useState<AdminSnapshot | null>(null);
@@ -137,6 +144,7 @@ export default function App() {
           { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'e-Card', icon: CreditCard },
           { id: 'setor', label: 'Setor Iuran', shortLabel: 'Setor', icon: Upload },
           { id: 'riwayat', label: 'Riwayat & Kwitansi', shortLabel: 'Riwayat', icon: ReceiptText },
+          { id: 'lingkungan', label: 'Profil Lingkungan', shortLabel: 'Lingkungan', icon: Building2 },
           { id: 'profil', label: 'Profil & Akun', shortLabel: 'Profil', icon: UserCircle2 },
         ]
       : [
@@ -192,6 +200,7 @@ export default function App() {
             <WargaHomeSlide
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
+              notifications={wargaData.notifications}
               onQuickPayMonth={(bulan) => {
                 setPreselectedMonth(bulan);
                 setActiveTab('setor');
@@ -204,8 +213,11 @@ export default function App() {
               session={session}
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
+              paymentConfig={wargaData.paymentConfig}
               preselectedMonth={preselectedMonth}
               onClearPreselected={() => setPreselectedMonth(null)}
+              preselectedPetugas={preselectedPetugas}
+              onClearPreselectedPetugas={() => setPreselectedPetugas(null)}
               onSuccessSubmit={async () => {
                 await loadPortalData(session);
                 setActiveTab('riwayat');
@@ -221,8 +233,26 @@ export default function App() {
               onGoToSetor={() => setActiveTab('setor')}
             />
           );
+        case 'lingkungan':
+          return (
+            <ProfilLingkungan
+              profil={wargaData.profil}
+              onSelectTitipPengurus={(petugasLabel) => {
+                setPreselectedPetugas(petugasLabel);
+                setActiveTab('setor');
+                pushToast('info', `Metode Titip Pengurus diarahkan ke ${petugasLabel}.`);
+              }}
+              onToast={pushToast}
+            />
+          );
         case 'profil':
-          return <WargaProfilSlide profil={wargaData.profil} onLogout={handleLogout} />;
+          return (
+            <WargaProfilSlide
+              profil={wargaData.profil}
+              onOpenLingkungan={() => setActiveTab('lingkungan')}
+              onLogout={handleLogout}
+            />
+          );
         default:
           return null;
       }
@@ -237,6 +267,8 @@ export default function App() {
               wargaList={adminData.wargaList}
               transaksiList={adminData.transaksiList}
               statusList={adminData.statusList}
+              notifications={adminData.notifications}
+              paymentConfig={adminData.paymentConfig}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />

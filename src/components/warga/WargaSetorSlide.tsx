@@ -10,28 +10,47 @@ import {
   AlertCircle,
   Lock,
   Send,
+  Loader2,
+  QrCode,
 } from 'lucide-react';
 import {
   BULAN_LIST,
   NOMINAL_IPL_STANDAR,
   PETUGAS_PENERIMA,
-  REKENING_KAS,
   TAHUN_AKTIF,
   type MetodeBayar,
+  type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
   type Warga,
 } from '../../types';
 import { copyToClipboard, formatRupiah } from '../../lib/format';
-import { submitSetoranWarga } from '../../lib/dataService';
+import { submitSetoranWarga, type SetorSubmitStage } from '../../lib/dataService';
 import { compressProofImage, formatFileSize } from '../../lib/imageCompressor';
+
+const SUBMIT_STEPS: Array<{ key: Exclude<SetorSubmitStage, 'idle'>; label: string }> = [
+  { key: 'uploading_proof', label: 'Mengunggah foto bukti transfer' },
+  { key: 'saving_transaction', label: 'Mencatat transaksi IPL ke server' },
+  { key: 'syncing_ecard', label: 'Memperbarui status e-Card bulanan' },
+  { key: 'refreshing', label: 'Menyinkronkan data rumah Anda' },
+];
+
+const STAGE_BUTTON_LABELS: Record<Exclude<SetorSubmitStage, 'idle'>, string> = {
+  uploading_proof: 'Mengunggah foto bukti...',
+  saving_transaction: 'Menyimpan transaksi...',
+  syncing_ecard: 'Memperbarui e-Card...',
+  refreshing: 'Menyinkronkan data...',
+};
 
 interface WargaSetorSlideProps {
   session: SessionUser;
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
+  paymentConfig: PaymentConfig;
   preselectedMonth: number | null;
   onClearPreselected: () => void;
+  preselectedPetugas?: string | null;
+  onClearPreselectedPetugas?: () => void;
   onSuccessSubmit: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -40,8 +59,11 @@ export function WargaSetorSlide({
   session,
   profil,
   statusBulanan,
+  paymentConfig,
   preselectedMonth,
   onClearPreselected,
+  preselectedPetugas,
+  onClearPreselectedPetugas,
   onSuccessSubmit,
   onToast,
 }: WargaSetorSlideProps) {
@@ -59,6 +81,8 @@ export function WargaSetorSlide({
   const [compressing, setCompressing] = useState(false);
   const [copiedRek, setCopiedRek] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState<SetorSubmitStage>('idle');
+  const submitLockRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Terapkan preselectedMonth jika warga datang dari klik kotak matriks
@@ -72,6 +96,17 @@ export function WargaSetorSlide({
       onClearPreselected();
     }
   }, [preselectedMonth, statusBulanan, onClearPreselected]);
+
+  // Terapkan preselectedPetugas jika warga datang dari Profil Lingkungan
+  useEffect(() => {
+    if (preselectedPetugas) {
+      setMetodeBayar('Setor Tunai');
+      if (PETUGAS_PENERIMA.includes(preselectedPetugas)) {
+        setPetugasPenerima(preselectedPetugas);
+      }
+      onClearPreselectedPetugas?.();
+    }
+  }, [preselectedPetugas, onClearPreselectedPetugas]);
 
   // Hitung otomatis nominal jika tidak diedit manual
   useEffect(() => {
@@ -89,6 +124,7 @@ export function WargaSetorSlide({
   }, [previewUrl]);
 
   const toggleMonth = (bulan: number) => {
+    if (submitting) return;
     setManualNominalEdited(false);
     setSelectedMonths((prev) =>
       prev.includes(bulan) ? prev.filter((m) => m !== bulan) : [...prev, bulan].sort((a, b) => a - b)
@@ -108,7 +144,7 @@ export function WargaSetorSlide({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || submitting) return;
     if (!file.type.startsWith('image/')) {
       onToast('error', 'File bukti transaksi harus berupa gambar (JPG, PNG, atau WebP).');
       return;
@@ -134,6 +170,7 @@ export function WargaSetorSlide({
   };
 
   const clearFile = () => {
+    if (submitting) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setBuktiFile(null);
     setPreviewUrl(null);
@@ -155,13 +192,18 @@ export function WargaSetorSlide({
     buktiFile !== null &&
     (metodeBayar !== 'Setor Tunai' || Boolean(petugasPenerima));
 
+  const activeStepIndex = SUBMIT_STEPS.findIndex((s) => s.key === submitStage);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current || submitting) return;
     if (!buktiFile) {
       onToast('error', 'Bukti foto transaksi wajib diunggah sebelum mengirim setoran.');
       return;
     }
+    submitLockRef.current = true;
     setSubmitting(true);
+    setSubmitStage('uploading_proof');
     try {
       const res = await submitSetoranWarga(session, {
         bulan_dibayar: selectedMonths,
@@ -170,11 +212,13 @@ export function WargaSetorSlide({
         nominal: numericNominal,
         keterangan,
         buktiFile,
+        onStageChange: (stage) => setSubmitStage(stage),
       });
 
       if (res.error) {
         onToast('error', res.error);
       } else {
+        setSubmitStage('refreshing');
         onToast(
           'success',
           'Setoran IPL berhasil dikirim dan menunggu verifikasi Pengurus Lingkungan.'
@@ -183,18 +227,28 @@ export function WargaSetorSlide({
         setManualNominalEdited(false);
         setNominalInput('0');
         setKeterangan('');
-        clearFile();
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setBuktiFile(null);
+        setPreviewUrl(null);
+        setSizeInfo(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         await onSuccessSubmit();
       }
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
+      setSubmitStage('idle');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <form
+      onSubmit={handleSubmit}
+      aria-busy={submitting}
+      className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+    >
       {/* Kolom Kiri: Identitas Terkunci, Bulan & Metode */}
-      <div className="lg:col-span-7 space-y-6">
+      <div className={`lg:col-span-7 space-y-6 transition-opacity ${submitting ? 'opacity-70 pointer-events-none' : ''}`}>
         {/* Identitas Terkunci (Read-only) */}
         <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-4">
@@ -294,12 +348,13 @@ export function WargaSetorSlide({
         <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
           <h2 className="text-base font-bold text-[#0F172A]">Metode Pembayaran</h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {(
               [
+                { value: 'QRIS', label: 'Via QR / QRIS', icon: QrCode },
                 { value: 'Transfer Bank', label: 'Transfer Bank', icon: CreditCard },
                 { value: 'E-Wallet', label: 'E-Wallet', icon: Smartphone },
-                { value: 'Setor Tunai', label: 'Setor Tunai', icon: Banknote },
+                { value: 'Setor Tunai', label: 'Titip Pengurus', icon: Banknote },
               ] as const
             ).map((opt) => {
               const Icon = opt.icon;
@@ -309,7 +364,7 @@ export function WargaSetorSlide({
                   key={opt.value}
                   type="button"
                   onClick={() => setMetodeBayar(opt.value)}
-                  className={`min-h-[46px] flex items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[46px] flex items-center justify-center gap-1.5 rounded-xl border px-2.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     active
                       ? 'bg-[#0F172A] border-[#0F172A] text-white'
                       : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -322,46 +377,92 @@ export function WargaSetorSlide({
             })}
           </div>
 
-          {metodeBayar === 'Transfer Bank' || metodeBayar === 'E-Wallet' ? (
+          {metodeBayar === 'QRIS' ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+              {paymentConfig.qris_aktif && paymentConfig.qris_image_url ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-[#0F172A]">
+                      {paymentConfig.qris_label || 'QRIS Kas Lingkungan Perumahan Saung Kebun'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {paymentConfig.qris_catatan}
+                    </p>
+                  </div>
+                  <div className="flex justify-center bg-white rounded-xl border border-slate-200 p-4">
+                    <img
+                      src={paymentConfig.qris_image_url}
+                      alt="QRIS Kas Lingkungan Perumahan Saung Kebun"
+                      referrerPolicy="no-referrer"
+                      className="max-h-72 w-auto object-contain rounded-lg"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center space-y-1.5">
+                  <QrCode className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="text-sm font-semibold text-[#0F172A]">
+                    Kode QRIS Belum Diaktifkan oleh Bendahara
+                  </p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Silakan pilih metode Transfer Bank, E-Wallet, atau Titip Pengurus, atau hubungi
+                    Bendahara (Andriansyah) untuk aktivasi QRIS.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : metodeBayar === 'Transfer Bank' || metodeBayar === 'E-Wallet' ? (
             <div className="space-y-3 pt-1">
               <p className="text-xs font-medium text-slate-600">
-                Rekening Resmi Kas Lingkungan Perumahan Saung Kebun:
+                Rekening Resmi Kas Lingkungan Perumahan Saung Kebun (dikelola Bendahara):
               </p>
-              <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-slate-50/70">
-                {REKENING_KAS.filter((r) =>
+              {(() => {
+                const filteredRek = paymentConfig.rekening_list.filter((r) =>
                   metodeBayar === 'E-Wallet' ? r.tipe === 'E-Wallet' : r.tipe === 'Transfer Bank'
-                ).map((rek) => (
-                  <div
-                    key={rek.nomor}
-                    className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500">{rek.bank}</p>
-                      <p className="text-base font-mono font-bold text-[#0F172A] tracking-wide tabular-nums mt-0.5">
-                        {rek.nomor}
-                      </p>
-                      <p className="text-xs text-slate-600">a.n. {rek.atasNama}</p>
+                );
+                if (filteredRek.length === 0) {
+                  return (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 text-center">
+                      Belum ada nomor rekening {metodeBayar} yang terdaftar oleh Bendahara.
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyRek(rek.nomor, rek.bank)}
-                      className="min-h-[40px] px-3.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-600 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                    >
-                      {copiedRek === rek.nomor ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Tersalin</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Salin Nomor Rekening</span>
-                        </>
-                      )}
-                    </button>
+                  );
+                }
+                return (
+                  <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-slate-50/70">
+                    {filteredRek.map((rek) => (
+                      <div
+                        key={rek.id}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500">{rek.bank}</p>
+                          <p className="text-base font-mono font-bold text-[#0F172A] tracking-wide tabular-nums mt-0.5">
+                            {rek.nomor}
+                          </p>
+                          <p className="text-xs text-slate-600">a.n. {rek.atasNama}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyRek(rek.nomor, rek.bank)}
+                          className="min-h-[40px] px-3.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-600 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                        >
+                          {copiedRek === rek.nomor ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="text-emerald-700">Tersalin</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Salin Nomor</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           ) : (
             <div>
@@ -369,7 +470,7 @@ export function WargaSetorSlide({
                 htmlFor="petugas-penerima"
                 className="block text-sm font-semibold text-[#0F172A] mb-1.5"
               >
-                Pilih Petugas Penerima Setoran Tunai
+                Pilih Pengurus Penerima (Via Titip Pengurus)
               </label>
               <select
                 id="petugas-penerima"
@@ -384,7 +485,7 @@ export function WargaSetorSlide({
                 ))}
               </select>
               <p className="text-xs text-slate-500 mt-1.5">
-                Lampirkan foto kwitansi tunai / bukti serah terima dengan petugas di kolom kanan.
+                Lampirkan foto kwitansi tunai / bukti serah terima dengan pengurus di kolom kanan.
               </p>
             </div>
           )}
@@ -409,13 +510,14 @@ export function WargaSetorSlide({
                 id="nominal-setoran"
                 type="text"
                 inputMode="numeric"
+                disabled={submitting}
                 value={numericNominal > 0 ? numericNominal.toLocaleString('id-ID') : ''}
                 onChange={(e) => {
                   setManualNominalEdited(true);
                   setNominalInput(e.target.value.replace(/\D/g, ''));
                 }}
                 placeholder="0"
-                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-lg font-mono font-bold text-[#0F172A] tabular-nums focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-500 pl-11 pr-4 text-lg font-mono font-bold text-[#0F172A] tabular-nums focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               />
             </div>
             <p className="text-xs text-slate-500 mt-1.5 tabular-nums">
@@ -446,10 +548,11 @@ export function WargaSetorSlide({
             <input
               id="keterangan-setor"
               type="text"
+              disabled={submitting}
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
               placeholder="Contoh: Transfer dari rekening a.n. pasangan"
-              className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-500 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
             />
           </div>
 
@@ -466,12 +569,33 @@ export function WargaSetorSlide({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              disabled={submitting || compressing}
               onChange={handleFileChange}
               className="sr-only"
               id="upload-bukti-input"
             />
 
-            {!previewUrl ? (
+            {compressing ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-emerald-200 bg-slate-50 overflow-hidden"
+              >
+                <div className="h-44 flex flex-col items-center justify-center gap-2.5 bg-slate-100/90 motion-safe:animate-pulse px-4 text-center">
+                  <Loader2 className="w-6 h-6 text-[#059669] animate-spin" />
+                  <p className="text-sm font-semibold text-[#0F172A]">
+                    Mengoptimalkan foto bukti transfer...
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Menyesuaikan resolusi agar unggahan cepat &amp; ringan
+                  </p>
+                </div>
+                <div className="p-3 bg-white border-t border-slate-200 space-y-2">
+                  <div className="h-3 w-2/3 rounded bg-slate-200 motion-safe:animate-pulse" />
+                  <div className="h-2.5 w-1/3 rounded bg-slate-100 motion-safe:animate-pulse" />
+                </div>
+              </div>
+            ) : !previewUrl ? (
               <label
                 htmlFor="upload-bukti-input"
                 className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-600 bg-slate-50 hover:bg-emerald-50/40 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
@@ -480,9 +604,7 @@ export function WargaSetorSlide({
                   <Upload className="w-5 h-5 text-emerald-700" />
                 </div>
                 <p className="text-sm font-semibold text-[#0F172A]">
-                  {compressing
-                    ? 'Mengoptimalkan ukuran foto...'
-                    : 'Pilih Foto Bukti Transfer / Kwitansi'}
+                  Pilih Foto Bukti Transfer / Kwitansi
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   Foto otomatis dikompresi agar unggahan cepat &amp; hemat kuota
@@ -490,12 +612,22 @@ export function WargaSetorSlide({
               </label>
             ) : (
               <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
-                <img
-                  src={previewUrl}
-                  alt="Preview bukti transaksi IPL"
-                  referrerPolicy="no-referrer"
-                  className="w-full max-h-64 object-contain bg-slate-900/5"
-                />
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Preview bukti transaksi IPL"
+                    referrerPolicy="no-referrer"
+                    className={`w-full max-h-64 object-contain bg-slate-900/5 transition-opacity ${
+                      submitting ? 'opacity-50' : 'opacity-100'
+                    }`}
+                  />
+                  {submitting && submitStage === 'uploading_proof' && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/35 backdrop-blur-[1px] text-white px-4 text-center">
+                      <Loader2 className="w-7 h-7 animate-spin mb-2" />
+                      <p className="text-xs font-semibold">Mengirim foto ke server...</p>
+                    </div>
+                  )}
+                </div>
                 <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs text-slate-700 font-medium truncate">{buktiFile?.name}</p>
@@ -505,39 +637,125 @@ export function WargaSetorSlide({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <label
-                      htmlFor="upload-bukti-input"
-                      className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
-                    >
-                      Ganti
-                    </label>
-                    <button
-                      type="button"
-                      onClick={clearFile}
-                      aria-label="Hapus foto bukti"
-                      className="p-1 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {!submitting && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label
+                        htmlFor="upload-bukti-input"
+                        className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                      >
+                        Ganti
+                      </label>
+                      <button
+                        type="button"
+                        onClick={clearFile}
+                        aria-label="Hapus foto bukti"
+                        className="p-1 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Tombol Kirim — Nonaktif (disabled) sebelum bukti gambar dipilih */}
-          <div className="pt-2">
+          {/* Tombol Kirim dengan Spinner & Indikator Progres Granular */}
+          <div className="pt-2 space-y-3">
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              aria-busy={submitting || compressing}
+              className={`w-full min-h-[48px] px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap ${
+                submitting
+                  ? 'bg-emerald-700 text-white cursor-wait'
+                  : compressing
+                    ? 'bg-slate-200 text-slate-600 cursor-wait'
+                    : 'bg-[#059669] hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white cursor-pointer'
+              }`}
             >
-              <Send className="w-4 h-4" />
-              <span>{submitting ? 'Mengunggah & Menyimpan...' : 'Submit Setoran'}</span>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>
+                    {submitStage !== 'idle'
+                      ? STAGE_BUTTON_LABELS[submitStage]
+                      : 'Memproses setoran...'}
+                  </span>
+                </>
+              ) : compressing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Mengoptimalkan foto...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 shrink-0" />
+                  <span>Submit Setoran</span>
+                </>
+              )}
             </button>
-            {!buktiFile && (
-              <p className="text-xs text-slate-500 text-center mt-2">
+
+            {submitting && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-emerald-950">
+                    Sedang memproses setoran Anda
+                  </span>
+                  <span className="font-mono font-semibold text-emerald-700 tabular-nums">
+                    {Math.max(1, activeStepIndex + 1)}/{SUBMIT_STEPS.length}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {SUBMIT_STEPS.map((step, idx) => {
+                    const isDone = activeStepIndex > idx;
+                    const isActive = activeStepIndex === idx;
+                    return (
+                      <div key={step.key} className="flex items-center gap-2.5 text-xs">
+                        {isDone ? (
+                          <span className="w-4 h-4 rounded-full bg-[#059669] text-white flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5" />
+                          </span>
+                        ) : isActive ? (
+                          <Loader2 className="w-4 h-4 text-[#059669] animate-spin shrink-0" />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full border border-slate-300 bg-white shrink-0" />
+                        )}
+
+                        {isDone || isActive ? (
+                          <span
+                            className={
+                              isActive
+                                ? 'font-semibold text-[#0F172A]'
+                                : 'text-emerald-800 line-through decoration-emerald-400/70'
+                            }
+                          >
+                            {step.label}
+                          </span>
+                        ) : (
+                          <span className="flex-1 flex items-center gap-2 text-slate-400">
+                            <span>{step.label}</span>
+                            <span className="h-2 w-12 rounded bg-slate-200/80 motion-safe:animate-pulse" />
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[11px] text-slate-600 pt-1 border-t border-emerald-200/70">
+                  Mohon tunggu sebentar dan jangan menutup halaman sampai proses selesai.
+                </p>
+              </div>
+            )}
+
+            {!buktiFile && !compressing && !submitting && (
+              <p className="text-xs text-slate-500 text-center">
                 Tombol kirim aktif setelah bulan dipilih dan foto bukti transaksi diunggah.
               </p>
             )}

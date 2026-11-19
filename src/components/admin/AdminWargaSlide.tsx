@@ -422,7 +422,7 @@ export function AdminWargaSlide({
                     required
                     value={form.blok_rumah}
                     onChange={(e) => setForm({ ...form, blok_rumah: e.target.value })}
-                    placeholder="Contoh: B07/12"
+                    placeholder="Contoh: B7/12"
                     className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono uppercase focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                   />
                 </div>
