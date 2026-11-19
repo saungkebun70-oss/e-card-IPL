@@ -205,6 +205,7 @@ export default function App() {
                 setPreselectedMonth(bulan);
                 setActiveTab('setor');
               }}
+              onToast={pushToast}
             />
           );
         case 'setor':
@@ -249,7 +250,11 @@ export default function App() {
           return (
             <WargaProfilSlide
               profil={wargaData.profil}
+              onGoToBeranda={() => setActiveTab('beranda')}
               onOpenLingkungan={() => setActiveTab('lingkungan')}
+              onGoToSetor={() => setActiveTab('setor')}
+              onGoToRiwayat={() => setActiveTab('riwayat')}
+              onToast={pushToast}
               onLogout={handleLogout}
             />
           );

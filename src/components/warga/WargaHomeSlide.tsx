@@ -9,6 +9,7 @@ import {
   Building2,
   Megaphone,
   Check,
+  Bot,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -29,11 +30,14 @@ import {
   getNamaBulan,
 } from '../../lib/format';
 
+import { PanduanBotWaModal } from './PanduanBotWaModal';
+
 interface WargaHomeSlideProps {
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
   notifications: SystemNotification[];
   onQuickPayMonth: (bulan: number) => void;
+  onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
 function loadReadNotificationIds(blokRumah: string): string[] {
@@ -86,11 +90,13 @@ export function WargaHomeSlide({
   statusBulanan,
   notifications,
   onQuickPayMonth,
+  onToast,
 }: WargaHomeSlideProps) {
   const [readIds, setReadIds] = useState<string[]>(() =>
     loadReadNotificationIds(profil.blok_rumah)
   );
   const [showReadHistory, setShowReadHistory] = useState(false);
+  const [panduanWaOpen, setPanduanWaOpen] = useState(false);
 
   const markAsRead = (notifId: string) => {
     setReadIds((prev) => {
@@ -332,16 +338,27 @@ export function WargaHomeSlide({
             </dl>
           </div>
 
-          {rawCurrentStatus !== 'Lunas' && rawCurrentStatus !== 'Menunggu Verifikasi' && (
+          <div className="mt-5 space-y-2.5">
+            {rawCurrentStatus !== 'Lunas' && rawCurrentStatus !== 'Menunggu Verifikasi' && (
+              <button
+                type="button"
+                onClick={() => onQuickPayMonth(currentMonth)}
+                className="w-full min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <span>Setor Iuran {currentMonthName} Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => onQuickPayMonth(currentMonth)}
-              className="mt-5 w-full min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              onClick={() => setPanduanWaOpen(true)}
+              className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <span>Setor Iuran {currentMonthName} Sekarang</span>
-              <ArrowRight className="w-4 h-4" />
+              <Bot className="w-4 h-4 text-[#059669]" />
+              <span>Panduan Bot WA (Cek Saldo &amp; Setor)</span>
             </button>
-          )}
+          </div>
         </aside>
       </div>
 
@@ -414,6 +431,14 @@ export function WargaHomeSlide({
           })}
         </div>
       </section>
+
+      <PanduanBotWaModal
+        open={panduanWaOpen}
+        onClose={() => setPanduanWaOpen(false)}
+        profil={profil}
+        onGoToSetor={() => onQuickPayMonth(currentMonth)}
+        onToast={onToast}
+      />
     </div>
   );
 }

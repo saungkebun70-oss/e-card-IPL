@@ -1,14 +1,41 @@
-import { MessageCircle, LogOut, ShieldCheck, Home, Phone, User, Building2 } from 'lucide-react';
+import { useState } from 'react';
+import {
+  MessageCircle,
+  LogOut,
+  ShieldCheck,
+  Home,
+  Phone,
+  User,
+  Building2,
+  Bot,
+  BookOpen,
+} from 'lucide-react';
 import { KOP_RESMI, WA_PENGURUS, type Warga } from '../../types';
 import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
+import { PanduanBotWaModal } from './PanduanBotWaModal';
+import { PanduanAplikasiModal } from './PanduanAplikasiModal';
 
 interface WargaProfilSlideProps {
   profil: Warga;
+  onGoToBeranda?: () => void;
   onOpenLingkungan?: () => void;
+  onGoToSetor?: () => void;
+  onGoToRiwayat?: () => void;
+  onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
   onLogout: () => void;
 }
 
-export function WargaProfilSlide({ profil, onOpenLingkungan, onLogout }: WargaProfilSlideProps) {
+export function WargaProfilSlide({
+  profil,
+  onGoToBeranda,
+  onOpenLingkungan,
+  onGoToSetor,
+  onGoToRiwayat,
+  onToast,
+  onLogout,
+}: WargaProfilSlideProps) {
+  const [panduanWaOpen, setPanduanWaOpen] = useState(false);
+  const [panduanAppOpen, setPanduanAppOpen] = useState(false);
   const waMessage = `Halo Pengurus Lingkungan Perumahan Saung Kebun, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal e-Card IPL Digital.`;
   const waHref = buildWhatsAppLink(WA_PENGURUS, waMessage);
 
@@ -92,6 +119,24 @@ export function WargaProfilSlide({ profil, onOpenLingkungan, onLogout }: WargaPr
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => setPanduanAppOpen(true)}
+            className="w-full min-h-[46px] rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4 text-[#059669]" />
+            <span>Panduan Aplikasi (Warga Baru)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPanduanWaOpen(true)}
+            className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#0F172A] font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <Bot className="w-4 h-4 text-[#059669]" />
+            <span>Panduan Bot WA Warga</span>
+          </button>
+
           <a
             href={waHref}
             target="_blank"
@@ -116,6 +161,24 @@ export function WargaProfilSlide({ profil, onOpenLingkungan, onLogout }: WargaPr
           {KOP_RESMI}
         </p>
       </section>
+
+      <PanduanAplikasiModal
+        open={panduanAppOpen}
+        onClose={() => setPanduanAppOpen(false)}
+        profil={profil}
+        onGoToBeranda={onGoToBeranda}
+        onGoToSetor={onGoToSetor}
+        onGoToRiwayat={onGoToRiwayat}
+        onOpenLingkungan={onOpenLingkungan}
+      />
+
+      <PanduanBotWaModal
+        open={panduanWaOpen}
+        onClose={() => setPanduanWaOpen(false)}
+        profil={profil}
+        onGoToSetor={onGoToSetor}
+        onToast={onToast}
+      />
     </div>
   );
 }

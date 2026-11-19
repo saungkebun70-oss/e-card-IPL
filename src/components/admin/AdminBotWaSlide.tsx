@@ -10,6 +10,7 @@ import {
   Phone,
   Loader2,
   KeyRound,
+  BookOpen,
 } from 'lucide-react';
 import {
   APP_PORTAL_URL,
@@ -36,6 +37,7 @@ import {
   sendWargaAccessCredentialsWaAdmin,
   triggerManualWaReminderAdmin,
 } from '../../lib/dataService';
+import { PanduanBotWaModal } from '../warga/PanduanBotWaModal';
 
 interface AdminBotWaSlideProps {
   session: SessionUser;
@@ -65,6 +67,7 @@ export function AdminBotWaSlide({
   const [confirmSendCredentials, setConfirmSendCredentials] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testingWa, setTestingWa] = useState(false);
+  const [panduanModalOpen, setPanduanModalOpen] = useState(false);
   const [visibleLogsCount, setVisibleLogsCount] = useState(15);
 
   useEffect(() => {
@@ -177,6 +180,26 @@ export function AdminBotWaSlide({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-white border border-slate-200 px-5 py-3.5">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#0F172A]">
+            Panduan Format Pesan Otomatis Warga
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Lihat pratinjau modal panduan verifikasi, cek saldo, dan setor IPL via WhatsApp yang
+            tampil di Portal Warga.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPanduanModalOpen(true)}
+          className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-[#059669]" />
+          <span>Lihat Panduan Bot WA</span>
+        </button>
+      </div>
+
       {!canManageFull && (
         <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-700">
           <span className="font-semibold text-[#0F172A]">Mode Baca ({session.jabatan || 'Pengurus'}):</span>{' '}
@@ -626,6 +649,18 @@ export function AdminBotWaSlide({
           </div>
         )}
       </section>
+
+      <PanduanBotWaModal
+        open={panduanModalOpen}
+        onClose={() => setPanduanModalOpen(false)}
+        profil={{
+          blok_rumah: 'B5/21',
+          nama_warga: 'DONI',
+          nominal_iuran: 100000,
+          no_wa: '6281234567890',
+        }}
+        onToast={onToast}
+      />
     </div>
   );
 }
