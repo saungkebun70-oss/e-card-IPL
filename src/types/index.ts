@@ -300,10 +300,9 @@ Berikut informasi akses akun resmi *Portal e-Card Verifikasi & IPL Digital Perum
 🔐 *PIN Akses (6 Digit):* {pin_akses}
 
 *Cara Masuk:*
-1. Buka link {link_aplikasi}
-2. Pilih menu masuk *Warga*
-3. Masukkan Username *{blok_rumah}* dan PIN *{pin_akses}*
-4. Cek status e-Card bulanan, setor iuran (QRIS / Transfer / Titip Pengurus), dan unduh kwitansi digital.
+1. Buka halaman Portal Warga di {link_aplikasi}
+2. Masukkan Username *{blok_rumah}* dan PIN *{pin_akses}*
+3. Cek status e-Card bulanan, setor iuran (QRIS / Transfer / Titip Pengurus), dan unduh kwitansi digital.
 
 Mohon simpan PIN ini dengan baik dan jangan dibagikan kepada pihak lain.
 Terima kasih,

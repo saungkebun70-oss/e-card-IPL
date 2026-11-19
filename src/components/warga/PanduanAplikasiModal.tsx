@@ -206,8 +206,9 @@ export function PanduanAplikasiModal({
                           <div>
                             <p className="font-semibold text-[#0F172A]">Login dengan Blok &amp; PIN 6 Digit</p>
                             <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                              Buka <span className="font-mono text-slate-800">{APP_PORTAL_URL}</span>, pilih tab{' '}
-                              <strong>Warga</strong>, lalu masukkan Username Blok Rumah Anda (contoh:{' '}
+                              Buka halaman Portal Warga di{' '}
+                              <span className="font-mono text-slate-800">{APP_PORTAL_URL}</span>, lalu masukkan
+                              Username Blok Rumah Anda (contoh:{' '}
                               <span className="font-mono font-semibold">{profil.blok_rumah}</span>) dan PIN 6 digit resmi dari pengurus.
                             </p>
                           </div>

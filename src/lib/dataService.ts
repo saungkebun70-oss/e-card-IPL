@@ -2,6 +2,7 @@ import {
   APP_PORTAL_URL,
   isBendaharaFullAccess,
   NOMINAL_IPL_STANDAR,
+  SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   WA_ACCESS_TEMPLATE_DEFAULT,
   type AdminJabatan,
@@ -43,7 +44,9 @@ import {
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const STORAGE_KEYS = {
-  SESSION: 'saungkebun_session_v1',
+  SESSION_LEGACY: 'saungkebun_session_v1',
+  SESSION_WARGA: 'saungkebun_session_warga_v1',
+  SESSION_ADMIN: 'saungkebun_session_admin_v1',
   WARGA: 'saungkebun_warga_v2',
   TRANSAKSI: 'saungkebun_transaksi_v2',
   STATUS: 'saungkebun_status_v2',
@@ -210,14 +213,43 @@ function syncLocalStatusForHouse(blokRumah: string) {
 }
 
 // =========================================================================
-// Sesi Autentikasi
+// Sesi Autentikasi Terisolasi per Portal (Warga vs Admin/Pengurus)
 // =========================================================================
 
-export function loadStoredSession(): SessionUser | null {
+function getSessionKeyForRole(role: 'warga' | 'admin'): string {
+  return role === 'admin' ? STORAGE_KEYS.SESSION_ADMIN : STORAGE_KEYS.SESSION_WARGA;
+}
+
+export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SESSION);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SessionUser;
+    if (expectedRole) {
+      const roleKey = getSessionKeyForRole(expectedRole);
+      const raw = localStorage.getItem(roleKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SessionUser;
+        if (parsed?.role === expectedRole && parsed?.blok_rumah) {
+          return parsed;
+        }
+      }
+      // Migrasi mulus dari key sesi lama jika role-nya cocok dengan portal saat ini
+      const legacyRaw = localStorage.getItem(STORAGE_KEYS.SESSION_LEGACY);
+      if (legacyRaw) {
+        const legacy = JSON.parse(legacyRaw) as SessionUser;
+        if (legacy?.role === expectedRole && legacy?.blok_rumah) {
+          localStorage.setItem(roleKey, JSON.stringify(legacy));
+          localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
+          return legacy;
+        }
+      }
+      return null;
+    }
+
+    const fallbackRaw =
+      localStorage.getItem(STORAGE_KEYS.SESSION_WARGA) ||
+      localStorage.getItem(STORAGE_KEYS.SESSION_ADMIN) ||
+      localStorage.getItem(STORAGE_KEYS.SESSION_LEGACY);
+    if (!fallbackRaw) return null;
+    const parsed = JSON.parse(fallbackRaw) as SessionUser;
     if (!parsed?.role || !parsed?.blok_rumah) return null;
     return parsed;
   } catch {
@@ -226,10 +258,12 @@ export function loadStoredSession(): SessionUser | null {
 }
 
 export function saveStoredSession(session: SessionUser) {
-  localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(session));
+  localStorage.setItem(getSessionKeyForRole(session.role), JSON.stringify(session));
+  localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
 }
 
-export function clearStoredSession(session?: SessionUser | null) {
+export function clearStoredSession(session?: SessionUser | null, roleOverride?: 'warga' | 'admin') {
+  const targetRole = roleOverride || session?.role;
   if (session) {
     void recordAuditLog({
       session,
@@ -239,75 +273,124 @@ export function clearStoredSession(session?: SessionUser | null) {
       summary: `${session.nama_warga} (${session.blok_rumah}) keluar dari portal ${session.role}.`,
     });
   }
-  localStorage.removeItem(STORAGE_KEYS.SESSION);
+  if (targetRole) {
+    localStorage.removeItem(getSessionKeyForRole(targetRole));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.SESSION_WARGA);
+    localStorage.removeItem(STORAGE_KEYS.SESSION_ADMIN);
+  }
+  localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
 }
 
-export async function loginPortal(
-  mode: 'warga' | 'admin',
-  usernameInput: string,
+function buildWargaBlokCandidates(input: string): string[] {
+  const rawNormalized = normalizeBlok(input).replace(/-/g, '/');
+  if (!rawNormalized) return [];
+  const candidates = [rawNormalized];
+  const unpaddedMatch = rawNormalized.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  if (unpaddedMatch) {
+    const canonical = `${unpaddedMatch[1]}${unpaddedMatch[2]}/${unpaddedMatch[3]}`;
+    if (!candidates.includes(canonical)) {
+      candidates.unshift(canonical);
+    }
+  }
+  return candidates;
+}
+
+function resolvePengurusAdminUsername(input: string): string {
+  const trimmed = input.trim();
+  const compact = trimmed.toLowerCase().replace(/[\s.]+/g, '');
+  if (!compact) return '';
+
+  // Cocokkan langsung dengan daftar resmi Pengurus (username, nama, atau blok rumah pengurus)
+  const blokCandidate = buildWargaBlokCandidates(trimmed)[0] || '';
+  const matchedPengurus = SUSUNAN_PENGURUS.find((p) => {
+    const pengurusNameCompact = p.nama.toLowerCase().replace(/[\s.]+/g, '');
+    const pengurusBlockCompact = normalizeBlok(p.blokRumah);
+    return (
+      p.username.toLowerCase() === compact ||
+      pengurusNameCompact === compact ||
+      (blokCandidate !== '' && pengurusBlockCompact === blokCandidate)
+    );
+  });
+
+  if (matchedPengurus) {
+    return matchedPengurus.username.toLowerCase();
+  }
+
+  return compact;
+}
+
+/**
+ * Autentikasi khusus Portal Warga — terintegrasi ketat hanya dengan Akun Warga (role = 'warga').
+ */
+export async function loginWargaAccount(
+  blokInput: string,
   pinInput: string
 ): Promise<ServiceResult<SessionUser>> {
   const cleanPin = pinInput.trim();
-  const cleanBlok =
-    mode === 'admin'
-      ? usernameInput.trim().toLowerCase().replace(/\s+/g, '')
-      : normalizeBlok(usernameInput);
+  const blokCandidates = buildWargaBlokCandidates(blokInput);
+  const primaryBlok = blokCandidates[0] || '';
 
-  if (!cleanBlok || !cleanPin) {
-    return { error: 'Mohon lengkapi Username dan PIN 6 digit Anda.' };
+  if (!primaryBlok || !cleanPin) {
+    return { error: 'Mohon lengkapi Blok/No. Rumah dan PIN 6 digit Anda.' };
   }
 
   if (cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {
-    return { error: 'PIN akses harus terdiri dari tepat 6 digit angka.' };
+    return { error: 'PIN akses warga harus terdiri dari tepat 6 digit angka.' };
   }
 
   const supabase = getSupabaseClient(null);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase.rpc('login_ecard', {
-        p_blok: cleanBlok,
-        p_pin: cleanPin,
-      });
+      let matchedRow: Record<string, unknown> | null = null;
 
-      if (error) {
-        return { error: parseFriendlyError(error, 'Gagal memverifikasi akun ke server.') };
+      for (const candidateBlok of blokCandidates) {
+        const { data, error } = await supabase.rpc('login_ecard', {
+          p_blok: candidateBlok,
+          p_pin: cleanPin,
+        });
+
+        if (error) {
+          return { error: parseFriendlyError(error, 'Gagal memverifikasi akun warga ke server.') };
+        }
+
+        const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+        if (row && typeof row.blok_rumah === 'string' && row.blok_rumah) {
+          matchedRow = row;
+          break;
+        }
       }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row || !row.blok_rumah) {
+      if (!matchedRow || typeof matchedRow.blok_rumah !== 'string') {
         await recordAuditLog({
           action: 'LOGIN_FAILED',
           entity: 'auth',
-          entity_id: cleanBlok,
-          summary: `Percobaan login gagal pada portal ${mode} untuk akun ${cleanBlok}.`,
+          entity_id: primaryBlok,
+          summary: `Percobaan login Portal Warga gagal untuk blok "${primaryBlok}".`,
         });
-        return { error: 'Kombinasi Blok/Username atau PIN tidak valid. Silakan periksa kembali.' };
+        return {
+          error: 'Blok/No. Rumah atau PIN 6 digit warga tidak sesuai. Silakan periksa kembali.',
+        };
       }
 
-      const resolvedRole = (row.role === 'admin' ? 'admin' : 'warga') as 'admin' | 'warga';
-      if (mode === 'admin' && resolvedRole !== 'admin') {
-        return { error: 'Akun ini tidak memiliki hak akses Pengurus / Admin.' };
+      if (matchedRow.role === 'admin') {
+        return {
+          error: 'Akun ini bukan akun warga. Masukkan Blok/No. Rumah dan PIN akun warga Anda.',
+        };
       }
-      if (mode === 'warga' && resolvedRole !== 'warga') {
-        return { error: 'Silakan gunakan tab Portal Admin / Pengurus untuk akun ini.' };
-      }
-
-      const resolvedJabatan = (row.jabatan as AdminJabatan | undefined) || (resolvedRole === 'admin' ? 'Bendahara' : undefined);
-      const resolvedPerm: AdminPermission | undefined =
-        resolvedRole === 'admin'
-          ? (row.admin_permission as AdminPermission | undefined) ||
-            (resolvedJabatan === 'Bendahara' ? 'full' : 'add_only')
-          : undefined;
 
       const session: SessionUser = {
-        role: resolvedRole,
-        blok_rumah: row.blok_rumah,
-        nama_warga: row.nama_warga || (resolvedRole === 'admin' ? 'Pengurus Lingkungan' : row.blok_rumah),
-        jabatan: resolvedJabatan,
-        admin_permission: resolvedPerm,
-        status_hunian: row.status_hunian,
-        no_wa: row.no_wa,
-        nominal_iuran: row.nominal_iuran ?? NOMINAL_IPL_STANDAR,
+        role: 'warga',
+        blok_rumah: matchedRow.blok_rumah,
+        nama_warga:
+          (typeof matchedRow.nama_warga === 'string' && matchedRow.nama_warga) ||
+          matchedRow.blok_rumah,
+        status_hunian: matchedRow.status_hunian as StatusHunian | undefined,
+        no_wa: typeof matchedRow.no_wa === 'string' ? matchedRow.no_wa : undefined,
+        nominal_iuran:
+          typeof matchedRow.nominal_iuran === 'number'
+            ? matchedRow.nominal_iuran
+            : NOMINAL_IPL_STANDAR,
         login_at: new Date().toISOString(),
       };
       saveStoredSession(session);
@@ -316,7 +399,7 @@ export async function loginPortal(
         action: 'LOGIN_SUCCESS',
         entity: 'auth',
         entity_id: session.blok_rumah,
-        summary: `Login berhasil (${resolvedRole}${resolvedJabatan ? ` - ${resolvedJabatan}` : ''}) untuk ${session.nama_warga} [${session.blok_rumah}].`,
+        summary: `Warga ${session.nama_warga} (${session.blok_rumah}) masuk ke Portal Warga.`,
       });
       return { data: session };
     } catch (err) {
@@ -324,51 +407,20 @@ export async function loginPortal(
     }
   }
 
-  // Fallback Mode Demo Lokal dengan Proteksi Brute-Force PIN
+  // Fallback Mode Lokal (Akun Warga) dengan Proteksi Brute-Force PIN
   ensureLocalStoreInitialized();
-  const attemptKey = `${mode}:${cleanBlok.toLowerCase()}`;
+  const attemptKey = `warga:${primaryBlok.toLowerCase()}`;
   const lockMessage = checkLocalLockout(attemptKey);
   if (lockMessage) {
     return { error: lockMessage };
   }
 
-  if (mode === 'admin') {
-    const matchedAdmin = LOCAL_ADMIN_ACCOUNTS.find(
-      (acc) => acc.username === cleanBlok && acc.pin === cleanPin
-    );
-    if (matchedAdmin) {
-      clearLocalAttempts(attemptKey);
-      const session: SessionUser = {
-        role: 'admin',
-        blok_rumah: matchedAdmin.username,
-        nama_warga: matchedAdmin.nama,
-        jabatan: matchedAdmin.jabatan,
-        admin_permission: matchedAdmin.permission,
-        login_at: new Date().toISOString(),
-      };
-      saveStoredSession(session);
-      await recordAuditLog({
-        session,
-        action: 'LOGIN_SUCCESS',
-        entity: 'auth',
-        entity_id: matchedAdmin.username,
-        summary: `${matchedAdmin.nama} (${matchedAdmin.jabatan} — ${matchedAdmin.permission === 'full' ? 'Akses Penuh' : 'Tambah Data'}) masuk ke Portal Admin.`,
-      });
-      return { data: session };
-    }
-    const lockErr = registerLocalFailedAttempt(attemptKey);
-    await recordAuditLog({
-      action: 'LOGIN_FAILED',
-      entity: 'auth',
-      entity_id: cleanBlok,
-      summary: `Percobaan login Admin gagal untuk username "${cleanBlok}".`,
-    });
-    return { error: lockErr || 'Username Admin atau PIN tidak sesuai.' };
-  }
-
   const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
   const matched = wargaList.find(
-    (w) => w.aktif && normalizeBlok(w.blok_rumah) === cleanBlok && w.pin_akses === cleanPin
+    (w) =>
+      w.aktif &&
+      blokCandidates.includes(normalizeBlok(w.blok_rumah)) &&
+      w.pin_akses === cleanPin
   );
 
   if (!matched) {
@@ -376,8 +428,8 @@ export async function loginPortal(
     await recordAuditLog({
       action: 'LOGIN_FAILED',
       entity: 'auth',
-      entity_id: cleanBlok,
-      summary: `Percobaan login Warga gagal untuk blok "${cleanBlok}".`,
+      entity_id: primaryBlok,
+      summary: `Percobaan login Portal Warga gagal untuk blok "${primaryBlok}".`,
     });
     return {
       error:
@@ -408,6 +460,145 @@ export async function loginPortal(
   });
 
   return { data: session };
+}
+
+/**
+ * Autentikasi khusus Portal Admin — terintegrasi ketat dengan Akun Pengurus / Admin (role = 'admin').
+ */
+export async function loginAdminAccount(
+  usernameInput: string,
+  pinInput: string
+): Promise<ServiceResult<SessionUser>> {
+  const cleanPin = pinInput.trim();
+  const cleanUsername = resolvePengurusAdminUsername(usernameInput);
+
+  if (!cleanUsername || !cleanPin) {
+    return { error: 'Mohon lengkapi Username Pengurus dan PIN 6 digit Anda.' };
+  }
+
+  if (cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {
+    return { error: 'PIN akses pengurus harus terdiri dari tepat 6 digit angka.' };
+  }
+
+  const supabase = getSupabaseClient(null);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.rpc('login_ecard', {
+        p_blok: cleanUsername,
+        p_pin: cleanPin,
+      });
+
+      if (error) {
+        return { error: parseFriendlyError(error, 'Gagal memverifikasi akun pengurus ke server.') };
+      }
+
+      const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+      if (!row || typeof row.blok_rumah !== 'string' || !row.blok_rumah) {
+        await recordAuditLog({
+          action: 'LOGIN_FAILED',
+          entity: 'auth',
+          entity_id: cleanUsername,
+          summary: `Percobaan login Portal Admin gagal untuk akun pengurus "${cleanUsername}".`,
+        });
+        return { error: 'Username Pengurus atau PIN 6 digit tidak valid. Silakan periksa kembali.' };
+      }
+
+      if (row.role !== 'admin') {
+        return { error: 'Akun ini tidak memiliki hak akses Pengurus / Admin.' };
+      }
+
+      const pengurusMeta = SUSUNAN_PENGURUS.find(
+        (p) => p.username.toLowerCase() === row.blok_rumah?.toString().toLowerCase()
+      );
+      const resolvedJabatan =
+        (row.jabatan as AdminJabatan | undefined) || pengurusMeta?.jabatan || 'Bendahara';
+      const resolvedPerm: AdminPermission =
+        (row.admin_permission as AdminPermission | undefined) ||
+        pengurusMeta?.permission ||
+        (resolvedJabatan === 'Bendahara' ? 'full' : 'add_only');
+
+      const session: SessionUser = {
+        role: 'admin',
+        blok_rumah: row.blok_rumah,
+        nama_warga:
+          (typeof row.nama_warga === 'string' && row.nama_warga) ||
+          pengurusMeta?.nama ||
+          'Pengurus Lingkungan',
+        jabatan: resolvedJabatan,
+        admin_permission: resolvedPerm,
+        status_hunian: row.status_hunian as StatusHunian | undefined,
+        no_wa: typeof row.no_wa === 'string' ? row.no_wa : undefined,
+        nominal_iuran: 0,
+        login_at: new Date().toISOString(),
+      };
+      saveStoredSession(session);
+      await recordAuditLog({
+        session,
+        action: 'LOGIN_SUCCESS',
+        entity: 'auth',
+        entity_id: session.blok_rumah,
+        summary: `Login Pengurus berhasil (${resolvedJabatan} — ${
+          resolvedPerm === 'full' ? 'Akses Penuh' : 'Tambah Data'
+        }) untuk ${session.nama_warga} [${session.blok_rumah}].`,
+      });
+      return { data: session };
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Terjadi kesalahan jaringan saat mencoba masuk.') };
+    }
+  }
+
+  // Fallback Mode Lokal (Akun Pengurus / Admin) dengan Proteksi Brute-Force PIN
+  ensureLocalStoreInitialized();
+  const attemptKey = `admin:${cleanUsername}`;
+  const lockMessage = checkLocalLockout(attemptKey);
+  if (lockMessage) {
+    return { error: lockMessage };
+  }
+
+  const matchedAdmin = LOCAL_ADMIN_ACCOUNTS.find(
+    (acc) => acc.username === cleanUsername && acc.pin === cleanPin
+  );
+  if (!matchedAdmin) {
+    const lockErr = registerLocalFailedAttempt(attemptKey);
+    await recordAuditLog({
+      action: 'LOGIN_FAILED',
+      entity: 'auth',
+      entity_id: cleanUsername,
+      summary: `Percobaan login Portal Admin gagal untuk username pengurus "${cleanUsername}".`,
+    });
+    return { error: lockErr || 'Username Pengurus / Admin atau PIN tidak sesuai.' };
+  }
+
+  clearLocalAttempts(attemptKey);
+  const session: SessionUser = {
+    role: 'admin',
+    blok_rumah: matchedAdmin.username,
+    nama_warga: matchedAdmin.nama,
+    jabatan: matchedAdmin.jabatan,
+    admin_permission: matchedAdmin.permission,
+    login_at: new Date().toISOString(),
+  };
+  saveStoredSession(session);
+  await recordAuditLog({
+    session,
+    action: 'LOGIN_SUCCESS',
+    entity: 'auth',
+    entity_id: matchedAdmin.username,
+    summary: `${matchedAdmin.nama} (${matchedAdmin.jabatan} — ${
+      matchedAdmin.permission === 'full' ? 'Akses Penuh' : 'Tambah Data'
+    }) masuk ke Portal Admin.`,
+  });
+  return { data: session };
+}
+
+export async function loginPortal(
+  mode: 'warga' | 'admin',
+  usernameInput: string,
+  pinInput: string
+): Promise<ServiceResult<SessionUser>> {
+  return mode === 'admin'
+    ? loginAdminAccount(usernameInput, pinInput)
+    : loginWargaAccount(usernameInput, pinInput);
 }
 
 // =========================================================================

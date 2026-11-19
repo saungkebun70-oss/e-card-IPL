@@ -27,7 +27,8 @@ import {
   loadStoredSession,
   type AdminSnapshot,
 } from './lib/dataService';
-import { LoginView } from './components/LoginView';
+import { WargaLoginPage } from './components/WargaLoginPage';
+import { AdminLoginPage } from './components/AdminLoginPage';
 import { AppShell, type NavItem } from './components/AppShell';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { WargaHomeSlide } from './components/warga/WargaHomeSlide';
@@ -40,8 +41,22 @@ import { AdminWargaSlide } from './components/admin/AdminWargaSlide';
 import { AdminBotWaSlide } from './components/admin/AdminBotWaSlide';
 import { AdminRekapSlide } from './components/admin/AdminRekapSlide';
 
+type PortalRoute = 'warga' | 'admin';
+
+function resolvePortalRouteFromPath(pathname: string): PortalRoute {
+  const clean = pathname.trim().toLowerCase();
+  return clean === '/admin' || clean.startsWith('/admin/') ? 'admin' : 'warga';
+}
+
 export default function App() {
-  const [session, setSession] = useState<SessionUser | null>(() => loadStoredSession());
+  const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
+    typeof window !== 'undefined' ? resolvePortalRouteFromPath(window.location.pathname) : 'warga'
+  );
+  const [session, setSession] = useState<SessionUser | null>(() => {
+    const initialRoute =
+      typeof window !== 'undefined' ? resolvePortalRouteFromPath(window.location.pathname) : 'warga';
+    return loadStoredSession(initialRoute);
+  });
   const [activeTab, setActiveTab] = useState<string>('beranda');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -99,12 +114,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    const handlePopState = () => {
+      const nextRoute = resolvePortalRouteFromPath(window.location.pathname);
+      setPortalRoute(nextRoute);
+      setSession(loadStoredSession(nextRoute));
+      setWargaData(null);
+      setAdminData(null);
+      setDataError(null);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!session || session.role !== portalRoute) return;
     setActiveTab(session.role === 'admin' ? 'dashboard' : 'beranda');
     void loadPortalData(session);
-  }, [session, loadPortalData]);
+  }, [session, portalRoute, loadPortalData]);
 
   const handleLoginSuccess = (newSession: SessionUser) => {
+    if (newSession.role !== portalRoute) return;
     setSession(newSession);
     pushToast(
       'success',
@@ -117,7 +146,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    clearStoredSession(session);
+    clearStoredSession(session, portalRoute);
     setSession(null);
     setWargaData(null);
     setAdminData(null);
@@ -125,11 +154,15 @@ export default function App() {
     pushToast('info', 'Anda telah keluar dari sesi portal.');
   };
 
-  if (!session) {
+  if (!session || session.role !== portalRoute) {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        <LoginView onLoginSuccess={handleLoginSuccess} />
+        {portalRoute === 'admin' ? (
+          <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
+        ) : (
+          <WargaLoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
       </>
     );
   }

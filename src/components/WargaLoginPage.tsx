@@ -1,36 +1,28 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Home, Lock, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Home, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import { KOP_RESMI, NAMA_APLIKASI, type SessionUser } from '../types';
-import { loginPortal } from '../lib/dataService';
+import { loginWargaAccount } from '../lib/dataService';
 import { BrandLogo } from './BrandLogo';
 
-interface LoginViewProps {
+interface WargaLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
 }
 
-export function LoginView({ onLoginSuccess }: LoginViewProps) {
-  const [tab, setTab] = useState<'warga' | 'admin'>('warga');
+export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleTabSwitch = (nextTab: 'warga' | 'admin') => {
-    setTab(nextTab);
-    setUsername('');
-    setPin('');
-    setErrorMsg(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setLoading(true);
     try {
-      const result = await loginPortal(tab, username, pin);
+      const result = await loginWargaAccount(username, pin);
       if (result.error || !result.data) {
-        setErrorMsg(result.error || 'Gagal melakukan autentikasi. Silakan coba lagi.');
+        setErrorMsg(result.error || 'Blok rumah atau PIN 6 digit tidak sesuai.');
       } else {
         onLoginSuccess(result.data);
       }
@@ -41,16 +33,15 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row">
-      {/* Panel Identitas Resmi (Desktop kiri / Mobile atas ringkas) */}
+      {/* Panel Identitas Portal Warga */}
       <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 relative overflow-hidden">
-        {/* Aksen geometris arsitektural halus */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-600/15 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-emerald-600"
+          className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-[#059669]"
         />
 
         <div className="relative z-10">
@@ -61,18 +52,18 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                 {NAMA_APLIKASI}
               </p>
               <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5">
-                IPL Digital — Perumahan Saung Kebun
+                Portal Warga — Perumahan Saung Kebun
               </p>
             </div>
           </div>
 
           <div className="mt-7 lg:mt-12 max-w-md">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight [text-wrap:balance]">
-              Verifikasi e-Card &amp; Iuran Lingkungan Digital
+              Cek e-Card &amp; Setor IPL Digital Unit Anda
             </h1>
             <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed">
-              Portal resmi pengelolaan Iuran Pemeliharaan Lingkungan (IPL) bagi warga dan pengurus
-              Perumahan Saung Kebun secara transparan, aman, dan terisolasi per unit rumah.
+              Pantau status pembayaran Iuran Pemeliharaan Lingkungan (IPL) 12 bulan, setor via
+              QRIS, transfer, atau titip pengurus, dan unduh kwitansi digital resmi rumah Anda.
             </p>
           </div>
 
@@ -80,8 +71,8 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
             <div>
               <p className="text-sm font-semibold text-white">Privasi Ketat (1 Akun = 1 Rumah)</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Setiap akun warga hanya dapat melihat status e-Card, riwayat setoran, dan e-Kwitansi
-                milik unit rumahnya sendiri.
+                Akun warga terkunci eksklusif untuk satu unit rumah dan tidak dapat melihat data
+                atau tagihan unit warga lainnya.
               </p>
             </div>
             <div>
@@ -98,54 +89,23 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
         </footer>
       </section>
 
-      {/* Panel Form Login Tunggal */}
+      {/* Form Login Khusus Warga */}
       <main className="flex-1 flex items-center justify-center p-5 sm:p-8 lg:p-14">
         <div className="w-full max-w-md">
           <div className="mb-6 flex flex-col lg:items-center lg:text-center">
             <BrandLogo size="lg" className="hidden lg:flex mb-4" />
-            <h2 className="text-2xl font-bold text-[#0F172A] tracking-tight">Masuk ke Portal</h2>
+            <p className="text-xs font-semibold text-emerald-700 inline-flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5" />
+              <span>Halaman Masuk Khusus Warga</span>
+            </p>
+            <h2 className="text-2xl font-bold text-[#0F172A] tracking-tight mt-1">
+              Masuk ke Portal Warga
+            </h2>
             <p className="text-sm text-slate-500 mt-1">
-              Pilih jenis akses dan masukkan kredensial yang terdaftar oleh Pengurus.
+              Masukkan Blok/No. Rumah dan PIN 6 digit resmi rumah Anda.
             </p>
           </div>
 
-          {/* Switch Tab Portal Warga vs Portal Admin */}
-          <div
-            role="tablist"
-            aria-label="Pilih Portal Masuk"
-            className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-200/70 rounded-xl mb-6"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'warga'}
-              onClick={() => handleTabSwitch('warga')}
-              className={`min-h-[44px] flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
-                tab === 'warga'
-                  ? 'bg-white text-[#0F172A] shadow-sm'
-                  : 'text-slate-600 hover:text-[#0F172A]'
-              }`}
-            >
-              <Home className="w-4 h-4 shrink-0" />
-              <span>Portal Warga</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'admin'}
-              onClick={() => handleTabSwitch('admin')}
-              className={`min-h-[44px] flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
-                tab === 'admin'
-                  ? 'bg-white text-[#0F172A] shadow-sm'
-                  : 'text-slate-600 hover:text-[#0F172A]'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>Portal Admin</span>
-            </button>
-          </div>
-
-          {/* Kartu Form */}
           <form
             onSubmit={handleSubmit}
             className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 space-y-5"
@@ -162,31 +122,31 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
 
             <div>
               <label
-                htmlFor="login-username"
+                htmlFor="warga-username"
                 className="block text-sm font-semibold text-[#0F172A] mb-1.5"
               >
-                {tab === 'warga' ? 'Username (Blok & No. Rumah)' : 'Username Admin / Pengurus'}
+                Username (Blok &amp; No. Rumah)
               </label>
               <input
-                id="login-username"
+                id="warga-username"
                 type="text"
                 autoComplete="username"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={tab === 'warga' ? 'Contoh: B3/7' : 'Masukkan username pengurus'}
-                className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 font-mono"
+                placeholder="Contoh: B3/7"
+                className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 font-mono uppercase"
               />
-              {tab === 'warga' && (
-                <p className="text-xs text-slate-500 mt-1.5">
-                  Gunakan format Blok dan Nomor Rumah sesuai data pengurus, misalnya <span className="font-mono text-slate-700">B3/7</span> atau <span className="font-mono text-slate-700">B7/16</span>.
-                </p>
-              )}
+              <p className="text-xs text-slate-500 mt-1.5">
+                Gunakan format Blok dan Nomor Rumah sesuai data pengurus, misalnya{' '}
+                <span className="font-mono text-slate-700">B3/7</span> atau{' '}
+                <span className="font-mono text-slate-700">B7/16</span>.
+              </p>
             </div>
 
             <div>
               <label
-                htmlFor="login-pin"
+                htmlFor="warga-pin"
                 className="block text-sm font-semibold text-[#0F172A] mb-1.5"
               >
                 PIN Akses (6 Digit)
@@ -194,7 +154,7 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
-                  id="login-pin"
+                  id="warga-pin"
                   type={showPin ? 'text' : 'password'}
                   inputMode="numeric"
                   maxLength={6}
@@ -203,13 +163,13 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="••••••"
-                  className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white pl-10 pr-12 text-sm text-[#0F172A] placeholder:text-slate-400 tracking-[0.25em] font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white pl-10 pr-12 text-sm text-[#0F172A] placeholder:text-slate-400 tracking-[0.25em] font-mono focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin((prev) => !prev)}
                   aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -221,14 +181,14 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
               disabled={loading}
               className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>{loading ? 'Memverifikasi...' : tab === 'warga' ? 'Masuk ke Portal Warga' : 'Masuk ke Portal Admin'}</span>
+              <span>{loading ? 'Memverifikasi...' : 'Masuk ke Portal Warga'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
 
           <p className="text-xs text-slate-500 text-center mt-5 leading-relaxed">
-            Belum memiliki PIN atau lupa PIN akses? Silakan hubungi Pengurus Lingkungan di
-            Sekretariat Blok B03/07 untuk mendapatkan PIN resmi rumah Anda.
+            Belum memiliki PIN atau lupa PIN akses? Hubungi Pengurus Lingkungan di Sekretariat Blok{' '}
+            <span className="font-mono font-semibold text-slate-700">B3/7</span> atau Bendahara.
           </p>
         </div>
       </main>
