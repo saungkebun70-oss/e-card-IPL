@@ -1,0 +1,6 @@
+{
+  "name": "e-Card Verifikasi & IPL Digital — Perumahan Saung Kebun",
+  "description": "Aplikasi e-Card Verifikasi dan pengelolaan Iuran Pemeliharaan Lingkungan (IPL) Digital Pengurus Lingkungan Perumahan Saung Kebun, Desa Bengle, Kec. Majalaya, Kab. Karawang.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
