@@ -1,5 +1,5 @@
 import type { AuditLogEntry, SessionUser } from '../types';
-import { getSupabaseClient } from './supabase';
+import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const LOCAL_AUDIT_KEY = 'saungkebun_audit_logs_v1';
 
@@ -47,24 +47,9 @@ export async function recordAuditLog(params: {
 
   saveLocalAuditLog(entry);
 
-  // 1. Kirim ke endpoint server Express (/api/audit-logs) untuk pencatatan permanen di server
-  try {
-    await fetch('/api/audit-logs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-role': entry.actor_role,
-        'x-blok-rumah': entry.actor_id,
-      },
-      body: JSON.stringify(entry),
-    });
-  } catch {
-    // Fallback aman untuk deployment statis Vercel tanpa Express server
-  }
-
-  // 2. Sinkronkan juga ke tabel audit_logs Supabase bila koneksi aktif
+  // 1. Jika Supabase terhubung (termasuk di produksi Vercel), catat langsung ke tabel audit_logs
   const supabase = getSupabaseClient(params.session);
-  if (supabase) {
+  if (supabase && isSupabaseConfigured()) {
     try {
       await supabase.from('audit_logs').insert({
         actor_role: entry.actor_role,
@@ -77,15 +62,48 @@ export async function recordAuditLog(params: {
         metadata: entry.metadata || {},
       });
     } catch {
-      // Jangan gagalkan alur utama jika tabel audit_logs belum dibuat di Supabase
+      // Jangan gagalkan alur utama jika tabel audit_logs belum tersedia
     }
+    return;
+  }
+
+  // 2. Fallback server Express lokal (/api/audit-logs) saat berjalan tanpa Supabase
+  try {
+    await fetch('/api/audit-logs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-role': entry.actor_role,
+        'x-blok-rumah': entry.actor_id,
+      },
+      body: JSON.stringify(entry),
+    });
+  } catch {
+    // Abaikan jika tidak ada server Express
   }
 }
 
 export async function fetchAuditLogs(session: SessionUser): Promise<AuditLogEntry[]> {
   if (session.role !== 'admin') return [];
 
-  // Coba ambil dari server Express terlebih dahulu
+  // 1. Prioritaskan Supabase audit_logs saat terhubung (konsisten di Vercel & semua perangkat)
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(150);
+      if (!error && Array.isArray(data)) {
+        return data as AuditLogEntry[];
+      }
+    } catch {
+      // Lanjut ke fallback lokal
+    }
+  }
+
+  // 2. Fallback server Express lokal saat mode tanpa Supabase
   try {
     const res = await fetch('/api/audit-logs?limit=150', {
       headers: {
@@ -100,23 +118,7 @@ export async function fetchAuditLogs(session: SessionUser): Promise<AuditLogEntr
       }
     }
   } catch {
-    // Lanjut ke fallback Supabase / localStorage
-  }
-
-  const supabase = getSupabaseClient(session);
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(150);
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data as AuditLogEntry[];
-      }
-    } catch {
-      // Lanjut ke fallback lokal
-    }
+    // Lanjut ke fallback localStorage
   }
 
   return readLocalAuditLogs();
