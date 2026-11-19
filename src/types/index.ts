@@ -43,6 +43,16 @@ export interface PaymentConfig {
   updated_by?: string | null;
 }
 
+export interface AppBrandConfig {
+  id: string;
+  app_name: string;
+  app_subtitle: string;
+  kop_resmi: string;
+  logo_url: string | null;
+  updated_at: string;
+  updated_by?: string | null;
+}
+
 export interface PengurusItem {
   jabatan: AdminJabatan;
   nama: string;
@@ -253,6 +263,16 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   qris_label: 'QRIS Kas Lingkungan Perumahan Saung Kebun',
   qris_catatan: 'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
   rekening_list: REKENING_KAS,
+  updated_at: '2026-11-01T07:00:00.000Z',
+  updated_by: 'andriansyah',
+};
+
+export const DEFAULT_APP_BRAND_CONFIG: AppBrandConfig = {
+  id: 'default-app-brand',
+  app_name: NAMA_APLIKASI,
+  app_subtitle: SUB_NAMA_APLIKASI,
+  kop_resmi: KOP_RESMI,
+  logo_url: null,
   updated_at: '2026-11-01T07:00:00.000Z',
   updated_by: 'andriansyah',
 };

@@ -7,10 +7,11 @@ import {
   FileText,
   Printer,
   X,
-  Building2,
 } from 'lucide-react';
-import { KOP_RESMI, type TransaksiIPL, type Warga } from '../../types';
+import { type TransaksiIPL, type Warga } from '../../types';
 import { formatDaftarBulan, formatRupiah, formatTanggal, formatTanggalWaktu } from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
+import { BrandLogo } from '../BrandLogo';
 
 interface WargaRiwayatSlideProps {
   profil: Warga;
@@ -19,6 +20,7 @@ interface WargaRiwayatSlideProps {
 }
 
 export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayatSlideProps) {
+  const { brand } = useAppBrand();
   const [selectedProof, setSelectedProof] = useState<TransaksiIPL | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<TransaksiIPL | null>(null);
 
@@ -206,12 +208,10 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
               {/* Kop Resmi Kwitansi */}
               <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#059669] flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5 text-white" />
-                  </div>
+                  <BrandLogo size="sm" />
                   <div>
                     <p className="text-sm font-bold text-[#0F172A]">e-KWITANSI LUNAS DIGITAL</p>
-                    <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{KOP_RESMI}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{brand.kop_resmi}</p>
                   </div>
                 </div>
               </div>

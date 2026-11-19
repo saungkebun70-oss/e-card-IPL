@@ -14,6 +14,7 @@ import {
   Trash2,
   Users,
   QrCode,
+  Sparkles,
 } from 'lucide-react';
 import {
   BULK_NOTIFICATION_TEMPLATES,
@@ -43,6 +44,7 @@ import {
 } from '../../lib/dataService';
 import { fetchAuditLogs } from '../../lib/auditLogger';
 import { AdminPaymentSettingsModal } from './AdminPaymentSettingsModal';
+import { AdminBrandSettingsModal } from './AdminBrandSettingsModal';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -84,6 +86,7 @@ export function AdminDashboardSlide({
   const [visiblePendingCount, setVisiblePendingCount] = useState(15);
   const [visibleAuditCount, setVisibleAuditCount] = useState(20);
   const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(false);
+  const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
 
   // State Modal Kirim Notifikasi Massal Sistem
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -257,6 +260,14 @@ export function AdminDashboardSlide({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBrandSettingsOpen(true)}
+            className="min-h-[40px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-900 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Sparkles className="w-4 h-4 text-[#059669] shrink-0" />
+            <span>Nama &amp; Logo</span>
+          </button>
           <button
             type="button"
             onClick={() => setPaymentSettingsOpen(true)}
@@ -1004,6 +1015,14 @@ export function AdminDashboardSlide({
         paymentConfig={paymentConfig}
         onClose={() => setPaymentSettingsOpen(false)}
         onSaved={onRefresh}
+        onToast={onToast}
+      />
+
+      {/* Modal Pengaturan Nama Aplikasi & Logo */}
+      <AdminBrandSettingsModal
+        open={brandSettingsOpen}
+        session={session}
+        onClose={() => setBrandSettingsOpen(false)}
         onToast={onToast}
       />
     </div>

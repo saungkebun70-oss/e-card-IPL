@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Building2 } from 'lucide-react';
+import defaultLogoAsset from '../assets/images/logo_saung_kebun_1795079984583.jpg';
+import { useAppBrand } from '../lib/brandContext';
 
-export const LOGO_SAUNG_KEBUN_SRC = '/src/assets/images/logo_saung_kebun_1795079984583.jpg';
+export const LOGO_SAUNG_KEBUN_SRC = defaultLogoAsset;
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  srcOverride?: string | null;
+  altOverride?: string;
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
@@ -15,8 +19,25 @@ const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
   xl: 'w-24 h-24 sm:w-28 sm:h-28 rounded-2xl p-2',
 };
 
-export function BrandLogo({ size = 'md', className = '' }: BrandLogoProps) {
+export function BrandLogo({
+  size = 'md',
+  className = '',
+  srcOverride,
+  altOverride,
+}: BrandLogoProps) {
+  const { brand } = useAppBrand();
+  const hasCustomOverride = srcOverride !== undefined;
+  const resolvedSrc = hasCustomOverride
+    ? srcOverride || LOGO_SAUNG_KEBUN_SRC
+    : brand.logo_url || LOGO_SAUNG_KEBUN_SRC;
+  const isDefaultAsset = resolvedSrc === LOGO_SAUNG_KEBUN_SRC;
+  const resolvedAlt = altOverride || `Logo ${brand.app_name}`;
+
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [resolvedSrc]);
 
   if (failed) {
     return (
@@ -33,11 +54,12 @@ export function BrandLogo({ size = 'md', className = '' }: BrandLogoProps) {
       className={`bg-white flex items-center justify-center shrink-0 overflow-hidden border border-slate-200/80 shadow-sm ${SIZE_CLASSES[size]} ${className}`}
     >
       <img
-        src={LOGO_SAUNG_KEBUN_SRC}
-        alt="Logo e-Card Verifikasi & IPL Digital Perumahan Saung Kebun"
+        src={resolvedSrc}
+        alt={resolvedAlt}
         referrerPolicy="no-referrer"
+        decoding="async"
         onError={() => setFailed(true)}
-        className="w-full h-full object-contain scale-125"
+        className={`w-full h-full object-contain ${isDefaultAsset ? 'scale-125' : ''}`}
       />
     </div>
   );

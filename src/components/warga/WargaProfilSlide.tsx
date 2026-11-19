@@ -10,8 +10,9 @@ import {
   Bot,
   BookOpen,
 } from 'lucide-react';
-import { KOP_RESMI, WA_PENGURUS, type Warga } from '../../types';
+import { WA_PENGURUS, type Warga } from '../../types';
 import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 import { PanduanAplikasiModal } from './PanduanAplikasiModal';
 
@@ -34,6 +35,7 @@ export function WargaProfilSlide({
   onToast,
   onLogout,
 }: WargaProfilSlideProps) {
+  const { brand } = useAppBrand();
   const [panduanWaOpen, setPanduanWaOpen] = useState(false);
   const [panduanAppOpen, setPanduanAppOpen] = useState(false);
   const waMessage = `Halo Pengurus Lingkungan Perumahan Saung Kebun, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal e-Card IPL Digital.`;
@@ -158,7 +160,7 @@ export function WargaProfilSlide({
         </div>
 
         <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100 leading-relaxed">
-          {KOP_RESMI}
+          {brand.kop_resmi}
         </p>
       </section>
 

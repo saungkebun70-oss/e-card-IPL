@@ -115,19 +115,30 @@ export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blo
 
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(text);
       return true;
     }
+  } catch {
+    // Lanjut fallback DOM untuk iOS Safari / WebView
+  }
+
+  try {
     const ta = document.createElement('textarea');
     ta.value = text;
+    ta.setAttribute('readonly', '');
     ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '-9999px';
     ta.style.opacity = '0';
+    ta.style.fontSize = '16px';
     document.body.appendChild(ta);
+    ta.focus();
     ta.select();
-    document.execCommand('copy');
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
     document.body.removeChild(ta);
-    return true;
+    return ok;
   } catch {
     return false;
   }

@@ -1,5 +1,6 @@
 import {
   APP_PORTAL_URL,
+  DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
   NOMINAL_IPL_STANDAR,
   SUSUNAN_PENGURUS,
@@ -7,6 +8,7 @@ import {
   WA_ACCESS_TEMPLATE_DEFAULT,
   type AdminJabatan,
   type AdminPermission,
+  type AppBrandConfig,
   type BotWaConfig,
   type BotWaLog,
   type MetodeBayar,
@@ -55,7 +57,36 @@ const STORAGE_KEYS = {
   LOGIN_ATTEMPTS: 'saungkebun_login_attempts_v1',
   SYSTEM_NOTIFICATIONS: 'saungkebun_system_notifications_v1',
   PAYMENT_CONFIG: 'saungkebun_payment_config_v1',
+  BRAND_CONFIG: 'saungkebun_brand_config_v1',
 } as const;
+
+const memoryStorageFallback = new Map<string, string>();
+
+function safeStorageGet(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return memoryStorageFallback.get(key) ?? null;
+  }
+}
+
+function safeStorageSet(key: string, value: string) {
+  memoryStorageFallback.set(key, value);
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Aman untuk iOS Safari Private Mode / WebView dengan kuota terbatas
+  }
+}
+
+function safeStorageRemove(key: string) {
+  memoryStorageFallback.delete(key);
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Abaikan
+  }
+}
 
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 menit
@@ -67,7 +98,7 @@ interface LoginAttemptRecord {
 
 function getAttemptMap(): Record<string, LoginAttemptRecord> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.LOGIN_ATTEMPTS);
+    const raw = safeStorageGet(STORAGE_KEYS.LOGIN_ATTEMPTS);
     return raw ? (JSON.parse(raw) as Record<string, LoginAttemptRecord>) : {};
   } catch {
     return {};
@@ -93,11 +124,11 @@ function registerLocalFailedAttempt(accountKey: string): string | null {
   const next = prev + 1;
   if (next >= MAX_FAILED_PIN_ATTEMPTS) {
     map[accountKey] = { failedCount: 0, lockedUntil: Date.now() + LOCKOUT_DURATION_MS };
-    localStorage.setItem(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
+    safeStorageSet(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
     return 'Terlalu banyak percobaan PIN salah (5 kali). Silakan tunggu 5 menit sebelum mencoba lagi.';
   }
   map[accountKey] = { failedCount: next, lockedUntil: null };
-  localStorage.setItem(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
+  safeStorageSet(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
   return null;
 }
 
@@ -105,7 +136,7 @@ function clearLocalAttempts(accountKey: string) {
   const map = getAttemptMap();
   if (map[accountKey]) {
     delete map[accountKey];
-    localStorage.setItem(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
+    safeStorageSet(STORAGE_KEYS.LOGIN_ATTEMPTS, JSON.stringify(map));
   }
 }
 
@@ -139,29 +170,29 @@ function parseFriendlyError(err: unknown, fallbackMessage: string): string {
 // =========================================================================
 
 function ensureLocalStoreInitialized() {
-  if (!localStorage.getItem(STORAGE_KEYS.WARGA)) {
-    localStorage.setItem(STORAGE_KEYS.WARGA, JSON.stringify(SEED_WARGA));
+  if (!safeStorageGet(STORAGE_KEYS.WARGA)) {
+    safeStorageSet(STORAGE_KEYS.WARGA, JSON.stringify(SEED_WARGA));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.TRANSAKSI)) {
-    localStorage.setItem(STORAGE_KEYS.TRANSAKSI, JSON.stringify(SEED_TRANSAKSI));
+  if (!safeStorageGet(STORAGE_KEYS.TRANSAKSI)) {
+    safeStorageSet(STORAGE_KEYS.TRANSAKSI, JSON.stringify(SEED_TRANSAKSI));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.STATUS)) {
-    const warga = JSON.parse(localStorage.getItem(STORAGE_KEYS.WARGA) || '[]') as Warga[];
-    const trx = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSAKSI) || '[]') as TransaksiIPL[];
-    localStorage.setItem(STORAGE_KEYS.STATUS, JSON.stringify(buildInitialStatusBulanan(warga, trx)));
+  if (!safeStorageGet(STORAGE_KEYS.STATUS)) {
+    const warga = JSON.parse(safeStorageGet(STORAGE_KEYS.WARGA) || '[]') as Warga[];
+    const trx = JSON.parse(safeStorageGet(STORAGE_KEYS.TRANSAKSI) || '[]') as TransaksiIPL[];
+    safeStorageSet(STORAGE_KEYS.STATUS, JSON.stringify(buildInitialStatusBulanan(warga, trx)));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.BOT_CONFIG)) {
-    localStorage.setItem(STORAGE_KEYS.BOT_CONFIG, JSON.stringify(SEED_BOT_WA_CONFIG));
+  if (!safeStorageGet(STORAGE_KEYS.BOT_CONFIG)) {
+    safeStorageSet(STORAGE_KEYS.BOT_CONFIG, JSON.stringify(SEED_BOT_WA_CONFIG));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.BOT_LOGS)) {
-    localStorage.setItem(STORAGE_KEYS.BOT_LOGS, JSON.stringify(SEED_BOT_WA_LOGS));
+  if (!safeStorageGet(STORAGE_KEYS.BOT_LOGS)) {
+    safeStorageSet(STORAGE_KEYS.BOT_LOGS, JSON.stringify(SEED_BOT_WA_LOGS));
   }
 }
 
 function readLocal<T>(key: string, fallback: T): T {
   ensureLocalStoreInitialized();
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeStorageGet(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -169,7 +200,7 @@ function readLocal<T>(key: string, fallback: T): T {
 }
 
 function writeLocal<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
+  safeStorageSet(key, JSON.stringify(value));
 }
 
 function syncLocalStatusForHouse(blokRumah: string) {
@@ -224,7 +255,7 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
   try {
     if (expectedRole) {
       const roleKey = getSessionKeyForRole(expectedRole);
-      const raw = localStorage.getItem(roleKey);
+      const raw = safeStorageGet(roleKey);
       if (raw) {
         const parsed = JSON.parse(raw) as SessionUser;
         if (parsed?.role === expectedRole && parsed?.blok_rumah) {
@@ -232,12 +263,12 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
         }
       }
       // Migrasi mulus dari key sesi lama jika role-nya cocok dengan portal saat ini
-      const legacyRaw = localStorage.getItem(STORAGE_KEYS.SESSION_LEGACY);
+      const legacyRaw = safeStorageGet(STORAGE_KEYS.SESSION_LEGACY);
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw) as SessionUser;
         if (legacy?.role === expectedRole && legacy?.blok_rumah) {
-          localStorage.setItem(roleKey, JSON.stringify(legacy));
-          localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
+          safeStorageSet(roleKey, JSON.stringify(legacy));
+          safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
           return legacy;
         }
       }
@@ -245,9 +276,9 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
     }
 
     const fallbackRaw =
-      localStorage.getItem(STORAGE_KEYS.SESSION_WARGA) ||
-      localStorage.getItem(STORAGE_KEYS.SESSION_ADMIN) ||
-      localStorage.getItem(STORAGE_KEYS.SESSION_LEGACY);
+      safeStorageGet(STORAGE_KEYS.SESSION_WARGA) ||
+      safeStorageGet(STORAGE_KEYS.SESSION_ADMIN) ||
+      safeStorageGet(STORAGE_KEYS.SESSION_LEGACY);
     if (!fallbackRaw) return null;
     const parsed = JSON.parse(fallbackRaw) as SessionUser;
     if (!parsed?.role || !parsed?.blok_rumah) return null;
@@ -258,8 +289,8 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
 }
 
 export function saveStoredSession(session: SessionUser) {
-  localStorage.setItem(getSessionKeyForRole(session.role), JSON.stringify(session));
-  localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
+  safeStorageSet(getSessionKeyForRole(session.role), JSON.stringify(session));
+  safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
 }
 
 export function clearStoredSession(session?: SessionUser | null, roleOverride?: 'warga' | 'admin') {
@@ -274,12 +305,12 @@ export function clearStoredSession(session?: SessionUser | null, roleOverride?: 
     });
   }
   if (targetRole) {
-    localStorage.removeItem(getSessionKeyForRole(targetRole));
+    safeStorageRemove(getSessionKeyForRole(targetRole));
   } else {
-    localStorage.removeItem(STORAGE_KEYS.SESSION_WARGA);
-    localStorage.removeItem(STORAGE_KEYS.SESSION_ADMIN);
+    safeStorageRemove(STORAGE_KEYS.SESSION_WARGA);
+    safeStorageRemove(STORAGE_KEYS.SESSION_ADMIN);
   }
-  localStorage.removeItem(STORAGE_KEYS.SESSION_LEGACY);
+  safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
 }
 
 function buildWargaBlokCandidates(input: string): string[] {
@@ -2172,6 +2203,187 @@ export async function savePaymentConfigAdmin(
     entity: 'payment_config',
     entity_id: updated.id,
     summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+  });
+
+  return { data: updated };
+}
+
+// =========================================================================
+// Pengaturan Identitas Aplikasi (Nama Aplikasi, Sub-Nama, Kop & Logo)
+// =========================================================================
+
+export function readLocalAppBrandConfig(): AppBrandConfig {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.BRAND_CONFIG);
+    if (!raw) return DEFAULT_APP_BRAND_CONFIG;
+    const parsed = JSON.parse(raw) as Partial<AppBrandConfig>;
+    return {
+      ...DEFAULT_APP_BRAND_CONFIG,
+      ...parsed,
+      app_name:
+        typeof parsed.app_name === 'string' && parsed.app_name.trim()
+          ? parsed.app_name.trim()
+          : DEFAULT_APP_BRAND_CONFIG.app_name,
+      app_subtitle:
+        typeof parsed.app_subtitle === 'string' && parsed.app_subtitle.trim()
+          ? parsed.app_subtitle.trim()
+          : DEFAULT_APP_BRAND_CONFIG.app_subtitle,
+      kop_resmi:
+        typeof parsed.kop_resmi === 'string' && parsed.kop_resmi.trim()
+          ? parsed.kop_resmi.trim()
+          : DEFAULT_APP_BRAND_CONFIG.kop_resmi,
+      logo_url: typeof parsed.logo_url === 'string' && parsed.logo_url.trim() ? parsed.logo_url : null,
+    };
+  } catch {
+    return DEFAULT_APP_BRAND_CONFIG;
+  }
+}
+
+function writeLocalAppBrandConfig(config: AppBrandConfig) {
+  safeStorageSet(STORAGE_KEYS.BRAND_CONFIG, JSON.stringify(config));
+}
+
+export async function fetchAppBrandConfig(session?: SessionUser | null): Promise<AppBrandConfig> {
+  const localConfig = readLocalAppBrandConfig();
+  const supabase = getSupabaseClient(session || null);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('id', 'default-app-brand')
+        .maybeSingle();
+
+      if (!error && data) {
+        const row = data as Partial<AppBrandConfig>;
+        const merged: AppBrandConfig = {
+          ...DEFAULT_APP_BRAND_CONFIG,
+          ...row,
+          app_name:
+            typeof row.app_name === 'string' && row.app_name.trim()
+              ? row.app_name.trim()
+              : DEFAULT_APP_BRAND_CONFIG.app_name,
+          app_subtitle:
+            typeof row.app_subtitle === 'string' && row.app_subtitle.trim()
+              ? row.app_subtitle.trim()
+              : DEFAULT_APP_BRAND_CONFIG.app_subtitle,
+          kop_resmi:
+            typeof row.kop_resmi === 'string' && row.kop_resmi.trim()
+              ? row.kop_resmi.trim()
+              : DEFAULT_APP_BRAND_CONFIG.kop_resmi,
+          logo_url: typeof row.logo_url === 'string' && row.logo_url.trim() ? row.logo_url : null,
+        };
+        writeLocalAppBrandConfig(merged);
+        return merged;
+      }
+    } catch {
+      // Fallback mulus ke penyimpanan lokal bila tabel app_settings belum dijalankan di Supabase
+    }
+  }
+  return localConfig;
+}
+
+export async function uploadAppLogoAdmin(
+  session: SessionUser,
+  file: File
+): Promise<ServiceResult<string>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: unggah logo aplikasi hanya dapat dilakukan oleh Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const rawExt = file.name?.split('.').pop()?.toLowerCase() || '';
+      const safeExt = ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(rawExt) ? rawExt : 'png';
+      const filePath = `branding/logo-app-${Date.now()}.${safeExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('bukti-ipl')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          return { data: publicUrlData.publicUrl };
+        }
+      }
+    } catch {
+      // Lanjut fallback data URL agar tetap berjalan tanpa error di semua perangkat
+    }
+  }
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    return { data: dataUrl };
+  } catch (err) {
+    return { error: parseFriendlyError(err, 'Gagal membaca file logo aplikasi.') };
+  }
+}
+
+export async function saveAppBrandConfigAdmin(
+  session: SessionUser,
+  config: Pick<AppBrandConfig, 'app_name' | 'app_subtitle' | 'kop_resmi' | 'logo_url'>
+): Promise<ServiceResult<AppBrandConfig>> {
+  if (!isBendaharaFullAccess(session)) {
+    return {
+      error: 'Akses ditolak: perubahan nama aplikasi dan logo hanya dapat dilakukan oleh Bendahara.',
+    };
+  }
+
+  const cleanName = config.app_name.trim();
+  const cleanSubtitle = config.app_subtitle.trim();
+  const cleanKop = config.kop_resmi.trim();
+
+  if (!cleanName) {
+    return { error: 'Nama aplikasi tidak boleh kosong.' };
+  }
+  if (!cleanSubtitle) {
+    return { error: 'Sub-nama / keterangan perumahan tidak boleh kosong.' };
+  }
+
+  const updated: AppBrandConfig = {
+    id: 'default-app-brand',
+    app_name: cleanName,
+    app_subtitle: cleanSubtitle,
+    kop_resmi: cleanKop || DEFAULT_APP_BRAND_CONFIG.kop_resmi,
+    logo_url: config.logo_url?.trim() || null,
+    updated_at: new Date().toISOString(),
+    updated_by: session.blok_rumah,
+  };
+
+  writeLocalAppBrandConfig(updated);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .upsert(updated, { onConflict: 'id' })
+        .select()
+        .single();
+      if (!error && data) {
+        const persisted = data as AppBrandConfig;
+        writeLocalAppBrandConfig(persisted);
+        await recordAuditLog({
+          session,
+          action: 'UPDATE_APP_BRAND',
+          entity: 'app_settings',
+          entity_id: updated.id,
+          summary: `Bendahara ${session.nama_warga} memperbarui identitas aplikasi menjadi "${persisted.app_name}".`,
+        });
+        return { data: persisted };
+      }
+    } catch {
+      // Tetap tersimpan lokal tanpa error bila tabel app_settings belum dibuat di Supabase
+    }
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'UPDATE_APP_BRAND',
+    entity: 'app_settings',
+    entity_id: updated.id,
+    summary: `Bendahara ${session.nama_warga} memperbarui identitas aplikasi menjadi "${updated.app_name}".`,
   });
 
   return { data: updated };

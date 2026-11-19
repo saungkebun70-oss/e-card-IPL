@@ -1,0 +1,19 @@
+{
+  "name": "e-Card Verifikasi & IPL Digital — Perumahan Saung Kebun",
+  "short_name": "e-Card IPL",
+  "description": "Portal Warga & Pengurus Lingkungan Perumahan Saung Kebun untuk verifikasi e-Card, setor IPL digital, dan e-Kwitansi.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/app-icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

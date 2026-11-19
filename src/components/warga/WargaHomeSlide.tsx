@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import {
   BULAN_LIST,
-  KOP_RESMI,
   NOMINAL_IPL_STANDAR,
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
@@ -29,6 +28,7 @@ import {
   getCurrentBillingMonth,
   getNamaBulan,
 } from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
 
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 
@@ -92,6 +92,7 @@ export function WargaHomeSlide({
   onQuickPayMonth,
   onToast,
 }: WargaHomeSlideProps) {
+  const { brand } = useAppBrand();
   const [readIds, setReadIds] = useState<string[]>(() =>
     loadReadNotificationIds(profil.blok_rumah)
   );
@@ -304,7 +305,7 @@ export function WargaHomeSlide({
         <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Informasi Siklus Tagihan IPL</h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{KOP_RESMI}</p>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{brand.kop_resmi}</p>
 
             <dl className="mt-5 divide-y divide-slate-100 text-sm">
               <div className="py-2.5 flex items-center justify-between gap-4">

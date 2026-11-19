@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Home, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { KOP_RESMI, NAMA_APLIKASI, type SessionUser } from '../types';
+import { type SessionUser } from '../types';
 import { loginWargaAccount } from '../lib/dataService';
+import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 
 interface WargaLoginPageProps {
@@ -9,6 +10,7 @@ interface WargaLoginPageProps {
 }
 
 export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
+  const { brand } = useAppBrand();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -32,9 +34,9 @@ export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col lg:flex-row">
       {/* Panel Identitas Portal Warga */}
-      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 relative overflow-hidden">
+      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 pt-safe relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-600/15 blur-3xl"
@@ -47,12 +49,12 @@ export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <BrandLogo size="xl" className="border-white/15 shadow-lg shadow-black/25" />
-            <div>
+            <div className="min-w-0">
               <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                {NAMA_APLIKASI}
+                {brand.app_name}
               </p>
               <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5">
-                Portal Warga — Perumahan Saung Kebun
+                Portal Warga · {brand.app_subtitle}
               </p>
             </div>
           </div>
@@ -85,7 +87,7 @@ export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
         </div>
 
         <footer className="relative z-10 mt-8 lg:mt-12 pt-5 border-t border-slate-800/80">
-          <p className="text-xs text-slate-400 leading-relaxed">{KOP_RESMI}</p>
+          <p className="text-xs text-slate-400 leading-relaxed">{brand.kop_resmi}</p>
         </footer>
       </section>
 

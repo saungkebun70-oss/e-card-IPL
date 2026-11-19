@@ -1,7 +1,8 @@
 import React from 'react';
 import { LogOut, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { KOP_RESMI, NAMA_APLIKASI, type SessionUser } from '../types';
+import { type SessionUser } from '../types';
+import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 
 export interface NavItem {
@@ -31,18 +32,19 @@ export function AppShell({
   headerAction,
   children,
 }: AppShellProps) {
+  const { brand } = useAppBrand();
   const activeNav = navItems.find((item) => item.id === activeTab) || navItems[0];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row">
       {/* Desktop Sidebar Tetap (>= 1024px) */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 xl:w-72 lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30">
         <div className="px-6 py-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <BrandLogo size="sm" className="border-white/15" />
             <div className="min-w-0">
-              <p className="text-sm font-bold tracking-tight text-white truncate">{NAMA_APLIKASI}</p>
-              <p className="text-xs text-slate-400 truncate">Perumahan Saung Kebun</p>
+              <p className="text-sm font-bold tracking-tight text-white truncate">{brand.app_name}</p>
+              <p className="text-xs text-slate-400 truncate">{brand.app_subtitle}</p>
             </div>
           </div>
         </div>
@@ -100,7 +102,7 @@ export function AppShell({
 
         {/* Footer Sidebar */}
         <div className="p-4 border-t border-slate-800 space-y-3">
-          <p className="text-[11px] text-slate-400 leading-relaxed px-2">{KOP_RESMI}</p>
+          <p className="text-[11px] text-slate-400 leading-relaxed px-2">{brand.kop_resmi}</p>
           <button
             type="button"
             onClick={onLogout}
@@ -115,21 +117,24 @@ export function AppShell({
       {/* Area Kerja Utama */}
       <div className="flex-1 lg:pl-64 xl:pl-72 flex flex-col min-w-0">
         {/* Header Kontekstual (Non-sticky di mobile agar mematuhi batas sticky <= 15%) */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4">
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4 pt-safe">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="truncate">Perumahan Saung Kebun</span>
-                <span aria-hidden="true">/</span>
-                <span className="font-mono text-slate-700 shrink-0">
-                  {session.role === 'admin'
-                    ? `${session.nama_warga} (${session.jabatan || 'Admin'})`
-                    : session.blok_rumah}
-                </span>
+            <div className="flex items-center gap-3 min-w-0">
+              <BrandLogo size="sm" className="lg:hidden" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="truncate">{brand.app_name}</span>
+                  <span aria-hidden="true">/</span>
+                  <span className="font-mono text-slate-700 shrink-0">
+                    {session.role === 'admin'
+                      ? `${session.nama_warga} (${session.jabatan || 'Admin'})`
+                      : session.blok_rumah}
+                  </span>
+                </div>
+                <h1 className="text-lg sm:text-xl font-bold text-[#0F172A] tracking-tight truncate mt-0.5">
+                  {activeNav?.label}
+                </h1>
               </div>
-              <h1 className="text-lg sm:text-xl font-bold text-[#0F172A] tracking-tight truncate mt-0.5">
-                {activeNav?.label}
-              </h1>
             </div>
 
             {headerAction ? (

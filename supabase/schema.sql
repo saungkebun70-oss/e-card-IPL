@@ -136,6 +136,17 @@ create table if not exists public.payment_config (
   updated_by text
 );
 
+-- 10. Tabel Pengaturan Identitas Aplikasi (Nama Aplikasi, Sub-Nama, Kop & Logo) — Edit Khusus Bendahara
+create table if not exists public.app_settings (
+  id text primary key default 'default-app-brand',
+  app_name text not null default 'e-Card Verifikasi',
+  app_subtitle text not null default 'IPL Digital — Perumahan Saung Kebun',
+  kop_resmi text not null default 'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)',
+  logo_url text,
+  updated_at timestamptz not null default now(),
+  updated_by text
+);
+
 -- Indeks Performa untuk Akses Konkuren Tinggi (Ratusan KK & Ribuan Transaksi)
 create index if not exists idx_users_warga_aktif_blok on public.users_warga (aktif, blok_rumah);
 create index if not exists idx_transaksi_blok_tanggal on public.transaksi_ipl (blok_rumah, tanggal_setor desc);
@@ -242,6 +253,7 @@ alter table public.audit_logs enable row level security;
 alter table public.login_attempts enable row level security;
 alter table public.system_notifications enable row level security;
 alter table public.payment_config enable row level security;
+alter table public.app_settings enable row level security;
 
 -- Kebijakan RLS users_warga (Semua Pengurus bisa tambah, Edit & Hapus khusus Bendahara)
 drop policy if exists "warga_hanya_lihat_rumah_sendiri" on public.users_warga;
@@ -365,6 +377,22 @@ create policy "payment_config_select_portal" on public.payment_config
 
 drop policy if exists "bendahara_payment_config_write" on public.payment_config;
 create policy "bendahara_payment_config_write" on public.payment_config
+  for all using (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  )
+  with check (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  );
+
+-- Kebijakan RLS app_settings (Publik/Login baca nama & logo, Edit khusus Bendahara)
+drop policy if exists "app_settings_public_read" on public.app_settings;
+create policy "app_settings_public_read" on public.app_settings
+  for select using (true);
+
+drop policy if exists "bendahara_app_settings_write" on public.app_settings;
+create policy "bendahara_app_settings_write" on public.app_settings
   for all using (
     public.req_header('x-user-role') = 'admin'
     and public.req_header('x-admin-permission') = 'full'
@@ -521,6 +549,18 @@ values (
   'QRIS Kas Lingkungan Perumahan Saung Kebun',
   'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
   '[{"id":"rek-bca-default","bank":"Bank BCA","nomor":"7401829304","atasNama":"Kas Lingkungan Perumahan Saung Kebun (Bendahara Andriansyah)","tipe":"Transfer Bank"},{"id":"rek-mandiri-default","bank":"Bank Mandiri","nomor":"1730009845120","atasNama":"Pengurus Lingkungan Perumahan Saung Kebun","tipe":"Transfer Bank"},{"id":"rek-ewallet-default","bank":"DANA / GoPay / OVO","nomor":"081234567890","atasNama":"Bendahara Saung Kebun (Andriansyah)","tipe":"E-Wallet"}]'::jsonb,
+  'andriansyah'
+)
+on conflict (id) do nothing;
+
+-- Pengaturan Identitas Aplikasi Awal (Nama & Logo)
+insert into public.app_settings (id, app_name, app_subtitle, kop_resmi, logo_url, updated_by)
+values (
+  'default-app-brand',
+  'e-Card Verifikasi',
+  'IPL Digital — Perumahan Saung Kebun',
+  'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)',
+  null,
   'andriansyah'
 )
 on conflict (id) do nothing;
