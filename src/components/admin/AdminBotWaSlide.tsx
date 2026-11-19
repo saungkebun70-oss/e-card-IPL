@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   XCircle,
   MessageSquare,
+  Phone,
+  Loader2,
 } from 'lucide-react';
 import {
   isBendaharaFullAccess,
@@ -27,6 +29,7 @@ import {
 } from '../../lib/format';
 import {
   saveBotWaConfigAdmin,
+  sendTestWaMessageAdmin,
   triggerManualWaReminderAdmin,
 } from '../../lib/dataService';
 
@@ -54,6 +57,8 @@ export function AdminBotWaSlide({
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testingWa, setTestingWa] = useState(false);
   const [visibleLogsCount, setVisibleLogsCount] = useState(15);
 
   useEffect(() => {
@@ -115,10 +120,25 @@ export function AdminBotWaSlide({
     }
   };
 
+  const handleTestSingleWa = async () => {
+    setTestingWa(true);
+    try {
+      const res = await sendTestWaMessageAdmin(session, config, testPhone);
+      if (res.error) {
+        onToast('error', res.error);
+      } else if (res.data) {
+        onToast('success', res.data.detail);
+        await onRefresh();
+      }
+    } finally {
+      setTestingWa(false);
+    }
+  };
+
   const currentMonthLabel = `${getNamaBulan(getCurrentBillingMonth())} ${TAHUN_AKTIF}`;
   const samplePreview = config.template_pesan
-    .replaceAll('{nama_warga}', 'Bapak/Ibu Tina')
-    .replaceAll('{blok_rumah}', 'B05/07')
+    .replaceAll('{nama_warga}', 'Bapak/Ibu Doni')
+    .replaceAll('{blok_rumah}', 'B5/21')
     .replaceAll('{bulan_tagihan}', currentMonthLabel)
     .replaceAll('{nominal_tagihan}', formatRupiah(100000))
     .replaceAll(
@@ -339,9 +359,53 @@ export function AdminBotWaSlide({
               onClick={() => void handleSendNow()}
               className="flex-1 min-h-[46px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Send className="w-4 h-4" />
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               <span>{sending ? 'Mengirim Pengingat...' : 'Kirim Pengingat Sekarang'}</span>
             </button>
+          </div>
+
+          {/* Uji Kirim 1 Nomor (Cek Token Fonnte/Wablas Langsung) */}
+          <div className="pt-4 border-t border-slate-200 space-y-2.5">
+            <div>
+              <h3 className="text-xs font-bold text-[#0F172A]">
+                Uji Koneksi Token ({config.provider}) ke 1 Nomor WA
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Coba kirim 1 pesan tes ke nomor WA Anda sendiri terlebih dahulu untuk memastikan
+                token aktif sebelum mengirim ke seluruh warga.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="tel"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  disabled={!canManageFull || testingWa}
+                  placeholder="Nomor WA uji coba (contoh: 0812xxxxxxxx)"
+                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-10 pr-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:opacity-60"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={!canManageFull || testingWa || !testPhone.trim()}
+                onClick={() => void handleTestSingleWa()}
+                className="min-h-[44px] px-4 rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-800 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                {testingWa ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Mengirim Tes...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Kirim Tes WA</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </section>
       </form>

@@ -1231,6 +1231,182 @@ export async function saveBotWaConfigAdmin(
   return { data: updatedConfig };
 }
 
+interface ProxyWaTarget {
+  blok_rumah: string;
+  nama_warga: string;
+  no_wa: string;
+  pesan: string;
+}
+
+interface ProxyWaResultItem extends ProxyWaTarget {
+  status_kirim: 'Terkirim' | 'Gagal';
+  respon_gateway: string;
+}
+
+async function dispatchViaServerWaProxy(
+  session: SessionUser,
+  config: BotWaConfig,
+  targets: ProxyWaTarget[]
+): Promise<{
+  available: boolean;
+  error?: string;
+  results?: ProxyWaResultItem[];
+}> {
+  try {
+    const res = await fetch('/api/bot-wa/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-role': session.role,
+        'x-admin-permission': session.admin_permission || '',
+      },
+      body: JSON.stringify({
+        provider: config.provider,
+        api_endpoint: config.api_endpoint,
+        api_token: config.api_token,
+        targets,
+      }),
+    });
+
+    if (res.status === 404 || res.status === 405) {
+      return { available: false };
+    }
+
+    const json = (await res.json().catch(() => null)) as {
+      error?: string;
+      results?: ProxyWaResultItem[];
+    } | null;
+
+    if (!res.ok) {
+      return {
+        available: true,
+        error: json?.error || `Gagal menghubungi gateway WA (HTTP ${res.status}).`,
+      };
+    }
+
+    return {
+      available: true,
+      results: json?.results || [],
+    };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function persistBotWaLogs(session: SessionUser, logs: BotWaLog[]): Promise<void> {
+  if (logs.length === 0) return;
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      await supabase.from('bot_wa_logs').insert(
+        logs.map((l) => ({
+          blok_rumah: l.blok_rumah,
+          nama_warga: l.nama_warga,
+          no_wa: l.no_wa,
+          jenis_pesan: l.jenis_pesan,
+          status_kirim: l.status_kirim,
+          respon_gateway: l.respon_gateway,
+          pesan: l.pesan,
+        }))
+      );
+      return;
+    } catch {
+      // Fallback simpan lokal bila tabel belum tersedia
+    }
+  }
+
+  const existingLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS);
+  writeLocal(STORAGE_KEYS.BOT_LOGS, [...logs, ...existingLogs]);
+}
+
+export async function sendTestWaMessageAdmin(
+  session: SessionUser,
+  config: BotWaConfig,
+  targetPhoneInput: string
+): Promise<ServiceResult<{ status: 'Terkirim' | 'Gagal'; detail: string }>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: uji kirim Bot WhatsApp khusus Bendahara.' };
+  }
+
+  const cleanPhone = normalizeWaNumber(targetPhoneInput);
+  if (cleanPhone.length < 10) {
+    return { error: 'Masukkan nomor WhatsApp tujuan yang valid (contoh: 0812xxxxxxxx).' };
+  }
+  if (!config.api_token.trim()) {
+    return { error: 'Masukkan API Token Fonnte / Wablas terlebih dahulu sebelum uji kirim.' };
+  }
+
+  const currentMonth = getCurrentBillingMonth();
+  const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
+  const appUrl =
+    typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app';
+
+  const renderedMsg = config.template_pesan
+    .replaceAll('{nama_warga}', session.nama_warga)
+    .replaceAll('{blok_rumah}', 'B7/16')
+    .replaceAll('{bulan_tagihan}', bulanNama)
+    .replaceAll('{nominal_tagihan}', formatRupiah(NOMINAL_IPL_STANDAR))
+    .replaceAll('{link_aplikasi}', appUrl);
+
+  const proxyRes = await dispatchViaServerWaProxy(session, config, [
+    {
+      blok_rumah: 'TES-WA',
+      nama_warga: `Uji Coba (${session.nama_warga})`,
+      no_wa: cleanPhone,
+      pesan: renderedMsg,
+    },
+  ]);
+
+  if (!proxyRes.available) {
+    return {
+      error:
+        'Server proxy /api/bot-wa/send tidak aktif pada hosting statis ini. Deploy Edge Function wa-reminder-ipl di Supabase untuk pengiriman langsung.',
+    };
+  }
+  if (proxyRes.error) {
+    return { error: proxyRes.error };
+  }
+
+  const item = proxyRes.results?.[0];
+  if (!item) {
+    return { error: 'Tidak ada respon dari gateway WhatsApp.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  await persistBotWaLogs(session, [
+    {
+      id: `walog-test-${Date.now()}`,
+      created_at: nowIso,
+      blok_rumah: item.blok_rumah,
+      nama_warga: item.nama_warga,
+      no_wa: item.no_wa,
+      jenis_pesan: `Uji Koneksi Token (${config.provider})`,
+      status_kirim: item.status_kirim,
+      respon_gateway: item.respon_gateway,
+      pesan: item.pesan,
+    },
+  ]);
+
+  await recordAuditLog({
+    session,
+    action: 'TEST_BOT_WA',
+    entity: 'bot_wa_logs',
+    summary: `Uji kirim Bot WA (${config.provider}) ke ${cleanPhone}: ${item.status_kirim} (${item.respon_gateway}).`,
+  });
+
+  if (item.status_kirim === 'Gagal') {
+    return { error: `Gagal kirim via ${config.provider}: ${item.respon_gateway}` };
+  }
+
+  return {
+    data: {
+      status: item.status_kirim,
+      detail: `Pesan uji coba berhasil dikirim ke +${cleanPhone} (${item.respon_gateway}).`,
+    },
+  };
+}
+
 export async function triggerManualWaReminderAdmin(
   session: SessionUser,
   config: BotWaConfig,
@@ -1241,41 +1417,16 @@ export async function triggerManualWaReminderAdmin(
     return { error: 'Akses ditolak: pengiriman pengingat Bot WA manual khusus Bendahara.' };
   }
 
-  const supabase = getSupabaseClient(session);
-  if (supabase && isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase.functions.invoke('wa-reminder-ipl', {
-        body: { manual: true },
-      });
-      if (error) throw error;
-
-      const sentCount = Number((data as { sent?: number } | null)?.sent ?? 0);
-      await recordAuditLog({
-        session,
-        action: 'TRIGGER_BOT_WA_MANUAL',
-        entity: 'bot_wa_logs',
-        summary: `Menjalankan pengiriman pengingat WA manual via Edge Function wa-reminder-ipl (${sentCount} pesan diproses).`,
-      });
-      return {
-        data: {
-          sentCount,
-          message: `Pengingat manual berhasil dipicu melalui Edge Function wa-reminder-ipl.`,
-        },
-      };
-    } catch (err) {
-      return {
-        error: parseFriendlyError(
-          err,
-          'Gagal memanggil Edge Function wa-reminder-ipl. Pastikan fungsi sudah di-deploy di Supabase.'
-        ),
-      };
-    }
+  if (!config.aktif) {
+    return {
+      error: 'Bot WA masih Nonaktif. Nyalakan sakelar Status Bot WhatsApp Otomatis terlebih dahulu.',
+    };
   }
 
-  // Fallback lokal: temukan warga yang belum lunas bulan berjalan & catat log pengiriman
   const currentMonth = getCurrentBillingMonth();
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app';
+  const appUrl =
+    typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app';
 
   const unpaidWarga = wargaList.filter((w) => {
     if (!w.aktif || w.status_hunian === 'Kosong') return false;
@@ -1294,50 +1445,130 @@ export async function triggerManualWaReminderAdmin(
     };
   }
 
-  const nowIso = new Date().toISOString();
-  const newLogs: BotWaLog[] = unpaidWarga.map((w, i) => {
-    const renderedMsg = config.template_pesan
+  const targets: ProxyWaTarget[] = unpaidWarga.map((w) => ({
+    blok_rumah: w.blok_rumah,
+    nama_warga: w.nama_warga,
+    no_wa: normalizeWaNumber(w.no_wa),
+    pesan: config.template_pesan
       .replaceAll('{nama_warga}', w.nama_warga)
       .replaceAll('{blok_rumah}', w.blok_rumah)
       .replaceAll('{bulan_tagihan}', bulanNama)
       .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
-      .replaceAll('{link_aplikasi}', appUrl);
+      .replaceAll('{link_aplikasi}', appUrl),
+  }));
 
-    const hasToken = Boolean(config.api_token.trim());
-    return {
-      id: `walog-${Date.now()}-${i}`,
-      created_at: nowIso,
-      blok_rumah: w.blok_rumah,
-      nama_warga: w.nama_warga,
-      no_wa: w.no_wa,
-      jenis_pesan: `Pengingat Manual (${bulanNama})`,
-      status_kirim: config.aktif ? 'Terkirim' : 'Gagal',
-      respon_gateway: !config.aktif
-        ? 'Bot WA dalam status Nonaktif'
-        : hasToken
-          ? `OK (200) — Diproses via ${config.provider}`
-          : `OK (Simulasi Lokal) — Siap kirim via ${config.provider}`,
-      pesan: renderedMsg,
-    };
-  });
+  // 1. Jika API Token diisi, kirim nyata lewat server proxy /api/bot-wa/send
+  if (config.api_token.trim()) {
+    const proxyRes = await dispatchViaServerWaProxy(session, config, targets);
+    if (proxyRes.available) {
+      if (proxyRes.error) {
+        return { error: proxyRes.error };
+      }
 
-  const existingLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS);
-  writeLocal(STORAGE_KEYS.BOT_LOGS, [...newLogs, ...existingLogs]);
+      const nowIso = new Date().toISOString();
+      const newLogs: BotWaLog[] = (proxyRes.results || []).map((r, i) => ({
+        id: `walog-${Date.now()}-${i}`,
+        created_at: nowIso,
+        blok_rumah: r.blok_rumah,
+        nama_warga: r.nama_warga,
+        no_wa: r.no_wa,
+        jenis_pesan: `Pengingat Manual (${bulanNama})`,
+        status_kirim: r.status_kirim,
+        respon_gateway: r.respon_gateway,
+        pesan: r.pesan,
+      }));
+
+      await persistBotWaLogs(session, newLogs);
+
+      const sentCount = newLogs.filter((l) => l.status_kirim === 'Terkirim').length;
+      const failedCount = newLogs.length - sentCount;
+
+      await recordAuditLog({
+        session,
+        action: 'TRIGGER_BOT_WA_MANUAL',
+        entity: 'bot_wa_logs',
+        summary: `Pengingat WA manual bulan ${bulanNama} via ${config.provider}: ${sentCount} terkirim, ${failedCount} gagal.`,
+        metadata: { targetBlok: unpaidWarga.map((w) => w.blok_rumah) },
+      });
+
+      if (sentCount === 0 && failedCount > 0) {
+        return {
+          error: `Pengiriman gagal (${failedCount} nomor). Cek respon gateway pada Log Pengiriman: ${newLogs[0]?.respon_gateway || ''}`,
+        };
+      }
+
+      return {
+        data: {
+          sentCount,
+          message:
+            failedCount > 0
+              ? `Selesai via ${config.provider}: ${sentCount} terkirim, ${failedCount} gagal (cek Log Pengiriman).`
+              : `Pengingat tagihan ${bulanNama} berhasil dikirim via ${config.provider} ke ${sentCount} warga.`,
+        },
+      };
+    }
+  }
+
+  // 2. Fallback ke Supabase Edge Function jika hosting statis tanpa Express proxy
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.functions.invoke('wa-reminder-ipl', {
+        body: { manual: true },
+      });
+      if (error) throw error;
+
+      const sentCount = Number((data as { sent?: number } | null)?.sent ?? 0);
+      await recordAuditLog({
+        session,
+        action: 'TRIGGER_BOT_WA_MANUAL',
+        entity: 'bot_wa_logs',
+        summary: `Menjalankan pengiriman pengingat WA manual via Edge Function wa-reminder-ipl (${sentCount} pesan diproses).`,
+      });
+      return {
+        data: {
+          sentCount,
+          message: `Pengingat manual berhasil dipicu melalui Edge Function wa-reminder-ipl (${sentCount} pesan terkirim).`,
+        },
+      };
+    } catch (err) {
+      return {
+        error: parseFriendlyError(
+          err,
+          'Gagal memanggil Edge Function wa-reminder-ipl. Pastikan API Token sudah diisi atau fungsi sudah di-deploy di Supabase.'
+        ),
+      };
+    }
+  }
+
+  // 3. Fallback simulasi lokal bila API Token masih kosong
+  const nowIso = new Date().toISOString();
+  const newLogs: BotWaLog[] = targets.map((t, i) => ({
+    id: `walog-${Date.now()}-${i}`,
+    created_at: nowIso,
+    blok_rumah: t.blok_rumah,
+    nama_warga: t.nama_warga,
+    no_wa: t.no_wa,
+    jenis_pesan: `Pengingat Manual (${bulanNama})`,
+    status_kirim: 'Terkirim',
+    respon_gateway: `Simulasi Lokal (API Token belum diisi) — Siap kirim via ${config.provider}`,
+    pesan: t.pesan,
+  }));
+
+  await persistBotWaLogs(session, newLogs);
 
   await recordAuditLog({
     session,
     action: 'TRIGGER_BOT_WA_MANUAL',
     entity: 'bot_wa_logs',
-    summary: `Mengirim pengingat WA manual bulan ${bulanNama} ke ${unpaidWarga.length} unit rumah belum lunas.`,
+    summary: `Simulasi pengingat WA manual bulan ${bulanNama} ke ${unpaidWarga.length} unit rumah belum lunas.`,
     metadata: { targetBlok: unpaidWarga.map((w) => w.blok_rumah) },
   });
 
   return {
     data: {
-      sentCount: newLogs.filter((l) => l.status_kirim === 'Terkirim').length,
-      message: config.aktif
-        ? `Pengingat tagihan ${bulanNama} berhasil diproses untuk ${unpaidWarga.length} warga.`
-        : 'Bot WA sedang nonaktif. Aktifkan sakelar Bot WA terlebih dahulu untuk mengirim pesan.',
+      sentCount: newLogs.length,
+      message: `Simulasi pengiriman selesai untuk ${unpaidWarga.length} warga. Isi API Token Fonnte untuk pengiriman WhatsApp nyata.`,
     },
   };
 }
