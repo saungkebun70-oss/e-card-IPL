@@ -206,6 +206,7 @@ alter table public.status_ecard_bulanan enable row level security;
 alter table public.bot_wa_config enable row level security;
 alter table public.bot_wa_logs enable row level security;
 alter table public.audit_logs enable row level security;
+alter table public.login_attempts enable row level security;
 
 -- Kebijakan RLS users_warga (Semua Pengurus bisa tambah, Edit & Hapus khusus Bendahara)
 drop policy if exists "warga_hanya_lihat_rumah_sendiri" on public.users_warga;

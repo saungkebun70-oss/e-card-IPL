@@ -7,7 +7,7 @@ import { createServer as createViteServer } from 'vite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const LOG_DIR = path.resolve(__dirname, 'data');
 const LOG_FILE = path.join(LOG_DIR, 'audit-logs.jsonl');
 
@@ -137,12 +137,28 @@ async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');
 
+  let viteInstance: Awaited<ReturnType<typeof createViteServer>> | null = null;
+
   if (!isProd) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+    const vitePromise = createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        watch: process.env.DISABLE_HMR === 'true' ? null : undefined,
+      },
       appType: 'spa',
+    }).then((vite) => {
+      viteInstance = vite;
+      return vite;
     });
-    app.use(vite.middlewares);
+
+    app.use((req, res, next) => {
+      vitePromise
+        .then((vite) => {
+          vite.middlewares(req, res, next);
+        })
+        .catch(next);
+    });
   } else if (fs.existsSync(distDir)) {
     app.use(express.static(distDir));
     app.get('*', (_req, res) => {
@@ -150,9 +166,22 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const httpServer = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] e-Card Verifikasi & IPL Digital berjalan di http://0.0.0.0:${PORT}`);
   });
+
+  const shutdown = () => {
+    httpServer.close(() => {
+      if (viteInstance) {
+        void viteInstance.close().finally(() => process.exit(0));
+      } else {
+        process.exit(0);
+      }
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer().catch((err) => {

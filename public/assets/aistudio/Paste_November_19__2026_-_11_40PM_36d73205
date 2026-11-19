@@ -1,0 +1,264 @@
+Buatkan aplikasi web full-stack responsif bernama "e-Card Verifikasi & IPL Digital — Perumahan Saung Kebun" menggunakan React (Vite), TypeScript, Tailwind CSS, Lucide Icons, dan Supabase (@supabase/supabase-js) yang siap di-deploy ke GitHub & Vercel.---### 1. IDENTITAS & STANDAR DESAIN APLIKASI- Nama Aplikasi: e-Card Verifikasi (IPL Digital)- Sub-judul / Kop Resmi: Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B03/07)- Palet Warna: Emerald Green (#059669) sebagai warna utama, Slate Dark (#0F172A) untuk teks/header, dan Slate Light (#F8FAFC) untuk latar belakang yang bersih dan kontras tinggi.- Arsitektur Tata Letak & Navigasi Responsif: - Desktop / PC (≥ 1024px): Sidebar navigasi tetap di sisi kiri dan area kerja utama di sisi kanan. - Mobile & Tablet (< 1024px): Wajib menggunakan Bottom Navigation Bar (menu tetap di bagian bawah layar dengan ikon dan label jelas). Setiap tombol navigasi bawah harus menampilkan satu halaman/slide penuh secara terpisah (single-view slide per tab) dengan transisi halus, tanpa menumpuk seluruh fitur dalam satu halaman panjang.---### 2. KONEKSI DATABASE SUPABASE & KEAMANAN (STRICT PRIVACY ISOLATION)Gunakan environment variables VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY (sertakan fallback mode demo lokal yang bersih jika env belum diisi, namun utamakan koneksi langsung ke Supabase):1. Halaman Login Tunggal (Tanpa Daftar Warga Publik & Tanpa Tombol Auto-Click Akun Contoh): - Tampilkan dua tab login: Portal Warga dan Portal Admin / Pengurus. - Login Warga: Input Username (Blok & No. Rumah) (contoh format: B03/07) dan PIN (6 Digit) yang diberikan oleh Admin. - Aturan Isolasi Data Ketat (1 Akun = 1 Rumah): - Verifikasi login memanggil fungsi RPC Supabase login_ecard(p_blok, p_pin). - Setelah berhasil login, simpan sesi di localStorage dan kirimkan custom headers x-blok-rumah dan x-user-role pada setiap request Supabase agar kebijakan Row Level Security (RLS) aktif. - Warga sama sekali tidak bisa melihat daftar unit rumah lain, status pembayaran tetangga, ataupun berpindah akun rumah lain dari dalam aplikasi.2. Login Admin / Pengurus: - Masuk menggunakan username admin dan PIN khusus Admin untuk membuka panel pengaturan penuh.---### 3. FITUR PORTAL WARGA (4 SLIDE HALAMAN DI BOTTOM NAVIGATION)Untuk tampilan Mobile/Tablet, tombol navigasi bawah warga terdiri dari 4 Tab Slide:- Tab 1 — Beranda & e-Card Digital: - Kartu identitas digital modern (e-Card Verifikasi) yang menampilkan: Nama Kepala Keluarga, Blok/No. Rumah, Status Hunian (Tetap / Kontrak), dan Badge Status Bulan Berjalan (LUNAS, MENUNGGU VERIFIKASI, atau BELUM BAYAR). - Matriks Status 12 Bulan (Januari – Desember 2026): Kotak indikator per bulan yang membaca tabel status_ecard_bulanan (Hijau = Lunas, Kuning = Menunggu Verifikasi, Merah = Jatuh Tempo/Belum Bayar, Abu-abu = Belum Tagihan). - Info siklus tagihan: Nominal standar IPL Rp 100.000/bulan, terbit tagihan tanggal 1, dan jatuh tempo tanggal 7 setiap bulan.- Tab 2 — Setor Iuran (Wajib Bukti Transaksi): - Identitas Blok/No. Rumah dan Nama Warga terisi otomatis dan terkunci (read-only). - Pilihan Bulan yang Dibayar (checkbox multi-bulan dari Januari–Desember sehingga warga bisa membayar 1 bulan atau beberapa bulan sekaligus). - Pilihan Metode Pembayaran: - Transfer Bank / E-Wallet (tampilkan nomor rekening Kas Lingkungan dengan tombol Salin Nomor Rekening). - Setor Tunai (tampilkan dropdown pilih Petugas Penerima: Erlangga, Andriansyah, Doni, Wahyu, Pa Iwan, Deny). - Input Nominal Setoran (terhitung otomatis jumlah bulan × Rp 100.000, namun tetap bisa diedit manual jika ada setoran khusus/dana darurat). - Upload Bukti Transaksi (WAJIB): Tombol kirim (Submit Setoran) nonaktif (disabled) sebelum warga memilih file gambar bukti transfer/kwitansi tunai. Tampilkan preview gambar sebelum diunggah ke Supabase Storage bucket bukti-ipl dan disimpan ke tabel transaksi_ipl.- Tab 3 — Riwayat Setoran & e-Kwitansi: - Daftar seluruh riwayat transaksi rumah tersebut dari tabel transaksi_ipl diurutkan dari yang terbaru. - Menampilkan: Tanggal setor, bulan yang dibayar, nominal, metode bayar, status verifikasi (Terverifikasi, Pending, atau Ditolak beserta catatan_admin), tombol Lihat Bukti Foto, dan tombol cetak/lihat e-Kwitansi Lunas Digital (jika sudah terverifikasi).- Tab 4 — Profil & Keamanan Akun: - Menampilkan data profil rumah: Nama KK, Blok/No. Rumah, Status Hunian, dan Nomor WhatsApp terdaftar. - Tombol pintas Hubungi Pengurus via WhatsApp (untuk permintaan reset PIN atau perubahan nomor WA) dan tombol Keluar (Logout).---### 4. FITUR PORTAL ADMIN / PENGURUS (4 SLIDE HALAMAN DI BOTTOM NAVIGATION)Untuk tampilan Mobile/Tablet, tombol navigasi bawah Admin terdiri dari 4 Tab Slide:- Tab 1 — Dashboard & Verifikasi Setoran Masuk: - Kartu ringkasan kas bulan berjalan: Total Pemasukan Terverifikasi, Jumlah Rumah Lunas, Jumlah Belum Bayar, dan Jumlah Antrean Verifikasi. - Daftar Verifikasi Setoran: Menampilkan transaksi berstatus Pending dari warga lengkap dengan preview foto bukti bayar. - Tombol Setujui (Approve) (mengubah status menjadi Terverifikasi—yang otomatis menyinkronkan status_ecard_bulanan menjadi Lunas) dan tombol Tolak (Reject) dengan modal input alasan penolakan.- Tab 2 — Master Data Warga & Manajemen PIN: - Kelola seluruh data unit rumah Perumahan Saung Kebun pada tabel users_warga (Tambah Warga Baru, Edit Data, Nonaktifkan/Hapus). - Field: Blok & No. Rumah (sebagai Username), Nama Warga, No. WhatsApp (628xxx), Status Hunian (Tetap, Kontrak, Kosong), Nominal Iuran Wajib, dan PIN Akses (6 Digit). - Tombol Acak / Reset PIN pada setiap baris warga serta tombol Salin Info Login (menyalin teks siap kirim ke WA warga berisi link aplikasi, Username Blok/No. Rumah, dan PIN baru).- Tab 3 — Pengaturan Bot WhatsApp Otomatis: - Terhubung langsung ke tabel bot_wa_config dan bot_wa_logs: - Sakelar Aktif / Nonaktif Bot WA. - Pilihan Provider Gateway (Fonnte atau Wablas), input API Endpoint URL, dan API Token. - Checkbox Jadwal Otomatis Bulanan: Tagihan Awal Bulan (Tanggal 1), Pengingat H-1 (Tanggal 6), Jatuh Tempo Hari H (Tanggal 7), dan Pengingat Keterlambatan (Tanggal 8+). - Editor Template Pesan: Textarea untuk menyusun pesan dengan variabel dinamis {nama_warga}, {blok_rumah}, {bulan_tagihan}, {nominal_tagihan}, dan {link_aplikasi}. - Tombol Simpan Konfigurasi, tombol Kirim Pengingat Sekarang (memanggil supabase.functions.invoke('wa-reminder-ipl', { body: { manual: true } }) untuk mengirim tagihan ke seluruh warga yang belum bayar bulan ini), serta tabel Log Riwayat Pengiriman Bot WA.- Tab 4 — Rekap Matriks & Laporan Kas: - Matriks Pembayaran 12 Bulan (Jan–Des): Tabel rekapitulasi seluruh blok rumah dengan filter per Blok (B03, B05, B06, B07, B08, dll.) dan filter status (Semua, Lunas, Menunggak). - Fitur Input Setoran Tunai Manual oleh Admin (untuk warga yang membayar langsung secara tunai tanpa mengunggah sendiri, otomatis berstatus Terverifikasi). - Tombol Export Laporan ke CSV / Excel (mencakup rekap bulanan, alokasi dana darurat untuk setoran di bawah Rp 100.000, dan laporan kas untuk pertanggungjawaban pengurus).---### 5. DATA AWAL (SEED DATA UNTUK FALLBACK MODE LOKAL)Sertakan data awal yang realistis namun jangan tampilkan kredensialnya di layar login:- Admin: admin / PIN 123456- Warga: - B03/07 | Nama: Erlangga | PIN: 112233 | WA: 6281234567890 | Status: Tetap - B05/07 | Nama: Tina | PIN: 223344 | WA: 6281298765432 | Status: Tetap - B06/02 | Nama: Bintang | PIN: 334455 | WA: 6281311223344 | Status: KontrakPastikan seluruh kode bersih, bebas error TypeScript, responsif sempurna di HP, Tablet, maupun PC, serta memiliki penanganan error jaringan yang ramah pengguna. Tambahkan juga sistem logging untuk melacak setiap aktivitas perubahan data di server.
+Gemini 4 Neon
+Ran for 12m 47s
+
+Action history
+Here are key actions taken for the app:
+
+Installed 2 packages
+Edited 28 files
+metadata.json
+index.html
+.env.example
+vercel.json
+src/index.css
+package.json
+server.ts
+src/types/index.ts
+src/lib/supabase.ts
+src/lib/format.ts
+src/lib/seedData.ts
+src/lib/auditLogger.ts
+src/lib/dataService.ts
+src/lib/exportReport.ts
+supabase/schema.sql
+src/components/Toast.tsx
+src/components/LoginView.tsx
+src/components/AppShell.tsx
+src/components/warga/WargaHomeSlide.tsx
+src/components/warga/WargaSetorSlide.tsx
+src/components/warga/WargaRiwayatSlide.tsx
+src/components/warga/WargaProfilSlide.tsx
+src/components/admin/AdminDashboardSlide.tsx
+src/components/admin/AdminWargaSlide.tsx
+src/components/admin/AdminBotWaSlide.tsx
+src/components/admin/AdminRekapSlide.tsx
+src/App.tsx
+.gitignore
+Built
+Aplikasi e-Card Verifikasi & IPL Digital — Perumahan Saung Kebun telah selesai dibangun dan siap di-deploy ke GitHub, Vercel, dan Supabase.
+Ringkasan Fitur & Arsitektur
+Identitas & Tata Letak Responsif
+Mengusung palet Emerald Green (#059669), Slate Dark (#0F172A), dan Slate Light (#F8FAFC) beserta Kop Resmi Pengurus Lingkungan Perumahan Saung Kebun (Desa Bengle, Kec. Majalaya, Kab. Karawang — Sekretariat: Blok B03/07).
+Desktop (≥ 1024px): Sidebar navigasi tetap di sisi kiri dengan area kerja penuh di kanan.
+Mobile & Tablet (< 1024px): Bottom Navigation Bar tetap di bawah layar dengan 4 tab terpisah (single-view slide per tab) dan transisi halus.
+Koneksi Supabase, Isolasi Privasi Ketat & Mode Fallback Lokal
+Mendukung langsung @supabase/supabase-js melalui VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY, lengkap dengan skrip skema & kebijakan RLS (supabase/schema.sql) serta konfigurasi routing SPA (vercel.json).
+Autentikasi memanggil RPC login_ecard(p_blok, p_pin) dan otomatis mengirimkan custom headers x-blok-rumah serta x-user-role pada setiap permintaan Supabase untuk isolasi Row Level Security (1 Akun = 1 Rumah).
+Halaman login tunggal dengan tab Portal Warga dan Portal Admin, tanpa daftar warga publik maupun tombol akun contoh. Jika variabel lingkungan Supabase belum diisi, aplikasi otomatis berjalan pada mode demo lokal dengan data awal (admin, B03/07, B05/07, B06/02).
+Portal Warga (4 Tab Slide)
+Beranda & e-Card: Kartu verifikasi digital dengan status bulan berjalan (LUNAS, MENUNGGU VERIFIKASI, atau BELUM BAYAR), matriks status 12 bulan (Januari–Desember 2026) yang dapat diketuk untuk langsung menyetor, serta info siklus tagihan (Rp 100.000/bln, terbit tgl 1, jatuh tempo tgl 7).
+Setor Iuran: Identitas blok & nama terkunci (read-only), pemilihan multi-bulan, metode Transfer Bank / E-Wallet (dengan tombol Salin Nomor Rekening) dan Setor Tunai (dropdown petugas: Erlangga, Andriansyah, Doni, Wahyu, Pa Iwan, Deny), kalkulasi nominal otomatis yang dapat diedit manual, serta wajib unggah foto bukti transaksi dengan pratinjau sebelum tombol Submit Setoran aktif (unggah ke bucket bukti-ipl).
+Riwayat & Kwitansi: Daftar transaksi terbaru, catatan penolakan admin jika ditolak, pratinjau foto bukti, dan e-Kwitansi Lunas Digital siap cetak/simpan PDF untuk setoran terverifikasi.
+Profil & Akun: Ringkasan data rumah, tombol pintas Hubungi Pengurus via WhatsApp, dan tombol keluar.
+Portal Admin / Pengurus (4 Tab Slide)
+Dashboard & Verifikasi: Ringkasan kas bulan berjalan, antrean verifikasi transaksi Pending dengan pratinjau foto bukti, aksi Setujui (Approve) yang otomatis menyinkronkan status_ecard_bulanan menjadi Lunas, serta aksi Tolak (Reject) dengan modal alasan penolakan.
+Master Warga & PIN: Tambah, edit, dan hapus data unit rumah (users_warga), tombol Acak / Reset PIN (6 Digit), serta Salin Info Login siap kirim ke WhatsApp warga.
+Bot WhatsApp Otomatis: Sakelar aktif/nonaktif, pilihan gateway (Fonnte / Wablas), endpoint & token, jadwal otomatis (Tgl 1, 6, 7, 8+), editor template pesan bervariabel dinamis dengan pratinjau langsung, pemicu Kirim Pengingat Sekarang (wa-reminder-ipl), dan log pengiriman (bot_wa_logs).
+Rekap & Laporan: Matriks pembayaran 12 bulan seluruh unit dengan filter Blok & Status, modal Input Setoran Tunai Manual oleh Admin (otomatis Terverifikasi), serta Export CSV & Excel (.xlsx) yang mencakup rekap matriks, laporan kas, dan pemisahan Alokasi Dana Darurat untuk setoran di bawah Rp 100.000/bulan.
+Sistem Logging Aktivitas Server
+Setiap aktivitas penting (login, setoran warga, verifikasi/penolakan, CRUD warga, reset PIN, perubahan konfigurasi bot WA, input tunai manual, dan ekspor laporan) dicatat secara terstruktur ke server Express (/api/audit-logs) dan disinkronkan ke tabel audit_logs Supabase, serta dapat ditinjau oleh Pengurus melalui tombol Log Aktivitas Server di Dashboard Admin.
+Checkpoint
+Bagaimana jika banyak user yang akses?
+Gemini 4 Neon
+Ran for 32s
+Untuk skala perumahan (misalnya 100–500+ KK yang mengakses bersamaan saat tanggal 1–7 setelah notifikasi WhatsApp terkirim), arsitektur Vercel + Supabase pada aplikasi ini pada dasarnya sudah sangat kuat, tetapi ada beberapa titik yang perlu diperhatikan agar tetap cepat, hemat kuota, dan aman:
+1. Yang Sudah Aman Saat Trafik Ramai
+Frontend di Vercel (Global CDN): File HTML/JS/CSS disajikan langsung dari CDN edge, sehingga ribuan warga membuka aplikasi bersamaan tidak membebani server backend.
+Isolasi Query Warga (RLS): Setiap warga hanya mengambil data 1 rumah miliknya sendiri (1 profil + 12 baris status bulanan + riwayat pribadi), sehingga beban query per warga sangat kecil.
+Database PostgreSQL Supabase: Sudah mendukung koneksi konkuren ratusan pengguna sekaligus lewat connection pooling.
+2. Potensi Bottleneck & Batasan (Jika User Sangat Banyak)
+Ukuran Foto Bukti Transfer (Paling Cepat Terasa)
+Saat ini batas unggah foto adalah 6 MB tanpa kompresi. Jika 300 warga mengunggah foto kamera HP masing-masing 4 MB setiap bulan, pemakaian penyimpanan mencapai ~1,2 GB/bulan (melebihi batas Free Tier Supabase Storage 1 GB) dan membuat halaman verifikasi Admin melambat.
+Solusi: Tambahkan kompresi gambar otomatis di browser (mengubah ke JPEG/WebP resolusi maks 1280px, ukuran ~150–250 KB) sebelum dikirim ke Supabase Storage.
+Indeks Database (supabase/schema.sql)
+Saat data transaksi mencapai ribuan baris, query filter blok_rumah, status_verifikasi = 'Pending', dan pengurutan tanggal_setor DESC akan jauh lebih cepat jika diberi database index eksplisit.
+Pemuatan Data Admin Sekaligus (Tanpa Paginasi)
+Portal Admin saat ini mengambil seluruh transaksi_ipl dan status_ecard_bulanan sekaligus. Untuk ≤ 300 unit dalam 1 tahun masih sangat lancar, tetapi jika data sudah menumpuk beberapa tahun atau > 500 unit, sebaiknya diterapkan paginasi & filter per tahun agar memori browser Admin tetap ringan.
+Rate Limit Pengiriman Bot WhatsApp
+Jika Admin mengirim pengingat massal ke ratusan warga sekaligus dalam 1 detik, nomor WA pengirim berisiko terkena pembatasan/blokir oleh WhatsApp.
+Solusi: Pada Edge Function wa-reminder-ipl, pengiriman sebaiknya dilakukan secara antrean bertahap (batching) dengan jeda acak 2–5 detik antar pesan (atau memanfaatkan fitur delay bawaan Fonnte/Wablas).
+Proteksi Brute-Force PIN Login
+Karena login warga memakai PIN 6 digit, jika ada pihak mencoba menebak PIN berulang kali, RPC login_ecard idealnya dilengkapi pembatasan percobaan gagal (misalnya terkunci 5 menit setelah 5 kali salah PIN).
+Batas Kuota Paket Gratis (Free Tier)
+Supabase Free Tier menyediakan 500 MB database, 1 GB storage, dan 5 GB bandwidth/bulan—cukup nyaman untuk ± 100–300 KK aktif (terutama bila foto dikompres). Jika melampaui itu atau ingin backup harian otomatis, cukup upgrade ke Supabase Pro tanpa perlu mengubah kode aplikasi.
+Kalau Anda mau, saya bisa langsung menerapkan optimasi prioritas sekarang:
+Kompresi otomatis foto bukti transfer di browser sebelum upload (hemat storage hingga 90%).
+Penambahan Index SQL & proteksi batas percobaan PIN di supabase/schema.sql.
+Paginasi / load-more pada tabel riwayat dan log Admin.
+Apakah ingin saya langsung tambahkan optimasi tersebut?
+Ya buatkan
+Gemini 4 Neon
+Ran for 5m 24s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 11 files
+src/lib/imageCompressor.ts
+supabase/functions/wa-reminder-ipl/index.ts
+supabase/schema.sql
+server.ts
+src/lib/dataService.ts
+src/components/warga/WargaSetorSlide.tsx
+src/components/admin/AdminWargaSlide.tsx
+src/components/admin/AdminRekapSlide.tsx
+src/components/admin/AdminBotWaSlide.tsx
+src/components/admin/AdminDashboardSlide.tsx
+tsconfig.json
+Built
+Seluruh optimasi skalabilitas dan keamanan untuk trafik tinggi telah diterapkan:
+Kompresi Otomatis Foto Bukti Transaksi (Sisi Browser)
+Foto bukti transfer/kwitansi yang dipilih warga otomatis diubah ukurannya (maksimal 1280px, JPEG kualitas 78%) sebelum diunggah ke Supabase Storage bucket bukti-ipl.
+Menghemat ruang penyimpanan & bandwidth hingga ~85–90% serta menampilkan ringkasan penghematan ukuran langsung di pratinjau unggahan (contoh: 4.2 MB → 180 KB).
+Indeks Performa SQL & Proteksi Brute-Force PIN Login
+Menambahkan 8 indeks database komposit pada tabel users_warga, transaksi_ipl, status_ecard_bulanan, bot_wa_logs, dan audit_logs agar query tetap cepat untuk ratusan unit rumah dan ribuan transaksi.
+Menambahkan pembatasan percobaan login (baik di fungsi RPC Supabase login_ecard melalui tabel login_attempts maupun di mode demo lokal): maksimal 5 kali salah PIN akan mengunci sementara selama 5 menit, dan otomatis ter-reset saat login berhasil.
+Query Admin kini dibatasi ke periode tahun aktif agar pemuatan data tetap ringan lintas tahun.
+Paginasi & Muat Bertahap di Portal Admin
+Master Data Warga dan Matriks Pembayaran 12 Bulan: dilengkapi paginasi 20 unit per halaman (ekspor CSV & Excel tetap mengekspor seluruh unit).
+Antrean Verifikasi Pending, Log Pengiriman Bot WA, dan Log Aktivitas Server: menampilkan data bertahap dengan tombol Tampilkan Lebih Banyak agar tampilan tetap responsif di HP maupun PC.
+Non-Blocking Server Logger & Edge Function Bot WA Anti-Ban
+Pencatatan log aktivitas di server Express diubah menjadi antrean penulisan asinkron non-blocking dengan ring buffer memori agar tidak memblokir saat banyak permintaan datang bersamaan.
+Ditambahkan juga kode Supabase Edge Function wa-reminder-ipl siap deploy dengan jeda acak 2–4 detik antar pesan untuk gateway Fonnte/Wablas agar aman dari pembatasan rate-limit WhatsApp.
+Checkpoint
+Untuk admin nama dan pin nya apa
+Gemini 4 Neon
+Ran for 10s
+Untuk masuk melalui tab Portal Admin, gunakan kredensial berikut:
+Username: admin
+PIN (6 Digit): 123456
+Sebagai referensi untuk pengujian tab Portal Warga (mode lokal):
+B03/07 (Erlangga) — PIN: 112233
+B05/07 (Tina) — PIN: 223344
+B06/02 (Bintang) — PIN: 334455
+(Kredensial ini memang sengaja tidak ditampilkan di halaman login sesuai standar privasi aplikasi. Jika sudah terhubung ke Supabase, Anda dapat mengubah PIN admin langsung di tabel users_warga.)
+Admin ketua (erlangga),bendahara (andriansyah),humas (doni, & wahyu),seksi olahraga (deny),pembina (pa iwan ) untuk akses data edit ,add,hapus (bendahara) untuk lain nya hanya add sajab
+Gemini 4 Neon
+Ran for 3m 1s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 11 files
+src/types/index.ts
+src/lib/seedData.ts
+src/lib/supabase.ts
+src/lib/dataService.ts
+supabase/schema.sql
+src/components/AppShell.tsx
+src/components/admin/AdminWargaSlide.tsx
+src/components/admin/AdminDashboardSlide.tsx
+src/components/admin/AdminBotWaSlide.tsx
+src/components/admin/AdminRekapSlide.tsx
+src/App.tsx
+Built
+Hak akses berbasis jabatan (Role-Based Access Control / RBAC) untuk seluruh Pengurus Lingkungan telah diterapkan pada tampilan aplikasi, lapisan validasi layanan, dan kebijakan Row Level Security (RLS) Supabase.
+Daftar Akun Portal Admin / Pengurus
+Jabatan	Nama	Username	PIN (6 Digit)	Hak Akses
+Bendahara	Andriansyah	andriansyah (atau admin PIN 123456)	200001	Akses Penuh (Tambah, Edit, Hapus, Reset PIN, Verifikasi Setoran, Pengaturan Bot WA)
+Ketua	Erlangga	erlangga	100001	Tambah Data Saja (Tambah Warga & Input Setoran Tunai Manual)
+Humas	Doni	doni	300001	Tambah Data Saja (Tambah Warga & Input Setoran Tunai Manual)
+Humas	Wahyu	wahyu	300002	Tambah Data Saja (Tambah Warga & Input Setoran Tunai Manual)
+Seksi Olahraga	Deny	deny	400001	Tambah Data Saja (Tambah Warga & Input Setoran Tunai Manual)
+Pembina	Pa Iwan	paiwan (atau pa iwan)	500001	Tambah Data Saja (Tambah Warga & Input Setoran Tunai Manual)
+Ringkasan Pembatasan Hak Akses
+Khusus Bendahara (Andriansyah):
+Dapat Tambah, Edit, Reset PIN, dan Hapus unit warga pada Master Data Warga.
+Dapat Menyetujui (Approve) dan Menolak (Reject) antrean setoran masuk.
+Dapat mengubah konfigurasi dan memicu pengiriman Bot WhatsApp Otomatis.
+Pengurus Lainnya (Ketua, Humas, Seksi Olahraga, Pembina):
+Dapat menambah warga baru (Tambah Warga Baru), menyalin info login warga, memantau Dashboard/Matriks/Log, mengekspor laporan CSV/Excel, dan menginput setoran tunai manual (nama petugas penerima otomatis terisi sesuai akun pengurus yang login).
+Tombol Edit, Reset PIN, Hapus, Verifikasi (Approve/Tolak), dan Simpan Konfigurasi Bot WA disembunyikan/dinonaktifkan di UI sekaligus ditolak di lapisan service & kebijakan RLS Supabase (x-admin-permission = 'full').
+Tampilan Identitas & Logout Mobile: Nama, jabatan, serta level akses pengurus kini tampil di sidebar desktop dan header, dilengkapi tombol Keluar pada tampilan HP/Tablet untuk Portal Admin.
+Checkpoint
+There was an unexpected error. Finish what you were doing.
+Gemini 4 Neon
+Ran for 4s
+Built
+Ran quality control
+Seluruh perubahan hak akses Pengurus (RBAC) sudah selesai diterapkan, terverifikasi bebas error TypeScript (tsc --noEmit), dan berhasil di-build dengan normal.
+Status Akun & Hak Akses Pengurus (Siap Digunakan)
+Bendahara (andriansyah / PIN 200001, atau admin / PIN 123456): Akses penuh (Tambah, Edit, Hapus, Reset PIN, Verifikasi Setoran, dan Pengaturan Bot WA).
+Ketua (erlangga / PIN 100001), Humas (doni / 300001, wahyu / 300002), Seksi Olahraga (deny / 400001), Pembina (paiwan / 500001): Hak akses Tambah Data Saja (tambah warga baru, salin info login, input setoran tunai manual, lihat rekap & ekspor laporan). Aksi Edit, Hapus, Reset PIN, Verifikasi, dan ubah konfigurasi Bot WA terkunci di UI, layanan data, dan kebijakan RLS Supabase.
+Silakan langsung dicoba atau beri tahu jika ada fitur lain yang ingin disesuaikan.
+Generate a professional, minimalist, and modern logo for 'e-Card Verifikasi & IPL Digital Perumahan Saung Kebun' using Imagen. It should incorporate natural green elements (Emerald Green) and a stylized house or card motif. After generation, update the LoginView to display this logo prominently at the top.
+Gemini 4 Neon
+Ran for 3m 3s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 3 files
+src/components/BrandLogo.tsx
+src/components/LoginView.tsx
+src/components/AppShell.tsx
+Built
+A minimalist emblem logo for e-Card Verifikasi & IPL Digital — Perumahan Saung Kebun has been generated and integrated into the application:
+Logo Design: Combines a deep slate rounded e-Card silhouette, a stylized modern house roofline, and an emerald green leaf motif on a clean white canvas.
+Login Screen Placement: Displayed prominently at the top of the login identity banner across all screen sizes and centered above the login form on desktop, with an automatic icon fallback for reliability.
+Consistent Branding: Also applied to the desktop navigation sidebar so the visual identity remains unified after signing in.
+Checkpoint
+Harus apa
+Screenshot_20261119_164512_Chrome.jpg
+Screenshot_20261119_164512_Chrome.jpg
+Gemini 4 Neon
+Ran for 4m 7s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 1 file
+supabase/schema.sql
+Dari layar Supabase e-card-IPL yang sedang Anda buka, ikuti 3 langkah singkat ini agar aplikasi langsung tersambung ke database Supabase Anda:
+Langkah 1 — Salin 2 Kunci dari Layar Tersebut
+Di popup yang muncul pada screenshot Anda, Anda hanya perlu menyalin 2 baris teratas saja:
+Project URL (https://uhxhgnkdelcetwtizokd.supabase.co)
+→ dipakai untuk VITE_SUPABASE_URL
+Publishable key (sb_publishable_5bIKBJb1R0cWzNl0...)
+→ dipakai untuk VITE_SUPABASE_ANON_KEY
+(Jangan pakai Direct connection string / postgresql://... karena itu hanya untuk koneksi database langsung, bukan untuk frontend Vite/Vercel.)
+Langkah 2 — Buat Tabel, RLS & Storage di Supabase SQL Editor
+Di Supabase, ketuk tombol menu garis tiga (☰) di pojok kanan atas.
+Pilih SQL Editor → tekan New query.
+Buka file supabase/schema.sql dari kode aplikasi ini, salin seluruh isinya, lalu tempel ke SQL Editor dan tekan Run.
+Pastikan muncul keterangan Success. Ini otomatis membuat:
+Semua tabel (users_warga, transaksi_ipl, status_ecard_bulanan, bot_wa_config, bot_wa_logs, audit_logs, login_attempts)
+Fungsi login login_ecard + proteksi 5x salah PIN
+Kebijakan privasi per rumah & hak akses Bendahara (RLS)
+Bucket penyimpanan foto bukti bukti-ipl beserta izin unggahnya
+Akun awal Pengurus (Ketua, Bendahara, Humas, Seksi Olahraga, Pembina) & 3 Warga contoh.
+Langkah 3 — Masukkan 2 Variabel ke AI Studio / Vercel
+Untuk mencoba langsung di AI Studio:
+Buka panel Secrets / Environment Variables di AI Studio, lalu tambahkan:
+VITE_SUPABASE_URL = https://uhxhgnkdelcetwtizokd.supabase.co
+VITE_SUPABASE_ANON_KEY = (tempel Publishable key lengkap Anda)
+Untuk deploy ke GitHub & Vercel:
+Push kode proyek ini ke repositori GitHub Anda.
+Import repositori di Vercel → buka Settings → Environment Variables.
+Tambahkan 2 variabel yang sama (VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY), lalu klik Deploy / Redeploy.
+Begitu 2 variabel tersebut terisi dan supabase/schema.sql sudah dijalankan, aplikasi akan otomatis beralih dari mode demo lokal ke database Supabase asli Anda. Jika ada error saat menekan Run di SQL Editor, kirim saja screenshot-nya agar langsung saya bantu perbaiki.
+Checkpoint
+The dev server didn't start, please fix it
+Gemini 4 Hydrogen
+Ran for 0s
+Your app environment is busy with another operation. Please wait a moment and try again.
+There was an unexpected error. Finish what you were doing.
+Gemini 4 Neon
+Ran for 11m 40s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 1 file
+server.ts
+Built
+The dev server startup issue has been fixed and verified live on port 3000:
+Instant Port Binding: Express now binds port 3000 immediately on startup while Vite middleware initializes asynchronously, preventing cold-start timeouts.
+No HMR Port Collision: Explicitly disabled Vite's HMR WebSocket server (hmr: false) in middleware mode to eliminate port 24678 conflicts during restarts.
+Graceful Shutdown: Added SIGTERM/SIGINT cleanup handlers so restarts release port 3000 and Vite resources cleanly.
+Verified: Build, TypeScript checks, dev server restart, /api/health, and / all returned 200 OK.
+Checkpoint
+Suggestions
+Make changes, add new features, ask for anything
+
