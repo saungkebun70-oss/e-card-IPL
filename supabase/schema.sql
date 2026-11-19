@@ -325,3 +325,15 @@ on conflict (blok_rumah) do update set
 insert into storage.buckets (id, name, public)
 values ('bukti-ipl', 'bukti-ipl', true)
 on conflict (id) do nothing;
+
+-- Kebijakan Storage agar Warga & Admin bisa mengunggah serta melihat foto bukti transfer
+drop policy if exists "bukti_ipl_public_read" on storage.objects;
+create policy "bukti_ipl_public_read" on storage.objects
+  for select using (bucket_id = 'bukti-ipl');
+
+drop policy if exists "bukti_ipl_upload_warga_admin" on storage.objects;
+create policy "bukti_ipl_upload_warga_admin" on storage.objects
+  for insert with check (bucket_id = 'bukti-ipl');
+
+-- Pastikan fungsi RPC login_ecard dapat dipanggil oleh client (Publishable / Anon Key)
+grant execute on function public.login_ecard(text, text) to anon, authenticated;
