@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Home, Lock, ShieldCheck, ArrowRight, AlertCircle, Building2 } from 'lucide-react';
+import { Eye, EyeOff, Home, Lock, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { KOP_RESMI, NAMA_APLIKASI, type SessionUser } from '../types';
 import { loginPortal } from '../lib/dataService';
+import { BrandLogo } from './BrandLogo';
 
 interface LoginViewProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -53,17 +54,19 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
         />
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6 text-white" />
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <BrandLogo size="xl" className="border-white/15 shadow-lg shadow-black/25" />
             <div>
-              <p className="text-base font-bold tracking-tight text-white">{NAMA_APLIKASI}</p>
-              <p className="text-xs text-slate-300">IPL Digital — Perumahan Saung Kebun</p>
+              <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                {NAMA_APLIKASI}
+              </p>
+              <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5">
+                IPL Digital — Perumahan Saung Kebun
+              </p>
             </div>
           </div>
 
-          <div className="mt-8 lg:mt-14 max-w-md">
+          <div className="mt-7 lg:mt-12 max-w-md">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight [text-wrap:balance]">
               Verifikasi e-Card &amp; Iuran Lingkungan Digital
             </h1>
@@ -98,7 +101,8 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
       {/* Panel Form Login Tunggal */}
       <main className="flex-1 flex items-center justify-center p-5 sm:p-8 lg:p-14">
         <div className="w-full max-w-md">
-          <div className="mb-6">
+          <div className="mb-6 flex flex-col lg:items-center lg:text-center">
+            <BrandLogo size="lg" className="hidden lg:flex mb-4" />
             <h2 className="text-2xl font-bold text-[#0F172A] tracking-tight">Masuk ke Portal</h2>
             <p className="text-sm text-slate-500 mt-1">
               Pilih jenis akses dan masukkan kredensial yang terdaftar oleh Pengurus.

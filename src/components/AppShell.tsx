@@ -1,7 +1,8 @@
 import React from 'react';
-import { Building2, LogOut, type LucideIcon } from 'lucide-react';
+import { LogOut, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { KOP_RESMI, NAMA_APLIKASI, type SessionUser } from '../types';
+import { BrandLogo } from './BrandLogo';
 
 export interface NavItem {
   id: string;
@@ -38,9 +39,7 @@ export function AppShell({
       <aside className="hidden lg:flex lg:flex-col lg:w-64 xl:w-72 lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30">
         <div className="px-6 py-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#059669] flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
+            <BrandLogo size="sm" className="border-white/15" />
             <div className="min-w-0">
               <p className="text-sm font-bold tracking-tight text-white truncate">{NAMA_APLIKASI}</p>
               <p className="text-xs text-slate-400 truncate">Perumahan Saung Kebun</p>
