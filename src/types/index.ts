@@ -204,8 +204,9 @@ export const TANGGAL_JATUH_TEMPO = 7;
 
 export const NAMA_APLIKASI = 'e-Card Verifikasi';
 export const SUB_NAMA_APLIKASI = 'IPL Digital — Perumahan Saung Kebun';
+export const APP_PORTAL_URL = 'https://e-card-ipl.vercel.app';
 export const KOP_RESMI =
-  'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B03/07)';
+  'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)';
 export const WA_PENGURUS = '6281234567890';
 
 export const SUSUNAN_PENGURUS: PengurusItem[] = [
@@ -274,7 +275,56 @@ export const BULAN_LIST = [
 export const TEMPLATE_VARIABLES = [
   '{nama_warga}',
   '{blok_rumah}',
+  '{pin_akses}',
   '{bulan_tagihan}',
   '{nominal_tagihan}',
   '{link_aplikasi}',
 ] as const;
+
+export const WA_TAGIHAN_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama_warga} (Blok {blok_rumah}),
+
+Berikut pengingat Iuran Pemeliharaan Lingkungan (IPL) Perumahan Saung Kebun untuk bulan {bulan_tagihan} sebesar {nominal_tagihan}.
+
+Mohon melakukan penyetoran sebelum tanggal 7 dan mengunggah bukti pembayaran melalui portal e-Card Digital:
+{link_aplikasi}
+
+Terima kasih atas partisipasi Anda.
+Pengurus Lingkungan Perumahan Saung Kebun`;
+
+export const WA_ACCESS_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama_warga} (Blok {blok_rumah}),
+
+Berikut informasi akses akun resmi *Portal e-Card Verifikasi & IPL Digital Perumahan Saung Kebun*:
+
+🌐 *Link Portal:* {link_aplikasi}
+🏠 *Username (Blok/No. Rumah):* {blok_rumah}
+🔐 *PIN Akses (6 Digit):* {pin_akses}
+
+*Cara Masuk:*
+1. Buka link {link_aplikasi}
+2. Pilih menu masuk *Warga*
+3. Masukkan Username *{blok_rumah}* dan PIN *{pin_akses}*
+4. Cek status e-Card bulanan, setor iuran (QRIS / Transfer / Titip Pengurus), dan unduh kwitansi digital.
+
+Mohon simpan PIN ini dengan baik dan jangan dibagikan kepada pihak lain.
+Terima kasih,
+*Pengurus Lingkungan Perumahan Saung Kebun*`;
+
+export const WA_BOT_PRESET_TEMPLATES: Array<{
+  id: 'tagihan' | 'akses_pin';
+  label: string;
+  deskripsi: string;
+  template: string;
+}> = [
+  {
+    id: 'tagihan',
+    label: 'Template Tagihan IPL',
+    deskripsi: 'Pengingat tagihan bulanan & jatuh tempo tanggal 7',
+    template: WA_TAGIHAN_TEMPLATE_DEFAULT,
+  },
+  {
+    id: 'akses_pin',
+    label: 'Template Akses Akun & PIN',
+    deskripsi: 'Kirim link https://e-card-ipl.vercel.app, Username Blok & PIN 6 digit warga',
+    template: WA_ACCESS_TEMPLATE_DEFAULT,
+  },
+];

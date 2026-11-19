@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
     // @ts-expect-error -- Deno.env di runtime Supabase
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     // @ts-expect-error -- Deno.env di runtime Supabase
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://saungkebun.vercel.app';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://e-card-ipl.vercel.app';
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const body = await req.json().catch(() => ({}));
@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
     const [{ data: wargaList }, { data: statusBulanIni }] = await Promise.all([
       supabase
         .from('users_warga')
-        .select('blok_rumah, nama_warga, no_wa, nominal_iuran, status_hunian')
+        .select('blok_rumah, nama_warga, no_wa, nominal_iuran, status_hunian, pin_akses')
         .eq('role', 'warga')
         .eq('aktif', true)
         .neq('status_hunian', 'Kosong'),
@@ -116,6 +116,7 @@ Deno.serve(async (req: Request) => {
       const pesan = String(config.template_pesan || '')
         .replaceAll('{nama_warga}', w.nama_warga)
         .replaceAll('{blok_rumah}', w.blok_rumah)
+        .replaceAll('{pin_akses}', w.pin_akses || '')
         .replaceAll('{bulan_tagihan}', bulanLabel)
         .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
         .replaceAll('{link_aplikasi}', appUrl);

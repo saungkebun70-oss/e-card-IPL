@@ -9,11 +9,14 @@ import {
   MessageSquare,
   Phone,
   Loader2,
+  KeyRound,
 } from 'lucide-react';
 import {
+  APP_PORTAL_URL,
   isBendaharaFullAccess,
   TAHUN_AKTIF,
   TEMPLATE_VARIABLES,
+  WA_BOT_PRESET_TEMPLATES,
   type BotProvider,
   type BotWaConfig,
   type BotWaLog,
@@ -30,6 +33,7 @@ import {
 import {
   saveBotWaConfigAdmin,
   sendTestWaMessageAdmin,
+  sendWargaAccessCredentialsWaAdmin,
   triggerManualWaReminderAdmin,
 } from '../../lib/dataService';
 
@@ -57,6 +61,8 @@ export function AdminBotWaSlide({
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendingCredentials, setSendingCredentials] = useState(false);
+  const [confirmSendCredentials, setConfirmSendCredentials] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testingWa, setTestingWa] = useState(false);
   const [visibleLogsCount, setVisibleLogsCount] = useState(15);
@@ -135,16 +141,39 @@ export function AdminBotWaSlide({
     }
   };
 
+  const handleSendAccessCredentialsAll = async () => {
+    setSendingCredentials(true);
+    try {
+      const res = await sendWargaAccessCredentialsWaAdmin(
+        session,
+        config,
+        wargaList,
+        config.template_pesan
+      );
+      if (res.error) {
+        onToast('error', res.error);
+      } else if (res.data) {
+        onToast('success', res.data.message);
+        setConfirmSendCredentials(false);
+        await onRefresh();
+      }
+    } finally {
+      setSendingCredentials(false);
+    }
+  };
+
+  const activeWargaWithPhoneCount = wargaList.filter(
+    (w) => w.aktif && w.status_hunian !== 'Kosong' && w.no_wa.replace(/\D/g, '').length >= 10
+  ).length;
+
   const currentMonthLabel = `${getNamaBulan(getCurrentBillingMonth())} ${TAHUN_AKTIF}`;
   const samplePreview = config.template_pesan
     .replaceAll('{nama_warga}', 'Bapak/Ibu Doni')
     .replaceAll('{blok_rumah}', 'B5/21')
+    .replaceAll('{pin_akses}', '482910')
     .replaceAll('{bulan_tagihan}', currentMonthLabel)
     .replaceAll('{nominal_tagihan}', formatRupiah(100000))
-    .replaceAll(
-      '{link_aplikasi}',
-      typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app'
-    );
+    .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
 
   return (
     <div className="space-y-6">
@@ -307,8 +336,45 @@ export function AdminBotWaSlide({
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Editor Template Pesan WhatsApp</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Klik variabel dinamis di bawah untuk menyisipkannya ke dalam isi pesan.
+              Pilih preset template cepat (Tagihan IPL atau Akses Akun &amp; PIN) atau sisipkan variabel
+              dinamis ke dalam isi pesan.
             </p>
+          </div>
+
+          {/* Preset Template Cepat */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {WA_BOT_PRESET_TEMPLATES.map((preset) => {
+              const isSelected = config.template_pesan.trim() === preset.template.trim();
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      template_pesan: preset.template,
+                    }))
+                  }
+                  className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'border-[#059669] bg-emerald-50/70'
+                      : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100/80'
+                  }`}
+                >
+                  <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                    {preset.id === 'akses_pin' ? (
+                      <KeyRound className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                    ) : (
+                      <MessageSquare className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                    )}
+                    <span>{preset.label}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                    {preset.deskripsi}
+                  </p>
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -406,6 +472,71 @@ export function AdminBotWaSlide({
                 )}
               </button>
             </div>
+          </div>
+          {/* Kirim Akses Akun & PIN Massal ke Seluruh Warga Aktif */}
+          <div className="pt-4 border-t border-slate-200 space-y-2.5">
+            <div>
+              <h3 className="text-xs font-bold text-[#0F172A]">
+                Bagikan Info Akun &amp; PIN Warga ({APP_PORTAL_URL})
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Mengirim pesan pribadi berisi link{' '}
+                <span className="font-mono text-slate-700">{APP_PORTAL_URL}</span>, Username Blok
+                Rumah, dan PIN 6 digit masing-masing ke{' '}
+                <span className="font-mono font-semibold text-slate-700 tabular-nums">
+                  {activeWargaWithPhoneCount} warga aktif
+                </span>{' '}
+                via {config.provider}.
+              </p>
+            </div>
+
+            {!confirmSendCredentials ? (
+              <button
+                type="button"
+                disabled={!canManageFull || sendingCredentials || activeWargaWithPhoneCount === 0}
+                onClick={() => setConfirmSendCredentials(true)}
+                className="w-full min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4 text-[#059669]" />
+                <span>Kirim Akses Akun &amp; PIN ke Semua Warga Aktif</span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 space-y-2.5">
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  Konfirmasi pengiriman: setiap warga aktif ({activeWargaWithPhoneCount} unit) akan
+                  menerima <strong>Username Blok &amp; PIN 6 digit</strong> masing-masing melalui{' '}
+                  {config.provider}. Pastikan nomor WA di Master Warga sudah benar.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={sendingCredentials}
+                    onClick={() => void handleSendAccessCredentialsAll()}
+                    className="min-h-[40px] px-4 rounded-lg bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {sendingCredentials ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Mengirim ke {activeWargaWithPhoneCount} Warga...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Ya, Kirim Sekarang</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sendingCredentials}
+                    onClick={() => setConfirmSendCredentials(false)}
+                    className="min-h-[40px] px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </form>

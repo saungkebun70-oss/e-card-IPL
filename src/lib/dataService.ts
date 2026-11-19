@@ -1,7 +1,9 @@
 import {
+  APP_PORTAL_URL,
   isBendaharaFullAccess,
   NOMINAL_IPL_STANDAR,
   TAHUN_AKTIF,
+  WA_ACCESS_TEMPLATE_DEFAULT,
   type AdminJabatan,
   type AdminPermission,
   type BotWaConfig,
@@ -1339,12 +1341,12 @@ export async function sendTestWaMessageAdmin(
 
   const currentMonth = getCurrentBillingMonth();
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
-  const appUrl =
-    typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app';
+  const appUrl = APP_PORTAL_URL;
 
   const renderedMsg = config.template_pesan
     .replaceAll('{nama_warga}', session.nama_warga)
     .replaceAll('{blok_rumah}', 'B7/16')
+    .replaceAll('{pin_akses}', '123456')
     .replaceAll('{bulan_tagihan}', bulanNama)
     .replaceAll('{nominal_tagihan}', formatRupiah(NOMINAL_IPL_STANDAR))
     .replaceAll('{link_aplikasi}', appUrl);
@@ -1425,8 +1427,7 @@ export async function triggerManualWaReminderAdmin(
 
   const currentMonth = getCurrentBillingMonth();
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
-  const appUrl =
-    typeof window !== 'undefined' ? window.location.origin : 'https://saungkebun.vercel.app';
+  const appUrl = APP_PORTAL_URL;
 
   const unpaidWarga = wargaList.filter((w) => {
     if (!w.aktif || w.status_hunian === 'Kosong') return false;
@@ -1452,6 +1453,7 @@ export async function triggerManualWaReminderAdmin(
     pesan: config.template_pesan
       .replaceAll('{nama_warga}', w.nama_warga)
       .replaceAll('{blok_rumah}', w.blok_rumah)
+      .replaceAll('{pin_akses}', w.pin_akses)
       .replaceAll('{bulan_tagihan}', bulanNama)
       .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
       .replaceAll('{link_aplikasi}', appUrl),
@@ -1569,6 +1571,104 @@ export async function triggerManualWaReminderAdmin(
     data: {
       sentCount: newLogs.length,
       message: `Simulasi pengiriman selesai untuk ${unpaidWarga.length} warga. Isi API Token Fonnte untuk pengiriman WhatsApp nyata.`,
+    },
+  };
+}
+
+export async function sendWargaAccessCredentialsWaAdmin(
+  session: SessionUser,
+  config: BotWaConfig,
+  wargaList: Warga[],
+  customTemplate?: string
+): Promise<ServiceResult<{ sentCount: number; message: string }>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: pengiriman massal akun & PIN warga khusus Bendahara.' };
+  }
+
+  if (!config.api_token.trim()) {
+    return { error: 'Masukkan dan simpan API Token Fonnte / Wablas terlebih dahulu.' };
+  }
+
+  const activeTargets = wargaList.filter(
+    (w) => w.aktif && w.status_hunian !== 'Kosong' && normalizeWaNumber(w.no_wa).length >= 10
+  );
+
+  if (activeTargets.length === 0) {
+    return {
+      error: 'Tidak ada warga aktif dengan nomor WhatsApp valid untuk dikirimi informasi akun.',
+    };
+  }
+
+  const currentMonth = getCurrentBillingMonth();
+  const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
+  const templateToUse =
+    customTemplate && customTemplate.includes('{pin_akses}')
+      ? customTemplate
+      : WA_ACCESS_TEMPLATE_DEFAULT;
+
+  const targets: ProxyWaTarget[] = activeTargets.map((w) => ({
+    blok_rumah: w.blok_rumah,
+    nama_warga: w.nama_warga,
+    no_wa: normalizeWaNumber(w.no_wa),
+    pesan: templateToUse
+      .replaceAll('{nama_warga}', w.nama_warga)
+      .replaceAll('{blok_rumah}', w.blok_rumah)
+      .replaceAll('{pin_akses}', w.pin_akses)
+      .replaceAll('{bulan_tagihan}', bulanNama)
+      .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
+      .replaceAll('{link_aplikasi}', APP_PORTAL_URL),
+  }));
+
+  const proxyRes = await dispatchViaServerWaProxy(session, config, targets);
+  if (!proxyRes.available) {
+    return {
+      error:
+        'Endpoint /api/bot-wa/send belum aktif. Pastikan pembaruan terbaru sudah di-deploy ke Vercel.',
+    };
+  }
+  if (proxyRes.error) {
+    return { error: proxyRes.error };
+  }
+
+  const nowIso = new Date().toISOString();
+  const newLogs: BotWaLog[] = (proxyRes.results || []).map((r, i) => ({
+    id: `walog-pin-${Date.now()}-${i}`,
+    created_at: nowIso,
+    blok_rumah: r.blok_rumah,
+    nama_warga: r.nama_warga,
+    no_wa: r.no_wa,
+    jenis_pesan: 'Info Akses Akun & PIN Warga',
+    status_kirim: r.status_kirim,
+    respon_gateway: r.respon_gateway,
+    pesan: r.pesan,
+  }));
+
+  await persistBotWaLogs(session, newLogs);
+
+  const sentCount = newLogs.filter((l) => l.status_kirim === 'Terkirim').length;
+  const failedCount = newLogs.length - sentCount;
+
+  await recordAuditLog({
+    session,
+    action: 'SEND_WARGA_CREDENTIALS_WA',
+    entity: 'bot_wa_logs',
+    summary: `Mengirim template akses akun & PIN (https://e-card-ipl.vercel.app) ke ${sentCount} warga aktif via ${config.provider} (${failedCount} gagal).`,
+    metadata: { totalTargets: activeTargets.length, sentCount, failedCount },
+  });
+
+  if (sentCount === 0 && failedCount > 0) {
+    return {
+      error: `Pengiriman akses akun & PIN gagal (${failedCount} nomor). Respon: ${newLogs[0]?.respon_gateway || ''}`,
+    };
+  }
+
+  return {
+    data: {
+      sentCount,
+      message:
+        failedCount > 0
+          ? `Info akun & PIN dikirim ke ${sentCount} warga (${failedCount} gagal, cek Log Pengiriman).`
+          : `Info akun & PIN (https://e-card-ipl.vercel.app) berhasil dikirim ke ${sentCount} warga aktif via ${config.provider}.`,
     },
   };
 }

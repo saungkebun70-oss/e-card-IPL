@@ -1,4 +1,11 @@
-import { BULAN_LIST, TAHUN_AKTIF, type StatusBulanEcard } from '../types';
+import {
+  APP_PORTAL_URL,
+  BULAN_LIST,
+  TAHUN_AKTIF,
+  WA_ACCESS_TEMPLATE_DEFAULT,
+  type StatusBulanEcard,
+  type Warga,
+} from '../types';
 
 export function formatRupiah(nominal: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -96,6 +103,14 @@ export function normalizeWaNumber(input: string): string {
 export function buildWhatsAppLink(phone: string, message: string): string {
   const normalized = normalizeWaNumber(phone);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
+export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blok_rumah' | 'pin_akses'>): string {
+  return WA_ACCESS_TEMPLATE_DEFAULT
+    .replaceAll('{nama_warga}', warga.nama_warga)
+    .replaceAll('{blok_rumah}', warga.blok_rumah)
+    .replaceAll('{pin_akses}', warga.pin_akses)
+    .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {

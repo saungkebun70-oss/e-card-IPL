@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
 } from 'lucide-react';
 import {
   isBendaharaFullAccess,
@@ -19,7 +20,13 @@ import {
   type StatusHunian,
   type Warga,
 } from '../../types';
-import { copyToClipboard, formatRupiah, generateRandomPin } from '../../lib/format';
+import {
+  buildWargaAccessWaMessage,
+  buildWhatsAppLink,
+  copyToClipboard,
+  formatRupiah,
+  generateRandomPin,
+} from '../../lib/format';
 import {
   deleteWargaAdmin,
   resetPinWargaAdmin,
@@ -153,23 +160,14 @@ export function AdminWargaSlide({
   };
 
   const handleCopyLoginInfo = async (warga: Warga) => {
-    const appUrl = window.location.origin;
-    const message = [
-      `Yth. Bapak/Ibu ${warga.nama_warga} (Blok ${warga.blok_rumah}),`,
-      ``,
-      `Berikut informasi akses resmi Portal e-Card Verifikasi & IPL Digital Perumahan Saung Kebun:`,
-      `Link Aplikasi: ${appUrl}`,
-      `Username (Blok/No. Rumah): ${warga.blok_rumah}`,
-      `PIN Akses (6 Digit): ${warga.pin_akses}`,
-      ``,
-      `Mohon simpan PIN ini dengan baik dan jangan dibagikan kepada pihak lain.`,
-      `Terima kasih — Pengurus Lingkungan Perumahan Saung Kebun.`,
-    ].join('\n');
-
+    const message = buildWargaAccessWaMessage(warga);
     const ok = await copyToClipboard(message);
     if (ok) {
       setCopiedId(warga.id);
-      onToast('success', `Info login WA untuk Blok ${warga.blok_rumah} berhasil disalin.`);
+      onToast(
+        'success',
+        `Template WA akses & PIN Blok ${warga.blok_rumah} (e-card-ipl.vercel.app) berhasil disalin.`
+      );
       setTimeout(() => setCopiedId(null), 2000);
     } else {
       onToast('error', 'Gagal menyalin info login.');
@@ -302,10 +300,21 @@ export function AdminWargaSlide({
                           </button>
                         )}
 
+                        <a
+                          href={buildWhatsAppLink(w.no_wa, buildWargaAccessWaMessage(w))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Kirim Template Akses Akun & PIN langsung ke WhatsApp warga"
+                          className="min-h-[36px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1 transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span className="hidden xl:inline">Kirim WA</span>
+                        </a>
+
                         <button
                           type="button"
                           onClick={() => void handleCopyLoginInfo(w)}
-                          title="Salin Info Login Siap Kirim ke WA"
+                          title="Salin Template WA Akses Akun & PIN (e-card-ipl.vercel.app)"
                           className="min-h-[36px] px-2.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 cursor-pointer"
                         >
                           {copiedId === w.id ? (
@@ -316,7 +325,7 @@ export function AdminWargaSlide({
                           ) : (
                             <>
                               <Copy className="w-3.5 h-3.5" />
-                              <span className="hidden xl:inline">Salin Info Login</span>
+                              <span className="hidden xl:inline">Salin Template</span>
                             </>
                           )}
                         </button>
