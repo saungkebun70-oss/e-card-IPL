@@ -295,6 +295,7 @@ export default function App() {
               botLogs={adminData.botLogs}
               wargaList={adminData.wargaList}
               statusList={adminData.statusList}
+              paymentConfig={adminData.paymentConfig}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />

@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import { generateBotAutoReply } from './src/lib/botAutoReply';
+import {
+  buildInitialStatusBulanan,
+  SEED_PAYMENT_CONFIG,
+  SEED_TRANSAKSI,
+  SEED_WARGA,
+} from './src/lib/seedData';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -262,6 +269,83 @@ async function startServer() {
       failed: results.filter((r) => r.status_kirim === 'Gagal').length,
       results,
     });
+  });
+
+  app.get('/api/bot-wa/webhook', (_req, res) => {
+    res.json({
+      ok: true,
+      service: 'saung-kebun-wa-auto-reply',
+      webhook_url: 'https://e-card-ipl.vercel.app/api/bot-wa/webhook',
+      commands: [
+        'MENU',
+        'VERIFIKASI#BLOK#PIN',
+        'CEK#BLOK',
+        'SALDO#BLOK#2026',
+        'SETOR#BLOK#BULAN#NOMINAL#METODE',
+        'REKENING',
+        'PENGURUS',
+        'BANTUAN#PIN#BLOK#NAMA',
+      ],
+    });
+  });
+
+  app.post('/api/bot-wa/webhook', async (req, res) => {
+    const body = (req.body || {}) as Record<string, unknown>;
+    const incomingText = String(body.message || body.pesan || '').trim();
+    const senderName = String(body.name || body.pushName || 'Warga').trim();
+    const rawSender = String(body.sender || body.phone || '').trim();
+    const dryRun = Boolean(body.dryRun);
+
+    if (!incomingText) {
+      res.json({ ok: true, ignored: true, reason: 'Pesan kosong.' });
+      return;
+    }
+
+    const statusList = buildInitialStatusBulanan(SEED_WARGA, SEED_TRANSAKSI);
+    const result = generateBotAutoReply(incomingText, {
+      wargaList: SEED_WARGA,
+      statusList,
+      paymentConfig: SEED_PAYMENT_CONFIG,
+      senderName,
+    });
+
+    if (dryRun || !rawSender || !process.env.FONNTE_TOKEN) {
+      res.json({
+        ok: true,
+        dryRun: true,
+        command: result.command,
+        blok: result.blok || 'BOT-WA',
+        reply: result.reply,
+      });
+      return;
+    }
+
+    try {
+      const gatewayRes = await fetch('https://api.fonnte.com/send', {
+        method: 'POST',
+        headers: {
+          Authorization: process.env.FONNTE_TOKEN,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          target: rawSender.replace(/\D/g, ''),
+          message: result.reply,
+          countryCode: '62',
+        }),
+      });
+      const text = await gatewayRes.text();
+      res.json({
+        ok: gatewayRes.ok,
+        sent: gatewayRes.ok,
+        command: result.command,
+        respon_gateway: `${gatewayRes.status} — ${text.slice(0, 140)}`,
+      });
+    } catch (err) {
+      res.status(502).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal mengirim balasan otomatis.',
+      });
+    }
   });
 
   const isProd = process.env.NODE_ENV === 'production';

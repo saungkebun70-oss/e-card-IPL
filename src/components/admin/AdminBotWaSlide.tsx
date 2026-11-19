@@ -11,6 +11,10 @@ import {
   Loader2,
   KeyRound,
   BookOpen,
+  Copy,
+  Check,
+  Bot,
+  Webhook,
 } from 'lucide-react';
 import {
   APP_PORTAL_URL,
@@ -21,11 +25,13 @@ import {
   type BotProvider,
   type BotWaConfig,
   type BotWaLog,
+  type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
   type Warga,
 } from '../../types';
 import {
+  copyToClipboard,
   formatRupiah,
   formatTanggalWaktu,
   getCurrentBillingMonth,
@@ -37,6 +43,7 @@ import {
   sendWargaAccessCredentialsWaAdmin,
   triggerManualWaReminderAdmin,
 } from '../../lib/dataService';
+import { generateBotAutoReply } from '../../lib/botAutoReply';
 import { PanduanBotWaModal } from '../warga/PanduanBotWaModal';
 
 interface AdminBotWaSlideProps {
@@ -45,6 +52,7 @@ interface AdminBotWaSlideProps {
   botLogs: BotWaLog[];
   wargaList: Warga[];
   statusList: StatusEcardBulanan[];
+  paymentConfig?: PaymentConfig;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -55,6 +63,7 @@ export function AdminBotWaSlide({
   botLogs,
   wargaList,
   statusList,
+  paymentConfig,
   onRefresh,
   onToast,
 }: AdminBotWaSlideProps) {
@@ -68,7 +77,61 @@ export function AdminBotWaSlide({
   const [testPhone, setTestPhone] = useState('');
   const [testingWa, setTestingWa] = useState(false);
   const [panduanModalOpen, setPanduanModalOpen] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [simInput, setSimInput] = useState('MENU');
+  const [simHistory, setSimHistory] = useState<
+    Array<{ id: string; incoming: string; reply: string; command: string }>
+  >(() => {
+    const initial = generateBotAutoReply('MENU', {
+      wargaList,
+      statusList,
+      paymentConfig,
+      senderName: 'Warga Saung Kebun',
+    });
+    return [
+      {
+        id: 'sim-init',
+        incoming: 'MENU',
+        reply: initial.reply,
+        command: initial.command,
+      },
+    ];
+  });
   const [visibleLogsCount, setVisibleLogsCount] = useState(15);
+
+  const webhookUrl = `${APP_PORTAL_URL}/api/bot-wa/webhook`;
+
+  const handleCopyWebhook = async () => {
+    const ok = await copyToClipboard(webhookUrl);
+    if (ok) {
+      setCopiedWebhook(true);
+      onToast('success', 'URL Webhook Bot Jawab Otomatis berhasil disalin.');
+      setTimeout(() => setCopiedWebhook(false), 2200);
+    } else {
+      onToast('error', 'Gagal menyalin URL Webhook.');
+    }
+  };
+
+  const handleRunSimulator = (rawMessage: string) => {
+    const clean = rawMessage.trim();
+    if (!clean) return;
+    const res = generateBotAutoReply(clean, {
+      wargaList,
+      statusList,
+      paymentConfig,
+      senderName: session.nama_warga,
+    });
+    setSimHistory((prev) => [
+      {
+        id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        incoming: clean,
+        reply: res.reply,
+        command: res.command,
+      },
+      ...prev.slice(0, 5),
+    ]);
+    setSimInput('');
+  };
 
   useEffect(() => {
     setConfig(botConfig);
@@ -563,6 +626,182 @@ export function AdminBotWaSlide({
           </div>
         </section>
       </form>
+
+      {/* Bot Jawab Otomatis (Webhook Fonnte) + Simulator Live */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Pengaturan Webhook Fonnte */}
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+              <Webhook className="w-5 h-5 text-[#059669]" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-[#0F172A]">
+                Bot Jawab Otomatis (Auto-Reply)
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                Membalas pesan warga secara otomatis 24 jam saat warga mengirim perintah cek tagihan,
+                cek saldo, verifikasi PIN, info rekening/QRIS, pengurus, atau setor IPL ke nomor WA
+                gateway.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-[#0F172A]">
+              Webhook URL (Tempel di Dashboard Fonnte)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={webhookUrl}
+                aria-label="URL Webhook Bot Jawab Otomatis"
+                className="flex-1 min-w-0 min-h-[42px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-mono text-slate-800"
+              />
+              <button
+                type="button"
+                onClick={() => void handleCopyWebhook()}
+                className="min-h-[42px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                {copiedWebhook ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Tersalin</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Salin URL</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
+            <p className="text-xs font-bold text-[#0F172A]">
+              Cara Aktifkan di Dashboard Fonnte (3 Langkah):
+            </p>
+            <ol className="space-y-1.5 text-xs text-slate-600 leading-relaxed list-decimal list-inside">
+              <li>
+                Buka <span className="font-mono text-slate-800">md.fonnte.com</span> → menu{' '}
+                <strong>Device</strong> → klik <strong>Edit</strong> pada nomor WA Pengurus.
+              </li>
+              <li>
+                Tempel URL Webhook di atas pada kolom <strong>Webhook URL</strong>, lalu simpan.
+              </li>
+              <li>
+                Pastikan sakelar <strong>Status Bot WhatsApp Otomatis</strong> di atas aktif dan
+                API Token sudah tersimpan. Pesan dari grup otomatis diabaikan demi privasi warga.
+              </li>
+            </ol>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-slate-500">Perintah Otomatis yang Didukung</p>
+            <div className="text-xs text-slate-700 font-mono space-y-1 leading-relaxed">
+              <p>MENU · CEK#[BLOK] · SALDO#[BLOK]#{TAHUN_AKTIF}</p>
+              <p>VERIFIKASI#[BLOK]#[PIN] · REKENING · QRIS · PENGURUS</p>
+              <p>SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE] · BANTUAN#PIN#[BLOK]</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Simulator Live Bot Jawab Otomatis */}
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Bot className="w-4 h-4 text-[#059669] shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-[#0F172A] truncate">
+                  Simulator Uji Bot Jawab Otomatis
+                </h3>
+                <p className="text-xs text-slate-500 truncate">
+                  Uji balasan otomatis secara langsung menggunakan data 109 unit warga &amp; e-Card
+                  saat ini.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Tombol Perintah Cepat */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'MENU',
+                'CEK#B3/7',
+                `SALDO#B7/16#${TAHUN_AKTIF}`,
+                'REKENING',
+                'PENGURUS',
+                `SETOR#B5/21#NOV${TAHUN_AKTIF}#100000#QRIS`,
+              ].map((cmd) => (
+                <button
+                  key={cmd}
+                  type="button"
+                  onClick={() => handleRunSimulator(cmd)}
+                  className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-mono text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                >
+                  {cmd}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Uji Pesan */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={simInput}
+                onChange={(e) => setSimInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleRunSimulator(simInput);
+                  }
+                }}
+                placeholder="Ketik simulasi pesan warga (contoh: CEK#B5/21)..."
+                className="flex-1 min-w-0 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              />
+              <button
+                type="button"
+                onClick={() => handleRunSimulator(simInput)}
+                className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Uji Balasan</span>
+              </button>
+            </div>
+
+            {/* Hasil Percakapan Simulator */}
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {simHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                    <span>
+                      Pesan Warga · Perintah{' '}
+                      <span className="font-mono font-semibold text-slate-700">{item.command}</span>
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs font-mono font-semibold text-[#0F172A]">
+                    {item.incoming}
+                  </div>
+                  <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-2.5">
+                    <p className="text-[11px] font-semibold text-emerald-800 mb-1">
+                      Balasan Otomatis Bot WA
+                    </p>
+                    <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
+                      {item.reply}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Tabel Log Riwayat Pengiriman Bot WA */}
       <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
