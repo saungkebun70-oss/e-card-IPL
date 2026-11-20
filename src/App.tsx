@@ -12,6 +12,7 @@ import {
   FileCheck2,
   AlertCircle,
   RefreshCw,
+  Shield,
 } from 'lucide-react';
 import {
   type LogPatroli,
@@ -48,7 +49,11 @@ import { AdminWargaSlide } from './components/admin/AdminWargaSlide';
 import { AdminKeuanganSlide } from './components/admin/AdminKeuanganSlide';
 import { AdminRekapSlide } from './components/admin/AdminRekapSlide';
 import { AdminLpjSlide } from './components/admin/AdminLpjSlide';
-import { AdminSettingsDrawer } from './components/admin/AdminSettingsDrawer';
+import {
+  AdminSettingsDrawer,
+  type SettingsDrawerTab,
+} from './components/admin/AdminSettingsDrawer';
+import { KeamananSlide } from './components/KeamananSlide';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -77,6 +82,7 @@ export default function App() {
   });
   const [activeTab, setActiveTab] = useState<string>('beranda');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // State Portal Warga (terisolasi 1 rumah)
@@ -271,7 +277,7 @@ export default function App() {
     );
   }
 
-  // Konfigurasi Navigasi 5 Slide Warga & 5 Slide Admin (dengan Tombol Tengah Menonjol)
+  // Konfigurasi Navigasi 6 Slide Warga & 6 Slide Admin (Termasuk Slide Khusus Keamanan)
   const pendingCount =
     adminData?.transaksiList.filter(
       (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
@@ -283,7 +289,8 @@ export default function App() {
           { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'e-Card', icon: CreditCard },
           { id: 'setor', label: 'Setor Iuran', shortLabel: 'Setor', icon: Upload },
           { id: 'riwayat', label: 'Riwayat & Kwitansi', shortLabel: 'Riwayat', icon: ReceiptText },
-          { id: 'lingkungan', label: 'Profil Lingkungan', shortLabel: 'Lingkungan', icon: Building2 },
+          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
+          { id: 'lingkungan', label: 'Profil Lingkungan', shortLabel: 'Info', icon: Building2 },
           { id: 'profil', label: 'Profil & Akun', shortLabel: 'Profil', icon: UserCircle2 },
         ]
       : [
@@ -298,12 +305,13 @@ export default function App() {
           {
             id: 'keuangan',
             label: 'Pengeluaran & Kas Lain',
-            shortLabel: 'Pengeluaran',
+            shortLabel: 'Kas',
             icon: Plus,
             isCenterFab: true,
           },
           { id: 'rekap', label: 'Rekapitulasi Bulanan', shortLabel: 'Rekap', icon: TableProperties },
           { id: 'lpj', label: 'LPJ Triwulanan', shortLabel: 'LPJ', icon: FileCheck2 },
+          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
         ];
 
   const renderContent = () => {
@@ -347,8 +355,6 @@ export default function App() {
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
               notifications={wargaData.notifications}
-              petugasKontak={wargaData.petugasKontak}
-              patroliFeed={wargaData.patroliFeed}
               onQuickPayMonth={(bulan) => {
                 setPreselectedMonth(bulan);
                 setActiveTab('setor');
@@ -380,6 +386,20 @@ export default function App() {
               profil={wargaData.profil}
               riwayat={wargaData.riwayat}
               onGoToSetor={() => setActiveTab('setor')}
+            />
+          );
+        case 'keamanan':
+          return (
+            <KeamananSlide
+              role="warga"
+              senderName={wargaData.profil.nama_warga}
+              senderBlok={wargaData.profil.blok_rumah}
+              petugasKontak={wargaData.petugasKontak}
+              patroliFeed={wargaData.patroliFeed}
+              notifications={wargaData.notifications}
+              isRefreshing={loadingData}
+              onRefresh={() => loadPortalData(session)}
+              onToast={pushToast}
             />
           );
         case 'lingkungan':
@@ -422,8 +442,6 @@ export default function App() {
               transaksiKasList={adminData.transaksiKasList}
               statusList={adminData.statusList}
               notifications={adminData.notifications}
-              petugasList={adminData.petugasList}
-              patroliFeed={adminData.patroliFeed}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
@@ -472,6 +490,26 @@ export default function App() {
               onToast={pushToast}
             />
           );
+        case 'keamanan':
+          return (
+            <KeamananSlide
+              role="admin"
+              senderName={session.nama_warga}
+              senderJabatan={session.jabatan || 'Pengurus'}
+              petugasKontak={adminData.petugasList
+                .filter((p) => p.aktif)
+                .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }))}
+              patroliFeed={adminData.patroliFeed}
+              notifications={adminData.notifications}
+              isRefreshing={loadingData}
+              onRefresh={() => loadPortalData(session)}
+              onOpenPetugasSettings={() => {
+                setSettingsTab('petugas_nfc');
+                setSettingsOpen(true);
+              }}
+              onToast={pushToast}
+            />
+          );
         default:
           return null;
       }
@@ -488,7 +526,14 @@ export default function App() {
         navItems={navItems}
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onOpenSettings={session.role === 'admin' ? () => setSettingsOpen(true) : undefined}
+        onOpenSettings={
+          session.role === 'admin'
+            ? () => {
+                setSettingsTab('identitas');
+                setSettingsOpen(true);
+              }
+            : undefined
+        }
         onLogout={handleLogout}
       >
         {dataError && (wargaData || adminData) && (
@@ -513,6 +558,7 @@ export default function App() {
       {session.role === 'admin' && adminData && (
         <AdminSettingsDrawer
           open={settingsOpen}
+          initialTab={settingsTab}
           session={session}
           paymentConfig={adminData.paymentConfig}
           botConfig={adminData.botConfig}

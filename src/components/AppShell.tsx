@@ -223,11 +223,18 @@ export function AppShell({
         className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe no-print"
       >
         <div
-          className={`grid ${navItems.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} h-16 max-w-2xl mx-auto items-end`}
+          className={`grid ${
+            navItems.length >= 6
+              ? 'grid-cols-6'
+              : navItems.length === 5
+                ? 'grid-cols-5'
+                : 'grid-cols-4'
+          } h-16 max-w-2xl mx-auto items-end`}
         >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab;
+            const isCompactSix = navItems.length >= 6;
 
             if (item.isCenterFab) {
               return (
@@ -236,16 +243,18 @@ export function AppShell({
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   aria-label={item.label}
-                  className="relative flex flex-col items-center justify-end pb-1.5 px-1 cursor-pointer group"
+                  className="relative flex flex-col items-center justify-end pb-1.5 px-0.5 cursor-pointer group min-w-0"
                 >
                   <span
-                    className={`w-14 h-14 rounded-full -mt-6 border-4 border-white shadow-lg flex items-center justify-center transition-all group-active:scale-95 ${
+                    className={`${
+                      isCompactSix ? 'w-12 h-12 -mt-5' : 'w-14 h-14 -mt-6'
+                    } rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-all group-active:scale-95 ${
                       isActive
                         ? 'bg-[#0F172A] text-white shadow-slate-900/25'
                         : 'bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-700'
                     }`}
                   >
-                    <Icon className="w-6 h-6" strokeWidth={2.4} />
+                    <Icon className={isCompactSix ? 'w-5 h-5' : 'w-6 h-6'} strokeWidth={2.4} />
                   </span>
                   <span
                     className={`text-[10px] font-bold mt-1 leading-none truncate max-w-full ${
@@ -263,14 +272,14 @@ export function AppShell({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`relative flex flex-col items-center justify-center h-16 px-1 transition-colors cursor-pointer ${
+                className={`relative flex flex-col items-center justify-center h-16 px-0.5 transition-colors cursor-pointer min-w-0 ${
                   isActive ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[#059669]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-0.5 rounded-full bg-[#059669]"
                   />
                 )}
                 <div className="relative">
@@ -281,7 +290,11 @@ export function AppShell({
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-semibold mt-1 leading-none truncate max-w-full">
+                <span
+                  className={`${
+                    isCompactSix ? 'text-[10px]' : 'text-[11px]'
+                  } font-semibold mt-1 leading-none truncate max-w-full`}
+                >
                   {item.shortLabel}
                 </span>
               </button>
