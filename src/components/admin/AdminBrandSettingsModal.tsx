@@ -13,23 +13,36 @@ import {
   Bot,
   AlertTriangle,
   Users,
+  Copy,
+  Check,
+  MessageCircle,
+  Link2,
 } from 'lucide-react';
 import {
+  APP_ADMIN_PORTAL_URL,
   DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
   SUSUNAN_PENGURUS,
   type AppBrandConfig,
+  type PengurusAccountInfo,
   type SessionUser,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
 import { compressLogoImage } from '../../lib/imageCompressor';
-import { normalizeWaNumber } from '../../lib/format';
+import {
+  buildGeneralPengurusLinkMessage,
+  buildPengurusAccessWaMessage,
+  buildWhatsAppLink,
+  copyToClipboard,
+  normalizeWaNumber,
+} from '../../lib/format';
 import { saveAppBrandConfigAdmin, uploadAppLogoAdmin } from '../../lib/dataService';
 import { BrandLogo } from '../BrandLogo';
 
 interface AdminBrandSettingsModalProps {
   open: boolean;
   session: SessionUser;
+  pengurusAccounts?: PengurusAccountInfo[];
   onClose: () => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
   initialTab?: 'brand' | 'wa';
@@ -40,6 +53,7 @@ type ModalTab = 'brand' | 'wa';
 export function AdminBrandSettingsModal({
   open,
   session,
+  pengurusAccounts,
   onClose,
   onToast,
   initialTab = 'brand',
@@ -51,6 +65,7 @@ export function AdminBrandSettingsModal({
   const [draft, setDraft] = useState<AppBrandConfig>(brand);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -561,43 +576,136 @@ export function AdminBrandSettingsModal({
                 </div>
               </div>
 
-              {/* Bagian 2: Nomor WA Masing-Masing Pengurus (Profil Lingkungan) */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
-                <div>
-                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#059669]" />
-                    <span>Nomor WA per Pengurus (Halaman Profil Lingkungan)</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                    Opsional. Jika dikosongkan, tombol WhatsApp pengurus tersebut akan otomatis
-                    diarahkan ke Nomor WA Utama Pengurus di atas (tetap bukan nomor bot).
-                  </p>
+              {/* Bagian 2: Nomor WA per Pengurus + Template WA Link Portal Pengurus (/admin) */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+                  <div>
+                    <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#059669]" />
+                      <span>Nomor WA &amp; Template Link Pengurus (/admin)</span>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Atur nomor WA masing-masing pengurus sekaligus bagikan template tautan login
+                      khusus Portal Pengurus (
+                      <span className="font-mono text-slate-700">{APP_ADMIN_PORTAL_URL}</span>).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(
+                        buildGeneralPengurusLinkMessage(draft.app_name)
+                      );
+                      if (ok) {
+                        setCopiedKey('general-admin');
+                        onToast('success', 'Template umum Link Pengurus (/admin) berhasil disalin.');
+                        setTimeout(() => setCopiedKey(null), 2000);
+                      } else {
+                        onToast('error', 'Gagal menyalin template.');
+                      }
+                    }}
+                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    {copiedKey === 'general-admin' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-[#059669]" />
+                        <span className="text-emerald-700">Tersalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-3.5 h-3.5 text-[#059669]" />
+                        <span>Salin Template Umum</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {SUSUNAN_PENGURUS.map((p) => (
-                    <div key={p.username}>
-                      <label
-                        htmlFor={`wa-pengurus-${p.username}`}
-                        className="block text-xs font-semibold text-slate-700 mb-1"
+                  {SUSUNAN_PENGURUS.map((p) => {
+                    const account = pengurusAccounts?.find(
+                      (a) => a.username.toLowerCase() === p.username.toLowerCase()
+                    );
+                    const mergedInfo: PengurusAccountInfo = {
+                      ...p,
+                      pin_akses: account?.pin_akses,
+                      no_wa: draft.pengurus_wa_map?.[p.username] || account?.no_wa,
+                    };
+                    const targetPhone =
+                      draft.pengurus_wa_map?.[p.username]?.trim() ||
+                      normWaPengurus ||
+                      '';
+                    const waMsg = buildPengurusAccessWaMessage(mergedInfo, {
+                      appName: draft.app_name,
+                      includePin: canEdit,
+                    });
+
+                    return (
+                      <div
+                        key={p.username}
+                        className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2"
                       >
-                        {p.nama}{' '}
-                        <span className="font-normal text-slate-500">
-                          ({p.jabatan} · {p.blokRumah})
-                        </span>
-                      </label>
-                      <input
-                        id={`wa-pengurus-${p.username}`}
-                        type="tel"
-                        inputMode="tel"
-                        disabled={!canEdit || saving}
-                        value={draft.pengurus_wa_map?.[p.username] || ''}
-                        onChange={(e) => handlePengurusWaChange(p.username, e.target.value)}
-                        placeholder={`Default: +${normWaPengurus || '628...'}`}
-                        className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
-                      />
-                    </div>
-                  ))}
+                        <label
+                          htmlFor={`wa-pengurus-${p.username}`}
+                          className="block text-xs font-semibold text-slate-800"
+                        >
+                          {p.nama}{' '}
+                          <span className="font-normal text-slate-500">
+                            ({p.jabatan} · {p.blokRumah})
+                          </span>
+                        </label>
+                        <input
+                          id={`wa-pengurus-${p.username}`}
+                          type="tel"
+                          inputMode="tel"
+                          disabled={!canEdit || saving}
+                          value={draft.pengurus_wa_map?.[p.username] || ''}
+                          onChange={(e) => handlePengurusWaChange(p.username, e.target.value)}
+                          placeholder={`Default: +${normWaPengurus || '628...'}`}
+                          className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <a
+                            href={buildWhatsAppLink(targetPhone, waMsg)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>Kirim Link WA</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const ok = await copyToClipboard(waMsg);
+                              if (ok) {
+                                setCopiedKey(p.username);
+                                onToast(
+                                  'success',
+                                  `Template Link Pengurus untuk ${p.nama} (${p.jabatan}) disalin.`
+                                );
+                                setTimeout(() => setCopiedKey(null), 2000);
+                              } else {
+                                onToast('error', 'Gagal menyalin template.');
+                              }
+                            }}
+                            className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-[11px] font-semibold text-slate-700 inline-flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                          >
+                            {copiedKey === p.username ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-[#059669]" />
+                                <span className="text-emerald-700">Tersalin</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Salin</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

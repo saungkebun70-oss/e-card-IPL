@@ -206,6 +206,8 @@ export function WargaSetorSlide({
     setSubmitStage('uploading_proof');
     try {
       const res = await submitSetoranWarga(session, {
+        blok_rumah: profil.blok_rumah,
+        nama_warga: profil.nama_warga,
         bulan_dibayar: selectedMonths,
         metode_bayar: metodeBayar,
         petugas_penerima: metodeBayar === 'Setor Tunai' ? petugasPenerima : undefined,

@@ -65,6 +65,11 @@ export interface PengurusItem {
   permission: AdminPermission;
 }
 
+export interface PengurusAccountInfo extends PengurusItem {
+  pin_akses?: string;
+  no_wa?: string;
+}
+
 export interface SessionUser {
   role: UserRole;
   blok_rumah: string;
@@ -219,6 +224,7 @@ export const TANGGAL_JATUH_TEMPO = 7;
 export const NAMA_APLIKASI = 'e-Card Verifikasi';
 export const SUB_NAMA_APLIKASI = 'IPL Digital — Perumahan Saung Kebun';
 export const APP_PORTAL_URL = 'https://e-card-ipl.vercel.app';
+export const APP_ADMIN_PORTAL_URL = `${APP_PORTAL_URL}/admin`;
 export const KOP_RESMI =
   'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)';
 export const WA_PENGURUS = '6281234567890';
@@ -307,6 +313,7 @@ export const TEMPLATE_VARIABLES = [
   '{bulan_tagihan}',
   '{nominal_tagihan}',
   '{link_aplikasi}',
+  '{link_admin}',
 ] as const;
 
 export const WA_TAGIHAN_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama_warga} (Blok {blok_rumah}),
@@ -323,7 +330,7 @@ export const WA_ACCESS_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama_warga} (Blok {bl
 
 Berikut informasi akses akun resmi *Portal e-Card Verifikasi & IPL Digital Perumahan Saung Kebun*:
 
-🌐 *Link Portal:* {link_aplikasi}
+🌐 *Link Portal Warga:* {link_aplikasi}
 🏠 *Username (Blok/No. Rumah):* {blok_rumah}
 🔐 *PIN Akses (6 Digit):* {pin_akses}
 
@@ -336,8 +343,27 @@ Mohon simpan PIN ini dengan baik dan jangan dibagikan kepada pihak lain.
 Terima kasih,
 *Pengurus Lingkungan Perumahan Saung Kebun*`;
 
+export const WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama_pengurus} ({jabatan}),
+
+Berikut informasi akses resmi *Portal Admin / Pengurus — {nama_aplikasi}*:
+
+🔗 *Link Portal Pengurus (Khusus Admin):* {link_admin}
+👤 *Username Pengurus:* {username_pengurus}
+🔐 *PIN Akses (6 Digit):* {pin_pengurus}
+🛡️ *Hak Akses:* {hak_akses}
+
+*Cara Masuk Portal Pengurus:*
+1. Buka link khusus pengurus: {link_admin}
+2. Masukkan Username *{username_pengurus}* dan PIN 6 digit Anda
+3. Gunakan portal ini untuk memantau setoran IPL warga, master data unit, dan rekap kas lingkungan.
+
+⚠️ *Penting:* Link {link_admin} bersifat internal khusus Pengurus Lingkungan, mohon tidak dibagikan ke grup umum warga (untuk warga gunakan {link_aplikasi}).
+
+Terima kasih atas kerja samanya,
+*Pengurus Lingkungan Perumahan Saung Kebun*`;
+
 export const WA_BOT_PRESET_TEMPLATES: Array<{
-  id: 'tagihan' | 'akses_pin';
+  id: 'tagihan' | 'akses_pin' | 'akses_pengurus';
   label: string;
   deskripsi: string;
   template: string;
@@ -350,8 +376,14 @@ export const WA_BOT_PRESET_TEMPLATES: Array<{
   },
   {
     id: 'akses_pin',
-    label: 'Template Akses Akun & PIN',
-    deskripsi: 'Kirim link https://e-card-ipl.vercel.app, Username Blok & PIN 6 digit warga',
+    label: 'Template Akses Warga',
+    deskripsi: 'Kirim link Portal Warga, Username Blok & PIN 6 digit warga',
     template: WA_ACCESS_TEMPLATE_DEFAULT,
+  },
+  {
+    id: 'akses_pengurus',
+    label: 'Template Link Pengurus (/admin)',
+    deskripsi: 'Kirim link khusus Portal Pengurus (/admin), Username & PIN pengurus',
+    template: WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT,
   },
 ];

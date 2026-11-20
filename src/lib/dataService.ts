@@ -15,15 +15,18 @@ import {
   type NotificationCategory,
   type NotificationTargetScope,
   type PaymentConfig,
+  type PengurusAccountInfo,
   type SessionUser,
   type StatusEcardBulanan,
   type StatusHunian,
+  type StatusVerifikasi,
   type SystemNotification,
   type TransaksiIPL,
   type Warga,
 } from '../types';
 import { recordAuditLog } from './auditLogger';
 import {
+  canonicalizeBlokKey,
   formatDaftarBulan,
   formatRupiah,
   generateKwitansiNumber,
@@ -251,6 +254,24 @@ function getSessionKeyForRole(role: 'warga' | 'admin'): string {
   return role === 'admin' ? STORAGE_KEYS.SESSION_ADMIN : STORAGE_KEYS.SESSION_WARGA;
 }
 
+function hydrateAdminSession(session: SessionUser): SessionUser {
+  if (session.role !== 'admin') return session;
+  const key = session.blok_rumah.trim().toLowerCase();
+  const pengurusMeta = SUSUNAN_PENGURUS.find((p) => p.username.toLowerCase() === key);
+  const isDefaultBendahara = key === 'admin' || key === 'andriansyah';
+  const resolvedJabatan =
+    session.jabatan || pengurusMeta?.jabatan || (isDefaultBendahara ? 'Bendahara' : 'Bendahara');
+  const resolvedPerm: AdminPermission =
+    session.admin_permission ||
+    pengurusMeta?.permission ||
+    (isDefaultBendahara || resolvedJabatan === 'Bendahara' ? 'full' : 'add_only');
+  return {
+    ...session,
+    jabatan: resolvedJabatan,
+    admin_permission: resolvedPerm,
+  };
+}
+
 export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser | null {
   try {
     if (expectedRole) {
@@ -259,7 +280,7 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
       if (raw) {
         const parsed = JSON.parse(raw) as SessionUser;
         if (parsed?.role === expectedRole && parsed?.blok_rumah) {
-          return parsed;
+          return hydrateAdminSession(parsed);
         }
       }
       // Migrasi mulus dari key sesi lama jika role-nya cocok dengan portal saat ini
@@ -267,9 +288,10 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw) as SessionUser;
         if (legacy?.role === expectedRole && legacy?.blok_rumah) {
-          safeStorageSet(roleKey, JSON.stringify(legacy));
+          const hydrated = hydrateAdminSession(legacy);
+          safeStorageSet(roleKey, JSON.stringify(hydrated));
           safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
-          return legacy;
+          return hydrated;
         }
       }
       return null;
@@ -282,7 +304,7 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
     if (!fallbackRaw) return null;
     const parsed = JSON.parse(fallbackRaw) as SessionUser;
     if (!parsed?.role || !parsed?.blok_rumah) return null;
-    return parsed;
+    return hydrateAdminSession(parsed);
   } catch {
     return null;
   }
@@ -759,9 +781,87 @@ export type SetorSubmitStage =
   | 'syncing_ecard'
   | 'refreshing';
 
+function normalizeStatusVerifikasi(raw: unknown): StatusVerifikasi {
+  const val = String(raw || '').trim().toLowerCase();
+  if (val === 'terverifikasi' || val === 'approved' || val === 'lunas' || val === 'verified') {
+    return 'Terverifikasi';
+  }
+  if (val === 'ditolak' || val === 'rejected') {
+    return 'Ditolak';
+  }
+  return 'Pending';
+}
+
+function normalizeTransaksiRow(row: Record<string, unknown>): TransaksiIPL {
+  const rawBulan = row.bulan_dibayar;
+  const bulanArr = Array.isArray(rawBulan)
+    ? rawBulan.map((b) => Number(b)).filter((b) => Number.isFinite(b) && b >= 1 && b <= 12)
+    : [];
+  const parsedTahun = Number(row.tahun);
+  return {
+    id: String(row.id || ''),
+    no_kwitansi: String(row.no_kwitansi || ''),
+    blok_rumah: String(row.blok_rumah || '').trim(),
+    nama_warga: String(row.nama_warga || '').trim() || String(row.blok_rumah || ''),
+    tahun: Number.isFinite(parsedTahun) && parsedTahun > 2000 ? parsedTahun : TAHUN_AKTIF,
+    bulan_dibayar: bulanArr,
+    nominal: Number(row.nominal) || 0,
+    metode_bayar: (row.metode_bayar as MetodeBayar) || 'Transfer Bank',
+    petugas_penerima: typeof row.petugas_penerima === 'string' ? row.petugas_penerima : null,
+    bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
+    status_verifikasi: normalizeStatusVerifikasi(row.status_verifikasi),
+    catatan_admin: typeof row.catatan_admin === 'string' ? row.catatan_admin : null,
+    keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
+    tanggal_setor: String(row.tanggal_setor || new Date().toISOString()),
+    verified_at: typeof row.verified_at === 'string' ? row.verified_at : null,
+    verified_by: typeof row.verified_by === 'string' ? row.verified_by : null,
+  };
+}
+
+function reconcileStatusWithTransactions(
+  statusList: StatusEcardBulanan[],
+  transaksiList: TransaksiIPL[]
+): StatusEcardBulanan[] {
+  const byKey = new Map<string, StatusEcardBulanan>();
+  for (const s of statusList) {
+    const key = `${canonicalizeBlokKey(s.blok_rumah)}::${s.tahun}::${s.bulan}`;
+    byKey.set(key, s);
+  }
+
+  for (const trx of transaksiList) {
+    if (trx.status_verifikasi !== 'Terverifikasi' && trx.status_verifikasi !== 'Pending') {
+      continue;
+    }
+    const targetStatus =
+      trx.status_verifikasi === 'Terverifikasi' ? 'Lunas' : 'Menunggu Verifikasi';
+    for (const bulan of trx.bulan_dibayar) {
+      const key = `${canonicalizeBlokKey(trx.blok_rumah)}::${trx.tahun}::${bulan}`;
+      const existing = byKey.get(key);
+      if (existing?.status === 'Lunas') {
+        continue;
+      }
+      if (!existing || targetStatus === 'Lunas' || existing.status !== 'Menunggu Verifikasi') {
+        byKey.set(key, {
+          id: existing?.id || `st-sync-${trx.blok_rumah}-${trx.tahun}-${bulan}`,
+          blok_rumah: existing?.blok_rumah || trx.blok_rumah,
+          tahun: trx.tahun,
+          bulan,
+          status: targetStatus,
+          transaksi_id: trx.id,
+          updated_at: trx.verified_at || trx.tanggal_setor,
+        });
+      }
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
 export async function submitSetoranWarga(
   session: SessionUser,
   payload: {
+    blok_rumah?: string;
+    nama_warga?: string;
     bulan_dibayar: number[];
     metode_bayar: MetodeBayar;
     petugas_penerima?: string;
@@ -784,18 +884,26 @@ export async function submitSetoranWarga(
     return { error: 'Nominal setoran harus lebih dari Rp 0.' };
   }
 
+  const effectiveBlok = (payload.blok_rumah || session.blok_rumah).trim();
+  const effectiveNama = (payload.nama_warga || session.nama_warga).trim() || effectiveBlok;
+  const effectiveSession: SessionUser =
+    effectiveBlok !== session.blok_rumah
+      ? { ...session, blok_rumah: effectiveBlok, nama_warga: effectiveNama }
+      : session;
+
   const sortedBulan = [...payload.bulan_dibayar].sort((a, b) => a - b);
   const nowIso = new Date().toISOString();
-  const noKwitansi = generateKwitansiNumber(session.blok_rumah, nowIso);
+  const noKwitansi = generateKwitansiNumber(effectiveBlok, nowIso);
 
-  const supabase = getSupabaseClient(session);
+  const supabase = getSupabaseClient(effectiveSession);
   if (supabase && isSupabaseConfigured()) {
     try {
       payload.onStageChange?.('uploading_proof');
       const ext = payload.buktiFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const safeBlok = session.blok_rumah.replace(/[^A-Z0-9]/gi, '_');
+      const safeBlok = effectiveBlok.replace(/[^A-Z0-9]/gi, '_');
       const filePath = `${safeBlok}/${Date.now()}.${ext}`;
 
+      let buktiUrl = '';
       const { error: uploadError } = await supabase.storage
         .from('bukti-ipl')
         .upload(filePath, payload.buktiFile, {
@@ -803,23 +911,27 @@ export async function submitSetoranWarga(
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
-      const buktiUrl = publicUrlData.publicUrl;
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        buktiUrl = publicUrlData.publicUrl;
+      } else {
+        // Fallback aman: simpan foto bukti terkompresi sebagai Data URL jika bucket storage belum siap
+        buktiUrl = await fileToDataUrl(payload.buktiFile);
+      }
 
       payload.onStageChange?.('saving_transaction');
       const { data: inserted, error: insertError } = await supabase
         .from('transaksi_ipl')
         .insert({
           no_kwitansi: noKwitansi,
-          blok_rumah: session.blok_rumah,
-          nama_warga: session.nama_warga,
+          blok_rumah: effectiveBlok,
+          nama_warga: effectiveNama,
           tahun: TAHUN_AKTIF,
           bulan_dibayar: sortedBulan,
           nominal: payload.nominal,
           metode_bayar: payload.metode_bayar,
-          petugas_penerima: payload.metode_bayar === 'Setor Tunai' ? payload.petugas_penerima || null : null,
+          petugas_penerima:
+            payload.metode_bayar === 'Setor Tunai' ? payload.petugas_penerima || null : null,
           bukti_url: buktiUrl,
           status_verifikasi: 'Pending',
           keterangan: payload.keterangan?.trim() || null,
@@ -831,31 +943,29 @@ export async function submitSetoranWarga(
       if (insertError) throw insertError;
 
       payload.onStageChange?.('syncing_ecard');
-      // Sinkronkan status bulan menjadi Menunggu Verifikasi
-      for (const bulan of sortedBulan) {
-        await supabase.from('status_ecard_bulanan').upsert(
-          {
-            blok_rumah: session.blok_rumah,
-            tahun: TAHUN_AKTIF,
-            bulan,
-            status: 'Menunggu Verifikasi',
-            transaksi_id: inserted.id,
-            updated_at: nowIso,
-          },
-          { onConflict: 'blok_rumah,tahun,bulan' }
-        );
-      }
+      // Sinkronkan status bulan menjadi Menunggu Verifikasi secara batch
+      const statusRows = sortedBulan.map((bulan) => ({
+        blok_rumah: effectiveBlok,
+        tahun: TAHUN_AKTIF,
+        bulan,
+        status: 'Menunggu Verifikasi' as const,
+        transaksi_id: inserted.id,
+        updated_at: nowIso,
+      }));
+      await supabase
+        .from('status_ecard_bulanan')
+        .upsert(statusRows, { onConflict: 'blok_rumah,tahun,bulan' });
 
       await recordAuditLog({
-        session,
+        session: effectiveSession,
         action: 'SUBMIT_SETORAN',
         entity: 'transaksi_ipl',
         entity_id: inserted.id,
-        summary: `Warga ${session.blok_rumah} menyetor ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+        summary: `Warga ${effectiveBlok} menyetor ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
         metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
       });
 
-      return { data: inserted as TransaksiIPL };
+      return { data: normalizeTransaksiRow(inserted as Record<string, unknown>) };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Gagal mengirim setoran ke server Supabase.') };
     }
@@ -870,13 +980,14 @@ export async function submitSetoranWarga(
     const newTrx: TransaksiIPL = {
       id: `trx-${Date.now()}`,
       no_kwitansi: noKwitansi,
-      blok_rumah: session.blok_rumah,
-      nama_warga: session.nama_warga,
+      blok_rumah: effectiveBlok,
+      nama_warga: effectiveNama,
       tahun: TAHUN_AKTIF,
       bulan_dibayar: sortedBulan,
       nominal: payload.nominal,
       metode_bayar: payload.metode_bayar,
-      petugas_penerima: payload.metode_bayar === 'Setor Tunai' ? payload.petugas_penerima || null : null,
+      petugas_penerima:
+        payload.metode_bayar === 'Setor Tunai' ? payload.petugas_penerima || null : null,
       bukti_url: buktiUrl,
       status_verifikasi: 'Pending',
       catatan_admin: null,
@@ -890,14 +1001,14 @@ export async function submitSetoranWarga(
     writeLocal(STORAGE_KEYS.TRANSAKSI, [newTrx, ...existing]);
 
     payload.onStageChange?.('syncing_ecard');
-    syncLocalStatusForHouse(session.blok_rumah);
+    syncLocalStatusForHouse(effectiveBlok);
 
     await recordAuditLog({
-      session,
+      session: effectiveSession,
       action: 'SUBMIT_SETORAN',
       entity: 'transaksi_ipl',
       entity_id: newTrx.id,
-      summary: `Warga ${session.blok_rumah} menyetor ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+      summary: `Warga ${effectiveBlok} menyetor ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
       metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
     });
 
@@ -913,12 +1024,61 @@ export async function submitSetoranWarga(
 
 export interface AdminSnapshot {
   wargaList: Warga[];
+  pengurusAccounts: PengurusAccountInfo[];
   transaksiList: TransaksiIPL[];
   statusList: StatusEcardBulanan[];
   botConfig: BotWaConfig;
   botLogs: BotWaLog[];
   notifications: SystemNotification[];
   paymentConfig: PaymentConfig;
+}
+
+function buildPengurusAccountsList(
+  session: SessionUser,
+  dbAdminRows?: Array<{
+    blok_rumah?: string;
+    nama_warga?: string;
+    no_wa?: string;
+    pin_akses?: string;
+    jabatan?: string | null;
+    admin_permission?: string | null;
+  }>
+): PengurusAccountInfo[] {
+  const canRevealPin = isBendaharaFullAccess(session);
+  const dbMap = new Map<string, NonNullable<typeof dbAdminRows>[number]>();
+  for (const row of dbAdminRows || []) {
+    if (row.blok_rumah) {
+      dbMap.set(row.blok_rumah.trim().toLowerCase(), row);
+    }
+  }
+
+  return SUSUNAN_PENGURUS.map((p) => {
+    const dbMatch = dbMap.get(p.username.toLowerCase());
+    const localMatch = LOCAL_ADMIN_ACCOUNTS.find(
+      (a) => a.username.toLowerCase() === p.username.toLowerCase()
+    );
+    return {
+      ...p,
+      no_wa: dbMatch?.no_wa || undefined,
+      pin_akses: canRevealPin ? dbMatch?.pin_akses || localMatch?.pin : undefined,
+    };
+  });
+}
+
+function mergeBotWaLogs(remoteLogs: BotWaLog[], localLogs: BotWaLog[]): BotWaLog[] {
+  const map = new Map<string, BotWaLog>();
+  for (const l of [...remoteLogs, ...localLogs]) {
+    const dedupeKey =
+      l.id && !l.id.startsWith('walog-')
+        ? l.id
+        : `${l.created_at.slice(0, 19)}::${l.no_wa}::${l.jenis_pesan}`;
+    if (!map.has(dedupeKey)) {
+      map.set(dedupeKey, l);
+    }
+  }
+  return Array.from(map.values())
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 200);
 }
 
 export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceResult<AdminSnapshot>> {
@@ -929,37 +1089,69 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const [wargaRes, trxRes, statusRes, botCfgRes, botLogRes, notifications, paymentConfig] =
-        await Promise.all([
-          supabase
-            .from('users_warga')
-            .select('*')
-            .neq('role', 'admin')
-            .order('blok_rumah', { ascending: true }),
-          supabase
-            .from('transaksi_ipl')
-            .select('*')
-            .eq('tahun', TAHUN_AKTIF)
-            .order('tanggal_setor', { ascending: false })
-            .limit(1000),
-          supabase.from('status_ecard_bulanan').select('*').eq('tahun', TAHUN_AKTIF),
-          supabase.from('bot_wa_config').select('*').limit(1).maybeSingle(),
-          supabase.from('bot_wa_logs').select('*').order('created_at', { ascending: false }).limit(200),
-          fetchSystemNotifications(session),
-          fetchPaymentConfig(session),
-        ]);
+      const [
+        wargaRes,
+        adminAccRes,
+        trxRes,
+        statusRes,
+        botCfgRes,
+        botLogRes,
+        notifications,
+        paymentConfig,
+      ] = await Promise.all([
+        supabase
+          .from('users_warga')
+          .select('*')
+          .or('role.is.null,role.neq.admin')
+          .order('blok_rumah', { ascending: true }),
+        supabase
+          .from('users_warga')
+          .select('blok_rumah,nama_warga,no_wa,pin_akses,jabatan,admin_permission')
+          .eq('role', 'admin'),
+        supabase
+          .from('transaksi_ipl')
+          .select('*')
+          .order('tanggal_setor', { ascending: false })
+          .limit(1000),
+        supabase.from('status_ecard_bulanan').select('*').eq('tahun', TAHUN_AKTIF),
+        supabase.from('bot_wa_config').select('*').limit(1).maybeSingle(),
+        supabase.from('bot_wa_logs').select('*').order('created_at', { ascending: false }).limit(200),
+        fetchSystemNotifications(session),
+        fetchPaymentConfig(session),
+      ]);
 
       if (wargaRes.error) throw wargaRes.error;
       if (trxRes.error) throw trxRes.error;
       if (statusRes.error) throw statusRes.error;
 
+      const transaksiList = ((trxRes.data || []) as Record<string, unknown>[]).map(
+        normalizeTransaksiRow
+      );
+      const reconciledStatus = reconcileStatusWithTransactions(
+        (statusRes.data || []) as StatusEcardBulanan[],
+        transaksiList
+      );
+      const localFallbackLogs = (() => {
+        try {
+          const raw = safeStorageGet(STORAGE_KEYS.BOT_LOGS);
+          return raw ? (JSON.parse(raw) as BotWaLog[]) : [];
+        } catch {
+          return [];
+        }
+      })();
+      const remoteBotLogs = !botLogRes.error ? ((botLogRes.data || []) as BotWaLog[]) : [];
+
       return {
         data: {
           wargaList: (wargaRes.data || []) as Warga[],
-          transaksiList: (trxRes.data || []) as TransaksiIPL[],
-          statusList: (statusRes.data || []) as StatusEcardBulanan[],
+          pengurusAccounts: buildPengurusAccountsList(
+            session,
+            !adminAccRes.error ? (adminAccRes.data as Array<Record<string, string>>) : undefined
+          ),
+          transaksiList,
+          statusList: reconciledStatus,
           botConfig: (botCfgRes.data as BotWaConfig | null) || SEED_BOT_WA_CONFIG,
-          botLogs: (botLogRes.data || []) as BotWaLog[],
+          botLogs: mergeBotWaLogs(remoteBotLogs, localFallbackLogs),
           notifications,
           paymentConfig,
         },
@@ -977,10 +1169,13 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
     syncLocalStatusForHouse(w.blok_rumah);
   }
 
-  const transaksiList = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI).sort(
-    (a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime()
+  const transaksiList = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI)
+    .map((t) => normalizeTransaksiRow(t as unknown as Record<string, unknown>))
+    .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
+  const statusList = reconcileStatusWithTransactions(
+    readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, []),
+    transaksiList
   );
-  const statusList = readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, []);
   const botConfig = readLocal<BotWaConfig>(STORAGE_KEYS.BOT_CONFIG, SEED_BOT_WA_CONFIG);
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -991,8 +1186,73 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   ]);
 
   return {
-    data: { wargaList, transaksiList, statusList, botConfig, botLogs, notifications, paymentConfig },
+    data: {
+      wargaList,
+      pengurusAccounts: buildPengurusAccountsList(session),
+      transaksiList,
+      statusList,
+      botConfig,
+      botLogs,
+      notifications,
+      paymentConfig,
+    },
   };
+}
+
+/**
+ * Langganan realtime perubahan data warga/setoran di Supabase agar Portal Admin
+ * langsung memperbarui daftar setoran masuk tanpa perlu muat ulang manual.
+ */
+export function subscribeAdminRealtime(
+  session: SessionUser,
+  onChange: () => void
+): () => void {
+  if (session.role !== 'admin') return () => {};
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) return () => {};
+
+  let debounceTimer: number | null = null;
+  const triggerDebounced = () => {
+    if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
+      onChange();
+    }, 600);
+  };
+
+  try {
+    const channel = supabase
+      .channel(`admin-live-sync-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transaksi_ipl' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'status_ecard_bulanan' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users_warga' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bot_wa_logs' },
+        triggerDebounced
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      void supabase.removeChannel(channel);
+    };
+  } catch {
+    return () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    };
+  }
 }
 
 export async function verifyTransaksiAdmin(
@@ -1523,7 +1783,7 @@ async function persistBotWaLogs(session: SessionUser, logs: BotWaLog[]): Promise
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      await supabase.from('bot_wa_logs').insert(
+      const { error } = await supabase.from('bot_wa_logs').insert(
         logs.map((l) => ({
           blok_rumah: l.blok_rumah,
           nama_warga: l.nama_warga,
@@ -1534,14 +1794,23 @@ async function persistBotWaLogs(session: SessionUser, logs: BotWaLog[]): Promise
           pesan: l.pesan,
         }))
       );
-      return;
+      if (!error) {
+        return;
+      }
     } catch {
-      // Fallback simpan lokal bila tabel belum tersedia
+      // Fallback simpan lokal bila RLS / tabel belum diperbarui di Supabase
     }
   }
 
-  const existingLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS);
-  writeLocal(STORAGE_KEYS.BOT_LOGS, [...logs, ...existingLogs]);
+  const existingLogs = (() => {
+    try {
+      const raw = safeStorageGet(STORAGE_KEYS.BOT_LOGS);
+      return raw ? (JSON.parse(raw) as BotWaLog[]) : [];
+    } catch {
+      return [];
+    }
+  })();
+  writeLocal(STORAGE_KEYS.BOT_LOGS, [...logs, ...existingLogs].slice(0, 200));
 }
 
 export async function sendTestWaMessageAdmin(

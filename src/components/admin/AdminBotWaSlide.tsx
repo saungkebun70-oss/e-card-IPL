@@ -15,10 +15,15 @@ import {
   Check,
   Bot,
   Webhook,
+  ShieldCheck,
+  MessageCircle,
+  Link2,
 } from 'lucide-react';
 import {
+  APP_ADMIN_PORTAL_URL,
   APP_PORTAL_URL,
   isBendaharaFullAccess,
+  SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   TEMPLATE_VARIABLES,
   WA_BOT_PRESET_TEMPLATES,
@@ -26,11 +31,15 @@ import {
   type BotWaConfig,
   type BotWaLog,
   type PaymentConfig,
+  type PengurusAccountInfo,
   type SessionUser,
   type StatusEcardBulanan,
   type Warga,
 } from '../../types';
 import {
+  buildGeneralPengurusLinkMessage,
+  buildPengurusAccessWaMessage,
+  buildWhatsAppLink,
   copyToClipboard,
   formatRupiah,
   formatTanggalWaktu,
@@ -44,6 +53,7 @@ import {
   triggerManualWaReminderAdmin,
 } from '../../lib/dataService';
 import { generateBotAutoReply } from '../../lib/botAutoReply';
+import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from '../warga/PanduanBotWaModal';
 
 interface AdminBotWaSlideProps {
@@ -51,6 +61,7 @@ interface AdminBotWaSlideProps {
   botConfig: BotWaConfig;
   botLogs: BotWaLog[];
   wargaList: Warga[];
+  pengurusAccounts?: PengurusAccountInfo[];
   statusList: StatusEcardBulanan[];
   paymentConfig?: PaymentConfig;
   onRefresh: () => Promise<void>;
@@ -62,11 +73,13 @@ export function AdminBotWaSlide({
   botConfig,
   botLogs,
   wargaList,
+  pengurusAccounts,
   statusList,
   paymentConfig,
   onRefresh,
   onToast,
 }: AdminBotWaSlideProps) {
+  const { brand } = useAppBrand();
   const canManageFull = isBendaharaFullAccess(session);
   const [config, setConfig] = useState<BotWaConfig>(botConfig);
   const [showToken, setShowToken] = useState(false);
@@ -78,6 +91,7 @@ export function AdminBotWaSlide({
   const [testingWa, setTestingWa] = useState(false);
   const [panduanModalOpen, setPanduanModalOpen] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedPengurusKey, setCopiedPengurusKey] = useState<string | null>(null);
   const [simInput, setSimInput] = useState('MENU');
   const [simHistory, setSimHistory] = useState<
     Array<{ id: string; incoming: string; reply: string; command: string }>
@@ -239,7 +253,17 @@ export function AdminBotWaSlide({
     .replaceAll('{pin_akses}', '482910')
     .replaceAll('{bulan_tagihan}', currentMonthLabel)
     .replaceAll('{nominal_tagihan}', formatRupiah(100000))
-    .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
+    .replaceAll('{link_aplikasi}', APP_PORTAL_URL)
+    .replaceAll('{link_admin}', APP_ADMIN_PORTAL_URL)
+    .replaceAll('{nama_pengurus}', 'Erlangga')
+    .replaceAll('{jabatan}', 'Ketua')
+    .replaceAll('{nama_aplikasi}', brand.app_name)
+    .replaceAll('{username_pengurus}', 'erlangga')
+    .replaceAll('{pin_pengurus}', canManageFull ? '100001' : '(PIN 6 digit pengurus)')
+    .replaceAll(
+      '{hak_akses}',
+      'Akses Pengurus (Monitoring Setoran, Tambah Warga & Input Setoran Tunai)'
+    );
 
   return (
     <div className="space-y-6">
@@ -428,7 +452,7 @@ export function AdminBotWaSlide({
           </div>
 
           {/* Preset Template Cepat */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {WA_BOT_PRESET_TEMPLATES.map((preset) => {
               const isSelected = config.template_pesan.trim() === preset.template.trim();
               return (
@@ -450,6 +474,8 @@ export function AdminBotWaSlide({
                   <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
                     {preset.id === 'akses_pin' ? (
                       <KeyRound className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                    ) : preset.id === 'akses_pengurus' ? (
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                     ) : (
                       <MessageSquare className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                     )}
@@ -626,6 +652,172 @@ export function AdminBotWaSlide({
           </div>
         </section>
       </form>
+
+      {/* Template & Bagikan Link Portal Pengurus (/admin) */}
+      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#0F172A] flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-[#0F172A]">
+                Template WA Link Portal Pengurus ({APP_ADMIN_PORTAL_URL})
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                Kirim atau salin template akses khusus Portal Pengurus (terpisah dari link Portal
+                Warga) lengkap dengan username, jabatan, hak akses, dan PIN pengurus.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await copyToClipboard(APP_ADMIN_PORTAL_URL);
+                if (ok) {
+                  setCopiedPengurusKey('link-only');
+                  onToast('success', `Link Portal Pengurus (${APP_ADMIN_PORTAL_URL}) disalin.`);
+                  setTimeout(() => setCopiedPengurusKey(null), 2000);
+                } else {
+                  onToast('error', 'Gagal menyalin link pengurus.');
+                }
+              }}
+              className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              {copiedPengurusKey === 'link-only' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#059669]" />
+                  <span className="text-emerald-700">Link Tersalin</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-3.5 h-3.5 text-[#059669]" />
+                  <span>Salin Link /admin</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await copyToClipboard(buildGeneralPengurusLinkMessage(brand.app_name));
+                if (ok) {
+                  setCopiedPengurusKey('template-umum');
+                  onToast('success', 'Template WA Link Pengurus Umum berhasil disalin.');
+                  setTimeout(() => setCopiedPengurusKey(null), 2000);
+                } else {
+                  onToast('error', 'Gagal menyalin template.');
+                }
+              }}
+              className="min-h-[38px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              {copiedPengurusKey === 'template-umum' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Tersalin</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Salin Template Umum</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {SUSUNAN_PENGURUS.map((p) => {
+            const account = pengurusAccounts?.find(
+              (a) => a.username.toLowerCase() === p.username.toLowerCase()
+            );
+            const mergedInfo: PengurusAccountInfo = {
+              ...p,
+              pin_akses: account?.pin_akses,
+              no_wa: brand.pengurus_wa_map?.[p.username] || account?.no_wa,
+            };
+            const targetPhone =
+              brand.pengurus_wa_map?.[p.username] || account?.no_wa || brand.wa_pengurus;
+            const waText = buildPengurusAccessWaMessage(mergedInfo, {
+              appName: brand.app_name,
+              includePin: canManageFull,
+            });
+
+            return (
+              <div
+                key={p.username}
+                className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-emerald-700">{p.jabatan}</span>
+                    <span className="text-[11px] font-mono text-slate-500">Blok {p.blokRumah}</span>
+                  </div>
+                  <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
+                  <p className="text-xs text-slate-600">
+                    Username:{' '}
+                    <span className="font-mono font-semibold text-[#0F172A]">{p.username}</span>
+                    {canManageFull && mergedInfo.pin_akses && (
+                      <>
+                        {' · '}PIN:{' '}
+                        <span className="font-mono font-semibold text-emerald-700">
+                          {mergedInfo.pin_akses}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {p.permission === 'full' ? 'Akses Penuh (Bendahara)' : 'Akses Tambah Data'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <a
+                    href={buildWhatsAppLink(targetPhone, waText)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-h-[38px] px-3 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Kirim WA</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(waText);
+                      if (ok) {
+                        setCopiedPengurusKey(p.username);
+                        onToast(
+                          'success',
+                          `Template WA Link Pengurus untuk ${p.nama} (${p.jabatan}) berhasil disalin.`
+                        );
+                        setTimeout(() => setCopiedPengurusKey(null), 2000);
+                      } else {
+                        onToast('error', 'Gagal menyalin template pengurus.');
+                      }
+                    }}
+                    className="min-h-[38px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    {copiedPengurusKey === p.username ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-[#059669]" />
+                        <span className="text-emerald-700">Tersalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Bot Jawab Otomatis (Webhook Fonnte) + Simulator Live */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

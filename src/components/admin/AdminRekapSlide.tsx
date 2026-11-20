@@ -21,6 +21,7 @@ import {
   type Warga,
 } from '../../types';
 import {
+  canonicalizeBlokKey,
   extractBlokPrefix,
   formatRupiah,
   getCurrentBillingMonth,
@@ -101,9 +102,12 @@ export function AdminRekapSlide({
       }
 
       if (statusFilter !== 'Semua') {
+        const wKey = canonicalizeBlokKey(w.blok_rumah);
         const currentSt = statusList.find(
           (s) =>
-            s.blok_rumah === w.blok_rumah && s.tahun === TAHUN_AKTIF && s.bulan === currentMonth
+            canonicalizeBlokKey(s.blok_rumah) === wKey &&
+            s.tahun === TAHUN_AKTIF &&
+            s.bulan === currentMonth
         )?.status;
         if (statusFilter === 'Lunas' && currentSt !== 'Lunas') return false;
         if (
@@ -366,10 +370,11 @@ export function AdminRekapSlide({
                       </p>
                     </td>
                     {BULAN_LIST.map((b) => {
+                      const wKey = canonicalizeBlokKey(w.blok_rumah);
                       const st =
                         statusList.find(
                           (s) =>
-                            s.blok_rumah === w.blok_rumah &&
+                            canonicalizeBlokKey(s.blok_rumah) === wKey &&
                             s.tahun === TAHUN_AKTIF &&
                             s.bulan === b.angka
                         )?.status || 'Belum Tagihan';

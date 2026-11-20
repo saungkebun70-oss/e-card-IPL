@@ -403,14 +403,86 @@ async function buildAutoReply(
     const cleanBlok = normalizeBlok(parts[1] || '');
     const periode = (parts[2] || '').toUpperCase();
     const nominal = Number((parts[3] || '').replace(/\D/g, '')) || 0;
-    const metode = (parts[4] || '').toUpperCase();
+    const metodeRaw = (parts[4] || '').toUpperCase();
     const pengurus = parts[5] || '';
 
-    if (!cleanBlok || !periode || nominal <= 0 || !metode) {
+    if (!cleanBlok || !periode || nominal <= 0 || !metodeRaw) {
       return {
         command: 'SETOR',
         blok: cleanBlok || 'BOT-WA',
         reply: `Format setor belum lengkap.\nGunakan: *SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]*\nContoh: *SETOR#B5/21#NOV${TAHUN_AKTIF}#100000#QRIS*`,
+      };
+    }
+
+    // Cari unit warga secara fleksibel (mendukung format B5/2 maupun B05/02)
+    const canonicalInput = cleanBlok.replace(/-/g, '/').replace(/^([A-Z]+)0*(\d+)\/0*(\d+)$/, '$1$2/$3');
+    const allWarga = await supabaseRestGet<WargaRow>(
+      'users_warga?select=blok_rumah,nama_warga,no_wa,status_hunian,nominal_iuran,aktif&role=eq.warga'
+    );
+    const matchedWarga = allWarga.find((w) => {
+      const dbNorm = normalizeBlok(w.blok_rumah).replace(/-/g, '/');
+      const dbCanonical = dbNorm.replace(/^([A-Z]+)0*(\d+)\/0*(\d+)$/, '$1$2/$3');
+      return dbNorm === cleanBlok || dbCanonical === canonicalInput;
+    });
+
+    // Parsing bulan dari periode (mis. NOV2026, 11, OKT-NOV2026)
+    const monthCodeMap: Record<string, number> = {
+      JAN: 1, FEB: 2, MAR: 3, APR: 4, MEI: 5, MAY: 5, JUN: 6,
+      JUL: 7, AGU: 8, AUG: 8, SEP: 9, OKT: 10, OCT: 10, NOV: 11, DES: 12, DEC: 12,
+    };
+    const parsedMonths = new Set<number>();
+    for (const [code, num] of Object.entries(monthCodeMap)) {
+      if (periode.includes(code)) parsedMonths.add(num);
+    }
+    if (parsedMonths.size === 0) {
+      const numMatch = periode.match(/\b(1[0-2]|0?[1-9])\b/);
+      if (numMatch) parsedMonths.add(Number(numMatch[1]));
+    }
+    const bulanDibayar = parsedMonths.size > 0 ? Array.from(parsedMonths).sort((a, b) => a - b) : [getCurrentMonth()];
+
+    const metodeNormalized = metodeRaw.includes('QR')
+      ? 'QRIS'
+      : metodeRaw.includes('TUNAI') || metodeRaw.includes('CASH') || metodeRaw.includes('TITIP')
+        ? 'Setor Tunai'
+        : metodeRaw.includes('DANA') || metodeRaw.includes('OVO') || metodeRaw.includes('GOPAY') || metodeRaw.includes('EWALLET')
+          ? 'E-Wallet'
+          : 'Transfer Bank';
+
+    if (matchedWarga) {
+      const nowIso = new Date().toISOString();
+      const ymd = nowIso.slice(0, 10).replace(/-/g, '');
+      const rand = Math.floor(100 + Math.random() * 900);
+      const blokClean = matchedWarga.blok_rumah.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+      const noKwitansi = `SKB/${ymd}/${blokClean}/WA${rand}`;
+
+      await supabaseRestInsert('transaksi_ipl', {
+        no_kwitansi: noKwitansi,
+        blok_rumah: matchedWarga.blok_rumah,
+        nama_warga: matchedWarga.nama_warga,
+        tahun: TAHUN_AKTIF,
+        bulan_dibayar: bulanDibayar,
+        nominal,
+        metode_bayar: metodeNormalized,
+        petugas_penerima: metodeNormalized === 'Setor Tunai' ? pengurus || null : null,
+        bukti_url: null,
+        status_verifikasi: 'Pending',
+        keterangan: `Dilaporkan via Bot WA (${periode}${pengurus ? ` · ${pengurus}` : ''})`,
+        tanggal_setor: nowIso,
+      });
+
+      return {
+        command: 'SETOR',
+        blok: matchedWarga.blok_rumah,
+        reply: [
+          `*Laporan Setor IPL Tercatat di Antrean Verifikasi Admin*`,
+          `Unit: *Blok ${matchedWarga.blok_rumah}* (${matchedWarga.nama_warga})`,
+          `Periode: *${bulanDibayar.map((m) => BULAN_NAMA[m - 1]).join(', ')} ${TAHUN_AKTIF}*`,
+          `Nominal: *${formatRupiah(nominal)}*`,
+          `Metode: *${metodeNormalized}*${pengurus ? ` via ${pengurus}` : ''}`,
+          `No. Ref: *${noKwitansi}*`,
+          ``,
+          `Setoran Anda sudah masuk ke antrean verifikasi Bendahara (Andriansyah). Anda juga dapat melampirkan bukti foto di ${APP_PORTAL_URL}.`,
+        ].join('\n'),
       };
     }
 
@@ -422,9 +494,9 @@ async function buildAutoReply(
         `Unit: *Blok ${cleanBlok}*`,
         `Periode: *${periode}*`,
         `Nominal: *${formatRupiah(nominal)}*`,
-        `Metode: *${metode}*${pengurus ? ` via ${pengurus}` : ''}`,
+        `Metode: *${metodeRaw}*${pengurus ? ` via ${pengurus}` : ''}`,
         ``,
-        `Pastikan bukti transfer juga diunggah di ${APP_PORTAL_URL} agar Bendahara (Andriansyah) segera memverifikasi dan menerbitkan kwitansi digital.`,
+        `Pastikan format blok sesuai data terdaftar dan unggah bukti transfer di ${APP_PORTAL_URL} agar Bendahara (Andriansyah) segera memverifikasi.`,
       ].join('\n'),
     };
   }

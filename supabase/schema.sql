@@ -270,7 +270,7 @@ drop policy if exists "warga_hanya_lihat_rumah_sendiri" on public.users_warga;
 create policy "warga_hanya_lihat_rumah_sendiri" on public.users_warga
   for select using (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   );
 
 drop policy if exists "admin_kelola_warga" on public.users_warga;
@@ -297,14 +297,14 @@ drop policy if exists "transaksi_isolasi_rumah" on public.transaksi_ipl;
 create policy "transaksi_isolasi_rumah" on public.transaksi_ipl
   for select using (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   );
 
 drop policy if exists "warga_kirim_setoran_sendiri" on public.transaksi_ipl;
 create policy "warga_kirim_setoran_sendiri" on public.transaksi_ipl
   for insert with check (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   );
 
 drop policy if exists "admin_verifikasi_transaksi" on public.transaksi_ipl;
@@ -319,18 +319,18 @@ drop policy if exists "status_isolasi_rumah" on public.status_ecard_bulanan;
 create policy "status_isolasi_rumah" on public.status_ecard_bulanan
   for select using (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   );
 
 drop policy if exists "status_update_terbatas" on public.status_ecard_bulanan;
 create policy "status_update_terbatas" on public.status_ecard_bulanan
   for all using (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   )
   with check (
     public.req_header('x-user-role') = 'admin'
-    or blok_rumah = public.req_header('x-blok-rumah')
+    or lower(trim(blok_rumah)) = lower(trim(public.req_header('x-blok-rumah')))
   );
 
 -- Kebijakan RLS bot_wa_config, bot_wa_logs, audit_logs
@@ -353,6 +353,10 @@ create policy "bendahara_bot_config_write" on public.bot_wa_config
 drop policy if exists "admin_bot_logs" on public.bot_wa_logs;
 create policy "admin_bot_logs" on public.bot_wa_logs
   for select using (public.req_header('x-user-role') = 'admin');
+
+drop policy if exists "admin_bot_logs_insert" on public.bot_wa_logs;
+create policy "admin_bot_logs_insert" on public.bot_wa_logs
+  for insert with check (public.req_header('x-user-role') = 'admin');
 
 drop policy if exists "audit_insert_all" on public.audit_logs;
 create policy "audit_insert_all" on public.audit_logs

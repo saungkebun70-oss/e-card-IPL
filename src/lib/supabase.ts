@@ -13,12 +13,12 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-let cachedKey = '';
-let cachedClient: SupabaseClient | null = null;
+const clientCache = new Map<string, SupabaseClient>();
 
 /**
- * Menghasilkan instance Supabase client dengan custom headers `x-blok-rumah` dan `x-user-role`
- * agar kebijakan Row Level Security (RLS) di PostgreSQL/Supabase selalu aktif per rumah.
+ * Menghasilkan instance Supabase client terisolasi per (role, blok, permission)
+ * dengan custom headers `x-blok-rumah` dan `x-user-role` agar panggilan anon (mis. BrandProvider)
+ * tidak pernah menimpa header sesi Admin atau Warga.
  */
 export function getSupabaseClient(session?: SessionUser | null): SupabaseClient | null {
   if (!isSupabaseConfigured()) {
@@ -29,14 +29,14 @@ export function getSupabaseClient(session?: SessionUser | null): SupabaseClient 
   const roleHeader = session?.role || 'anon';
   const permHeader = session?.admin_permission || '';
   const jabatanHeader = session?.jabatan || '';
-  const key = `${roleHeader}::${blokHeader}::${permHeader}`;
+  const key = `${roleHeader}::${blokHeader}::${permHeader}::${jabatanHeader}`;
 
-  if (cachedClient && cachedKey === key) {
-    return cachedClient;
+  const existing = clientCache.get(key);
+  if (existing) {
+    return existing;
   }
 
-  cachedKey = key;
-  cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -51,5 +51,6 @@ export function getSupabaseClient(session?: SessionUser | null): SupabaseClient 
     },
   });
 
-  return cachedClient;
+  clientCache.set(key, client);
+  return client;
 }

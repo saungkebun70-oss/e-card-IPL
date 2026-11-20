@@ -11,21 +11,33 @@ import {
   Loader2,
   ShieldAlert,
   CheckCircle2,
+  Copy,
+  Check,
+  MessageCircle,
 } from 'lucide-react';
 import {
+  APP_ADMIN_PORTAL_URL,
   isBendaharaFullAccess,
   SUSUNAN_PENGURUS,
   type PaymentConfig,
+  type PengurusAccountInfo,
   type RekeningPembayaran,
   type SessionUser,
 } from '../../types';
 import { compressProofImage } from '../../lib/imageCompressor';
 import { savePaymentConfigAdmin, uploadQrisImageAdmin } from '../../lib/dataService';
+import { useAppBrand } from '../../lib/brandContext';
+import {
+  buildPengurusAccessWaMessage,
+  buildWhatsAppLink,
+  copyToClipboard,
+} from '../../lib/format';
 
 interface AdminPaymentSettingsModalProps {
   open: boolean;
   session: SessionUser;
   paymentConfig: PaymentConfig;
+  pengurusAccounts?: PengurusAccountInfo[];
   onClose: () => void;
   onSaved: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -37,15 +49,18 @@ export function AdminPaymentSettingsModal({
   open,
   session,
   paymentConfig,
+  pengurusAccounts,
   onClose,
   onSaved,
   onToast,
 }: AdminPaymentSettingsModalProps) {
+  const { brand } = useAppBrand();
   const canEdit = isBendaharaFullAccess(session);
   const [activeTab, setActiveTab] = useState<SettingsTab>('qris');
   const [draft, setDraft] = useState<PaymentConfig>(paymentConfig);
   const [uploadingQris, setUploadingQris] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copiedUser, setCopiedUser] = useState<string | null>(null);
 
   // Form tambah rekening baru (Khusus Bendahara)
   const [newBank, setNewBank] = useState('');
@@ -475,41 +490,93 @@ export function AdminPaymentSettingsModal({
           {activeTab === 'pengurus' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-600 leading-relaxed">
-                Susunan pengurus resmi Perumahan Saung Kebun yang otomatis muncul pada pilihan{' '}
-                <strong>Via Titip Pengurus (Setor Tunai)</strong> dan memiliki akun Portal Admin:
+                Susunan pengurus resmi Perumahan Saung Kebun yang memiliki akses Portal Admin (
+                <span className="font-mono text-slate-800">{APP_ADMIN_PORTAL_URL}</span>). Gunakan
+                tombol di kanan untuk menyalin atau mengirim template akses pengurus via WhatsApp:
               </p>
               <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
-                {SUSUNAN_PENGURUS.map((p) => (
-                  <div
-                    key={p.username}
-                    className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="font-bold text-[#0F172A]">{p.jabatan}</span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="font-semibold text-emerald-700">{p.nama}</span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="font-mono text-slate-500">Blok {p.blokRumah}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Username Admin: <span className="font-mono font-semibold">{p.username}</span>
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs font-semibold inline-flex items-center gap-1 shrink-0 ${
-                        p.permission === 'full' ? 'text-emerald-700' : 'text-slate-600'
-                      }`}
+                {SUSUNAN_PENGURUS.map((p) => {
+                  const account = pengurusAccounts?.find(
+                    (a) => a.username.toLowerCase() === p.username.toLowerCase()
+                  );
+                  const mergedInfo: PengurusAccountInfo = {
+                    ...p,
+                    pin_akses: account?.pin_akses,
+                    no_wa: brand.pengurus_wa_map?.[p.username] || account?.no_wa,
+                  };
+                  const targetWa =
+                    brand.pengurus_wa_map?.[p.username] || brand.wa_pengurus;
+                  const waMessage = buildPengurusAccessWaMessage(mergedInfo, {
+                    appName: brand.app_name,
+                    includePin: canEdit,
+                  });
+
+                  return (
+                    <div
+                      key={p.username}
+                      className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        {p.permission === 'full'
-                          ? 'Akses Penuh (Edit, Add, Hapus, QR & Norek)'
-                          : 'Akses Tambah Data (Add Only)'}
-                      </span>
-                    </span>
-                  </div>
-                ))}
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="font-bold text-[#0F172A]">{p.jabatan}</span>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span className="font-semibold text-emerald-700">{p.nama}</span>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span className="font-mono text-slate-500">Blok {p.blokRumah}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span>
+                            Username: <span className="font-mono font-semibold text-slate-700">{p.username}</span>
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span className={p.permission === 'full' ? 'text-emerald-700 font-semibold' : ''}>
+                            {p.permission === 'full' ? 'Akses Penuh' : 'Tambah Data'}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={buildWhatsAppLink(targetWa, waMessage)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Kirim WA</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const ok = await copyToClipboard(waMessage);
+                            if (ok) {
+                              setCopiedUser(p.username);
+                              onToast(
+                                'success',
+                                `Template WA Link Pengurus untuk ${p.nama} (${p.jabatan}) berhasil disalin.`
+                              );
+                              setTimeout(() => setCopiedUser(null), 2000);
+                            } else {
+                              onToast('error', 'Gagal menyalin template.');
+                            }
+                          }}
+                          className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                        >
+                          {copiedUser === p.username ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#059669]" />
+                              <span className="text-emerald-700">Tersalin</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

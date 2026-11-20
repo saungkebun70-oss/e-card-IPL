@@ -1,8 +1,12 @@
 import {
+  APP_ADMIN_PORTAL_URL,
   APP_PORTAL_URL,
   BULAN_LIST,
+  NAMA_APLIKASI,
   TAHUN_AKTIF,
   WA_ACCESS_TEMPLATE_DEFAULT,
+  WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT,
+  type PengurusAccountInfo,
   type StatusBulanEcard,
   type Warga,
 } from '../types';
@@ -89,6 +93,15 @@ export function normalizeBlok(input: string): string {
   return input.trim().toUpperCase().replace(/\s+/g, '');
 }
 
+export function canonicalizeBlokKey(input: string): string {
+  const clean = normalizeBlok(input).replace(/-/g, '/');
+  const match = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  if (match) {
+    return `${match[1]}${match[2]}/${match[3]}`;
+  }
+  return clean;
+}
+
 export function normalizeWaNumber(input: string): string {
   const digits = input.replace(/\D/g, '');
   if (digits.startsWith('0')) {
@@ -111,6 +124,45 @@ export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blo
     .replaceAll('{blok_rumah}', warga.blok_rumah)
     .replaceAll('{pin_akses}', warga.pin_akses)
     .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
+}
+
+export function buildPengurusAccessWaMessage(
+  pengurus: Pick<PengurusAccountInfo, 'nama' | 'jabatan' | 'username' | 'permission' | 'pin_akses'>,
+  options?: { appName?: string; includePin?: boolean; portalAdminUrl?: string }
+): string {
+  const appName = options?.appName?.trim() || NAMA_APLIKASI;
+  const adminUrl = options?.portalAdminUrl?.trim() || APP_ADMIN_PORTAL_URL;
+  const hakAksesLabel =
+    pengurus.permission === 'full'
+      ? 'Akses Penuh (Verifikasi Setoran, Kelola Warga, QRIS, Rekening & Bot WA)'
+      : 'Akses Pengurus (Monitoring Setoran, Tambah Warga & Input Setoran Tunai)';
+  const pinLabel =
+    options?.includePin !== false && pengurus.pin_akses
+      ? pengurus.pin_akses
+      : '(Hubungi Bendahara untuk PIN 6 digit Anda)';
+
+  return WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT
+    .replaceAll('{nama_pengurus}', pengurus.nama)
+    .replaceAll('{jabatan}', pengurus.jabatan)
+    .replaceAll('{nama_aplikasi}', appName)
+    .replaceAll('{link_admin}', adminUrl)
+    .replaceAll('{link_aplikasi}', APP_PORTAL_URL)
+    .replaceAll('{username_pengurus}', pengurus.username)
+    .replaceAll('{pin_pengurus}', pinLabel)
+    .replaceAll('{hak_akses}', hakAksesLabel);
+}
+
+export function buildGeneralPengurusLinkMessage(appName?: string): string {
+  const cleanName = appName?.trim() || NAMA_APLIKASI;
+  return [
+    `*Tautan Resmi Portal Pengurus / Admin — ${cleanName}*`,
+    ``,
+    `🔗 *Link Login Pengurus:* ${APP_ADMIN_PORTAL_URL}`,
+    `👤 *Username:* Gunakan username pengurus masing-masing (contoh: erlangga, andriansyah, bpiwan, doni, wahyu, deny)`,
+    `🔐 *PIN:* Masukkan PIN 6 digit khusus pengurus`,
+    ``,
+    `⚠️ Link ${APP_ADMIN_PORTAL_URL} khusus internal Pengurus Lingkungan. Untuk warga tetap gunakan ${APP_PORTAL_URL}.`,
+  ].join('\n');
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {

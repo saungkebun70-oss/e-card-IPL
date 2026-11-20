@@ -25,6 +25,7 @@ import {
   fetchAdminSnapshot,
   fetchWargaOwnData,
   loadStoredSession,
+  subscribeAdminRealtime,
   type AdminSnapshot,
 } from './lib/dataService';
 import { WargaLoginPage } from './components/WargaLoginPage';
@@ -89,29 +90,37 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const loadPortalData = useCallback(async (activeSession: SessionUser) => {
-    setLoadingData(true);
-    setDataError(null);
-    try {
-      if (activeSession.role === 'warga') {
-        const res = await fetchWargaOwnData(activeSession);
-        if (res.error || !res.data) {
-          setDataError(res.error || 'Gagal memuat data rumah Anda.');
-        } else {
-          setWargaData(res.data);
-        }
-      } else {
-        const res = await fetchAdminSnapshot(activeSession);
-        if (res.error || !res.data) {
-          setDataError(res.error || 'Gagal memuat data Pengurus.');
-        } else {
-          setAdminData(res.data);
-        }
+  const loadPortalData = useCallback(
+    async (activeSession: SessionUser, options?: { silent?: boolean }) => {
+      const silent = Boolean(options?.silent);
+      if (!silent) {
+        setLoadingData(true);
+        setDataError(null);
       }
-    } finally {
-      setLoadingData(false);
-    }
-  }, []);
+      try {
+        if (activeSession.role === 'warga') {
+          const res = await fetchWargaOwnData(activeSession);
+          if (res.error || !res.data) {
+            if (!silent) setDataError(res.error || 'Gagal memuat data rumah Anda.');
+          } else {
+            setWargaData(res.data);
+            setDataError(null);
+          }
+        } else {
+          const res = await fetchAdminSnapshot(activeSession);
+          if (res.error || !res.data) {
+            if (!silent) setDataError(res.error || 'Gagal memuat data Pengurus.');
+          } else {
+            setAdminData(res.data);
+            setDataError(null);
+          }
+        }
+      } finally {
+        if (!silent) setLoadingData(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const handlePopState = () => {
@@ -131,6 +140,54 @@ export default function App() {
     setActiveTab(session.role === 'admin' ? 'dashboard' : 'beranda');
     void loadPortalData(session);
   }, [session, portalRoute, loadPortalData]);
+
+  // Sinkronisasi otomatis agar setoran warga yang baru dikirim langsung tampil di Admin
+  useEffect(() => {
+    if (!session || session.role !== portalRoute) return;
+
+    const triggerSilentSync = () => {
+      if (document.visibilityState === 'visible') {
+        void loadPortalData(session, { silent: true });
+      }
+    };
+
+    const handleFocus = () => triggerSilentSync();
+    const handleVisibility = () => triggerSilentSync();
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    let unsubscribeRealtime = () => {};
+    let intervalId: number | null = null;
+
+    if (session.role === 'admin') {
+      unsubscribeRealtime = subscribeAdminRealtime(session, () => {
+        void loadPortalData(session, { silent: true });
+      });
+      intervalId = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          void loadPortalData(session, { silent: true });
+        }
+      }, 20000);
+    }
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      unsubscribeRealtime();
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
+  }, [session, portalRoute, loadPortalData]);
+
+  const handleTabChange = useCallback(
+    (nextTab: string) => {
+      setActiveTab(nextTab);
+      if (session && session.role === portalRoute) {
+        void loadPortalData(session, { silent: true });
+      }
+    },
+    [session, portalRoute, loadPortalData]
+  );
 
   const handleLoginSuccess = (newSession: SessionUser) => {
     if (newSession.role !== portalRoute) return;
@@ -169,7 +226,9 @@ export default function App() {
 
   // Konfigurasi Navigasi 4 Slide untuk Warga & 4 Slide untuk Admin
   const pendingCount =
-    adminData?.transaksiList.filter((t) => t.status_verifikasi === 'Pending').length || 0;
+    adminData?.transaksiList.filter(
+      (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
+    ).length || 0;
 
   const navItems: NavItem[] =
     session.role === 'warga'
@@ -303,10 +362,12 @@ export default function App() {
             <AdminDashboardSlide
               session={session}
               wargaList={adminData.wargaList}
+              pengurusAccounts={adminData.pengurusAccounts}
               transaksiList={adminData.transaksiList}
               statusList={adminData.statusList}
               notifications={adminData.notifications}
               paymentConfig={adminData.paymentConfig}
+              isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />
@@ -327,6 +388,7 @@ export default function App() {
               botConfig={adminData.botConfig}
               botLogs={adminData.botLogs}
               wargaList={adminData.wargaList}
+              pengurusAccounts={adminData.pengurusAccounts}
               statusList={adminData.statusList}
               paymentConfig={adminData.paymentConfig}
               onRefresh={() => loadPortalData(session)}
@@ -359,7 +421,7 @@ export default function App() {
         session={session}
         navItems={navItems}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         onLogout={handleLogout}
       >
         {dataError && (wargaData || adminData) && (

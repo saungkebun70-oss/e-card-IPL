@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   XCircle,
@@ -15,6 +15,7 @@ import {
   Users,
   QrCode,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import {
   BULK_NOTIFICATION_TEMPLATES,
@@ -24,6 +25,7 @@ import {
   type NotificationCategory,
   type NotificationTargetScope,
   type PaymentConfig,
+  type PengurusAccountInfo,
   type SessionUser,
   type StatusEcardBulanan,
   type SystemNotification,
@@ -31,6 +33,7 @@ import {
   type Warga,
 } from '../../types';
 import {
+  canonicalizeBlokKey,
   formatDaftarBulan,
   formatRupiah,
   formatTanggalWaktu,
@@ -53,13 +56,17 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Keuangan & IPL',
 ];
 
+type TrxFilterTab = 'Pending' | 'Semua' | 'Terverifikasi' | 'Ditolak';
+
 interface AdminDashboardSlideProps {
   session: SessionUser;
   wargaList: Warga[];
+  pengurusAccounts: PengurusAccountInfo[];
   transaksiList: TransaksiIPL[];
   statusList: StatusEcardBulanan[];
   notifications: SystemNotification[];
   paymentConfig: PaymentConfig;
+  isRefreshing?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -67,10 +74,12 @@ interface AdminDashboardSlideProps {
 export function AdminDashboardSlide({
   session,
   wargaList,
+  pengurusAccounts,
   transaksiList,
   statusList,
   notifications,
   paymentConfig,
+  isRefreshing = false,
   onRefresh,
   onToast,
 }: AdminDashboardSlideProps) {
@@ -80,6 +89,8 @@ export function AdminDashboardSlide({
   const [rejectTarget, setRejectTarget] = useState<TransaksiIPL | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  const [trxFilter, setTrxFilter] = useState<TrxFilterTab>('Pending');
+  const [trxSearch, setTrxSearch] = useState('');
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -100,18 +111,26 @@ export function AdminDashboardSlide({
   const currentMonth = getCurrentBillingMonth();
   const currentMonthName = getNamaBulan(currentMonth);
 
-  // Hitung KPI bulan berjalan
+  // Hitung KPI bulan berjalan dengan pencocokan blok kanonis (B05/02 == B5/2)
   const activeWarga = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
   const rumahLunasBulanIni = activeWarga.filter((w) => {
+    const wKey = canonicalizeBlokKey(w.blok_rumah);
     const st = statusList.find(
-      (s) => s.blok_rumah === w.blok_rumah && s.tahun === TAHUN_AKTIF && s.bulan === currentMonth
+      (s) =>
+        canonicalizeBlokKey(s.blok_rumah) === wKey &&
+        s.tahun === TAHUN_AKTIF &&
+        s.bulan === currentMonth
     );
     return st?.status === 'Lunas';
   }).length;
 
   const rumahBelumBayarBulanIni = activeWarga.filter((w) => {
+    const wKey = canonicalizeBlokKey(w.blok_rumah);
     const st = statusList.find(
-      (s) => s.blok_rumah === w.blok_rumah && s.tahun === TAHUN_AKTIF && s.bulan === currentMonth
+      (s) =>
+        canonicalizeBlokKey(s.blok_rumah) === wKey &&
+        s.tahun === TAHUN_AKTIF &&
+        s.bulan === currentMonth
     );
     return !st || (st.status !== 'Lunas' && st.status !== 'Menunggu Verifikasi');
   }).length;
@@ -121,12 +140,43 @@ export function AdminDashboardSlide({
       (t) =>
         t.status_verifikasi === 'Terverifikasi' &&
         t.tahun === TAHUN_AKTIF &&
-        (t.bulan_dibayar.includes(currentMonth) ||
+        ((Array.isArray(t.bulan_dibayar) && t.bulan_dibayar.includes(currentMonth)) ||
           new Date(t.tanggal_setor).getMonth() + 1 === currentMonth)
     )
     .reduce((sum, t) => sum + t.nominal, 0);
 
-  const pendingList = transaksiList.filter((t) => t.status_verifikasi === 'Pending');
+  const pendingList = useMemo(
+    () => transaksiList.filter((t) => t.status_verifikasi === 'Pending'),
+    [transaksiList]
+  );
+  const verifiedList = useMemo(
+    () => transaksiList.filter((t) => t.status_verifikasi === 'Terverifikasi'),
+    [transaksiList]
+  );
+  const rejectedList = useMemo(
+    () => transaksiList.filter((t) => t.status_verifikasi === 'Ditolak'),
+    [transaksiList]
+  );
+
+  const filteredTransaksi = useMemo(() => {
+    const base =
+      trxFilter === 'Pending'
+        ? pendingList
+        : trxFilter === 'Terverifikasi'
+          ? verifiedList
+          : trxFilter === 'Ditolak'
+            ? rejectedList
+            : transaksiList;
+    const q = trxSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(
+      (t) =>
+        t.blok_rumah.toLowerCase().includes(q) ||
+        t.nama_warga.toLowerCase().includes(q) ||
+        t.no_kwitansi.toLowerCase().includes(q) ||
+        t.metode_bayar.toLowerCase().includes(q)
+    );
+  }, [trxFilter, trxSearch, pendingList, verifiedList, rejectedList, transaksiList]);
 
   const handleApprove = async (trx: TransaksiIPL) => {
     setProcessingId(trx.id);
@@ -294,11 +344,12 @@ export function AdminDashboardSlide({
           </button>
           <button
             type="button"
+            disabled={isRefreshing}
             onClick={() => void onRefresh()}
-            className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Muat Ulang</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Menyinkronkan...' : 'Muat Ulang'}</span>
           </button>
         </div>
       </div>
@@ -339,34 +390,95 @@ export function AdminDashboardSlide({
         </div>
       </section>
 
-      {/* Daftar Verifikasi Setoran Masuk (Status Pending) */}
+      {/* Daftar Verifikasi & Riwayat Setoran Masuk Warga */}
       <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-[#0F172A]">Antrean Verifikasi Setoran Masuk</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Periksa bukti foto transfer atau kwitansi tunai sebelum menyetujui pelunasan e-Card.
-            </p>
+        <div className="px-5 py-4 border-b border-slate-200 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-[#0F172A]">
+                Antrean Verifikasi &amp; Setoran Masuk Warga
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Semua kiriman setoran warga tampil otomatis di sini. Periksa bukti foto sebelum
+                menyetujui pelunasan e-Card.
+              </p>
+            </div>
+            <span className="text-xs font-mono font-semibold text-amber-700 tabular-nums shrink-0">
+              {pendingList.length} Pending · {transaksiList.length} Total Setoran
+            </span>
           </div>
-          <span className="text-xs font-mono font-semibold text-amber-700 tabular-nums shrink-0">
-            {pendingList.length} Pending
-          </span>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+              {(
+                [
+                  { id: 'Pending', label: `Pending (${pendingList.length})` },
+                  { id: 'Semua', label: `Semua (${transaksiList.length})` },
+                  { id: 'Terverifikasi', label: `Lunas (${verifiedList.length})` },
+                  { id: 'Ditolak', label: `Ditolak (${rejectedList.length})` },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setTrxFilter(tab.id);
+                    setVisiblePendingCount(15);
+                  }}
+                  className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    trxFilter === tab.id
+                      ? 'bg-white text-[#0F172A] shadow-sm'
+                      : 'text-slate-600 hover:text-[#0F172A]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="search"
+                value={trxSearch}
+                onChange={(e) => setTrxSearch(e.target.value)}
+                placeholder="Cari blok, nama, kwitansi..."
+                className="w-full min-h-[38px] rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              />
+            </div>
+          </div>
         </div>
 
-        {pendingList.length === 0 ? (
+        {filteredTransaksi.length === 0 ? (
           <div className="p-8 sm:p-12 text-center">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-            <h3 className="text-sm font-bold text-[#0F172A] mt-3">Semua Setoran Sudah Diverifikasi</h3>
+            <h3 className="text-sm font-bold text-[#0F172A] mt-3">
+              {trxFilter === 'Pending' && !trxSearch.trim()
+                ? 'Semua Setoran Sudah Diverifikasi'
+                : 'Tidak Ada Data Setoran yang Cocok'}
+            </h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Tidak ada transaksi berstatus Pending saat ini. Setoran baru dari warga akan langsung
-              muncul di daftar ini.
+              {trxFilter === 'Pending' && !trxSearch.trim()
+                ? 'Tidak ada transaksi berstatus Pending saat ini. Anda dapat klik tab "Semua" di atas untuk melihat seluruh riwayat kiriman warga.'
+                : 'Coba ubah filter status atau kata kunci pencarian, atau tekan Muat Ulang untuk sinkronisasi terbaru.'}
             </p>
+            {trxFilter === 'Pending' && transaksiList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTrxFilter('Semua')}
+                className="mt-4 min-h-[38px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer"
+              >
+                Lihat Semua Setoran ({transaksiList.length})
+              </button>
+            )}
           </div>
         ) : (
           <>
           <div className="divide-y divide-slate-100">
-            {pendingList.slice(0, visiblePendingCount).map((trx) => {
+            {filteredTransaksi.slice(0, visiblePendingCount).map((trx) => {
               const isBusy = processingId === trx.id;
+              const isPending = trx.status_verifikasi === 'Pending';
+              const isVerified = trx.status_verifikasi === 'Terverifikasi';
               return (
                 <article
                   key={trx.id}
@@ -402,10 +514,22 @@ export function AdminDashboardSlide({
                           {trx.nama_warga}
                         </span>
                         <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
-                          <Clock className="w-3.5 h-3.5" />
-                          Pending
-                        </span>
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                            <Clock className="w-3.5 h-3.5" />
+                            Pending
+                          </span>
+                        ) : isVerified ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Terverifikasi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                            <XCircle className="w-3.5 h-3.5" />
+                            Ditolak
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-sm font-mono font-bold text-emerald-700 tabular-nums">
@@ -418,16 +542,22 @@ export function AdminDashboardSlide({
                       <p className="text-xs text-slate-500">
                         {trx.metode_bayar}
                         {trx.petugas_penerima ? ` (Petugas: ${trx.petugas_penerima})` : ''} ·{' '}
-                        {formatTanggalWaktu(trx.tanggal_setor)}
+                        {formatTanggalWaktu(trx.tanggal_setor)} ·{' '}
+                        <span className="font-mono text-[11px]">{trx.no_kwitansi}</span>
                       </p>
 
                       {trx.keterangan && (
                         <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
                       )}
+                      {trx.catatan_admin && !isPending && (
+                        <p className="text-xs text-slate-500">
+                          Catatan pengurus: {trx.catatan_admin}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Aksi Approve / Reject (Khusus Bendahara) */}
+                  {/* Aksi Preview & Approve / Reject (Khusus Bendahara untuk Pending) */}
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     {trx.bukti_url && (
                       <button
@@ -440,46 +570,47 @@ export function AdminDashboardSlide({
                       </button>
                     )}
 
-                    {canManageFull ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => {
-                            setRejectTarget(trx);
-                            setRejectReason('');
-                          }}
-                          className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          <span>Tolak</span>
-                        </button>
+                    {isPending &&
+                      (canManageFull ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => {
+                              setRejectTarget(trx);
+                              setRejectReason('');
+                            }}
+                            className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            <span>Tolak</span>
+                          </button>
 
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => void handleApprove(trx)}
-                          className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>{isBusy ? 'Memproses...' : 'Setujui (Approve)'}</span>
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs font-medium text-slate-500 px-2">
-                        Verifikasi khusus Bendahara
-                      </span>
-                    )}
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void handleApprove(trx)}
+                            className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>{isBusy ? 'Memproses...' : 'Setujui (Approve)'}</span>
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-500 px-2">
+                          Verifikasi khusus Bendahara
+                        </span>
+                      ))}
                   </div>
                 </article>
               );
             })}
           </div>
-          {pendingList.length > visiblePendingCount && (
+          {filteredTransaksi.length > visiblePendingCount && (
             <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
               <span className="text-xs text-slate-500 tabular-nums">
-                Menampilkan {Math.min(visiblePendingCount, pendingList.length)} dari{' '}
-                {pendingList.length} antrean
+                Menampilkan {Math.min(visiblePendingCount, filteredTransaksi.length)} dari{' '}
+                {filteredTransaksi.length} setoran
               </span>
               <button
                 type="button"
@@ -1013,15 +1144,17 @@ export function AdminDashboardSlide({
         open={paymentSettingsOpen}
         session={session}
         paymentConfig={paymentConfig}
+        pengurusAccounts={pengurusAccounts}
         onClose={() => setPaymentSettingsOpen(false)}
         onSaved={onRefresh}
         onToast={onToast}
       />
 
-      {/* Modal Pengaturan Nama Aplikasi & Logo */}
+      {/* Modal Pengaturan Nama Aplikasi, Logo & WA Pengurus */}
       <AdminBrandSettingsModal
         open={brandSettingsOpen}
         session={session}
+        pengurusAccounts={pengurusAccounts}
         onClose={() => setBrandSettingsOpen(false)}
         onToast={onToast}
       />
