@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CreditCard,
   Upload,
@@ -83,7 +83,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('beranda');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
+  const settingsOpenRef = useRef(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  useEffect(() => {
+    settingsOpenRef.current = settingsOpen;
+  }, [settingsOpen]);
 
   // State Portal Warga (terisolasi 1 rumah)
   const [wargaData, setWargaData] = useState<{
@@ -176,7 +181,7 @@ export default function App() {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;
 
     const triggerSilentSync = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !settingsOpenRef.current) {
         void loadPortalData(session, { silent: true });
       }
     };
@@ -192,10 +197,12 @@ export default function App() {
 
     if (session.role === 'admin') {
       unsubscribeRealtime = subscribeAdminRealtime(session, () => {
-        void loadPortalData(session, { silent: true });
+        if (!settingsOpenRef.current) {
+          void loadPortalData(session, { silent: true });
+        }
       });
       intervalId = window.setInterval(() => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && !settingsOpenRef.current) {
           void loadPortalData(session, { silent: true });
         }
       }, 20000);
@@ -569,7 +576,7 @@ export default function App() {
           petugasList={adminData.petugasList}
           titikPatroliList={adminData.titikPatroliList}
           onClose={() => setSettingsOpen(false)}
-          onRefresh={() => loadPortalData(session)}
+          onRefresh={() => loadPortalData(session, { silent: true })}
           onToast={pushToast}
         />
       )}

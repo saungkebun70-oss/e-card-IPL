@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Save,
   Send,
@@ -160,7 +160,12 @@ export function AdminBotWaSlide({
     setSimInput('');
   };
 
+  const lastSyncedBotConfigRef = useRef<string>(JSON.stringify(botConfig));
+
   useEffect(() => {
+    const serialized = JSON.stringify(botConfig);
+    if (serialized === lastSyncedBotConfigRef.current) return;
+    lastSyncedBotConfigRef.current = serialized;
     setConfig(botConfig);
   }, [botConfig]);
 

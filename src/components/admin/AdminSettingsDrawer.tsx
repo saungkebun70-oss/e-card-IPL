@@ -126,8 +126,19 @@ export function AdminSettingsDrawer({
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
+  const wasOpenRef = useRef(false);
+
+  // Hanya inisialisasi tab aktif & draft form tepat saat drawer baru dibuka (false -> true).
+  // Mencegah sinkronisasi latar belakang (realtime / polling 20 detik / onRefresh)
+  // me-reset activeTab kembali ke menu awal atau menghapus ketikan yang belum disimpan.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+    if (wasOpenRef.current) return;
+    wasOpenRef.current = true;
+
     setActiveTab(initialTab);
     setBrandDraft({
       ...brand,
@@ -148,7 +159,8 @@ export function AdminSettingsDrawer({
     void fetchAuditLogs(session)
       .then((logs) => setAuditLogs(logs))
       .finally(() => setLoadingLogs(false));
-  }, [open, activeTab, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeTab, session.blok_rumah]);
 
   useEffect(() => {
     if (!open) return;
@@ -366,7 +378,7 @@ export function AdminSettingsDrawer({
         </div>
 
         {/* 5 Tab Navigasi Pengaturan Terpusat */}
-        <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
           <div role="tablist" className="grid grid-cols-5 gap-1 p-1 bg-slate-200/75 rounded-xl">
             {(
               [
@@ -386,16 +398,18 @@ export function AdminSettingsDrawer({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`min-h-[40px] px-1 sm:px-2.5 rounded-lg text-[10px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 ${
+                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-lg text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-colors cursor-pointer min-w-0 ${
                     active
                       ? 'bg-white text-[#0F172A] shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
                   }`}
                 >
                   <Icon
-                    className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-[#059669]' : 'text-slate-500'}`}
+                    className={`w-4 h-4 md:w-3.5 md:h-3.5 shrink-0 ${
+                      active ? 'text-[#059669]' : 'text-slate-500'
+                    }`}
                   />
-                  <span className="md:hidden truncate">{tab.short}</span>
+                  <span className="md:hidden whitespace-nowrap">{tab.short}</span>
                   <span className="hidden md:inline truncate">{tab.label}</span>
                 </button>
               );
