@@ -44,25 +44,36 @@ function getImageFormat(dataUrl: string): 'PNG' | 'JPEG' {
 
 function drawVectorFallbackStamp(doc: jsPDF, centerX: number, centerY: number) {
   doc.saveGraphicsState();
-  // Lingkaran luar & dalam stempel biru-emerald resmi
+  // Lingkaran luar & dalam stempel biru-emerald resmi (proporsional 23mm)
   doc.setDrawColor(5, 150, 105);
-  doc.setLineWidth(0.7);
-  doc.circle(centerX, centerY, 13.5, 'S');
-  doc.setLineWidth(0.35);
-  doc.circle(centerX, centerY, 11.8, 'S');
-  doc.setLineWidth(0.25);
-  doc.line(centerX - 11.2, centerY - 3.2, centerX + 11.2, centerY - 3.2);
-  doc.line(centerX - 11.2, centerY + 3.2, centerX + 11.2, centerY + 3.2);
+  doc.setLineWidth(0.65);
+  doc.circle(centerX, centerY, 11.2, 'S');
+  doc.setLineWidth(0.32);
+  doc.circle(centerX, centerY, 9.7, 'S');
+  doc.setLineWidth(0.22);
+  doc.line(centerX - 9.2, centerY - 2.7, centerX + 9.2, centerY - 2.7);
+  doc.line(centerX - 9.2, centerY + 2.7, centerX + 9.2, centerY + 2.7);
 
   doc.setTextColor(5, 150, 105);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5.5);
-  doc.text('PENGURUS LINGKUNGAN', centerX, centerY - 5.2, { align: 'center' });
-  doc.setFontSize(6.5);
-  doc.text('SAUNG KEBUN', centerX, centerY + 1.0, { align: 'center' });
-  doc.setFontSize(5.0);
-  doc.text('KARAWANG · SAH', centerX, centerY + 6.4, { align: 'center' });
+  doc.setFontSize(4.8);
+  doc.text('PENGURUS LINGKUNGAN', centerX, centerY - 4.4, { align: 'center' });
+  doc.setFontSize(5.8);
+  doc.text('SAUNG KEBUN', centerX, centerY + 0.9, { align: 'center' });
+  doc.setFontSize(4.5);
+  doc.text('KARAWANG · SAH', centerX, centerY + 5.4, { align: 'center' });
   doc.restoreGraphicsState();
+}
+
+function getCompactKopAlamat(kopResmi?: string): string {
+  const raw = (kopResmi || '').trim();
+  if (!raw) {
+    return 'Desa Bengle, Kec. Majalaya, Kab. Karawang — Sekretariat: Blok B3/7';
+  }
+  const stripped = raw
+    .replace(/^pengurus\s+lingkungan\s+perumahan\s+saung\s+kebun\s*[—–\-:|·]*\s*/i, '')
+    .trim();
+  return stripped || raw;
 }
 
 async function drawOfficialKop(
@@ -76,29 +87,28 @@ async function drawOfficialKop(
 
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, getImageFormat(logoDataUrl), PAGE_MARGIN, y, 16, 16);
+      doc.addImage(logoDataUrl, getImageFormat(logoDataUrl), PAGE_MARGIN, y, 14, 14);
     } catch {
       // Abaikan jika gambar tidak didukung
     }
   }
 
-  const textX = logoDataUrl ? PAGE_MARGIN + 20 : PAGE_MARGIN;
+  const textX = logoDataUrl ? PAGE_MARGIN + 18 : PAGE_MARGIN;
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('PENGURUS LINGKUNGAN PERUMAHAN SAUNG KEBUN', textX, y + 4.5);
+  doc.setFontSize(11.5);
+  doc.text('PENGURUS LINGKUNGAN PERUMAHAN SAUNG KEBUN', textX, y + 4.8);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.2);
+  doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
   const kopLines = doc.splitTextToSize(
-    brand.kop_resmi ||
-      'Desa Bengle, Kec. Majalaya, Kab. Karawang — Sekretariat: Blok B3/7',
-    logoDataUrl ? CONTENT_WIDTH - 22 : CONTENT_WIDTH
+    getCompactKopAlamat(brand.kop_resmi),
+    logoDataUrl ? CONTENT_WIDTH - 20 : CONTENT_WIDTH
   );
   doc.text(kopLines, textX, y + 9.2);
 
-  y += Math.max(18, kopLines.length * 4 + 10);
+  y += Math.max(16, kopLines.length * 3.8 + 9.5);
 
   // Garis ganda Kop Resmi
   doc.setDrawColor(15, 23, 42);
@@ -106,20 +116,20 @@ async function drawOfficialKop(
   doc.line(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y);
   doc.setLineWidth(0.25);
   doc.line(PAGE_MARGIN, y + 1.2, PAGE_WIDTH - PAGE_MARGIN, y + 1.2);
-  y += 7;
+  y += 6.2;
 
   // Judul Dokumen
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11.5);
+  doc.setFontSize(title.length > 52 ? 10.2 : 11);
   doc.text(title.toUpperCase(), PAGE_WIDTH / 2, y, { align: 'center' });
-  y += 5;
+  y += 4.6;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.8);
+  doc.setFontSize(8.4);
   doc.setTextColor(71, 85, 105);
   doc.text(subtitle, PAGE_WIDTH / 2, y, { align: 'center' });
-  y += 6;
+  y += 5.5;
 
   return y;
 }
@@ -133,7 +143,7 @@ async function drawSignatureBlock(
     includeMengetahui?: boolean;
   }
 ) {
-  const neededHeight = options.includeMengetahui ? 74 : 48;
+  const neededHeight = options.includeMengetahui ? 66 : 42;
   let y = startY;
   if (y + neededHeight > 282) {
     doc.addPage();
@@ -141,33 +151,33 @@ async function drawSignatureBlock(
   }
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.2);
   doc.setTextColor(51, 65, 85);
   doc.text(`Karawang, ${options.tanggalLabel}`, PAGE_WIDTH - PAGE_MARGIN, y, { align: 'right' });
-  y += 6;
+  y += 5.2;
 
-  const leftColX = PAGE_MARGIN + 38;
-  const rightColX = PAGE_WIDTH - PAGE_MARGIN - 38;
+  const leftColX = PAGE_MARGIN + 40;
+  const rightColX = PAGE_WIDTH - PAGE_MARGIN - 40;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.4);
   doc.setTextColor(15, 23, 42);
   doc.text('Ketua Lingkungan', leftColX, y, { align: 'center' });
   doc.text('Bendahara Lingkungan', rightColX, y, { align: 'center' });
 
-  // Stempel Digital Pengurus di antara / di atas tanda tangan Bendahara
+  // Stempel Digital Pengurus rapi di ruang tanda tangan (di atas garis TTD, tidak menutupi nama)
   const stempelDataUrl = await loadImageAsDataUrl(brand.stempel_url);
-  const stampCenterX = rightColX - 18;
-  const stampCenterY = y + 13;
+  const stampCenterX = rightColX - 15;
+  const stampCenterY = y + 12.5;
   if (stempelDataUrl) {
     try {
       doc.addImage(
         stempelDataUrl,
         getImageFormat(stempelDataUrl),
-        stampCenterX - 14,
-        stampCenterY - 14,
-        28,
-        28
+        stampCenterX - 11.5,
+        stampCenterY - 11.5,
+        23,
+        23
       );
     } catch {
       drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
@@ -176,43 +186,43 @@ async function drawSignatureBlock(
     drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
   }
 
-  y += 26;
+  y += 24;
   doc.setDrawColor(148, 163, 184);
   doc.setLineWidth(0.3);
   doc.line(leftColX - 24, y, leftColX + 24, y);
   doc.line(rightColX - 24, y, rightColX + 24, y);
 
-  y += 4.5;
+  y += 4.2;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.8);
   doc.setTextColor(15, 23, 42);
   doc.text('Erlangga', leftColX, y, { align: 'center' });
   doc.text('Andriansyah', rightColX, y, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.4);
   doc.setTextColor(100, 116, 139);
-  doc.text('Blok B3/7 · Perumahan Saung Kebun', leftColX, y + 3.8, { align: 'center' });
-  doc.text('Blok B7/16 · Perumahan Saung Kebun', rightColX, y + 3.8, { align: 'center' });
+  doc.text('Blok B3/7 · Perumahan Saung Kebun', leftColX, y + 3.6, { align: 'center' });
+  doc.text('Blok B7/16 · Perumahan Saung Kebun', rightColX, y + 3.6, { align: 'center' });
 
   if (options.includeMengetahui) {
-    y += 14;
+    y += 11.5;
     const centerX = PAGE_WIDTH / 2;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.2);
+    doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
     doc.text('Mengetahui,', centerX, y, { align: 'center' });
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text('Ketua RT / RW / Kepala Desa Bengle', centerX, y + 4.2, { align: 'center' });
+    doc.text('Ketua RT / RW / Kepala Desa Bengle', centerX, y + 4, { align: 'center' });
 
-    y += 22;
+    y += 19;
     doc.setDrawColor(148, 163, 184);
     doc.line(centerX - 30, y, centerX + 30, y);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.4);
     doc.setTextColor(100, 116, 139);
-    doc.text('( ....................................................... )', centerX, y + 4.5, {
+    doc.text('( ....................................................... )', centerX, y + 4.2, {
       align: 'center',
     });
   }

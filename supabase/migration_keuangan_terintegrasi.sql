@@ -4,6 +4,18 @@
 -- Aman dijalankan berulang (Idempotent) di Supabase SQL Editor
 -- =========================================================================
 
+-- 0. Pastikan helper public.req_header tersedia
+create or replace function public.req_header(header_name text)
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    current_setting('request.headers', true)::json ->> header_name,
+    ''
+  );
+$$;
+
 -- 1. Tambah kolom stempel_url pada app_settings (PNG transparan stempel resmi pengurus)
 alter table if exists public.app_settings
   add column if not exists stempel_url text;
@@ -45,17 +57,26 @@ drop policy if exists "transaksi_kas_insert_policy" on public.transaksi_kas;
 create policy "transaksi_kas_insert_policy"
   on public.transaksi_kas
   for insert
-  with check (public.is_ecard_admin());
+  with check (public.req_header('x-user-role') = 'admin');
 
 drop policy if exists "transaksi_kas_update_policy" on public.transaksi_kas;
 create policy "transaksi_kas_update_policy"
   on public.transaksi_kas
   for update
-  using (public.is_ecard_admin())
-  with check (public.is_ecard_admin());
+  using (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  )
+  with check (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  );
 
 drop policy if exists "transaksi_kas_delete_policy" on public.transaksi_kas;
 create policy "transaksi_kas_delete_policy"
   on public.transaksi_kas
   for delete
-  using (public.is_ecard_admin());
+  using (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  );

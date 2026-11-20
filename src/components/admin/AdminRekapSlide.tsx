@@ -377,67 +377,79 @@ export function AdminRekapSlide({
           {/* Dokumen Resmi Rekapitulasi Bulanan (#printable-report) */}
           <article
             id="printable-report"
-            className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-8 space-y-6"
+            className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
           >
             {/* Kop Resmi Perumahan */}
-            <header className="pb-4 border-b-2 border-[#0F172A] flex items-center gap-4">
-              <BrandLogo size="md" variant="light" />
+            <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#0F172A] flex items-center gap-3 sm:gap-4">
+              <BrandLogo size="sm" variant="light" className="shrink-0 sm:w-12 sm:h-12" />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
+                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#059669] leading-tight">
                   Pengurus Lingkungan Perumahan Saung Kebun
                 </p>
-                <h2 className="text-base sm:text-lg font-extrabold text-[#0F172A] leading-tight">
+                <h2 className="text-sm sm:text-lg print:text-base font-extrabold text-[#0F172A] leading-snug mt-0.5">
                   Rekapitulasi Keuangan Bulanan — {monthlyReport.namaBulan} {monthlyReport.tahun}
                 </h2>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  {brand.kop_resmi ||
-                    'Desa Bengle, Kec. Majalaya, Kab. Karawang — Sekretariat: Blok B3/7'}
+                <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug">
+                  {(brand.kop_resmi || '')
+                    .replace(/^pengurus\s+lingkungan\s+perumahan\s+saung\s+kebun\s*[—–\-:|·]*\s*/i, '')
+                    .trim() ||
+                    'Desa Bengle, Kec. Majalaya, Kab. Karawang · Sekretariat Blok B3/7'}
                 </p>
               </div>
             </header>
 
-            {/* 5 Kartu Posisi Kas Bulanan */}
-            <section className="grid grid-cols-2 lg:grid-cols-5 gap-3 avoid-break">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
-                <p className="text-[11px] font-medium text-slate-500">Saldo Awal Bulan</p>
-                <p className="text-base font-mono font-bold text-[#0F172A] tabular-nums mt-1">
+            {/* 5 Kartu Posisi Kas Bulanan — Otomatis 5 Kolom Saat Cetak A4 */}
+            <section className="grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-2.5 print:gap-2 avoid-break">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-slate-500">
+                  Saldo Awal
+                </p>
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#0F172A] tabular-nums mt-1">
                   {formatRupiah(monthlyReport.saldoAwal)}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5">
-                <p className="text-[11px] font-medium text-emerald-800">Pemasukan IPL</p>
-                <p className="text-base font-mono font-bold text-emerald-700 tabular-nums mt-1">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-emerald-800">
+                  Pemasukan IPL
+                </p>
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-emerald-700 tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalIplBulanIni)}
                 </p>
-                <p className="text-[10px] text-emerald-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-emerald-700/80 mt-0.5 tabular-nums">
                   {monthlyReport.jumlahTransaksiIpl} transaksi
                 </p>
               </div>
 
-              <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3.5">
-                <p className="text-[11px] font-medium text-sky-800">Pemasukan Lain</p>
-                <p className="text-base font-mono font-bold text-sky-700 tabular-nums mt-1">
+              <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-sky-800">
+                  Pemasukan Lain
+                </p>
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-sky-700 tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalPemasukanLainBulanIni)}
                 </p>
-                <p className="text-[10px] text-sky-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-sky-700/80 mt-0.5 tabular-nums">
                   {monthlyReport.jumlahPemasukanLain} transaksi
                 </p>
               </div>
 
-              <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5">
-                <p className="text-[11px] font-medium text-rose-800">Total Pengeluaran</p>
-                <p className="text-base font-mono font-bold text-rose-700 tabular-nums mt-1">
+              <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-rose-800">
+                  Pengeluaran
+                </p>
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-rose-700 tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalKeluarBulanIni)}
                 </p>
-                <p className="text-[10px] text-rose-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-rose-700/80 mt-0.5 tabular-nums">
                   {monthlyReport.jumlahPengeluaran} transaksi
                 </p>
               </div>
 
-              <div className="col-span-2 lg:col-span-1 rounded-xl border border-[#0F172A] bg-[#0F172A] text-white p-3.5">
-                <p className="text-[11px] font-medium text-emerald-300">Saldo Akhir Bulan</p>
-                <p className="text-base font-mono font-bold tabular-nums mt-1">
+              <div className="col-span-2 lg:col-span-1 print:col-span-1 rounded-xl border border-[#0F172A] bg-[#0F172A] text-white p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-emerald-300">
+                  Saldo Akhir
+                </p>
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold tabular-nums mt-1">
                   {formatRupiah(monthlyReport.saldoAkhir)}
                 </p>
               </div>
@@ -445,33 +457,33 @@ export function AdminRekapSlide({
 
             {/* Rincian Pengeluaran per Kategori */}
             {monthlyReport.pengeluaranPerKategori.length > 0 && (
-              <section className="space-y-2.5 avoid-break">
+              <section className="space-y-2 print:space-y-1.5 avoid-break">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Realisasi Pengeluaran per Pos Anggaran
                 </h3>
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="w-full text-left border-collapse text-xs print:text-[10px]">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                        <th className="py-2.5 px-3.5">Pos Anggaran</th>
-                        <th className="py-2.5 px-3 text-center">Transaksi</th>
-                        <th className="py-2.5 px-3 text-right">Porsi</th>
-                        <th className="py-2.5 px-3.5 text-right">Total Nominal</th>
+                        <th className="py-2 print:py-1.5 px-3.5">Pos Anggaran</th>
+                        <th className="py-2 print:py-1.5 px-3 text-center">Trx</th>
+                        <th className="py-2 print:py-1.5 px-3 text-right">Porsi</th>
+                        <th className="py-2 print:py-1.5 px-3.5 text-right">Total Nominal</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {monthlyReport.pengeluaranPerKategori.map((item) => (
                         <tr key={item.kategori}>
-                          <td className="py-2.5 px-3.5 font-semibold text-[#0F172A]">
+                          <td className="py-2 print:py-1.5 px-3.5 font-semibold text-[#0F172A]">
                             {item.kategori}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-mono tabular-nums text-slate-600">
+                          <td className="py-2 print:py-1.5 px-3 text-center font-mono tabular-nums text-slate-600">
                             {item.jumlahTransaksi}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-600">
+                          <td className="py-2 print:py-1.5 px-3 text-right font-mono tabular-nums text-slate-600">
                             {item.persentase}%
                           </td>
-                          <td className="py-2.5 px-3.5 text-right font-mono font-bold text-rose-700 tabular-nums">
+                          <td className="py-2 print:py-1.5 px-3.5 text-right font-mono font-bold text-rose-700 tabular-nums whitespace-nowrap">
                             {formatRupiah(item.totalNominal)}
                           </td>
                         </tr>
@@ -483,48 +495,48 @@ export function AdminRekapSlide({
             )}
 
             {/* Buku Kas Umum Kronologis */}
-            <section className="space-y-2.5">
+            <section className="space-y-2 print:space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Buku Kas Umum — Mutasi Kronologis ({monthlyReport.namaBulan} {monthlyReport.tahun})
                 </h3>
-                <span className="text-xs font-mono text-slate-500 tabular-nums">
+                <span className="text-xs print:text-[10px] font-mono text-slate-500 tabular-nums">
                   {monthlyReport.mutasiKronologis.length} entri
                 </span>
               </div>
 
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left border-collapse text-xs">
+                <table className="w-full text-left border-collapse text-xs print:text-[9.5px]">
                   <thead>
                     <tr className="bg-[#0F172A] text-white font-semibold">
-                      <th className="py-2.5 px-3 whitespace-nowrap">Tanggal</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap">No. Bukti</th>
-                      <th className="py-2.5 px-3">Uraian &amp; Kategori</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Masuk (Rp)</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Keluar (Rp)</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Saldo (Rp)</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3 whitespace-nowrap">Tanggal</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3 whitespace-nowrap">No. Bukti</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3">Uraian &amp; Kategori</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right whitespace-nowrap">Masuk</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right whitespace-nowrap">Keluar</th>
+                      <th className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right whitespace-nowrap">Saldo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {/* Baris Saldo Awal */}
                     <tr className="bg-slate-50 font-semibold">
-                      <td className="py-2.5 px-3 font-mono text-slate-500 whitespace-nowrap">—</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-500 whitespace-nowrap">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-500 whitespace-nowrap">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-500 whitespace-nowrap">
                         SALDO-AWAL
                       </td>
-                      <td className="py-2.5 px-3 text-[#0F172A]">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-[#0F172A]">
                         Saldo Kas Awal Bulan {monthlyReport.namaBulan} {monthlyReport.tahun}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-400">—</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-400">—</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.saldoAwal)}
                       </td>
                     </tr>
 
                     {monthlyReport.mutasiKronologis.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                        <td colSpan={6} className="py-6 text-center text-slate-500">
                           Belum ada mutasi kas masuk maupun pengeluaran pada {monthlyReport.namaBulan}{' '}
                           {monthlyReport.tahun}.
                         </td>
@@ -532,23 +544,23 @@ export function AdminRekapSlide({
                     ) : (
                       monthlyReport.mutasiKronologis.map((row) => (
                         <tr key={row.id} className="hover:bg-slate-50/70">
-                          <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap tabular-nums">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-600 whitespace-nowrap tabular-nums">
                             {formatTanggalSingkat(row.tanggal)}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[10px] text-slate-600 whitespace-nowrap">
                             {row.noBukti}
                           </td>
-                          <td className="py-2.5 px-3 min-w-[200px]">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 min-w-[180px]">
                             <p className="font-medium text-[#0F172A] leading-snug">{row.uraian}</p>
                             <p className="text-[10px] text-slate-500 mt-0.5">{row.kategori}</p>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
                             {row.masuk > 0 ? formatRupiah(row.masuk) : '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-rose-700 tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-rose-700 tabular-nums whitespace-nowrap">
                             {row.keluar > 0 ? formatRupiah(row.keluar) : '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
                             {formatRupiah(row.saldoBerjalan)}
                           </td>
                         </tr>
@@ -557,17 +569,17 @@ export function AdminRekapSlide({
 
                     {/* Baris Total & Saldo Akhir */}
                     <tr className="bg-emerald-50/70 border-t-2 border-emerald-200 font-bold">
-                      <td colSpan={3} className="py-3 px-3 text-[#0F172A]">
+                      <td colSpan={3} className="py-2.5 print:py-2 px-2.5 sm:px-3 text-[#0F172A]">
                         TOTAL MUTASI &amp; SALDO AKHIR ({monthlyReport.namaBulan.toUpperCase()}{' '}
                         {monthlyReport.tahun})
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-emerald-800 tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-emerald-800 tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.totalMasukBulanIni)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-rose-800 tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-rose-800 tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.totalKeluarBulanIni)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-[#059669] tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-[#059669] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.saldoAkhir)}
                       </td>
                     </tr>
@@ -576,42 +588,32 @@ export function AdminRekapSlide({
               </div>
             </section>
 
-            {/* Blok Tanda Tangan & Stempel Pengurus */}
-            <footer className="pt-4 border-t border-slate-200 avoid-break">
-              <p className="text-xs text-slate-600 text-right mb-4">
+            {/* Blok Tanda Tangan & Stempel Pengurus — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
+            <footer className="pt-3 print:pt-2.5 border-t border-slate-200 avoid-break">
+              <p className="text-xs print:text-[10px] text-slate-600 text-right mb-3">
                 Karawang, {formatTanggal(new Date().toISOString())}
               </p>
-              <div className="grid grid-cols-2 gap-6 text-center text-xs">
-                <div className="space-y-14">
-                  <div>
-                    <p className="text-slate-500">Mengetahui,</p>
-                    <p className="font-bold text-[#0F172A]">Ketua Lingkungan</p>
-                  </div>
-                  <div>
-                    <p className="font-bold text-[#0F172A] underline underline-offset-4">
-                      Erlangga
-                    </p>
-                    <p className="text-[11px] text-slate-500">Perumahan Saung Kebun</p>
-                  </div>
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 text-center text-xs print:text-[10px] items-end">
+                <div>
+                  <p className="text-slate-500">Mengetahui,</p>
+                  <p className="font-bold text-[#0F172A]">Ketua Lingkungan</p>
+                  <div className="h-16 sm:h-20 print:h-14" />
+                  <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
+                  <p className="font-bold text-[#0F172A] mt-1.5">Erlangga</p>
+                  <p className="text-[10px] text-slate-500">Perumahan Saung Kebun</p>
                 </div>
 
-                <div className="relative space-y-14">
-                  <div>
-                    <p className="text-slate-500">Disusun &amp; Disahkan oleh,</p>
-                    <p className="font-bold text-[#0F172A]">Bendahara Lingkungan</p>
+                <div>
+                  <p className="text-slate-500">Disusun &amp; Disahkan oleh,</p>
+                  <p className="font-bold text-[#0F172A]">Bendahara Lingkungan</p>
+                  <div className="h-16 sm:h-20 print:h-14 relative flex items-center justify-center">
+                    <div className="pointer-events-none -translate-x-4 sm:-translate-x-6 opacity-85">
+                      <OfficialStamp size="sm" />
+                    </div>
                   </div>
-
-                  {/* Stempel Digital Resmi */}
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-85">
-                    <OfficialStamp size="md" />
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-[#0F172A] underline underline-offset-4">
-                      Andriansyah
-                    </p>
-                    <p className="text-[11px] text-slate-500">Pengurus Kas &amp; IPL</p>
-                  </div>
+                  <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
+                  <p className="font-bold text-[#0F172A] mt-1.5">Andriansyah</p>
+                  <p className="text-[10px] text-slate-500">Pengurus Kas &amp; IPL</p>
                 </div>
               </div>
             </footer>

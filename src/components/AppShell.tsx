@@ -133,31 +133,31 @@ export function AppShell({
 
       {/* Area Kerja Utama */}
       <div className="flex-1 lg:pl-64 xl:pl-72 flex flex-col min-w-0">
-        {/* Header Kontekstual */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3.5 pt-safe no-print">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
+        {/* Header Kontekstual — Kompak & Tidak Memanjang Vertikal di Mobile/Tablet */}
+        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-safe no-print">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
               <BrandLogo size="sm" className="lg:hidden shrink-0" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 {isAdmin ? (
                   <>
-                    <p className="text-xs sm:text-[13px] font-semibold text-emerald-700 leading-tight">
+                    <p className="text-[11px] sm:text-xs font-semibold text-emerald-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
                       {adminIdentityLabel}
                     </p>
-                    <h1 className="text-base sm:text-xl font-bold text-[#0F172A] tracking-tight leading-snug mt-0.5">
+                    <h1 className="text-sm sm:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
                       {activeNav?.label}
                     </h1>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight">
                       <span className="truncate">{brand.app_name}</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono font-semibold text-emerald-700 shrink-0">
                         Blok {session.blok_rumah}
                       </span>
                     </div>
-                    <h1 className="text-base sm:text-xl font-bold text-[#0F172A] tracking-tight truncate mt-0.5">
+                    <h1 className="text-sm sm:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
                       {activeNav?.label}
                     </h1>
                   </>
@@ -168,31 +168,31 @@ export function AppShell({
             {headerAction ? (
               <div className="shrink-0">{headerAction}</div>
             ) : isAdmin ? (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {onOpenSettings && (
                   <button
                     type="button"
                     onClick={onOpenSettings}
                     aria-label="Buka Pengaturan Sistem"
                     title="Pengaturan Sistem"
-                    className="min-h-[40px] min-w-[40px] px-2.5 sm:px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[38px] min-w-[38px] sm:min-h-[40px] px-2 sm:px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Settings className="w-4 h-4 shrink-0" />
-                    <span className="hidden sm:inline text-xs font-semibold">Pengaturan</span>
+                    <span className="hidden md:inline text-xs font-semibold">Pengaturan</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={onLogout}
                   aria-label="Keluar dari Portal Admin"
-                  className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="min-h-[38px] sm:min-h-[40px] px-2.5 sm:px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />
                   <span>Keluar</span>
                 </button>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 shrink-0">
+              <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 shrink-0">
                 <span>Sekretariat Blok B3/7</span>
               </div>
             )}

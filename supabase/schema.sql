@@ -164,11 +164,33 @@ create table if not exists public.app_settings (
   updated_by text
 );
 
--- Pastikan kolom WA Pengurus & Bot tersedia pada tabel app_settings yang sudah ada
+-- Pastikan kolom WA Pengurus, Bot, Stempel & Nominal IPL tersedia pada database yang sudah ada
 alter table public.app_settings add column if not exists wa_pengurus text not null default '6281234567890';
 alter table public.app_settings add column if not exists wa_pengurus_label text not null default 'Andriansyah (Bendahara)';
 alter table public.app_settings add column if not exists wa_bot text not null default '';
 alter table public.app_settings add column if not exists pengurus_wa_map jsonb not null default '{}'::jsonb;
+alter table public.app_settings add column if not exists stempel_url text;
+alter table public.payment_config add column if not exists nominal_ipl_bulanan integer not null default 100000;
+
+-- 11. Tabel Transaksi Kas (Pengeluaran Anggaran & Pemasukan Lain Non-Iuran)
+create table if not exists public.transaksi_kas (
+  id uuid primary key default gen_random_uuid(),
+  no_bukti text not null unique,
+  jenis text not null check (jenis in ('pengeluaran', 'pemasukan_lain')),
+  kategori text not null,
+  termin text,
+  tanggal date not null default current_date,
+  nominal integer not null check (nominal > 0),
+  penerima_atau_sumber text not null,
+  keterangan text,
+  bukti_url text,
+  created_by text not null,
+  created_by_name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_transaksi_kas_tanggal on public.transaksi_kas (tanggal desc, created_at desc);
+create index if not exists idx_transaksi_kas_jenis on public.transaksi_kas (jenis);
 
 -- Indeks Performa untuk Akses Konkuren Tinggi (Ratusan KK & Ribuan Transaksi)
 create index if not exists idx_users_warga_aktif_blok on public.users_warga (aktif, blok_rumah);
@@ -428,6 +450,35 @@ create policy "bendahara_app_settings_write" on public.app_settings
     and public.req_header('x-admin-permission') = 'full'
   )
   with check (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  );
+
+-- Kebijakan RLS transaksi_kas (Pengeluaran Anggaran & Pemasukan Lain)
+alter table public.transaksi_kas enable row level security;
+
+drop policy if exists "transaksi_kas_select_policy" on public.transaksi_kas;
+create policy "transaksi_kas_select_policy" on public.transaksi_kas
+  for select using (true);
+
+drop policy if exists "transaksi_kas_insert_policy" on public.transaksi_kas;
+create policy "transaksi_kas_insert_policy" on public.transaksi_kas
+  for insert with check (public.req_header('x-user-role') = 'admin');
+
+drop policy if exists "transaksi_kas_update_policy" on public.transaksi_kas;
+create policy "transaksi_kas_update_policy" on public.transaksi_kas
+  for update using (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  )
+  with check (
+    public.req_header('x-user-role') = 'admin'
+    and public.req_header('x-admin-permission') = 'full'
+  );
+
+drop policy if exists "transaksi_kas_delete_policy" on public.transaksi_kas;
+create policy "transaksi_kas_delete_policy" on public.transaksi_kas
+  for delete using (
     public.req_header('x-user-role') = 'admin'
     and public.req_header('x-admin-permission') = 'full'
   );
