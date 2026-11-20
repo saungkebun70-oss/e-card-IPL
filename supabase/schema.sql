@@ -12,15 +12,28 @@ create table if not exists public.users_warga (
   blok_rumah text not null unique,
   nama_warga text not null,
   no_wa text not null,
+  secondary_whatsapp text not null default '',
   status_hunian text not null default 'Tetap' check (status_hunian in ('Tetap', 'Kontrak', 'Kosong')),
   nominal_iuran integer not null default 100000,
   pin_akses text not null check (char_length(pin_akses) = 6),
-  role text not null default 'warga' check (role in ('warga', 'admin')),
+  role text not null default 'warga' check (role in ('warga', 'admin', 'bendahara')),
+  bot_role text not null default 'warga' check (bot_role in ('warga', 'admin', 'bendahara')),
   jabatan text check (jabatan in ('Ketua', 'Bendahara', 'Humas', 'Seksi Olahraga', 'Pembina')),
   admin_permission text check (admin_permission in ('full', 'add_only')),
   aktif boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.users_warga add column if not exists secondary_whatsapp text not null default '';
+alter table public.users_warga add column if not exists bot_role text not null default 'warga';
+alter table public.users_warga drop constraint if exists users_warga_bot_role_check;
+alter table public.users_warga
+  add constraint users_warga_bot_role_check
+  check (bot_role in ('warga', 'admin', 'bendahara'));
+alter table public.users_warga drop constraint if exists users_warga_role_check;
+alter table public.users_warga
+  add constraint users_warga_role_check
+  check (role in ('warga', 'admin', 'bendahara'));
 
 -- 2. Tabel Transaksi IPL
 create table if not exists public.transaksi_ipl (
@@ -159,6 +172,9 @@ alter table public.app_settings add column if not exists pengurus_wa_map jsonb n
 
 -- Indeks Performa untuk Akses Konkuren Tinggi (Ratusan KK & Ribuan Transaksi)
 create index if not exists idx_users_warga_aktif_blok on public.users_warga (aktif, blok_rumah);
+create index if not exists idx_users_warga_no_wa on public.users_warga (no_wa) where no_wa <> '';
+create index if not exists idx_users_warga_secondary_wa on public.users_warga (secondary_whatsapp) where secondary_whatsapp <> '';
+create index if not exists idx_users_warga_bot_role on public.users_warga (bot_role);
 create index if not exists idx_transaksi_blok_tanggal on public.transaksi_ipl (blok_rumah, tanggal_setor desc);
 create index if not exists idx_transaksi_status_tanggal on public.transaksi_ipl (status_verifikasi, tanggal_setor desc);
 create index if not exists idx_transaksi_tahun on public.transaksi_ipl (tahun);
@@ -356,7 +372,7 @@ create policy "admin_bot_logs" on public.bot_wa_logs
 
 drop policy if exists "admin_bot_logs_insert" on public.bot_wa_logs;
 create policy "admin_bot_logs_insert" on public.bot_wa_logs
-  for insert with check (public.req_header('x-user-role') = 'admin');
+  for insert with check (public.req_header('x-user-role') in ('admin', 'bendahara'));
 
 drop policy if exists "audit_insert_all" on public.audit_logs;
 create policy "audit_insert_all" on public.audit_logs

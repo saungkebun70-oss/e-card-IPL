@@ -89,32 +89,38 @@ export function generateRandomPin(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+import {
+  canonicalBlockKey,
+  formatPhoneDisplay,
+  isRealRegisteredPhone,
+  isSameBlockCode,
+  normalizeBlockCode,
+  normalizePhoneNumber,
+} from './phoneAndBlockUtils';
+
+export {
+  canonicalBlockKey,
+  formatPhoneDisplay,
+  isRealRegisteredPhone,
+  isSameBlockCode,
+  normalizeBlockCode,
+  normalizePhoneNumber,
+};
+
 export function normalizeBlok(input: string): string {
   return input.trim().toUpperCase().replace(/\s+/g, '');
 }
 
 export function canonicalizeBlokKey(input: string): string {
-  const clean = normalizeBlok(input).replace(/-/g, '/');
-  const match = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
-  if (match) {
-    return `${match[1]}${match[2]}/${match[3]}`;
-  }
-  return clean;
+  return canonicalBlockKey(input);
 }
 
 export function normalizeWaNumber(input: string): string {
-  const digits = input.replace(/\D/g, '');
-  if (digits.startsWith('0')) {
-    return `62${digits.slice(1)}`;
-  }
-  if (digits.startsWith('8')) {
-    return `62${digits}`;
-  }
-  return digits;
+  return normalizePhoneNumber(input);
 }
 
 export function buildWhatsAppLink(phone: string, message: string): string {
-  const normalized = normalizeWaNumber(phone);
+  const normalized = normalizePhoneNumber(phone);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
@@ -124,6 +130,31 @@ export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blo
     .replaceAll('{blok_rumah}', warga.blok_rumah)
     .replaceAll('{pin_akses}', warga.pin_akses)
     .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
+}
+
+export function buildWargaBotActivationMessage(
+  warga: Pick<Warga, 'nama_warga' | 'blok_rumah' | 'bot_role'>
+): string {
+  const paddedBlock = normalizeBlockCode(warga.blok_rumah) || warga.blok_rumah;
+  const isPengurus = warga.bot_role === 'admin' || warga.bot_role === 'bendahara';
+  return [
+    `*Aktivasi Layanan Bot WhatsApp e-Card IPL — Perumahan Saung Kebun*`,
+    ``,
+    `Yth. Bapak/Ibu *${warga.nama_warga}* (Unit *${paddedBlock}*),`,
+    `Nomor WhatsApp Anda telah resmi terdaftar dan aktif pada layanan Bot WhatsApp IPL Perumahan Saung Kebun.`,
+    ``,
+    `Silakan kirim pesan berikut kapan saja melalui WhatsApp ini:`,
+    `• Ketik *CEK* — Melihat status & rincian tagihan IPL unit *${paddedBlock}*`,
+    `• Ketik *REKENING* — Melihat informasi QRIS & Transfer Bank resmi`,
+    `• Ketik *MENU* — Menampilkan panduan lengkap Bot WA`,
+    ...(isPengurus
+      ? [`• Ketik *CEK#[KODE_BLOK]* — (Akses Pengurus) Cek status unit warga`]
+      : []),
+    ``,
+    `Demi privasi bersama, nomor Anda hanya terhubung ke unit *${paddedBlock}* dan tidak dapat digunakan untuk mengecek unit warga lain.`,
+    ``,
+    `Portal e-Card Digital: ${APP_PORTAL_URL}`,
+  ].join('\n');
 }
 
 export function buildPengurusAccessWaMessage(

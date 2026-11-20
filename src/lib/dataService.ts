@@ -9,6 +9,7 @@ import {
   type AdminJabatan,
   type AdminPermission,
   type AppBrandConfig,
+  type BotAccessRole,
   type BotWaConfig,
   type BotWaLog,
   type MetodeBayar,
@@ -26,6 +27,7 @@ import {
 } from '../types';
 import { recordAuditLog } from './auditLogger';
 import {
+  buildWargaBotActivationMessage,
   canonicalizeBlokKey,
   formatDaftarBulan,
   formatRupiah,
@@ -34,7 +36,11 @@ import {
   getCurrentBillingMonth,
   getDefaultUnpaidStatusForMonth,
   getNamaBulan,
+  isRealRegisteredPhone,
+  isSameBlockCode,
   normalizeBlok,
+  normalizeBlockCode,
+  normalizePhoneNumber,
   normalizeWaNumber,
 } from './format';
 import {
@@ -1349,6 +1355,22 @@ export async function verifyTransaksiAdmin(
   return { data: updatedItem };
 }
 
+function isMissingBotColumnError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err && 'message' in err
+        ? String((err as { message?: unknown }).message || '')
+        : String(err || '');
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('secondary_whatsapp') ||
+    lower.includes('bot_role') ||
+    lower.includes('pgrst204') ||
+    lower.includes('42703')
+  );
+}
+
 export async function saveWargaAdmin(
   session: SessionUser,
   payload: {
@@ -1356,9 +1378,11 @@ export async function saveWargaAdmin(
     blok_rumah: string;
     nama_warga: string;
     no_wa: string;
+    secondary_whatsapp?: string | null;
     status_hunian: StatusHunian;
     nominal_iuran: number;
     pin_akses: string;
+    bot_role?: BotAccessRole | null;
     aktif?: boolean;
   }
 ): Promise<ServiceResult<Warga>> {
@@ -1367,32 +1391,140 @@ export async function saveWargaAdmin(
     return { error: 'Akses ditolak: pengeditan data warga hanya dapat dilakukan oleh Bendahara.' };
   }
 
-  const cleanBlok = normalizeBlok(payload.blok_rumah);
-  const cleanWa = normalizeWaNumber(payload.no_wa);
+  const rawBlok = normalizeBlok(payload.blok_rumah);
+  const cleanBlok = payload.id ? rawBlok : normalizeBlockCode(rawBlok) || rawBlok;
+  const cleanWa = normalizePhoneNumber(payload.no_wa);
+  const cleanSecondaryWa = normalizePhoneNumber(payload.secondary_whatsapp);
+  const cleanBotRole: BotAccessRole =
+    payload.bot_role === 'admin' || payload.bot_role === 'bendahara' ? payload.bot_role : 'warga';
   const cleanPin = payload.pin_akses.trim();
 
   if (!cleanBlok) return { error: 'Blok & No. Rumah wajib diisi (contoh: B03/07).' };
   if (!payload.nama_warga.trim()) return { error: 'Nama warga wajib diisi.' };
   if (!/^\d{6}$/.test(cleanPin)) return { error: 'PIN akses harus terdiri dari 6 digit angka.' };
 
+  if (cleanWa && cleanWa !== '6281200000000' && (cleanWa.length < 10 || cleanWa.length > 15 || !cleanWa.startsWith('62'))) {
+    return { error: 'Format No. WhatsApp Utama tidak valid (contoh: 0812xxxxxxxx).' };
+  }
+  if (cleanSecondaryWa && (cleanSecondaryWa.length < 10 || cleanSecondaryWa.length > 15 || !cleanSecondaryWa.startsWith('62'))) {
+    return { error: 'Format No. WhatsApp Cadangan tidak valid (contoh: 0857xxxxxxxx).' };
+  }
+  if (isRealRegisteredPhone(cleanWa) && isRealRegisteredPhone(cleanSecondaryWa) && cleanWa === cleanSecondaryWa) {
+    return { error: 'No. WhatsApp Cadangan tidak boleh sama dengan No. WhatsApp Utama.' };
+  }
+
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      if (payload.id) {
-        const { data, error } = await supabase
+      // Validasi duplikasi blok & nomor WhatsApp lintas unit di database
+      let existingRows: Array<{
+        id: string;
+        blok_rumah: string;
+        nama_warga: string;
+        no_wa: string;
+        secondary_whatsapp?: string | null;
+      }> = [];
+
+      const { data: rowsFull, error: fetchFullErr } = await supabase
+        .from('users_warga')
+        .select('id, blok_rumah, nama_warga, no_wa, secondary_whatsapp')
+        .or('role.is.null,role.neq.admin');
+
+      if (fetchFullErr && isMissingBotColumnError(fetchFullErr)) {
+        const { data: rowsBasic, error: fetchBasicErr } = await supabase
           .from('users_warga')
-          .update({
-            blok_rumah: cleanBlok,
-            nama_warga: payload.nama_warga.trim(),
-            no_wa: cleanWa,
-            status_hunian: payload.status_hunian,
-            nominal_iuran: payload.nominal_iuran,
-            pin_akses: cleanPin,
-            aktif: payload.aktif ?? true,
-          })
+          .select('id, blok_rumah, nama_warga, no_wa')
+          .or('role.is.null,role.neq.admin');
+        if (fetchBasicErr) throw fetchBasicErr;
+        existingRows = (rowsBasic || []) as typeof existingRows;
+      } else if (fetchFullErr) {
+        throw fetchFullErr;
+      } else {
+        existingRows = (rowsFull || []) as typeof existingRows;
+      }
+
+      const duplicateBlok = existingRows.find(
+        (row) => row.id !== payload.id && isSameBlockCode(row.blok_rumah, cleanBlok)
+      );
+      if (duplicateBlok) {
+        return {
+          error: `Blok ${cleanBlok} sudah terdaftar sebagai unit ${duplicateBlok.blok_rumah} (${duplicateBlok.nama_warga}).`,
+        };
+      }
+
+      for (const row of existingRows) {
+        if (row.id === payload.id) continue;
+        const rowPrimary = normalizePhoneNumber(row.no_wa);
+        const rowSecondary = normalizePhoneNumber(row.secondary_whatsapp);
+
+        if (isRealRegisteredPhone(cleanWa)) {
+          if (
+            (isRealRegisteredPhone(rowPrimary) && rowPrimary === cleanWa) ||
+            (isRealRegisteredPhone(rowSecondary) && rowSecondary === cleanWa)
+          ) {
+            return {
+              error: `Nomor WA +${cleanWa} sudah terdaftar pada unit ${row.blok_rumah} (${row.nama_warga}). Satu nomor WA hanya boleh terhubung ke 1 unit rumah.`,
+            };
+          }
+        }
+
+        if (isRealRegisteredPhone(cleanSecondaryWa)) {
+          if (
+            (isRealRegisteredPhone(rowPrimary) && rowPrimary === cleanSecondaryWa) ||
+            (isRealRegisteredPhone(rowSecondary) && rowSecondary === cleanSecondaryWa)
+          ) {
+            return {
+              error: `Nomor WA Cadangan +${cleanSecondaryWa} sudah terdaftar pada unit ${row.blok_rumah} (${row.nama_warga}).`,
+            };
+          }
+        }
+      }
+
+      if (payload.id) {
+        const updateFullPayload = {
+          blok_rumah: cleanBlok,
+          nama_warga: payload.nama_warga.trim(),
+          no_wa: cleanWa,
+          secondary_whatsapp: cleanSecondaryWa,
+          status_hunian: payload.status_hunian,
+          nominal_iuran: payload.nominal_iuran,
+          pin_akses: cleanPin,
+          bot_role: cleanBotRole,
+          aktif: payload.aktif ?? true,
+        };
+
+        let { data, error } = await supabase
+          .from('users_warga')
+          .update(updateFullPayload)
           .eq('id', payload.id)
           .select()
           .single();
+
+        if (error && isMissingBotColumnError(error)) {
+          if (cleanSecondaryWa || cleanBotRole !== 'warga') {
+            return {
+              error:
+                'Kolom secondary_whatsapp / bot_role belum ditambahkan di Supabase. Jalankan SQL migrasi Bot WA di Supabase SQL Editor terlebih dahulu.',
+            };
+          }
+          const retry = await supabase
+            .from('users_warga')
+            .update({
+              blok_rumah: cleanBlok,
+              nama_warga: payload.nama_warga.trim(),
+              no_wa: cleanWa,
+              status_hunian: payload.status_hunian,
+              nominal_iuran: payload.nominal_iuran,
+              pin_akses: cleanPin,
+              aktif: payload.aktif ?? true,
+            })
+            .eq('id', payload.id)
+            .select()
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
+
         if (error) throw error;
 
         await recordAuditLog({
@@ -1400,24 +1532,53 @@ export async function saveWargaAdmin(
           action: 'UPDATE_WARGA',
           entity: 'users_warga',
           entity_id: data.id,
-          summary: `Memperbarui data warga ${cleanBlok} — ${payload.nama_warga.trim()}.`,
+          summary: `Memperbarui data warga ${cleanBlok} — ${payload.nama_warga.trim()} (WA: ${cleanWa || '-'}, Bot Role: ${cleanBotRole}).`,
         });
         return { data: data as Warga };
       }
 
-      const { data, error } = await supabase
+      const insertFullPayload = {
+        blok_rumah: cleanBlok,
+        nama_warga: payload.nama_warga.trim(),
+        no_wa: cleanWa,
+        secondary_whatsapp: cleanSecondaryWa,
+        status_hunian: payload.status_hunian,
+        nominal_iuran: payload.nominal_iuran,
+        pin_akses: cleanPin,
+        bot_role: cleanBotRole,
+        aktif: true,
+      };
+
+      let { data, error } = await supabase
         .from('users_warga')
-        .insert({
-          blok_rumah: cleanBlok,
-          nama_warga: payload.nama_warga.trim(),
-          no_wa: cleanWa,
-          status_hunian: payload.status_hunian,
-          nominal_iuran: payload.nominal_iuran,
-          pin_akses: cleanPin,
-          aktif: true,
-        })
+        .insert(insertFullPayload)
         .select()
         .single();
+
+      if (error && isMissingBotColumnError(error)) {
+        if (cleanSecondaryWa || cleanBotRole !== 'warga') {
+          return {
+            error:
+              'Kolom secondary_whatsapp / bot_role belum ditambahkan di Supabase. Jalankan SQL migrasi Bot WA di Supabase SQL Editor terlebih dahulu.',
+          };
+        }
+        const retry = await supabase
+          .from('users_warga')
+          .insert({
+            blok_rumah: cleanBlok,
+            nama_warga: payload.nama_warga.trim(),
+            no_wa: cleanWa,
+            status_hunian: payload.status_hunian,
+            nominal_iuran: payload.nominal_iuran,
+            pin_akses: cleanPin,
+            aktif: true,
+          })
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
       if (error) throw error;
 
       await recordAuditLog({
@@ -1425,7 +1586,7 @@ export async function saveWargaAdmin(
         action: 'CREATE_WARGA',
         entity: 'users_warga',
         entity_id: data.id,
-        summary: `Menambahkan warga baru ${cleanBlok} — ${payload.nama_warga.trim()}.`,
+        summary: `Menambahkan warga baru ${cleanBlok} — ${payload.nama_warga.trim()} (WA: ${cleanWa || '-'}).`,
       });
       return { data: data as Warga };
     } catch (err) {
@@ -1434,10 +1595,38 @@ export async function saveWargaAdmin(
   }
 
   const list = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
-  if (payload.id) {
-    const duplicate = list.find((w) => w.id !== payload.id && normalizeBlok(w.blok_rumah) === cleanBlok);
-    if (duplicate) return { error: `Blok ${cleanBlok} sudah terdaftar pada unit lain.` };
 
+  // Validasi duplikasi blok & nomor WhatsApp pada mode lokal
+  const duplicateBlok = list.find((w) => w.id !== payload.id && isSameBlockCode(w.blok_rumah, cleanBlok));
+  if (duplicateBlok) {
+    return { error: `Blok ${cleanBlok} sudah terdaftar pada unit ${duplicateBlok.blok_rumah}.` };
+  }
+
+  for (const w of list) {
+    if (w.id === payload.id) continue;
+    const rowPrimary = normalizePhoneNumber(w.no_wa);
+    const rowSecondary = normalizePhoneNumber(w.secondary_whatsapp);
+    if (
+      isRealRegisteredPhone(cleanWa) &&
+      ((isRealRegisteredPhone(rowPrimary) && rowPrimary === cleanWa) ||
+        (isRealRegisteredPhone(rowSecondary) && rowSecondary === cleanWa))
+    ) {
+      return {
+        error: `Nomor WA +${cleanWa} sudah terdaftar pada unit ${w.blok_rumah} (${w.nama_warga}).`,
+      };
+    }
+    if (
+      isRealRegisteredPhone(cleanSecondaryWa) &&
+      ((isRealRegisteredPhone(rowPrimary) && rowPrimary === cleanSecondaryWa) ||
+        (isRealRegisteredPhone(rowSecondary) && rowSecondary === cleanSecondaryWa))
+    ) {
+      return {
+        error: `Nomor WA Cadangan +${cleanSecondaryWa} sudah terdaftar pada unit ${w.blok_rumah} (${w.nama_warga}).`,
+      };
+    }
+  }
+
+  if (payload.id) {
     let updated: Warga | undefined;
     const next = list.map((w) => {
       if (w.id !== payload.id) return w;
@@ -1446,9 +1635,11 @@ export async function saveWargaAdmin(
         blok_rumah: cleanBlok,
         nama_warga: payload.nama_warga.trim(),
         no_wa: cleanWa,
+        secondary_whatsapp: cleanSecondaryWa,
         status_hunian: payload.status_hunian,
         nominal_iuran: payload.nominal_iuran,
         pin_akses: cleanPin,
+        bot_role: cleanBotRole,
         aktif: payload.aktif ?? w.aktif,
       };
       return updated;
@@ -1466,18 +1657,16 @@ export async function saveWargaAdmin(
     return { data: updated };
   }
 
-  if (list.some((w) => normalizeBlok(w.blok_rumah) === cleanBlok)) {
-    return { error: `Blok ${cleanBlok} sudah terdaftar.` };
-  }
-
   const created: Warga = {
     id: `warga-${Date.now()}`,
     blok_rumah: cleanBlok,
     nama_warga: payload.nama_warga.trim(),
     no_wa: cleanWa,
+    secondary_whatsapp: cleanSecondaryWa,
     status_hunian: payload.status_hunian,
     nominal_iuran: payload.nominal_iuran,
     pin_akses: cleanPin,
+    bot_role: cleanBotRole,
     aktif: true,
     created_at: new Date().toISOString(),
   };
@@ -1559,6 +1748,211 @@ export async function deleteWargaAdmin(
     summary: `Menghapus data warga ${warga.blok_rumah} (${warga.nama_warga}).`,
   });
   return { data: true };
+}
+
+export interface BulkImportWargaResult {
+  insertedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  totalRoster: number;
+}
+
+export async function importMasterWargaToDatabase(
+  session: SessionUser,
+  options?: { syncExisting?: boolean }
+): Promise<ServiceResult<BulkImportWargaResult>> {
+  if (session.role !== 'admin') return { error: 'Akses ditolak.' };
+
+  const syncExisting = Boolean(options?.syncExisting) && isBendaharaFullAccess(session);
+  const supabase = getSupabaseClient(session);
+
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data: existingRows, error: fetchErr } = await supabase
+        .from('users_warga')
+        .select('id, blok_rumah, nama_warga, no_wa, status_hunian, nominal_iuran, pin_akses')
+        .or('role.is.null,role.neq.admin');
+
+      if (fetchErr) throw fetchErr;
+
+      const existingMap = new Map<
+        string,
+        {
+          id: string;
+          blok_rumah: string;
+          nama_warga: string;
+          no_wa: string;
+          status_hunian: StatusHunian;
+          nominal_iuran: number;
+          pin_akses: string;
+        }
+      >();
+
+      for (const row of existingRows || []) {
+        const key = canonicalizeBlokKey(String(row.blok_rumah || ''));
+        if (key && !existingMap.has(key)) {
+          existingMap.set(key, {
+            id: String(row.id),
+            blok_rumah: String(row.blok_rumah),
+            nama_warga: String(row.nama_warga || ''),
+            no_wa: String(row.no_wa || ''),
+            status_hunian: (row.status_hunian as StatusHunian) || 'Tetap',
+            nominal_iuran: Number(row.nominal_iuran ?? 0),
+            pin_akses: String(row.pin_akses || ''),
+          });
+        }
+      }
+
+      const toInsert: Array<{
+        blok_rumah: string;
+        nama_warga: string;
+        no_wa: string;
+        status_hunian: StatusHunian;
+        nominal_iuran: number;
+        pin_akses: string;
+        role: 'warga';
+        aktif: boolean;
+      }> = [];
+
+      const toUpdate: Array<{
+        id: string;
+        nama_warga: string;
+        status_hunian: StatusHunian;
+        nominal_iuran: number;
+      }> = [];
+
+      let skippedCount = 0;
+
+      for (const seed of SEED_WARGA) {
+        const key = canonicalizeBlokKey(seed.blok_rumah);
+        const existing = existingMap.get(key);
+        if (!existing) {
+          toInsert.push({
+            blok_rumah: seed.blok_rumah,
+            nama_warga: seed.nama_warga,
+            no_wa: seed.no_wa,
+            status_hunian: seed.status_hunian,
+            nominal_iuran: seed.nominal_iuran,
+            pin_akses: seed.pin_akses,
+            role: 'warga',
+            aktif: true,
+          });
+        } else if (
+          syncExisting &&
+          (existing.nama_warga.trim().toUpperCase() !== seed.nama_warga.trim().toUpperCase() ||
+            existing.status_hunian !== seed.status_hunian ||
+            existing.nominal_iuran !== seed.nominal_iuran)
+        ) {
+          toUpdate.push({
+            id: existing.id,
+            nama_warga: seed.nama_warga,
+            status_hunian: seed.status_hunian,
+            nominal_iuran: seed.nominal_iuran,
+          });
+        } else {
+          skippedCount += 1;
+        }
+      }
+
+      const CHUNK_SIZE = 40;
+      for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+        const chunk = toInsert.slice(i, i + CHUNK_SIZE);
+        const { error: insertErr } = await supabase.from('users_warga').insert(chunk);
+        if (insertErr) throw insertErr;
+      }
+
+      for (const upd of toUpdate) {
+        const { error: updErr } = await supabase
+          .from('users_warga')
+          .update({
+            nama_warga: upd.nama_warga,
+            status_hunian: upd.status_hunian,
+            nominal_iuran: upd.nominal_iuran,
+          })
+          .eq('id', upd.id);
+        if (updErr) throw updErr;
+      }
+
+      await recordAuditLog({
+        session,
+        action: 'BULK_IMPORT_WARGA',
+        entity: 'users_warga',
+        summary: `Import data master 109 warga Saung Kebun: ${toInsert.length} baru ditambahkan, ${toUpdate.length} diperbarui, ${skippedCount} sudah ada.`,
+      });
+
+      return {
+        data: {
+          insertedCount: toInsert.length,
+          updatedCount: toUpdate.length,
+          skippedCount,
+          totalRoster: SEED_WARGA.length,
+        },
+      };
+    } catch (err) {
+      return {
+        error: parseFriendlyError(err, 'Gagal mengimpor data 109 warga ke database Supabase.'),
+      };
+    }
+  }
+
+  // Fallback Mode Lokal
+  ensureLocalStoreInitialized();
+  const current = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
+  const existingMap = new Map<string, Warga>();
+  for (const w of current) {
+    const key = canonicalizeBlokKey(w.blok_rumah);
+    if (key && !existingMap.has(key)) existingMap.set(key, w);
+  }
+
+  const next = [...current];
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const seed of SEED_WARGA) {
+    const key = canonicalizeBlokKey(seed.blok_rumah);
+    const existing = existingMap.get(key);
+    if (!existing) {
+      next.push({ ...seed, created_at: new Date().toISOString() });
+      syncLocalStatusForHouse(seed.blok_rumah);
+      insertedCount += 1;
+    } else if (
+      syncExisting &&
+      (existing.nama_warga.trim().toUpperCase() !== seed.nama_warga.trim().toUpperCase() ||
+        existing.status_hunian !== seed.status_hunian ||
+        existing.nominal_iuran !== seed.nominal_iuran)
+    ) {
+      const idx = next.findIndex((item) => item.id === existing.id);
+      if (idx >= 0) {
+        next[idx] = {
+          ...next[idx],
+          nama_warga: seed.nama_warga,
+          status_hunian: seed.status_hunian,
+          nominal_iuran: seed.nominal_iuran,
+        };
+        updatedCount += 1;
+      }
+    } else {
+      skippedCount += 1;
+    }
+  }
+
+  writeLocal(STORAGE_KEYS.WARGA, next);
+  await recordAuditLog({
+    session,
+    action: 'BULK_IMPORT_WARGA',
+    entity: 'users_warga',
+    summary: `Import data master 109 warga Saung Kebun: ${insertedCount} baru ditambahkan, ${updatedCount} diperbarui, ${skippedCount} sudah ada.`,
+  });
+
+  return {
+    data: {
+      insertedCount,
+      updatedCount,
+      skippedCount,
+      totalRoster: SEED_WARGA.length,
+    },
+  };
 }
 
 export async function submitManualCashAdmin(
@@ -2160,6 +2554,85 @@ export async function sendWargaAccessCredentialsWaAdmin(
         failedCount > 0
           ? `Info akun & PIN dikirim ke ${sentCount} warga (${failedCount} gagal, cek Log Pengiriman).`
           : `Info akun & PIN (https://e-card-ipl.vercel.app) berhasil dikirim ke ${sentCount} warga aktif via ${config.provider}.`,
+    },
+  };
+}
+
+export async function sendWargaBotActivationWaAdmin(
+  session: SessionUser,
+  config: BotWaConfig,
+  warga: Warga
+): Promise<ServiceResult<{ sentViaGateway: boolean; message: string }>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: pengiriman via gateway Bot WA khusus Bendahara.' };
+  }
+
+  const targetsNumbers = Array.from(
+    new Set(
+      [warga.no_wa, warga.secondary_whatsapp]
+        .map((n) => normalizePhoneNumber(n))
+        .filter((n) => isRealRegisteredPhone(n))
+    )
+  );
+
+  if (targetsNumbers.length === 0) {
+    return { error: `Unit ${warga.blok_rumah} belum memiliki nomor WhatsApp valid yang terdaftar.` };
+  }
+
+  if (!config.api_token.trim()) {
+    return { error: 'Token Fonnte/Wablas belum diisi.' };
+  }
+
+  const activationText = buildWargaBotActivationMessage(warga);
+  const targets: ProxyWaTarget[] = targetsNumbers.map((noWa) => ({
+    blok_rumah: warga.blok_rumah,
+    nama_warga: warga.nama_warga,
+    no_wa: noWa,
+    pesan: activationText,
+  }));
+
+  const proxyRes = await dispatchViaServerWaProxy(session, config, targets);
+  if (!proxyRes.available) {
+    return { error: 'Proxy /api/bot-wa/send belum tersedia.' };
+  }
+  if (proxyRes.error) {
+    return { error: proxyRes.error };
+  }
+
+  const nowIso = new Date().toISOString();
+  const newLogs: BotWaLog[] = (proxyRes.results || []).map((r, i) => ({
+    id: `walog-act-${Date.now()}-${i}`,
+    created_at: nowIso,
+    blok_rumah: r.blok_rumah,
+    nama_warga: r.nama_warga,
+    no_wa: r.no_wa,
+    jenis_pesan: 'Info Aktivasi Bot WA (CEK)',
+    status_kirim: r.status_kirim,
+    respon_gateway: r.respon_gateway,
+    pesan: r.pesan,
+  }));
+
+  await persistBotWaLogs(session, newLogs);
+
+  const sentCount = newLogs.filter((l) => l.status_kirim === 'Terkirim').length;
+  if (sentCount === 0) {
+    return {
+      error: `Gagal mengirim aktivasi Bot via ${config.provider}: ${newLogs[0]?.respon_gateway || 'Device terputus'}`,
+    };
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'SEND_BOT_ACTIVATION_WA',
+    entity: 'bot_wa_logs',
+    entity_id: warga.id,
+    summary: `Mengirim notifikasi aktivasi Bot WA (perintah CEK) ke ${warga.blok_rumah} (${targetsNumbers.join(', ')}).`,
+  });
+
+  return {
+    data: {
+      sentViaGateway: true,
+      message: `Info aktivasi Bot WA berhasil dikirim via ${config.provider} ke ${targetsNumbers.map((n) => `+${n}`).join(' & ')}.`,
     },
   };
 }

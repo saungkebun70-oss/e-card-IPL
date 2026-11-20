@@ -377,6 +377,7 @@ export default function App() {
             <AdminWargaSlide
               session={session}
               wargaList={adminData.wargaList}
+              botConfig={adminData.botConfig}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />

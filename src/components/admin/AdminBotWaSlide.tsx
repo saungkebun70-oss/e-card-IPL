@@ -92,15 +92,17 @@ export function AdminBotWaSlide({
   const [panduanModalOpen, setPanduanModalOpen] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedPengurusKey, setCopiedPengurusKey] = useState<string | null>(null);
+  const [simRole, setSimRole] = useState<'warga' | 'admin' | 'unregistered'>('warga');
   const [simInput, setSimInput] = useState('MENU');
   const [simHistory, setSimHistory] = useState<
-    Array<{ id: string; incoming: string; reply: string; command: string }>
+    Array<{ id: string; incoming: string; reply: string; command: string; roleLabel: string }>
   >(() => {
     const initial = generateBotAutoReply('MENU', {
       wargaList,
       statusList,
       paymentConfig,
       senderName: 'Warga Saung Kebun',
+      simulatedRole: 'warga',
     });
     return [
       {
@@ -108,12 +110,14 @@ export function AdminBotWaSlide({
         incoming: 'MENU',
         reply: initial.reply,
         command: initial.command,
+        roleLabel: 'Warga Terdaftar',
       },
     ];
   });
   const [visibleLogsCount, setVisibleLogsCount] = useState(15);
 
   const webhookUrl = `${APP_PORTAL_URL}/api/bot-wa/webhook`;
+  const webhookAliasUrl = `${APP_PORTAL_URL}/api/webhook/fonnte`;
 
   const handleCopyWebhook = async () => {
     const ok = await copyToClipboard(webhookUrl);
@@ -126,21 +130,30 @@ export function AdminBotWaSlide({
     }
   };
 
-  const handleRunSimulator = (rawMessage: string) => {
+  const handleRunSimulator = (rawMessage: string, overrideRole?: 'warga' | 'admin' | 'unregistered') => {
     const clean = rawMessage.trim();
     if (!clean) return;
+    const roleToUse = overrideRole || simRole;
     const res = generateBotAutoReply(clean, {
       wargaList,
       statusList,
       paymentConfig,
       senderName: session.nama_warga,
+      simulatedRole: roleToUse,
     });
+    const roleLabel =
+      roleToUse === 'unregistered'
+        ? 'Nomor Belum Terdaftar'
+        : roleToUse === 'admin'
+          ? 'Pengurus / Admin'
+          : 'Warga Terdaftar';
     setSimHistory((prev) => [
       {
         id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
         incoming: clean,
         reply: res.reply,
         command: res.command,
+        roleLabel,
       },
       ...prev.slice(0, 5),
     ]);
@@ -829,12 +842,12 @@ export function AdminBotWaSlide({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-[#0F172A]">
-                Bot Jawab Otomatis (Auto-Reply)
+                Bot Jawab Otomatis (Strict Sender Isolation)
               </h2>
               <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                Membalas pesan warga secara otomatis 24 jam saat warga mengirim perintah cek tagihan,
-                cek saldo, verifikasi PIN, info rekening/QRIS, pengurus, atau setor IPL ke nomor WA
-                gateway.
+                Bot hanya merespons nomor WA yang terdaftar di Master Warga dan mengunci data agar
+                warga hanya dapat melihat status blok rumahnya sendiri. Pesan grup &amp; nomor asing
+                otomatis ditolak.
               </p>
             </div>
           </div>
@@ -869,6 +882,9 @@ export function AdminBotWaSlide({
                 )}
               </button>
             </div>
+            <p className="text-[11px] text-slate-500 font-mono truncate">
+              Alias didukung: {webhookAliasUrl}
+            </p>
           </div>
 
           <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
@@ -878,55 +894,77 @@ export function AdminBotWaSlide({
             <ol className="space-y-1.5 text-xs text-slate-600 leading-relaxed list-decimal list-inside">
               <li>
                 Buka <span className="font-mono text-slate-800">md.fonnte.com</span> → menu{' '}
-                <strong>Device</strong> → klik <strong>Edit</strong> pada nomor WA Pengurus.
+                <strong>Device</strong> → klik <strong>Edit</strong> pada device WhatsApp Bot.
               </li>
               <li>
                 Tempel URL Webhook di atas pada kolom <strong>Webhook URL</strong>, lalu simpan.
               </li>
               <li>
-                Pastikan sakelar <strong>Status Bot WhatsApp Otomatis</strong> di atas aktif dan
-                API Token sudah tersimpan. Pesan dari grup otomatis diabaikan demi privasi warga.
+                Pastikan sakelar <strong>Status Bot WhatsApp Otomatis</strong> aktif, API Token
+                tersimpan, dan nomor WA warga sudah diisi di menu Master Warga.
               </li>
             </ol>
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-slate-500">Perintah Otomatis yang Didukung</p>
+            <p className="text-xs font-semibold text-slate-500">Perintah Otomatis (Aman Privasi)</p>
             <div className="text-xs text-slate-700 font-mono space-y-1 leading-relaxed">
-              <p>MENU · CEK#[BLOK] · SALDO#[BLOK]#{TAHUN_AKTIF}</p>
-              <p>VERIFIKASI#[BLOK]#[PIN] · REKENING · QRIS · PENGURUS</p>
-              <p>SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE] · BANTUAN#PIN#[BLOK]</p>
+              <p>CEK · SALDO · REKENING · BAYAR · MENU · PENGURUS</p>
+              <p>CEK#[KODE_BLOK] (khusus Pengurus / Bendahara)</p>
             </div>
           </div>
         </div>
 
         {/* Simulator Live Bot Jawab Otomatis */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <Bot className="w-4 h-4 text-[#059669] shrink-0" />
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#0F172A] truncate">
-                  Simulator Uji Bot Jawab Otomatis
+                  Simulator Uji Isolasi Keamanan Bot WA
                 </h3>
                 <p className="text-xs text-slate-500 truncate">
-                  Uji balasan otomatis secara langsung menggunakan data 109 unit warga &amp; e-Card
-                  saat ini.
+                  Uji balasan otomatis berdasarkan peran pengirim (Warga, Pengurus, atau Nomor Asing).
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-5 space-y-4">
+            {/* Pilih Peran Pengirim Simulator */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
+              {(
+                [
+                  { id: 'warga', label: 'Simulasi: Warga Biasa' },
+                  { id: 'admin', label: 'Simulasi: Pengurus' },
+                  { id: 'unregistered', label: 'Simulasi: Nomor Asing' },
+                ] as const
+              ).map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setSimRole(r.id)}
+                  className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    simRole === r.id
+                      ? 'bg-white text-[#0F172A] shadow-sm'
+                      : 'text-slate-600 hover:text-[#0F172A]'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+
             {/* Tombol Perintah Cepat */}
             <div className="flex flex-wrap gap-1.5">
               {[
-                'MENU',
-                'CEK#B3/7',
-                `SALDO#B7/16#${TAHUN_AKTIF}`,
+                'CEK',
+                'CEK#B07/16',
+                'SALDO',
                 'REKENING',
+                'MENU',
                 'PENGURUS',
-                `SETOR#B5/21#NOV${TAHUN_AKTIF}#100000#QRIS`,
               ].map((cmd) => (
                 <button
                   key={cmd}
@@ -951,7 +989,7 @@ export function AdminBotWaSlide({
                     handleRunSimulator(simInput);
                   }
                 }}
-                placeholder="Ketik simulasi pesan warga (contoh: CEK#B5/21)..."
+                placeholder="Ketik simulasi pesan (contoh: CEK atau CEK#B07/16)..."
                 className="flex-1 min-w-0 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               />
               <button
@@ -973,7 +1011,7 @@ export function AdminBotWaSlide({
                 >
                   <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
                     <span>
-                      Pesan Warga · Perintah{' '}
+                      {item.roleLabel} · Status{' '}
                       <span className="font-mono font-semibold text-slate-700">{item.command}</span>
                     </span>
                   </div>

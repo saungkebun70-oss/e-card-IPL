@@ -91,9 +91,12 @@ function readAuditLogs(limit = 150): ServerAuditLog[] {
 
 hydrateMemoryLogs();
 
+import { normalizePhoneNumber } from './src/lib/phoneAndBlockUtils';
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'ecard-saung-kebun', time: new Date().toISOString() });
@@ -271,33 +274,41 @@ async function startServer() {
     });
   });
 
-  app.get('/api/bot-wa/webhook', (_req, res) => {
+  const handleWebhookGet = (_req: express.Request, res: express.Response) => {
     res.json({
       ok: true,
-      service: 'saung-kebun-wa-auto-reply',
+      service: 'saung-kebun-wa-auto-reply-strict-isolation',
       webhook_url: 'https://e-card-ipl.vercel.app/api/bot-wa/webhook',
-      commands: [
-        'MENU',
-        'VERIFIKASI#BLOK#PIN',
-        'CEK#BLOK',
-        'SALDO#BLOK#2026',
-        'SETOR#BLOK#BULAN#NOMINAL#METODE',
-        'REKENING',
-        'PENGURUS',
-        'BANTUAN#PIN#BLOK#NAMA',
-      ],
+      security: 'Strict Sender-to-Unit Isolation Active',
+      commands: ['CEK', 'CEK#<BLOK> (Pengurus)', 'SALDO', 'REKENING', 'BAYAR', 'MENU'],
     });
-  });
+  };
 
-  app.post('/api/bot-wa/webhook', async (req, res) => {
+  const handleWebhookPost = async (req: express.Request, res: express.Response) => {
     const body = (req.body || {}) as Record<string, unknown>;
-    const incomingText = String(body.message || body.pesan || '').trim();
+    const incomingText = String(body.message || body.pesan || body.text || '').trim();
     const senderName = String(body.name || body.pushName || 'Warga').trim();
-    const rawSender = String(body.sender || body.phone || '').trim();
+    const rawSender = String(body.sender || body.phone || body.from || '').trim();
+    const isGroup =
+      body.isGroup === true ||
+      String(body.isGroup || '').toLowerCase() === 'true' ||
+      rawSender.toLowerCase().includes('@g.us') ||
+      Boolean(body.member);
     const dryRun = Boolean(body.dryRun);
 
-    if (!incomingText) {
-      res.json({ ok: true, ignored: true, reason: 'Pesan kosong.' });
+    if (!incomingText || !rawSender) {
+      res.json({ ok: true, ignored: true, reason: 'Pesan atau pengirim kosong.' });
+      return;
+    }
+
+    if (isGroup) {
+      res.json({ ok: true, ignored: true, reason: 'Pesan grup diabaikan demi privasi warga.' });
+      return;
+    }
+
+    const cleanSender = normalizePhoneNumber(rawSender);
+    if (!cleanSender || cleanSender.length < 9) {
+      res.json({ ok: true, ignored: true, reason: 'Nomor pengirim tidak valid.' });
       return;
     }
 
@@ -307,12 +318,14 @@ async function startServer() {
       statusList,
       paymentConfig: SEED_PAYMENT_CONFIG,
       senderName,
+      senderPhone: cleanSender,
     });
 
-    if (dryRun || !rawSender || !process.env.FONNTE_TOKEN) {
+    if (dryRun || !process.env.FONNTE_TOKEN) {
       res.json({
         ok: true,
         dryRun: true,
+        sender: cleanSender,
         command: result.command,
         blok: result.blok || 'BOT-WA',
         reply: result.reply,
@@ -328,7 +341,7 @@ async function startServer() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          target: rawSender.replace(/\D/g, ''),
+          target: cleanSender,
           message: result.reply,
           countryCode: '62',
         }),
@@ -346,7 +359,12 @@ async function startServer() {
         error: err instanceof Error ? err.message : 'Gagal mengirim balasan otomatis.',
       });
     }
-  });
+  };
+
+  app.get('/api/bot-wa/webhook', handleWebhookGet);
+  app.post('/api/bot-wa/webhook', handleWebhookPost);
+  app.get('/api/webhook/fonnte', handleWebhookGet);
+  app.post('/api/webhook/fonnte', handleWebhookPost);
 
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');

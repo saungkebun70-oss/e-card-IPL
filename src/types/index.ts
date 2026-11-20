@@ -86,14 +86,18 @@ export function isBendaharaFullAccess(session?: SessionUser | null): boolean {
   return session?.role === 'admin' && session.admin_permission === 'full';
 }
 
+export type BotAccessRole = 'warga' | 'admin' | 'bendahara';
+
 export interface Warga {
   id: string;
   blok_rumah: string;
   nama_warga: string;
   no_wa: string;
+  secondary_whatsapp?: string | null;
   status_hunian: StatusHunian;
   nominal_iuran: number;
   pin_akses: string;
+  bot_role?: BotAccessRole | null;
   aktif: boolean;
   created_at: string;
 }

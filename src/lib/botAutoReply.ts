@@ -6,6 +6,7 @@ import {
   SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
+  type BotAccessRole,
   type PaymentConfig,
   type StatusEcardBulanan,
   type Warga,
@@ -15,7 +16,10 @@ import {
   getCurrentBillingMonth,
   getDefaultUnpaidStatusForMonth,
   getNamaBulan,
-  normalizeBlok,
+  isRealRegisteredPhone,
+  isSameBlockCode,
+  normalizeBlockCode,
+  normalizePhoneNumber,
 } from './format';
 
 export type AutoReplyCommandType =
@@ -27,6 +31,8 @@ export type AutoReplyCommandType =
   | 'REKENING'
   | 'PENGURUS'
   | 'BANTUAN'
+  | 'PRIVACY_DENIED'
+  | 'UNREGISTERED'
   | 'FALLBACK';
 
 export interface AutoReplyResult {
@@ -40,39 +46,78 @@ export interface AutoReplyContext {
   statusList: StatusEcardBulanan[];
   paymentConfig?: PaymentConfig;
   senderName?: string;
+  senderPhone?: string;
+  simulatedRole?: BotAccessRole | 'unregistered';
 }
 
 function findWargaByBlok(wargaList: Warga[], rawBlok: string): Warga | undefined {
-  const clean = normalizeBlok(rawBlok);
+  const clean = normalizeBlockCode(rawBlok);
   if (!clean) return undefined;
-  return wargaList.find((w) => normalizeBlok(w.blok_rumah) === clean);
+  return wargaList.find((w) => isSameBlockCode(w.blok_rumah, clean));
 }
 
-function buildMenuReply(): string {
+function findSenderUnit(wargaList: Warga[], senderPhone?: string): Warga | undefined {
+  const cleanPhone = normalizePhoneNumber(senderPhone);
+  if (!isRealRegisteredPhone(cleanPhone)) return undefined;
+  return wargaList.find((w) => {
+    if (!w.aktif) return false;
+    const p1 = normalizePhoneNumber(w.no_wa);
+    const p2 = normalizePhoneNumber(w.secondary_whatsapp);
+    return (
+      (isRealRegisteredPhone(p1) && p1 === cleanPhone) ||
+      (isRealRegisteredPhone(p2) && p2 === cleanPhone)
+    );
+  });
+}
+
+function buildUnregisteredReply(): string {
   return [
-    `*Bot Layanan Otomatis IPL — Perumahan Saung Kebun*`,
+    `*Akses Ditolak – Nomor Belum Terdaftar*`,
     ``,
-    `Ketik salah satu format pesan berikut:`,
-    `1. *CEK#[BLOK]* — Cek tagihan bulan ini (contoh: CEK#B5/21)`,
-    `2. *SALDO#[BLOK]#${TAHUN_AKTIF}* — Cek rekap lunas & tunggakan setahun`,
-    `3. *VERIFIKASI#[BLOK]#[PIN]* — Verifikasi nomor WA & unit rumah`,
-    `4. *SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]* — Konfirmasi setor IPL`,
-    `5. *REKENING* atau *QRIS* — Info nomor rekening kas & QRIS resmi`,
-    `6. *PENGURUS* — Daftar susunan pengurus Saung Kebun`,
-    `7. *BANTUAN#PIN#[BLOK]#[NAMA]* — Minta bantuan reset PIN / ubah WA`,
+    `Mohon maaf, nomor WhatsApp Anda belum terhubung dengan unit rumah mana pun di sistem *e-Card IPL Digital Perumahan Saung Kebun*.`,
     ``,
-    `Portal resmi e-Card Digital:`,
-    `${APP_PORTAL_URL}`,
+    `Silakan hubungi Pengurus Lingkungan (Ketua/Bendahara) untuk mendaftarkan nomor WhatsApp Anda agar dapat mengecek status iuran unit Anda secara mandiri.`,
   ].join('\n');
 }
 
+function buildPrivacyRejectedReply(ownBlockCode: string): string {
+  return [
+    `*Akses Ditolak (Privasi Terlindungi)*`,
+    ``,
+    `Demi menjaga kerahasiaan data warga Perumahan Saung Kebun, nomor WhatsApp Anda hanya terdaftar untuk unit *${ownBlockCode}* dan tidak diizinkan mengakses data unit lain.`,
+    ``,
+    `Ketik *CEK* untuk melihat status iuran unit Anda sendiri.`,
+  ].join('\n');
+}
+
+function buildPersonalizedMenuReply(
+  blockCode: string,
+  residentName: string,
+  isPrivileged: boolean
+): string {
+  const lines = [
+    `*Layanan Bot e-Card IPL – Perumahan Saung Kebun*`,
+    `Unit Terdaftar: *${blockCode}* (${residentName})`,
+    ``,
+    `Silakan ketik perintah berikut:`,
+    `• *CEK* — Melihat status & rincian tagihan IPL unit Anda`,
+    `• *SALDO* — Melihat rekap lunas & tunggakan 12 bulan unit Anda`,
+    `• *REKENING* — Melihat informasi pembayaran QRIS & Transfer`,
+    `• *MENU* — Menampilkan panduan ini`,
+  ];
+  if (isPrivileged) {
+    lines.push(`• *CEK#[KODE_BLOK]* — (Akses Pengurus) Cek status unit warga tertentu`);
+  }
+  lines.push(``);
+  lines.push(`Portal Warga: ${APP_PORTAL_URL}`);
+  return lines.join('\n');
+}
+
 function buildPengurusReply(): string {
-  const lines = SUSUNAN_PENGURUS.map(
-    (p) => `• *${p.jabatan}*: ${p.nama} (Blok ${p.blokRumah})`
-  );
+  const lines = SUSUNAN_PENGURUS.map((p) => `• *${p.jabatan}*: ${p.nama}`);
   return [
     `*Susunan Pengurus Lingkungan Perumahan Saung Kebun*`,
-    `Sekretariat: Blok B3/7 · Desa Bengle, Kec. Majalaya, Karawang`,
+    `Sekretariat: Blok B03/07 · Desa Bengle, Kec. Majalaya, Karawang`,
     ``,
     ...lines,
     ``,
@@ -93,8 +138,7 @@ function buildRekeningReply(paymentConfig?: PaymentConfig): string {
   ];
 
   if (cfg.qris_aktif && cfg.qris_image_url) {
-    lines.push(`*1. Via QR / QRIS Resmi:*`);
-    lines.push(`${cfg.qris_label}`);
+    lines.push(`*Via QRIS Resmi:* ${cfg.qris_label}`);
     lines.push(`Buka ${APP_PORTAL_URL} → Menu Setor → Pilih *Via QR / QRIS* untuk scan kode QRIS.`);
     lines.push(``);
   }
@@ -115,8 +159,80 @@ function buildRekeningReply(paymentConfig?: PaymentConfig): string {
     lines.push(``);
   }
 
-  lines.push(`Setelah transfer, unggah bukti bayar di ${APP_PORTAL_URL} atau kirim format *SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]*.`);
+  lines.push(`*Titip Pengurus:* Dapat diserahkan tunai melalui Pengurus Lingkungan resmi.`);
+  lines.push(`Setelah pembayaran, unggah bukti setor di ${APP_PORTAL_URL} agar status e-Card otomatis diverifikasi.`);
   return lines.join('\n');
+}
+
+function buildCekUnitReply(warga: Warga, statusList: StatusEcardBulanan[]): string {
+  const currentMonth = getCurrentBillingMonth();
+  const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
+  const formattedBlock = normalizeBlockCode(warga.blok_rumah);
+  const st = statusList.find(
+    (s) =>
+      isSameBlockCode(s.blok_rumah, warga.blok_rumah) &&
+      s.tahun === TAHUN_AKTIF &&
+      s.bulan === currentMonth
+  );
+  const statusBulanIni = st?.status || getDefaultUnpaidStatusForMonth(currentMonth);
+
+  return [
+    `*Status e-Card IPL — Unit ${formattedBlock}*`,
+    `Nama: ${warga.nama_warga}`,
+    `Periode: *${bulanNama}*`,
+    `Status: *${statusBulanIni.toUpperCase()}*`,
+    `Iuran Wajib: ${formatRupiah(warga.nominal_iuran || NOMINAL_IPL_STANDAR)} / bulan`,
+    `Jatuh Tempo: Tanggal ${TANGGAL_JATUH_TEMPO}`,
+    ``,
+    statusBulanIni === 'Lunas'
+      ? `Terima kasih, IPL bulan ${bulanNama} sudah *LUNAS*. Unduh kwitansi di ${APP_PORTAL_URL}`
+      : `Silakan setor via QRIS / Transfer / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk info pembayaran.`,
+  ].join('\n');
+}
+
+function buildSaldoUnitReply(
+  warga: Warga,
+  statusList: StatusEcardBulanan[],
+  tahun: number
+): string {
+  const formattedBlock = normalizeBlockCode(warga.blok_rumah);
+  const currentMonth = getCurrentBillingMonth();
+  let lunasCount = 0;
+  let pendingCount = 0;
+  const belumBayarBulan: string[] = [];
+
+  for (const b of BULAN_LIST) {
+    const st = statusList.find(
+      (s) =>
+        isSameBlockCode(s.blok_rumah, warga.blok_rumah) &&
+        s.tahun === tahun &&
+        s.bulan === b.angka
+    );
+    const resolved = st?.status || getDefaultUnpaidStatusForMonth(b.angka);
+    if (resolved === 'Lunas') {
+      lunasCount += 1;
+    } else if (resolved === 'Menunggu Verifikasi') {
+      pendingCount += 1;
+    } else if (b.angka <= currentMonth) {
+      belumBayarBulan.push(b.singkat);
+    }
+  }
+
+  const totalTunggakan = belumBayarBulan.length * (warga.nominal_iuran || NOMINAL_IPL_STANDAR);
+
+  return [
+    `*Rekap Saldo IPL ${tahun} — Unit ${formattedBlock}*`,
+    `Nama: ${warga.nama_warga}`,
+    `• Lunas: *${lunasCount} bulan*`,
+    `• Menunggu Verifikasi: *${pendingCount} bulan*`,
+    `• Belum Bayar (s.d. ${getNamaBulan(currentMonth)}): *${belumBayarBulan.length} bulan*${
+      belumBayarBulan.length > 0 ? ` (${belumBayarBulan.join(', ')})` : ''
+    }`,
+    `• Estimasi Kewajiban: *${formatRupiah(totalTunggakan)}*`,
+    ``,
+    `Cek detail matriks 12 bulan & unduh kwitansi di:`,
+    `${APP_PORTAL_URL}`,
+  ].join('\n');
 }
 
 export function generateBotAutoReply(
@@ -124,268 +240,260 @@ export function generateBotAutoReply(
   context: AutoReplyContext
 ): AutoReplyResult {
   const raw = incomingMessage.trim();
+
+  if (context.simulatedRole === 'unregistered') {
+    return {
+      command: 'UNREGISTERED',
+      blok: 'UNREGISTERED',
+      reply: buildUnregisteredReply(),
+    };
+  }
+
+  let senderUnit: Warga | undefined;
+  if (context.senderPhone) {
+    senderUnit = findSenderUnit(context.wargaList, context.senderPhone);
+    if (!senderUnit && !context.simulatedRole) {
+      return {
+        command: 'UNREGISTERED',
+        blok: 'UNREGISTERED',
+        reply: buildUnregisteredReply(),
+      };
+    }
+  }
+
+  // Fallback untuk mode simulator bila nomor pengirim tidak dimasukkan manual
+  if (!senderUnit) {
+    senderUnit =
+      context.wargaList.find((w) => w.aktif && w.status_hunian !== 'Kosong') ||
+      context.wargaList[0];
+  }
+
+  const effectiveRole: BotAccessRole =
+    context.simulatedRole || senderUnit?.bot_role || 'warga';
+  const isPrivileged = effectiveRole === 'admin' || effectiveRole === 'bendahara';
+  const ownBlockCode = senderUnit ? normalizeBlockCode(senderUnit.blok_rumah) : 'PENGURUS';
+  const ownName = senderUnit?.nama_warga || context.senderName || 'Warga Saung Kebun';
+
   if (!raw) {
-    return { command: 'MENU', reply: buildMenuReply() };
+    return {
+      command: 'MENU',
+      blok: ownBlockCode,
+      reply: buildPersonalizedMenuReply(ownBlockCode, ownName, isPrivileged),
+    };
   }
 
   const upper = raw.toUpperCase();
-  const parts = raw.split('#').map((s) => s.trim());
-  const head = (parts[0] || '').toUpperCase();
+  const hashParts = raw.split('#').map((s) => s.trim());
+  let head = (hashParts[0] || '').toUpperCase();
+  let targetBlockRaw = (hashParts[1] || '').trim();
 
-  // 1. MENU / SALAM / HELP
+  if (hashParts.length === 1) {
+    const spaceMatch = raw.match(/^(CEK|SALDO)\s+(.+)$/i);
+    if (spaceMatch) {
+      head = spaceMatch[1].toUpperCase();
+      targetBlockRaw = spaceMatch[2].trim();
+    }
+  }
+
+  // 1. MENU / BANTUAN / INFO / SALAM
   if (
-    ['MENU', 'HELP', 'INFO', 'BOT', 'HALO', 'HELLO', 'HAI', 'ASSALAMUALAIKUM', 'P', 'START'].includes(
+    ['MENU', 'BANTUAN', 'INFO', 'HELP', 'BOT', 'HALO', 'HELLO', 'HAI', 'ASSALAMUALAIKUM', 'P', 'START'].includes(
       upper
     ) ||
     head === 'MENU' ||
-    head === 'HELP'
+    head === 'HELP' ||
+    head === 'INFO'
   ) {
-    return { command: 'MENU', reply: buildMenuReply() };
+    return {
+      command: 'MENU',
+      blok: ownBlockCode,
+      reply: buildPersonalizedMenuReply(ownBlockCode, ownName, isPrivileged),
+    };
   }
 
   // 2. INFO PENGURUS
   if (head === 'PENGURUS' || upper.includes('SUSUNAN PENGURUS')) {
-    return { command: 'PENGURUS', reply: buildPengurusReply() };
+    return { command: 'PENGURUS', blok: ownBlockCode, reply: buildPengurusReply() };
   }
 
-  // 3. INFO REKENING / QRIS
-  if (
-    head === 'REKENING' ||
-    head === 'NOREK' ||
-    head === 'QRIS' ||
-    head === 'QR' ||
-    head === 'BAYAR'
-  ) {
-    return { command: 'REKENING', reply: buildRekeningReply(context.paymentConfig) };
-  }
-
-  // 4. VERIFIKASI#[BLOK]#[PIN]
-  if (head === 'VERIFIKASI') {
-    const rawBlok = parts[1] || '';
-    const rawPin = (parts[2] || '').replace(/\D/g, '');
-    if (!rawBlok || rawPin.length < 4) {
-      return {
-        command: 'VERIFIKASI',
-        reply: [
-          `Format verifikasi kurang lengkap.`,
-          `Gunakan format: *VERIFIKASI#[BLOK]#[PIN_6_DIGIT]*`,
-          `Contoh: *VERIFIKASI#B5/21#123456*`,
-        ].join('\n'),
-      };
-    }
-
-    const warga = findWargaByBlok(context.wargaList, rawBlok);
-    if (!warga) {
-      return {
-        command: 'VERIFIKASI',
-        blok: normalizeBlok(rawBlok),
-        reply: `Blok *${normalizeBlok(rawBlok)}* tidak ditemukan di data Perumahan Saung Kebun. Pastikan format blok benar (contoh: B3/7, B5/21, B7/16).`,
-      };
-    }
-
-    if (warga.pin_akses !== rawPin) {
-      return {
-        command: 'VERIFIKASI',
-        blok: warga.blok_rumah,
-        reply: [
-          `PIN untuk Blok *${warga.blok_rumah}* tidak cocok.`,
-          `Jika lupa PIN, ketik: *BANTUAN#PIN#${warga.blok_rumah}#${warga.nama_warga}*`,
-        ].join('\n'),
-      };
-    }
-
+  // 3. INFO REKENING / BAYAR / QRIS
+  if (['REKENING', 'BAYAR', 'NOREK', 'QRIS', 'QR'].includes(head)) {
     return {
-      command: 'VERIFIKASI',
-      blok: warga.blok_rumah,
-      reply: [
-        `*Verifikasi Akun Berhasil*`,
-        `Unit: *Blok ${warga.blok_rumah}* (${warga.nama_warga})`,
-        `Status Hunian: ${warga.status_hunian}`,
-        `Iuran Wajib: ${formatRupiah(warga.nominal_iuran)} / bulan`,
-        ``,
-        `Ketik *CEK#${warga.blok_rumah}* untuk cek tagihan bulan ini, atau buka portal:`,
-        `${APP_PORTAL_URL}`,
-      ].join('\n'),
+      command: 'REKENING',
+      blok: ownBlockCode,
+      reply: buildRekeningReply(context.paymentConfig),
     };
   }
 
-  // 5. CEK#[BLOK]
+  // 4. CEK atau CEK#<BLOK> / CEK <BLOK>
   if (head === 'CEK') {
-    const rawBlok = parts[1] || raw.replace(/^CEK\s+/i, '');
-    if (!rawBlok || rawBlok.toUpperCase() === 'CEK') {
-      return {
-        command: 'CEK',
-        reply: `Sebutkan blok rumah Anda.\nContoh: *CEK#B5/21*`,
-      };
-    }
+    const requestedBlock = normalizeBlockCode(targetBlockRaw);
 
-    const warga = findWargaByBlok(context.wargaList, rawBlok);
-    if (!warga) {
-      return {
-        command: 'CEK',
-        blok: normalizeBlok(rawBlok),
-        reply: `Unit *${normalizeBlok(rawBlok)}* belum terdaftar. Cek kembali nomor blok Anda (contoh: B3/7, B5/21, B7/16).`,
-      };
-    }
-
-    const currentMonth = getCurrentBillingMonth();
-    const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
-    const st = context.statusList.find(
-      (s) =>
-        normalizeBlok(s.blok_rumah) === normalizeBlok(warga.blok_rumah) &&
-        s.tahun === TAHUN_AKTIF &&
-        s.bulan === currentMonth
-    );
-    const statusBulanIni = st?.status || getDefaultUnpaidStatusForMonth(currentMonth);
-
-    return {
-      command: 'CEK',
-      blok: warga.blok_rumah,
-      reply: [
-        `*Status e-Card IPL — Blok ${warga.blok_rumah}*`,
-        `Nama: ${warga.nama_warga}`,
-        `Periode: *${bulanNama}*`,
-        `Status: *${statusBulanIni.toUpperCase()}*`,
-        `Iuran Wajib: ${formatRupiah(warga.nominal_iuran)} / bulan`,
-        `Jatuh Tempo: Tanggal ${TANGGAL_JATUH_TEMPO}`,
-        ``,
-        statusBulanIni === 'Lunas'
-          ? `Terima kasih, IPL bulan ${bulanNama} sudah *LUNAS*. Unduh kwitansi di ${APP_PORTAL_URL}`
-          : `Silakan setor via QRIS/Transfer/Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk info pembayaran.`,
-      ].join('\n'),
-    };
-  }
-
-  // 6. SALDO#[BLOK]#[TAHUN]
-  if (head === 'SALDO') {
-    const rawBlok = parts[1] || raw.replace(/^SALDO\s+/i, '');
-    const tahun = Number(parts[2]) || TAHUN_AKTIF;
-    if (!rawBlok || rawBlok.toUpperCase() === 'SALDO') {
-      return {
-        command: 'SALDO',
-        reply: `Gunakan format: *SALDO#[BLOK]#${TAHUN_AKTIF}*\nContoh: *SALDO#B5/21#${TAHUN_AKTIF}*`,
-      };
-    }
-
-    const warga = findWargaByBlok(context.wargaList, rawBlok);
-    if (!warga) {
-      return {
-        command: 'SALDO',
-        blok: normalizeBlok(rawBlok),
-        reply: `Unit *${normalizeBlok(rawBlok)}* tidak ditemukan di data warga Perumahan Saung Kebun.`,
-      };
-    }
-
-    const currentMonth = getCurrentBillingMonth();
-    let lunasCount = 0;
-    let pendingCount = 0;
-    const belumBayarBulan: string[] = [];
-
-    for (const b of BULAN_LIST) {
-      const st = context.statusList.find(
-        (s) =>
-          normalizeBlok(s.blok_rumah) === normalizeBlok(warga.blok_rumah) &&
-          s.tahun === tahun &&
-          s.bulan === b.angka
-      );
-      const resolved = st?.status || getDefaultUnpaidStatusForMonth(b.angka);
-      if (resolved === 'Lunas') {
-        lunasCount += 1;
-      } else if (resolved === 'Menunggu Verifikasi') {
-        pendingCount += 1;
-      } else if (b.angka <= currentMonth) {
-        belumBayarBulan.push(b.singkat);
+    if (!isPrivileged && requestedBlock) {
+      if (!senderUnit || !isSameBlockCode(requestedBlock, senderUnit.blok_rumah)) {
+        return {
+          command: 'PRIVACY_DENIED',
+          blok: ownBlockCode,
+          reply: buildPrivacyRejectedReply(ownBlockCode),
+        };
       }
     }
 
-    const totalTunggakan = belumBayarBulan.length * (warga.nominal_iuran || NOMINAL_IPL_STANDAR);
+    if (!requestedBlock || (senderUnit && isSameBlockCode(requestedBlock, senderUnit.blok_rumah))) {
+      if (!senderUnit) {
+        return {
+          command: 'CEK',
+          blok: ownBlockCode,
+          reply: `Ketik *CEK#[KODE_BLOK]* untuk memeriksa status unit warga.`,
+        };
+      }
+      return {
+        command: 'CEK',
+        blok: ownBlockCode,
+        reply: buildCekUnitReply(senderUnit, context.statusList),
+      };
+    }
+
+    const targetUnit = findWargaByBlok(context.wargaList, requestedBlock);
+    if (!targetUnit) {
+      return {
+        command: 'CEK',
+        blok: requestedBlock,
+        reply: `Unit *${requestedBlock}* belum terdaftar di database Perumahan Saung Kebun. Mohon periksa kembali penulisan kode blok yang diminta.`,
+      };
+    }
 
     return {
-      command: 'SALDO',
-      blok: warga.blok_rumah,
-      reply: [
-        `*Rekap Saldo IPL ${tahun} — Blok ${warga.blok_rumah}*`,
-        `Nama: ${warga.nama_warga}`,
-        `• Lunas: *${lunasCount} bulan*`,
-        `• Menunggu Verifikasi: *${pendingCount} bulan*`,
-        `• Belum Bayar (s.d. ${getNamaBulan(currentMonth)}): *${belumBayarBulan.length} bulan*${
-          belumBayarBulan.length > 0 ? ` (${belumBayarBulan.join(', ')})` : ''
-        }`,
-        `• Estimasi Kewajiban: *${formatRupiah(totalTunggakan)}*`,
-        ``,
-        `Cek detail matriks 12 bulan & unduh kwitansi di:`,
-        `${APP_PORTAL_URL}`,
-      ].join('\n'),
+      command: 'CEK',
+      blok: normalizeBlockCode(targetUnit.blok_rumah),
+      reply: buildCekUnitReply(targetUnit, context.statusList),
     };
   }
 
-  // 7. SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]#[PENGURUS]
-  if (head === 'SETOR') {
-    const rawBlok = parts[1] || '';
-    const periode = (parts[2] || '').toUpperCase();
-    const nominalRaw = Number((parts[3] || '').replace(/\D/g, '')) || 0;
-    const metode = (parts[4] || '').toUpperCase();
-    const pengurus = parts[5] || '';
+  // 5. SALDO atau SALDO#<BLOK>#<TAHUN>
+  if (head === 'SALDO') {
+    const requestedBlock = normalizeBlockCode(targetBlockRaw);
+    const tahun = Number(hashParts[2]) || TAHUN_AKTIF;
 
-    if (!rawBlok || !periode || nominalRaw <= 0 || !metode) {
+    if (!isPrivileged && requestedBlock) {
+      if (!senderUnit || !isSameBlockCode(requestedBlock, senderUnit.blok_rumah)) {
+        return {
+          command: 'PRIVACY_DENIED',
+          blok: ownBlockCode,
+          reply: buildPrivacyRejectedReply(ownBlockCode),
+        };
+      }
+    }
+
+    if (!requestedBlock || (senderUnit && isSameBlockCode(requestedBlock, senderUnit.blok_rumah))) {
+      if (!senderUnit) {
+        return {
+          command: 'SALDO',
+          blok: ownBlockCode,
+          reply: `Ketik *SALDO#[KODE_BLOK]#${TAHUN_AKTIF}* untuk melihat rekap iuran warga.`,
+        };
+      }
+      return {
+        command: 'SALDO',
+        blok: ownBlockCode,
+        reply: buildSaldoUnitReply(senderUnit, context.statusList, tahun),
+      };
+    }
+
+    const targetUnit = findWargaByBlok(context.wargaList, requestedBlock);
+    if (!targetUnit) {
+      return {
+        command: 'SALDO',
+        blok: requestedBlock,
+        reply: `Unit *${requestedBlock}* belum terdaftar di database Perumahan Saung Kebun.`,
+      };
+    }
+
+    return {
+      command: 'SALDO',
+      blok: normalizeBlockCode(targetUnit.blok_rumah),
+      reply: buildSaldoUnitReply(targetUnit, context.statusList, tahun),
+    };
+  }
+
+  // 6. SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]#[PENGURUS]
+  if (head === 'SETOR') {
+    const requestedBlock = normalizeBlockCode(hashParts[1] || '');
+    const periode = (hashParts[2] || '').toUpperCase();
+    const nominalRaw = Number((hashParts[3] || '').replace(/\D/g, '')) || 0;
+    const metode = (hashParts[4] || '').toUpperCase();
+    const pengurus = hashParts[5] || '';
+
+    if (!isPrivileged && requestedBlock && senderUnit && !isSameBlockCode(requestedBlock, senderUnit.blok_rumah)) {
+      return {
+        command: 'PRIVACY_DENIED',
+        blok: ownBlockCode,
+        reply: buildPrivacyRejectedReply(ownBlockCode),
+      };
+    }
+
+    if (!periode || nominalRaw <= 0 || !metode) {
       return {
         command: 'SETOR',
+        blok: ownBlockCode,
         reply: [
           `Format konfirmasi setor belum lengkap.`,
-          `Gunakan format: *SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]*`,
-          `Contoh QRIS: *SETOR#B5/21#NOV${TAHUN_AKTIF}#100000#QRIS*`,
-          `Contoh Tunai: *SETOR#B5/21#NOV${TAHUN_AKTIF}#100000#TUNAI#ANDRIANSYAH*`,
+          `Gunakan format: *SETOR#${ownBlockCode}#NOV${TAHUN_AKTIF}#100000#QRIS*`,
+          `Atau unggah bukti transfer langsung di ${APP_PORTAL_URL}`,
         ].join('\n'),
       };
     }
 
-    const warga = findWargaByBlok(context.wargaList, rawBlok);
-    const blokLabel = warga?.blok_rumah || normalizeBlok(rawBlok);
+    const targetUnit =
+      (isPrivileged && requestedBlock ? findWargaByBlok(context.wargaList, requestedBlock) : senderUnit) ||
+      senderUnit;
+    const blokLabel = targetUnit ? normalizeBlockCode(targetUnit.blok_rumah) : requestedBlock || ownBlockCode;
 
     return {
       command: 'SETOR',
       blok: blokLabel,
       reply: [
         `*Laporan Setor IPL Diterima*`,
-        `Unit: *Blok ${blokLabel}*${warga ? ` (${warga.nama_warga})` : ''}`,
+        `Unit: *${blokLabel}*${targetUnit ? ` (${targetUnit.nama_warga})` : ''}`,
         `Periode: *${periode}*`,
         `Nominal: *${formatRupiah(nominalRaw)}*`,
         `Metode: *${metode}*${pengurus ? ` via ${pengurus}` : ''}`,
         ``,
         `Untuk verifikasi otomatis & kwitansi digital, pastikan Anda juga mengunggah foto bukti bayar di:`,
         `${APP_PORTAL_URL}`,
-        `Bendahara (Andriansyah) akan segera memverifikasi setoran Anda.`,
       ].join('\n'),
     };
   }
 
-  // 8. BANTUAN#PIN#[BLOK]#[NAMA]
+  // 7. BANTUAN#PIN#[BLOK]#[NAMA]
   if (head === 'BANTUAN') {
-    const topik = (parts[1] || 'UMUM').toUpperCase();
-    const rawBlok = normalizeBlok(parts[2] || '');
-    const nama = parts[3] || context.senderName || 'Warga';
+    const topik = (hashParts[1] || 'UMUM').toUpperCase();
+    const requestedBlock = normalizeBlockCode(hashParts[2] || '');
+
+    if (!isPrivileged && requestedBlock && senderUnit && !isSameBlockCode(requestedBlock, senderUnit.blok_rumah)) {
+      return {
+        command: 'PRIVACY_DENIED',
+        blok: ownBlockCode,
+        reply: buildPrivacyRejectedReply(ownBlockCode),
+      };
+    }
 
     return {
       command: 'BANTUAN',
-      blok: rawBlok || undefined,
+      blok: ownBlockCode,
       reply: [
         `*Permintaan Bantuan Tercatat*`,
-        `Topik: *${topik}*`,
-        rawBlok ? `Unit: *Blok ${rawBlok}* (${nama})` : `Pengirim: ${nama}`,
+        `Topik: *${topik}* · Unit: *${ownBlockCode}* (${ownName})`,
         ``,
-        `Pesan Anda telah diteruskan ke *Bendahara (Andriansyah — Blok B7/16)* dan Pengurus Lingkungan Saung Kebun. Mohon tunggu balasan konfirmasi.`,
+        `Pesan Anda telah diteruskan ke *Bendahara & Pengurus Lingkungan Saung Kebun*. Mohon tunggu balasan konfirmasi.`,
       ].join('\n'),
     };
   }
 
-  // Fallback ramah
+  // Fallback ramah — tampilkan panduan unit sendiri
   return {
-    command: 'FALLBACK',
-    reply: [
-      `Maaf, format pesan *"${raw.slice(0, 60)}"* belum dikenali oleh Bot IPL Saung Kebun.`,
-      ``,
-      `Ketik *MENU* untuk melihat daftar perintah otomatis (Cek Tagihan, Cek Saldo, Rekening/QRIS, Pengurus, atau Konfirmasi Setor).`,
-      `Portal e-Card: ${APP_PORTAL_URL}`,
-    ].join('\n'),
+    command: 'MENU',
+    blok: ownBlockCode,
+    reply: buildPersonalizedMenuReply(ownBlockCode, ownName, isPrivileged),
   };
 }

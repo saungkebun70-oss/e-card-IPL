@@ -79,7 +79,7 @@ export function PanduanBotWaModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
 
-  const blok = profil?.blok_rumah || 'B5/21';
+  const blok = profil?.blok_rumah || 'UNIT ANDA';
   const nama = profil?.nama_warga || 'Warga Saung Kebun';
   const nominal = profil?.nominal_iuran || NOMINAL_IPL_STANDAR;
   const currentMonth = getCurrentBillingMonth();
@@ -90,101 +90,101 @@ export function PanduanBotWaModal({
   const sections: GuideTabSection[] = [
     {
       id: 'verifikasi',
-      label: 'Verifikasi Akun',
-      shortLabel: 'Verifikasi',
+      label: 'Privasi & Akses',
+      shortLabel: 'Privasi',
       icon: ShieldCheck,
       pengantar:
-        'Hubungkan dan verifikasi nomor WhatsApp Anda dengan unit rumah di Perumahan Saung Kebun agar pengingat tagihan dan konfirmasi kwitansi terkirim ke nomor yang benar.',
+        'Bot WhatsApp Perumahan Saung Kebun menerapkan isolasi privasi ketat: setiap nomor WA hanya dapat melihat data iuran unit rumahnya sendiri.',
       langkah: [
-        'Pastikan Anda mengirim pesan dari nomor WhatsApp yang terdaftar pada unit rumah Anda.',
-        'Kirim format pesan VERIFIKASI sesuai contoh di bawah (ganti 6 digit PIN sesuai PIN resmi unit Anda).',
-        'Bot WhatsApp akan membalas status kecocokan data unit beserta tautan resmi Portal e-Card.',
+        'Pastikan Anda mengirim pesan dari nomor WhatsApp yang telah didaftarkan Pengurus untuk unit Anda.',
+        'Cukup ketik CEK atau MENU tanpa perlu memasukkan kode blok rumah tetangga.',
+        'Permintaan untuk melihat data blok rumah lain akan ditolak otomatis demi menjaga kerahasiaan data warga.',
       ],
       formats: [
         {
-          id: 'fmt-verifikasi',
-          judul: 'Verifikasi Nomor WA & Unit Rumah',
-          ringkasan: 'Memastikan nomor WhatsApp aktif terhubung ke data blok rumah Anda.',
-          pola: 'VERIFIKASI#[BLOK]#[PIN_6_DIGIT]',
-          contohSiapKirim: `VERIFIKASI#${blok}#123456`,
-          contohBalasan: `✅ Verifikasi berhasil!\nUnit: Blok ${blok} (${nama})\nStatus: Terdaftar di e-Card IPL Saung Kebun.\nPortal: ${APP_PORTAL_URL}`,
+          id: 'fmt-menu',
+          judul: 'Tampilkan Menu Layanan Unit Anda',
+          ringkasan: 'Memastikan nomor WhatsApp Anda terdaftar dan melihat daftar perintah singkat.',
+          pola: 'MENU',
+          contohSiapKirim: 'MENU',
+          contohBalasan: `*Layanan Bot e-Card IPL – Perumahan Saung Kebun*\nUnit Terdaftar: *${blok}* (${nama})\n\n• *CEK* — Status tagihan IPL unit Anda\n• *SALDO* — Rekap 12 bulan unit Anda\n• *REKENING* — Info QRIS & Transfer Bank`,
         },
         {
-          id: 'fmt-bantuan-pin',
-          judul: 'Minta Bantuan Reset PIN / Ubah Nomor WA',
-          ringkasan: 'Gunakan bila Anda lupa PIN 6 digit atau baru mengganti nomor WhatsApp.',
-          pola: 'BANTUAN#PIN#[BLOK]#[NAMA]',
-          contohSiapKirim: `BANTUAN#PIN#${blok}#${nama}`,
-          contohBalasan: `📩 Permintaan bantuan untuk Blok ${blok} telah diteruskan ke Bendahara (Andriansyah). Mohon tunggu konfirmasi balasan pengurus.`,
+          id: 'fmt-verifikasi',
+          judul: 'Verifikasi Nomor WA & Unit Terdaftar',
+          ringkasan: 'Memeriksa kecocokan nomor WhatsApp Anda dengan data unit di database.',
+          pola: 'VERIFIKASI',
+          contohSiapKirim: 'VERIFIKASI',
+          contohBalasan: `*Nomor WhatsApp Terverifikasi*\nUnit Terdaftar: *${blok}* (${nama})\nIuran Wajib: ${formatRupiah(nominal)} / bulan\nPortal: ${APP_PORTAL_URL}`,
         },
       ],
       catatan:
-        'Demi keamanan privasi, jangan pernah membagikan PIN 6 digit rumah Anda di grup WhatsApp. Kirim format verifikasi hanya melalui chat pribadi ke nomor resmi Bot WA / Pengurus.',
+        'Apabila nomor WhatsApp Anda baru berganti atau belum terhubung dengan unit Anda, silakan hubungi Pengurus Lingkungan (Ketua/Bendahara) melalui tombol Hubungi Pengurus.',
     },
     {
       id: 'saldo',
-      label: 'Cek Saldo & Status',
+      label: 'Cek Tagihan & Saldo',
       shortLabel: 'Cek Saldo',
       icon: Wallet,
       pengantar:
-        'Pantau status pembayaran IPL bulan berjalan, sisa kewajiban/tunggakan, serta rekap lunas sepanjang tahun tanpa harus membuka browser terlebih dahulu.',
+        'Pantau status pembayaran IPL bulan berjalan serta rekap lunas & tunggakan 12 bulan khusus untuk unit rumah Anda langsung lewat WhatsApp.',
       langkah: [
-        'Ketik format CEK untuk melihat status tagihan bulan berjalan dan jatuh tempo.',
-        'Atau ketik format SALDO disertai tahun berjalan untuk mendapatkan rekap 12 bulan lengkap.',
-        'Bot akan membalas rincian status e-Card (Lunas, Menunggu Verifikasi, atau Belum Bayar) secara otomatis.',
+        'Ketik CEK untuk melihat status tagihan bulan berjalan unit Anda secara instan.',
+        'Ketik SALDO untuk mendapatkan ringkasan bulan Lunas, Menunggu Verifikasi, dan sisa kewajiban tahun berjalan.',
+        'Semua data tersinkronisasi langsung dengan e-Card Digital Anda di portal.',
       ],
       formats: [
         {
           id: 'fmt-cek-status',
           judul: 'Cek Tagihan Bulan Berjalan',
-          ringkasan: `Melihat status e-Card bulan ${bulanNama} ${TAHUN_AKTIF} dan nominal kewajiban.`,
-          pola: 'CEK#[BLOK]',
-          contohSiapKirim: `CEK#${blok}`,
-          contohBalasan: `📋 Status e-Card Blok ${blok}\nPeriode: ${bulanNama} ${TAHUN_AKTIF}\nIuran Wajib: ${formatRupiah(nominal)}\nJatuh Tempo: Tanggal ${TANGGAL_JATUH_TEMPO}\nPortal: ${APP_PORTAL_URL}`,
+          ringkasan: `Melihat status e-Card unit Anda untuk bulan ${bulanNama} ${TAHUN_AKTIF}.`,
+          pola: 'CEK',
+          contohSiapKirim: 'CEK',
+          contohBalasan: `*Status e-Card IPL — Unit ${blok}*\nNama: ${nama}\nPeriode: *${bulanNama} ${TAHUN_AKTIF}*\nNominal Iuran: ${formatRupiah(nominal)} / bulan\nJatuh Tempo: Tanggal ${TANGGAL_JATUH_TEMPO}\nPortal: ${APP_PORTAL_URL}`,
         },
         {
           id: 'fmt-cek-saldo',
-          judul: 'Cek Rekap Saldo & Tunggakan Tahunan',
-          ringkasan: `Menampilkan ringkasan jumlah bulan lunas dan sisa tagihan tahun ${TAHUN_AKTIF}.`,
-          pola: 'SALDO#[BLOK]#[TAHUN]',
-          contohSiapKirim: `SALDO#${blok}#${TAHUN_AKTIF}`,
-          contohBalasan: `📊 Rekap IPL ${TAHUN_AKTIF} — Blok ${blok}\nTerbayar: Lunas tercatat otomatis\nSisa Tagihan: Cek detail 12 bulan di ${APP_PORTAL_URL}`,
+          judul: 'Cek Rekap Saldo & Tunggakan 12 Bulan',
+          ringkasan: `Menampilkan ringkasan jumlah bulan lunas dan sisa tagihan unit Anda tahun ${TAHUN_AKTIF}.`,
+          pola: 'SALDO',
+          contohSiapKirim: 'SALDO',
+          contohBalasan: `*Rekap Saldo IPL ${TAHUN_AKTIF} — Unit ${blok}*\nNama: ${nama}\n• Lunas & Menunggu Verifikasi tercatat otomatis\nDetail lengkap 12 bulan: ${APP_PORTAL_URL}`,
         },
       ],
-      catatan: `Tagihan IPL diterbitkan setiap tanggal 1 dan jatuh tempo setiap tanggal ${TANGGAL_JATUH_TEMPO}. Data saldo pada balasan Bot WA tersinkronisasi langsung dengan status e-Card di portal.`,
+      catatan: `Tagihan IPL diterbitkan setiap tanggal 1 dan jatuh tempo setiap tanggal ${TANGGAL_JATUH_TEMPO}. Nomor Anda terkunci eksklusif hanya untuk unit ${blok}.`,
     },
     {
       id: 'setor',
-      label: 'Setor IPL via WA',
+      label: 'Bayar & Setor IPL',
       shortLabel: 'Setor IPL',
       icon: CreditCard,
       pengantar:
-        'Laporkan bukti pembayaran QRIS, Transfer Bank, E-Wallet, atau Titip Pengurus lewat format pesan otomatis agar Bendahara dapat memverifikasi dengan cepat.',
+        'Dapatkan info QRIS / rekening kas resmi atau laporkan konfirmasi pembayaran IPL unit Anda lewat WhatsApp.',
       langkah: [
-        `Lakukan pembayaran IPL (${formatRupiah(nominal)}/bulan) via QRIS resmi, Transfer Rekening kas, E-Wallet, atau Titip Pengurus.`,
-        'Lampirkan foto/screenshot bukti bayar lalu tulis caption sesuai format SETOR di bawah ini.',
-        'Setelah Bendahara (Andriansyah) memverifikasi, status e-Card otomatis berubah LUNAS dan kwitansi digital tersedia di portal.',
+        'Ketik REKENING atau BAYAR untuk melihat metode pembayaran resmi (QRIS, Transfer Bank, atau Titip Pengurus).',
+        `Lakukan pembayaran IPL (${formatRupiah(nominal)}/bulan) lalu unggah bukti bayar di Portal Warga ${APP_PORTAL_URL}.`,
+        'Setelah Bendahara memverifikasi, status e-Card otomatis berubah LUNAS dan kwitansi tersedia di portal.',
       ],
       formats: [
         {
-          id: 'fmt-setor-digital',
-          judul: 'Konfirmasi Setor via QRIS / Transfer / E-Wallet',
-          ringkasan: 'Kirim bersama foto bukti bayar agar transaksi cepat dicocokkan Bendahara.',
-          pola: 'SETOR#[BLOK]#[BULAN]#[NOMINAL]#[METODE]',
-          contohSiapKirim: `SETOR#${blok}#${kodeBulan}#${nominal}#QRIS`,
-          contohBalasan: `🧾 Laporan setoran diterima!\nBlok: ${blok} · Periode: ${kodeBulan}\nNominal: ${formatRupiah(nominal)} (QRIS)\nStatus: Menunggu Verifikasi Bendahara.`,
+          id: 'fmt-rekening',
+          judul: 'Lihat Info Pembayaran Resmi (QRIS / Bank)',
+          ringkasan: 'Menampilkan rekening resmi kas lingkungan & tautan upload bukti bayar.',
+          pola: 'REKENING',
+          contohSiapKirim: 'REKENING',
+          contohBalasan: `*Info Pembayaran Resmi IPL Perumahan Saung Kebun*\nIuran Wajib: ${formatRupiah(nominal)} / bulan (Jatuh tempo tgl ${TANGGAL_JATUH_TEMPO})\nUnggah bukti setor di ${APP_PORTAL_URL}`,
         },
         {
-          id: 'fmt-setor-tunai',
-          judul: 'Konfirmasi Titip Setor Tunai ke Pengurus',
-          ringkasan: 'Catat nama pengurus penerima (Bp. Iwan, Erlangga, Andriansyah, Doni, Wahyu, atau Deny).',
-          pola: 'SETOR#[BLOK]#[BULAN]#[NOMINAL]#TUNAI#[NAMA_PENGURUS]',
-          contohSiapKirim: `SETOR#${blok}#${kodeBulan}#${nominal}#TUNAI#ANDRIANSYAH`,
-          contohBalasan: `🤝 Konfirmasi setor tunai Blok ${blok} (${formatRupiah(nominal)}) via Andriansyah tercatat. Kwitansi digital dapat diunduh setelah verifikasi.`,
+          id: 'fmt-setor-digital',
+          judul: 'Laporkan Konfirmasi Setor Unit Anda',
+          ringkasan: 'Mencatat laporan setor ke antrean verifikasi Bendahara.',
+          pola: 'SETOR#[BLOK_ANDA]#[BULAN]#[NOMINAL]#[METODE]',
+          contohSiapKirim: `SETOR#${blok}#${kodeBulan}#${nominal}#QRIS`,
+          contohBalasan: `*Laporan Setor IPL Tercatat di Antrean Verifikasi Admin*\nUnit: *${blok}* (${nama})\nNominal: *${formatRupiah(nominal)}* (QRIS)`,
         },
       ],
       catatan:
-        'Untuk unggah bukti bayar lebih cepat dan langsung mendapatkan nomor antrean verifikasi otomatis, Anda juga dapat menyetor langsung melalui menu Setor Iuran di portal ini.',
+        'Untuk unggah foto bukti bayar secara langsung dan mendapatkan verifikasi lebih cepat, silakan gunakan menu Setor Iuran di portal.',
     },
   ];
 
