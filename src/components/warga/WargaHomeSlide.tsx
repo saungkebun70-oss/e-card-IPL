@@ -17,6 +17,8 @@ import {
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
   TANGGAL_TERBIT_TAGIHAN,
+  type LogPatroli,
+  type PetugasKontakDarurat,
   type StatusBulanEcard,
   type StatusEcardBulanan,
   type SystemNotification,
@@ -31,11 +33,17 @@ import {
 import { useAppBrand } from '../../lib/brandContext';
 
 import { PanduanBotWaModal } from './PanduanBotWaModal';
+import {
+  EmergencySecurityContactCard,
+  SecurityPatrolFeedCard,
+} from '../SecurityLiveWidgets';
 
 interface WargaHomeSlideProps {
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
   notifications: SystemNotification[];
+  petugasKontak?: PetugasKontakDarurat[];
+  patroliFeed?: LogPatroli[];
   onQuickPayMonth: (bulan: number) => void;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -89,6 +97,8 @@ export function WargaHomeSlide({
   profil,
   statusBulanan,
   notifications,
+  petugasKontak = [],
+  patroliFeed = [],
   onQuickPayMonth,
   onToast,
 }: WargaHomeSlideProps) {
@@ -432,6 +442,19 @@ export function WargaHomeSlide({
           })}
         </div>
       </section>
+
+      {/* Widget Keamanan 24 Jam & Info Patroli Lingkungan Real-Time */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <EmergencySecurityContactCard
+          petugasList={petugasKontak}
+          senderContext={{
+            role: 'warga',
+            nama: profil.nama_warga,
+            blokRumah: profil.blok_rumah,
+          }}
+        />
+        <SecurityPatrolFeedCard patroliFeed={patroliFeed} maxItems={6} />
+      </div>
 
       <PanduanBotWaModal
         open={panduanWaOpen}

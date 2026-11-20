@@ -20,8 +20,10 @@ import {
   BULK_NOTIFICATION_TEMPLATES,
   isBendaharaFullAccess,
   TAHUN_AKTIF,
+  type LogPatroli,
   type NotificationCategory,
   type NotificationTargetScope,
+  type PetugasKeamanan,
   type SessionUser,
   type StatusEcardBulanan,
   type SystemNotification,
@@ -44,6 +46,10 @@ import {
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
+import {
+  EmergencySecurityContactCard,
+  SecurityPatrolFeedCard,
+} from '../SecurityLiveWidgets';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -61,6 +67,8 @@ interface AdminDashboardSlideProps {
   transaksiKasList: TransaksiKas[];
   statusList: StatusEcardBulanan[];
   notifications: SystemNotification[];
+  petugasList?: PetugasKeamanan[];
+  patroliFeed?: LogPatroli[];
   isRefreshing?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -73,6 +81,8 @@ export function AdminDashboardSlide({
   transaksiKasList,
   statusList,
   notifications,
+  petugasList = [],
+  patroliFeed = [],
   isRefreshing = false,
   onRefresh,
   onToast,
@@ -634,6 +644,21 @@ export function AdminDashboardSlide({
           </>
         )}
       </section>
+
+      {/* Monitoring Patroli Keamanan Real-Time & Kontak Darurat Petugas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <EmergencySecurityContactCard
+          petugasList={petugasList
+            .filter((p) => p.aktif)
+            .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }))}
+          senderContext={{
+            role: 'admin',
+            nama: session.nama_warga,
+            jabatan: session.jabatan || 'Pengurus',
+          }}
+        />
+        <SecurityPatrolFeedCard patroliFeed={patroliFeed} maxItems={8} />
+      </div>
 
       {/* Riwayat Pengumuman / Pesan Sistem Massal ke Warga */}
       <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">

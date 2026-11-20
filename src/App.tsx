@@ -14,7 +14,9 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
+  type LogPatroli,
   type PaymentConfig,
+  type PetugasKontakDarurat,
   type SessionUser,
   type StatusEcardBulanan,
   type SystemNotification,
@@ -27,10 +29,13 @@ import {
   fetchWargaOwnData,
   loadStoredSession,
   subscribeAdminRealtime,
+  subscribePatroliRealtime,
   type AdminSnapshot,
 } from './lib/dataService';
 import { WargaLoginPage } from './components/WargaLoginPage';
 import { AdminLoginPage } from './components/AdminLoginPage';
+import { PetugasLoginPage } from './components/PetugasLoginPage';
+import { PetugasPortalPage } from './components/petugas/PetugasPortalPage';
 import { AppShell, type NavItem } from './components/AppShell';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { WargaHomeSlide } from './components/warga/WargaHomeSlide';
@@ -45,11 +50,20 @@ import { AdminRekapSlide } from './components/admin/AdminRekapSlide';
 import { AdminLpjSlide } from './components/admin/AdminLpjSlide';
 import { AdminSettingsDrawer } from './components/admin/AdminSettingsDrawer';
 
-type PortalRoute = 'warga' | 'admin';
+type PortalRoute = 'warga' | 'admin' | 'petugas';
 
 function resolvePortalRouteFromPath(pathname: string): PortalRoute {
   const clean = pathname.trim().toLowerCase();
-  return clean === '/admin' || clean.startsWith('/admin/') ? 'admin' : 'warga';
+  if (clean === '/admin' || clean.startsWith('/admin/')) return 'admin';
+  if (
+    clean === '/petugas' ||
+    clean.startsWith('/petugas/') ||
+    clean === '/keamanan' ||
+    clean.startsWith('/keamanan/')
+  ) {
+    return 'petugas';
+  }
+  return 'warga';
 }
 
 export default function App() {
@@ -72,6 +86,8 @@ export default function App() {
     riwayat: TransaksiIPL[];
     notifications: SystemNotification[];
     paymentConfig: PaymentConfig;
+    petugasKontak: PetugasKontakDarurat[];
+    patroliFeed: LogPatroli[];
   } | null>(null);
   const [preselectedMonth, setPreselectedMonth] = useState<number | null>(null);
   const [preselectedPetugas, setPreselectedPetugas] = useState<string | null>(null);
@@ -102,6 +118,9 @@ export default function App() {
         setDataError(null);
       }
       try {
+        if (activeSession.role === 'petugas') {
+          return;
+        }
         if (activeSession.role === 'warga') {
           const res = await fetchWargaOwnData(activeSession);
           if (res.error || !res.data) {
@@ -141,14 +160,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session || session.role !== portalRoute) return;
+    if (!session || session.role !== portalRoute || session.role === 'petugas') return;
     setActiveTab(session.role === 'admin' ? 'dashboard' : 'beranda');
     void loadPortalData(session);
   }, [session, portalRoute, loadPortalData]);
 
-  // Sinkronisasi otomatis agar setoran warga & transaksi kas langsung tampil di Admin
+  // Sinkronisasi otomatis agar setoran warga, transaksi kas & patroli langsung tampil
   useEffect(() => {
-    if (!session || session.role !== portalRoute) return;
+    if (!session || session.role !== portalRoute || session.role === 'petugas') return;
 
     const triggerSilentSync = () => {
       if (document.visibilityState === 'visible') {
@@ -174,6 +193,10 @@ export default function App() {
           void loadPortalData(session, { silent: true });
         }
       }, 20000);
+    } else if (session.role === 'warga') {
+      unsubscribeRealtime = subscribePatroliRealtime(session, () => {
+        void loadPortalData(session, { silent: true });
+      });
     }
 
     return () => {
@@ -187,7 +210,7 @@ export default function App() {
   const handleTabChange = useCallback(
     (nextTab: string) => {
       setActiveTab(nextTab);
-      if (session && session.role === portalRoute) {
+      if (session && session.role === portalRoute && session.role !== 'petugas') {
         void loadPortalData(session, { silent: true });
       }
     },
@@ -203,7 +226,9 @@ export default function App() {
         ? `Selamat datang, ${newSession.nama_warga} (${newSession.jabatan || 'Pengurus'} — ${
             newSession.admin_permission === 'full' ? 'Akses Penuh' : 'Akses Tambah Data'
           }).`
-        : `Selamat datang, ${newSession.nama_warga} (Blok ${newSession.blok_rumah}).`
+        : newSession.role === 'petugas'
+          ? `Selamat bertugas, ${newSession.nama_warga} (${newSession.shift || 'Petugas Keamanan'}).`
+          : `Selamat datang, ${newSession.nama_warga} (Blok ${newSession.blok_rumah}).`
     );
   };
 
@@ -223,9 +248,25 @@ export default function App() {
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         {portalRoute === 'admin' ? (
           <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
+        ) : portalRoute === 'petugas' ? (
+          <PetugasLoginPage onLoginSuccess={handleLoginSuccess} />
         ) : (
           <WargaLoginPage onLoginSuccess={handleLoginSuccess} />
         )}
+      </>
+    );
+  }
+
+  // Isolasi Mutlak Portal Petugas Keamanan — Tanpa AppShell Admin/Warga sama sekali
+  if (session.role === 'petugas') {
+    return (
+      <>
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        <PetugasPortalPage
+          session={session}
+          onLogout={handleLogout}
+          onToast={pushToast}
+        />
       </>
     );
   }
@@ -306,6 +347,8 @@ export default function App() {
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
               notifications={wargaData.notifications}
+              petugasKontak={wargaData.petugasKontak}
+              patroliFeed={wargaData.patroliFeed}
               onQuickPayMonth={(bulan) => {
                 setPreselectedMonth(bulan);
                 setActiveTab('setor');
@@ -379,6 +422,8 @@ export default function App() {
               transaksiKasList={adminData.transaksiKasList}
               statusList={adminData.statusList}
               notifications={adminData.notifications}
+              petugasList={adminData.petugasList}
+              patroliFeed={adminData.patroliFeed}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
@@ -400,6 +445,7 @@ export default function App() {
               session={session}
               transaksiList={adminData.transaksiList}
               transaksiKasList={adminData.transaksiKasList}
+              petugasList={adminData.petugasList}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />
@@ -474,6 +520,8 @@ export default function App() {
           wargaList={adminData.wargaList}
           pengurusAccounts={adminData.pengurusAccounts}
           statusList={adminData.statusList}
+          petugasList={adminData.petugasList}
+          titikPatroliList={adminData.titikPatroliList}
           onClose={() => setSettingsOpen(false)}
           onRefresh={() => loadPortalData(session)}
           onToast={pushToast}

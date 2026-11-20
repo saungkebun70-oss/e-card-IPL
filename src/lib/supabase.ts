@@ -29,7 +29,8 @@ export function getSupabaseClient(session?: SessionUser | null): SupabaseClient 
   const roleHeader = session?.role || 'anon';
   const permHeader = session?.admin_permission || '';
   const jabatanHeader = session?.jabatan || '';
-  const key = `${roleHeader}::${blokHeader}::${permHeader}::${jabatanHeader}`;
+  const petugasIdHeader = session?.petugas_id || '';
+  const key = `${roleHeader}::${blokHeader}::${permHeader}::${jabatanHeader}::${petugasIdHeader}`;
 
   const existing = clientCache.get(key);
   if (existing) {
@@ -47,6 +48,7 @@ export function getSupabaseClient(session?: SessionUser | null): SupabaseClient 
         'x-user-role': roleHeader,
         'x-admin-permission': permHeader,
         'x-admin-jabatan': jabatanHeader,
+        'x-petugas-id': petugasIdHeader,
       },
     },
   });

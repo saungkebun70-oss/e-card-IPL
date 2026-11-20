@@ -19,7 +19,9 @@ import {
   KATEGORI_PEMASUKAN_LAIN_LIST,
   KATEGORI_PENGELUARAN_LIST,
   TERMIN_PENGELUARAN_LIST,
+  type JenisHonorPetugas,
   type JenisTransaksiKas,
+  type PetugasKeamanan,
   type SessionUser,
   type TransaksiIPL,
   type TransaksiKas,
@@ -42,6 +44,7 @@ interface AdminKeuanganSlideProps {
   session: SessionUser;
   transaksiList: TransaksiIPL[];
   transaksiKasList: TransaksiKas[];
+  petugasList?: PetugasKeamanan[];
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -50,6 +53,7 @@ export function AdminKeuanganSlide({
   session,
   transaksiList,
   transaksiKasList,
+  petugasList = [],
   onRefresh,
   onToast,
 }: AdminKeuanganSlideProps) {
@@ -67,7 +71,13 @@ export function AdminKeuanganSlide({
   const [keterangan, setKeterangan] = useState<string>('');
   const [buktiFile, setBuktiFile] = useState<File | null>(null);
   const [buktiPreview, setBuktiPreview] = useState<string | null>(null);
+  const [selectedPetugasId, setSelectedPetugasId] = useState<string>('');
+  const [jenisHonor, setJenisHonor] = useState<JenisHonorPetugas>('honor_rutin');
   const [saving, setSaving] = useState(false);
+
+  const isHonorKeamananCategory =
+    formJenis === 'pengeluaran' &&
+    (kategori === 'Honorarium Keamanan / Satpam' || kategori === 'Lembur Petugas Keamanan');
 
   // Filter & Search Daftar Transaksi Kas
   const [filterJenis, setFilterJenis] = useState<'semua' | JenisTransaksiKas>('semua');
@@ -95,6 +105,8 @@ export function AdminKeuanganSlide({
       next === 'pengeluaran' ? KATEGORI_PENGELUARAN_LIST[0] : KATEGORI_PEMASUKAN_LAIN_LIST[0]
     );
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
+    setSelectedPetugasId('');
+    setJenisHonor('honor_rutin');
   };
 
   const resetForm = (keepJenis = formJenis) => {
@@ -110,6 +122,8 @@ export function AdminKeuanganSlide({
     setKeterangan('');
     setBuktiFile(null);
     setBuktiPreview(null);
+    setSelectedPetugasId('');
+    setJenisHonor('honor_rutin');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -125,6 +139,11 @@ export function AdminKeuanganSlide({
     setKeterangan(item.keterangan || '');
     setBuktiFile(null);
     setBuktiPreview(item.bukti_url || null);
+    setSelectedPetugasId(item.petugas_id || '');
+    setJenisHonor(
+      item.jenis_honor ||
+        (item.kategori === 'Lembur Petugas Keamanan' ? 'lembur' : 'honor_rutin')
+    );
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -156,6 +175,9 @@ export function AdminKeuanganSlide({
 
     setSaving(true);
     try {
+      const linkedPetugasId = isHonorKeamananCategory && selectedPetugasId ? selectedPetugasId : null;
+      const linkedJenisHonor = linkedPetugasId ? jenisHonor : null;
+
       if (editingItem) {
         const res = await updateTransaksiKasAdmin(session, editingItem.id, {
           kategori,
@@ -166,6 +188,8 @@ export function AdminKeuanganSlide({
           keterangan,
           buktiFile,
           bukti_url: buktiPreview,
+          petugas_id: linkedPetugasId,
+          jenis_honor: linkedJenisHonor,
         });
         if (res.error) {
           onToast('error', res.error);
@@ -184,6 +208,8 @@ export function AdminKeuanganSlide({
           penerima_atau_sumber: penerimaAtauSumber,
           keterangan,
           buktiFile,
+          petugas_id: linkedPetugasId,
+          jenis_honor: linkedJenisHonor,
         });
         if (res.error || !res.data) {
           onToast('error', res.error || 'Gagal menyimpan transaksi kas.');
@@ -340,7 +366,15 @@ export function AdminKeuanganSlide({
               </label>
               <select
                 value={kategori}
-                onChange={(e) => setKategori(e.target.value)}
+                onChange={(e) => {
+                  const nextKat = e.target.value;
+                  setKategori(nextKat);
+                  if (nextKat === 'Lembur Petugas Keamanan') {
+                    setJenisHonor('lembur');
+                  } else if (nextKat === 'Honorarium Keamanan / Satpam') {
+                    setJenisHonor('honor_rutin');
+                  }
+                }}
                 className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               >
                 {kategoriOptions.map((opt) => (
@@ -350,6 +384,58 @@ export function AdminKeuanganSlide({
                 ))}
               </select>
             </div>
+
+            {/* Integrasi 2-Arah: Hubungkan Honorarium / Lembur ke Akun Petugas Keamanan */}
+            {isHonorKeamananCategory && (
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3.5 space-y-2.5">
+                <p className="text-xs font-bold text-emerald-900">
+                  Sinkronisasi Otomatis ke Portal Petugas Keamanan
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
+                      Pilih Petugas Penerima
+                    </label>
+                    <select
+                      value={selectedPetugasId}
+                      onChange={(e) => {
+                        const nextId = e.target.value;
+                        setSelectedPetugasId(nextId);
+                        const found = petugasList.find((p) => p.id === nextId);
+                        if (found) {
+                          setPenerimaAtauSumber(`${found.nama} (Petugas Keamanan)`);
+                        }
+                      }}
+                      className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
+                    >
+                      <option value="">-- Tidak ditautkan (Manual) --</option>
+                      {petugasList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nama} ({p.shift})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
+                      Jenis Pencairan
+                    </label>
+                    <select
+                      value={jenisHonor}
+                      onChange={(e) => setJenisHonor(e.target.value as JenisHonorPetugas)}
+                      className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
+                    >
+                      <option value="honor_rutin">Honor Rutin (Termin / Bulanan)</option>
+                      <option value="lembur">Uang Lembur Petugas</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-snug">
+                  Bila petugas dipilih, nominal &amp; e-Kwitansi langsung tampil di akun petugas
+                  terkait sekaligus memotong Saldo Kas &amp; masuk LPJ Triwulanan.
+                </p>
+              </div>
+            )}
 
             {/* Tanggal & Termin */}
             <div className={`grid grid-cols-1 ${formJenis === 'pengeluaran' ? 'sm:grid-cols-2' : ''} gap-3`}>

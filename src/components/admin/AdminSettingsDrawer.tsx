@@ -22,6 +22,7 @@ import {
   EyeOff,
   Phone,
   AlertTriangle,
+  Radio,
 } from 'lucide-react';
 import {
   DEFAULT_APP_BRAND_CONFIG,
@@ -34,9 +35,11 @@ import {
   type BotWaLog,
   type PaymentConfig,
   type PengurusAccountInfo,
+  type PetugasKeamanan,
   type RekeningPembayaran,
   type SessionUser,
   type StatusEcardBulanan,
+  type TitikPatroli,
   type Warga,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
@@ -54,8 +57,9 @@ import { formatRupiah, formatTanggalWaktu, normalizeWaNumber } from '../../lib/f
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { AdminBotWaSlide } from './AdminBotWaSlide';
+import { AdminSecurityManagePanel } from './AdminSecurityManagePanel';
 
-export type SettingsDrawerTab = 'identitas' | 'pembayaran' | 'bot_wa' | 'keamanan';
+export type SettingsDrawerTab = 'identitas' | 'pembayaran' | 'bot_wa' | 'petugas_nfc' | 'keamanan';
 
 interface AdminSettingsDrawerProps {
   open: boolean;
@@ -67,6 +71,8 @@ interface AdminSettingsDrawerProps {
   wargaList: Warga[];
   pengurusAccounts: PengurusAccountInfo[];
   statusList: StatusEcardBulanan[];
+  petugasList: PetugasKeamanan[];
+  titikPatroliList: TitikPatroli[];
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -82,6 +88,8 @@ export function AdminSettingsDrawer({
   wargaList,
   pengurusAccounts,
   statusList,
+  petugasList,
+  titikPatroliList,
   onClose,
   onRefresh,
   onToast,
@@ -357,15 +365,16 @@ export function AdminSettingsDrawer({
           </button>
         </div>
 
-        {/* 4 Tab Navigasi Pengaturan */}
+        {/* 5 Tab Navigasi Pengaturan Terpusat */}
         <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
-          <div role="tablist" className="grid grid-cols-4 gap-1 p-1 bg-slate-200/75 rounded-xl">
+          <div role="tablist" className="grid grid-cols-5 gap-1 p-1 bg-slate-200/75 rounded-xl">
             {(
               [
                 { id: 'identitas', label: 'Identitas & Stempel', short: 'Identitas', icon: Sparkles },
-                { id: 'pembayaran', label: 'Metode Pembayaran', short: 'Bayar', icon: CreditCard },
+                { id: 'pembayaran', label: 'Pembayaran', short: 'Bayar', icon: CreditCard },
                 { id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot },
-                { id: 'keamanan', label: 'Keamanan & Log', short: 'Keamanan', icon: ShieldCheck },
+                { id: 'petugas_nfc', label: 'Petugas & NFC', short: 'Petugas', icon: Radio },
+                { id: 'keamanan', label: 'Keamanan & Log', short: 'PIN & Log', icon: ShieldCheck },
               ] as const
             ).map((tab) => {
               const Icon = tab.icon;
@@ -377,7 +386,7 @@ export function AdminSettingsDrawer({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`min-h-[40px] px-1.5 sm:px-3 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 ${
+                  className={`min-h-[40px] px-1 sm:px-2.5 rounded-lg text-[10px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 ${
                     active
                       ? 'bg-white text-[#0F172A] shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
@@ -386,8 +395,8 @@ export function AdminSettingsDrawer({
                   <Icon
                     className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-[#059669]' : 'text-slate-500'}`}
                   />
-                  <span className="sm:hidden truncate">{tab.short}</span>
-                  <span className="hidden sm:inline truncate">{tab.label}</span>
+                  <span className="md:hidden truncate">{tab.short}</span>
+                  <span className="hidden md:inline truncate">{tab.label}</span>
                 </button>
               );
             })}
@@ -1093,6 +1102,17 @@ export function AdminSettingsDrawer({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB 5: PETUGAS KEAMANAN & TITIK CHECKPOINT NFC */}
+          {activeTab === 'petugas_nfc' && (
+            <AdminSecurityManagePanel
+              session={session}
+              petugasList={petugasList}
+              titikPatroliList={titikPatroliList}
+              onRefresh={onRefresh}
+              onToast={onToast}
+            />
           )}
         </div>
       </div>

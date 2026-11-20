@@ -109,59 +109,61 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
             id="printable-kwitansi"
             className="p-4 sm:p-7 print:p-0 bg-white text-[#0F172A] space-y-4 sm:space-y-5 print:space-y-4"
           >
-            {/* Kop Resmi Pengurus — Tidak Memanjang ke Bawah di Mobile/Tablet */}
-            <header className="border-b-2 border-[#0F172A] pb-3.5 print:pb-3 space-y-2.5 sm:space-y-0">
-              <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <BrandLogo size="sm" variant="light" className="shrink-0 sm:w-12 sm:h-12" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] sm:text-sm font-extrabold tracking-tight text-[#0F172A] leading-snug">
-                      PENGURUS LINGKUNGAN PERUMAHAN SAUNG KEBUN
-                    </p>
-                    <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-                      {kopAlamat}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Nomor Kwitansi: Baris kompak penuh di mobile, kanan atas di tablet/desktop/print */}
-                <div className="flex items-center justify-between sm:block print:block sm:text-right print:text-right rounded-lg bg-slate-50 sm:bg-transparent print:bg-transparent border border-slate-200/80 sm:border-0 print:border-0 px-3 py-1.5 sm:p-0 print:p-0 shrink-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    {isIpl ? 'No. Kwitansi' : 'No. Bukti Kas'}
+            {/* Kop Resmi Pengurus — Baris 1 Penuh (Logo 48x48 + Judul & Alamat Lebar Penuh) */}
+            <header className="space-y-2.5">
+              <div className="flex items-center gap-3 w-full pb-3 border-b-2 border-[#0F172A]">
+                <BrandLogo
+                  size="md"
+                  variant="light"
+                  className="!w-12 !h-12 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] sm:text-sm font-extrabold tracking-tight text-[#0F172A] leading-snug">
+                    PENGURUS LINGKUNGAN PERUMAHAN SAUNG KEBUN
                   </p>
-                  <p className="text-xs font-mono font-bold text-[#0F172A] sm:mt-0.5 tabular-nums">
-                    {nomorDokumen}
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                    {kopAlamat}
                   </p>
                 </div>
               </div>
+
+              {/* Baris 2 Terpisah: NO. KWITANSI & Tanggal dalam kotak bar horizontal */}
+              <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 shrink-0">
+                    {isIpl ? 'No. Kwitansi:' : 'No. Bukti Kas:'}
+                  </span>
+                  <span className="font-mono font-bold text-[#0F172A] tabular-nums truncate">
+                    {nomorDokumen}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono font-semibold text-slate-700 tabular-nums shrink-0">
+                  {formatTanggal(tanggalIso)}
+                </span>
+              </div>
             </header>
 
-            {/* Banner Status — Rapi & Tidak Terjepit di Mobile */}
+            {/* Banner Status Verifikasi / Jenis Transaksi */}
             <div
-              className={`rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row print:flex-row sm:items-center print:items-center justify-between gap-1.5 border ${
+              className={`rounded-xl px-3.5 py-2.5 flex items-center gap-2 border text-xs font-bold leading-snug ${
                 isPengeluaran
                   ? 'bg-red-50/70 border-red-200 text-red-900'
                   : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
               }`}
             >
-              <div className="flex items-center gap-2 text-xs font-bold leading-snug">
-                <CheckCircle2
-                  className={`w-4 h-4 shrink-0 ${
-                    isPengeluaran ? 'text-red-600' : 'text-[#059669]'
-                  }`}
-                />
-                <span>
-                  {isIpl
-                    ? props.trx.status_verifikasi === 'Terverifikasi'
-                      ? 'TERVERIFIKASI LUNAS — BUKTI PEMBAYARAN SAH'
-                      : `STATUS: ${props.trx.status_verifikasi.toUpperCase()}`
-                    : isPengeluaran
-                      ? 'BUKTI PENGELUARAN KAS LINGKUNGAN'
-                      : 'BUKTI PEMASUKAN KAS LAIN-LAIN'}
-                </span>
-              </div>
-              <span className="text-[11px] font-mono text-slate-700 sm:text-right print:text-right shrink-0 pl-6 sm:pl-0 print:pl-0">
-                {formatTanggal(tanggalIso)}
+              <CheckCircle2
+                className={`w-4 h-4 shrink-0 ${
+                  isPengeluaran ? 'text-red-600' : 'text-[#059669]'
+                }`}
+              />
+              <span>
+                {isIpl
+                  ? props.trx.status_verifikasi === 'Terverifikasi'
+                    ? 'TERVERIFIKASI LUNAS — BUKTI PEMBAYARAN SAH'
+                    : `STATUS: ${props.trx.status_verifikasi.toUpperCase()}`
+                  : isPengeluaran
+                    ? 'BUKTI PENGELUARAN KAS LINGKUNGAN'
+                    : 'BUKTI PEMASUKAN KAS LAIN-LAIN'}
               </span>
             </div>
 

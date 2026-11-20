@@ -1,4 +1,4 @@
-export type UserRole = 'warga' | 'admin';
+export type UserRole = 'warga' | 'admin' | 'petugas';
 
 export type AdminJabatan =
   | 'Ketua'
@@ -81,6 +81,8 @@ export interface SessionUser {
   status_hunian?: StatusHunian;
   no_wa?: string;
   nominal_iuran?: number;
+  petugas_id?: string;
+  shift?: string;
   login_at: string;
 }
 
@@ -137,12 +139,15 @@ export type JenisTransaksiKas = 'pengeluaran' | 'pemasukan_lain';
 
 export type KategoriPengeluaran =
   | 'Honorarium Keamanan / Satpam'
+  | 'Lembur Petugas Keamanan'
   | 'Kebersihan & Pengangkutan Sampah'
   | 'Listrik PJU & Pos Keamanan'
   | 'Perbaikan Fasilitas Umum'
   | 'ATK & Administrasi Sekretariat'
   | 'Kegiatan Warga & Sosial'
   | 'Lain-lain';
+
+export type JenisHonorPetugas = 'honor_rutin' | 'lembur';
 
 export type TerminPengeluaran =
   | 'Termin Tgl 7'
@@ -167,6 +172,8 @@ export interface TransaksiKas {
   penerima_atau_sumber: string;
   keterangan?: string | null;
   bukti_url?: string | null;
+  petugas_id?: string | null;
+  jenis_honor?: JenisHonorPetugas | null;
   created_by: string;
   created_by_name: string;
   created_at: string;
@@ -175,6 +182,7 @@ export interface TransaksiKas {
 
 export const KATEGORI_PENGELUARAN_LIST: KategoriPengeluaran[] = [
   'Honorarium Keamanan / Satpam',
+  'Lembur Petugas Keamanan',
   'Kebersihan & Pengangkutan Sampah',
   'Listrik PJU & Pos Keamanan',
   'Perbaikan Fasilitas Umum',
@@ -233,7 +241,7 @@ export interface BotWaLog {
 export interface AuditLogEntry {
   id: string;
   timestamp: string;
-  actor_role: 'admin' | 'warga' | 'system';
+  actor_role: 'admin' | 'warga' | 'petugas' | 'system';
   actor_id: string;
   actor_name: string;
   action: string;
@@ -242,6 +250,119 @@ export interface AuditLogEntry {
   summary: string;
   metadata?: Record<string, unknown>;
 }
+
+// =========================================================================
+// Portal Petugas Keamanan, Titik Checkpoint RFID/NFC & Log Patroli
+// =========================================================================
+
+export type StatusKondisiPatroli = 'Aman' | 'Ada Catatan';
+export type MetodeScanPatroli = 'NFC Tap' | 'Input Manual';
+
+export interface PetugasKeamanan {
+  id: string;
+  nama: string;
+  username: string;
+  pin?: string;
+  no_hp: string;
+  shift: string;
+  aktif: boolean;
+  created_at: string;
+}
+
+export interface PetugasKontakDarurat {
+  id: string;
+  nama: string;
+  no_hp: string;
+  shift: string;
+}
+
+export interface TitikPatroli {
+  id: string;
+  nama_lokasi: string;
+  rfid_uid: string;
+  keterangan?: string | null;
+  aktif: boolean;
+  created_at: string;
+}
+
+export interface LogPatroli {
+  id: string;
+  petugas_id: string;
+  nama_petugas: string;
+  titik_id?: string | null;
+  nama_lokasi: string;
+  waktu_scan: string;
+  metode_scan: MetodeScanPatroli;
+  status_kondisi: StatusKondisiPatroli;
+  catatan?: string | null;
+}
+
+export const SHIFT_PETUGAS_OPTIONS = [
+  'Shift Pagi (07.00 – 19.00)',
+  'Shift Malam (19.00 – 07.00)',
+  'Shift Pagi (06.00 – 14.00)',
+  'Shift Siang (14.00 – 22.00)',
+  'Shift Malam (22.00 – 06.00)',
+  'Siaga 24 Jam / Cadangan',
+] as const;
+
+export const SEED_TITIK_PATROLI: TitikPatroli[] = [
+  {
+    id: 'titik-gerbang',
+    nama_lokasi: 'Pos Gerbang Utama',
+    rfid_uid: 'NFC-GERBANG-01',
+    keterangan: 'Pintu masuk utama & pos jaga depan',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+  {
+    id: 'titik-bloka',
+    nama_lokasi: 'Blok A Ujung',
+    rfid_uid: 'NFC-BLOKA-02',
+    keterangan: 'Sudut jalan ujung Blok A & batas pagar timur',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+  {
+    id: 'titik-blokb',
+    nama_lokasi: 'Blok B Tengah',
+    rfid_uid: 'NFC-BLOKB-03',
+    keterangan: 'Area persimpangan Blok B3–B7 & Sekretariat',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+  {
+    id: 'titik-fasum',
+    nama_lokasi: 'Fasum & Lapangan',
+    rfid_uid: 'NFC-FASUM-04',
+    keterangan: 'Area fasilitas umum, taman, dan lapangan warga',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+];
+
+export const SEED_PETUGAS_KEAMANAN: PetugasKeamanan[] = [
+  {
+    id: 'petugas-seed-1',
+    nama: 'Pak Asep',
+    username: 'asep',
+    pin: '112233',
+    no_hp: '6281234567801',
+    shift: 'Shift Pagi (07.00 – 19.00)',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+  {
+    id: 'petugas-seed-2',
+    nama: 'Pak Ujang',
+    username: 'ujang',
+    pin: '445566',
+    no_hp: '6281234567802',
+    shift: 'Shift Malam (19.00 – 07.00)',
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+];
 
 export type NotificationCategory =
   | 'Perawatan & Fasilitas'
@@ -302,6 +423,7 @@ export const NAMA_APLIKASI = 'e-Card Verifikasi';
 export const SUB_NAMA_APLIKASI = 'IPL Digital — Perumahan Saung Kebun';
 export const APP_PORTAL_URL = 'https://e-card-ipl.vercel.app';
 export const APP_ADMIN_PORTAL_URL = `${APP_PORTAL_URL}/admin`;
+export const APP_PETUGAS_PORTAL_URL = `${APP_PORTAL_URL}/petugas`;
 export const KOP_RESMI =
   'Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)';
 export const WA_PENGURUS = '6281234567890';

@@ -3,6 +3,8 @@ import {
   DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
   NOMINAL_IPL_STANDAR,
+  SEED_PETUGAS_KEAMANAN,
+  SEED_TITIK_PATROLI,
   SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   WA_ACCESS_TEMPLATE_DEFAULT,
@@ -12,18 +14,26 @@ import {
   type BotAccessRole,
   type BotWaConfig,
   type BotWaLog,
+  type JenisHonorPetugas,
+  type LogPatroli,
   type MetodeBayar,
+  type MetodeScanPatroli,
   type NotificationCategory,
   type NotificationTargetScope,
   type PaymentConfig,
   type PengurusAccountInfo,
+  type PetugasKeamanan,
+  type PetugasKontakDarurat,
   type SessionUser,
   type StatusEcardBulanan,
   type StatusHunian,
+  type StatusKondisiPatroli,
   type StatusVerifikasi,
   type SystemNotification,
+  type TitikPatroli,
   type TransaksiIPL,
   type TransaksiKas,
+  type UserRole,
   type Warga,
 } from '../types';
 import { recordAuditLog } from './auditLogger';
@@ -60,6 +70,7 @@ const STORAGE_KEYS = {
   SESSION_LEGACY: 'saungkebun_session_v1',
   SESSION_WARGA: 'saungkebun_session_warga_v1',
   SESSION_ADMIN: 'saungkebun_session_admin_v1',
+  SESSION_PETUGAS: 'saungkebun_session_petugas_v1',
   WARGA: 'saungkebun_warga_v2',
   TRANSAKSI: 'saungkebun_transaksi_v2',
   STATUS: 'saungkebun_status_v2',
@@ -71,6 +82,9 @@ const STORAGE_KEYS = {
   BRAND_CONFIG: 'saungkebun_brand_config_v1',
   TRANSAKSI_KAS: 'saungkebun_transaksi_kas_v1',
   ADMIN_PIN_OVERRIDES: 'saungkebun_admin_pin_overrides_v1',
+  PETUGAS_KEAMANAN: 'saungkebun_petugas_keamanan_v1',
+  TITIK_PATROLI: 'saungkebun_titik_patroli_v1',
+  LOG_PATROLI: 'saungkebun_log_patroli_v1',
 } as const;
 
 const memoryStorageFallback = new Map<string, string>();
@@ -260,8 +274,10 @@ function syncLocalStatusForHouse(blokRumah: string) {
 // Sesi Autentikasi Terisolasi per Portal (Warga vs Admin/Pengurus)
 // =========================================================================
 
-function getSessionKeyForRole(role: 'warga' | 'admin'): string {
-  return role === 'admin' ? STORAGE_KEYS.SESSION_ADMIN : STORAGE_KEYS.SESSION_WARGA;
+function getSessionKeyForRole(role: UserRole): string {
+  if (role === 'admin') return STORAGE_KEYS.SESSION_ADMIN;
+  if (role === 'petugas') return STORAGE_KEYS.SESSION_PETUGAS;
+  return STORAGE_KEYS.SESSION_WARGA;
 }
 
 function hydrateAdminSession(session: SessionUser): SessionUser {
@@ -282,7 +298,7 @@ function hydrateAdminSession(session: SessionUser): SessionUser {
   };
 }
 
-export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser | null {
+export function loadStoredSession(expectedRole?: UserRole): SessionUser | null {
   try {
     if (expectedRole) {
       const roleKey = getSessionKeyForRole(expectedRole);
@@ -290,18 +306,20 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
       if (raw) {
         const parsed = JSON.parse(raw) as SessionUser;
         if (parsed?.role === expectedRole && parsed?.blok_rumah) {
+          if (expectedRole === 'petugas' && !parsed.petugas_id) return null;
           return hydrateAdminSession(parsed);
         }
       }
-      // Migrasi mulus dari key sesi lama jika role-nya cocok dengan portal saat ini
-      const legacyRaw = safeStorageGet(STORAGE_KEYS.SESSION_LEGACY);
-      if (legacyRaw) {
-        const legacy = JSON.parse(legacyRaw) as SessionUser;
-        if (legacy?.role === expectedRole && legacy?.blok_rumah) {
-          const hydrated = hydrateAdminSession(legacy);
-          safeStorageSet(roleKey, JSON.stringify(hydrated));
-          safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
-          return hydrated;
+      if (expectedRole !== 'petugas') {
+        const legacyRaw = safeStorageGet(STORAGE_KEYS.SESSION_LEGACY);
+        if (legacyRaw) {
+          const legacy = JSON.parse(legacyRaw) as SessionUser;
+          if (legacy?.role === expectedRole && legacy?.blok_rumah) {
+            const hydrated = hydrateAdminSession(legacy);
+            safeStorageSet(roleKey, JSON.stringify(hydrated));
+            safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
+            return hydrated;
+          }
         }
       }
       return null;
@@ -322,10 +340,12 @@ export function loadStoredSession(expectedRole?: 'warga' | 'admin'): SessionUser
 
 export function saveStoredSession(session: SessionUser) {
   safeStorageSet(getSessionKeyForRole(session.role), JSON.stringify(session));
-  safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
+  if (session.role !== 'petugas') {
+    safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
+  }
 }
 
-export function clearStoredSession(session?: SessionUser | null, roleOverride?: 'warga' | 'admin') {
+export function clearStoredSession(session?: SessionUser | null, roleOverride?: UserRole) {
   const targetRole = roleOverride || session?.role;
   if (session) {
     void recordAuditLog({
@@ -341,8 +361,11 @@ export function clearStoredSession(session?: SessionUser | null, roleOverride?: 
   } else {
     safeStorageRemove(STORAGE_KEYS.SESSION_WARGA);
     safeStorageRemove(STORAGE_KEYS.SESSION_ADMIN);
+    safeStorageRemove(STORAGE_KEYS.SESSION_PETUGAS);
   }
-  safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
+  if (targetRole !== 'petugas') {
+    safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
+  }
 }
 
 function buildWargaBlokCandidates(input: string): string[] {
@@ -685,6 +708,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     riwayat: TransaksiIPL[];
     notifications: SystemNotification[];
     paymentConfig: PaymentConfig;
+    petugasKontak: PetugasKontakDarurat[];
+    patroliFeed: LogPatroli[];
   }>
 > {
   if (session.role !== 'warga') {
@@ -694,7 +719,15 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const [profilRes, statusRes, trxRes, notifications, paymentConfig] = await Promise.all([
+      const [
+        profilRes,
+        statusRes,
+        trxRes,
+        notifications,
+        paymentConfig,
+        petugasKontak,
+        patroliFeed,
+      ] = await Promise.all([
         supabase
           .from('users_warga')
           .select('*')
@@ -713,6 +746,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
           .order('tanggal_setor', { ascending: false }),
         fetchSystemNotifications(session),
         fetchPaymentConfig(session),
+        fetchPetugasKontakDarurat(session),
+        fetchRecentLogPatroli(session, 12),
       ]);
 
       if (profilRes.error) throw profilRes.error;
@@ -750,6 +785,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
           riwayat: (trxRes.data || []) as TransaksiIPL[],
           notifications: relevantNotifications,
           paymentConfig,
+          petugasKontak,
+          patroliFeed,
         },
       };
     } catch (err) {
@@ -773,16 +810,28 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     .filter((t) => t.blok_rumah === session.blok_rumah)
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
 
-  const [notifications, paymentConfig] = await Promise.all([
+  const [notifications, paymentConfig, petugasKontak, patroliFeed] = await Promise.all([
     fetchSystemNotifications(session),
     fetchPaymentConfig(session),
+    fetchPetugasKontakDarurat(session),
+    fetchRecentLogPatroli(session, 12),
   ]);
 
   const safeNotifications = notifications
     .filter((n) => n.target_scope === 'all_units' || profil.status_hunian !== 'Kosong')
     .map(({ recipient_blocks: _omit, ...safeNotif }) => safeNotif);
 
-  return { data: { profil, statusBulanan, riwayat, notifications: safeNotifications, paymentConfig } };
+  return {
+    data: {
+      profil,
+      statusBulanan,
+      riwayat,
+      notifications: safeNotifications,
+      paymentConfig,
+      petugasKontak,
+      patroliFeed,
+    },
+  };
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -1052,6 +1101,9 @@ export interface AdminSnapshot {
   botLogs: BotWaLog[];
   notifications: SystemNotification[];
   paymentConfig: PaymentConfig;
+  petugasList: PetugasKeamanan[];
+  titikPatroliList: TitikPatroli[];
+  patroliFeed: LogPatroli[];
 }
 
 function buildPengurusAccountsList(
@@ -1120,6 +1172,9 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         notifications,
         paymentConfig,
         transaksiKasList,
+        petugasList,
+        titikPatroliList,
+        patroliFeed,
       ] = await Promise.all([
         supabase
           .from('users_warga')
@@ -1141,6 +1196,9 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         fetchSystemNotifications(session),
         fetchPaymentConfig(session),
         fetchTransaksiKasList(session),
+        fetchPetugasListAdmin(session),
+        fetchTitikPatroliAdmin(session),
+        fetchRecentLogPatroli(session, 20),
       ]);
 
       if (wargaRes.error) throw wargaRes.error;
@@ -1178,6 +1236,9 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
           botLogs: mergeBotWaLogs(remoteBotLogs, localFallbackLogs),
           notifications,
           paymentConfig,
+          petugasList,
+          titikPatroliList,
+          patroliFeed,
         },
       };
     } catch (err) {
@@ -1204,11 +1265,15 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-  const [notifications, paymentConfig, transaksiKasList] = await Promise.all([
-    fetchSystemNotifications(session),
-    fetchPaymentConfig(session),
-    fetchTransaksiKasList(session),
-  ]);
+  const [notifications, paymentConfig, transaksiKasList, petugasList, titikPatroliList, patroliFeed] =
+    await Promise.all([
+      fetchSystemNotifications(session),
+      fetchPaymentConfig(session),
+      fetchTransaksiKasList(session),
+      fetchPetugasListAdmin(session),
+      fetchTitikPatroliAdmin(session),
+      fetchRecentLogPatroli(session, 20),
+    ]);
 
   return {
     data: {
@@ -1221,13 +1286,16 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       botLogs,
       notifications,
       paymentConfig,
+      petugasList,
+      titikPatroliList,
+      patroliFeed,
     },
   };
 }
 
 /**
- * Langganan realtime perubahan data warga/setoran di Supabase agar Portal Admin
- * langsung memperbarui daftar setoran masuk tanpa perlu muat ulang manual.
+ * Langganan realtime perubahan data warga/setoran/patroli di Supabase agar Portal Admin
+ * langsung memperbarui daftar setoran & log patroli tanpa perlu muat ulang manual.
  */
 export function subscribeAdminRealtime(
   session: SessionUser,
@@ -1271,6 +1339,52 @@ export function subscribeAdminRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transaksi_kas' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'log_patroli' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'petugas_keamanan' },
+        triggerDebounced
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      void supabase.removeChannel(channel);
+    };
+  } catch {
+    return () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    };
+  }
+}
+
+export function subscribePatroliRealtime(
+  session: SessionUser,
+  onChange: () => void
+): () => void {
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) return () => {};
+
+  let debounceTimer: number | null = null;
+  const triggerDebounced = () => {
+    if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
+      onChange();
+    }, 600);
+  };
+
+  try {
+    const channel = supabase
+      .channel(`patroli-live-sync-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'log_patroli' },
         triggerDebounced
       )
       .subscribe();
@@ -3352,6 +3466,9 @@ function writeLocalTransaksiKas(list: TransaksiKas[]) {
 }
 
 function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
+  const rawJenisHonor = row.jenis_honor;
+  const jenisHonor: JenisHonorPetugas | null =
+    rawJenisHonor === 'honor_rutin' || rawJenisHonor === 'lembur' ? rawJenisHonor : null;
   return {
     id: String(row.id || `kas-${Date.now()}`),
     no_bukti: String(row.no_bukti || ''),
@@ -3363,6 +3480,8 @@ function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
     penerima_atau_sumber: String(row.penerima_atau_sumber || '-'),
     keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
     bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
+    petugas_id: typeof row.petugas_id === 'string' && row.petugas_id.trim() ? row.petugas_id.trim() : null,
+    jenis_honor: jenisHonor,
     created_by: String(row.created_by || 'admin'),
     created_by_name: String(row.created_by_name || 'Pengurus'),
     created_at: String(row.created_at || new Date().toISOString()),
@@ -3440,6 +3559,8 @@ export async function createTransaksiKasAdmin(
     keterangan?: string;
     buktiFile?: File | null;
     bukti_url?: string | null;
+    petugas_id?: string | null;
+    jenis_honor?: JenisHonorPetugas | null;
   }
 ): Promise<ServiceResult<TransaksiKas>> {
   if (session.role !== 'admin') {
@@ -3469,6 +3590,12 @@ export async function createTransaksiKasAdmin(
   const nowIso = new Date().toISOString();
   const cleanDate = (payload.tanggal || nowIso.slice(0, 10)).slice(0, 10);
   const noBukti = generateBuktiKasNumber(payload.jenis, cleanDate);
+  const cleanPetugasId =
+    payload.jenis === 'pengeluaran' && payload.petugas_id?.trim() ? payload.petugas_id.trim() : null;
+  const cleanJenisHonor: JenisHonorPetugas | null =
+    cleanPetugasId && (payload.jenis_honor === 'honor_rutin' || payload.jenis_honor === 'lembur')
+      ? payload.jenis_honor
+      : null;
 
   const newEntry: TransaksiKas = {
     id: `kas-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -3481,6 +3608,8 @@ export async function createTransaksiKasAdmin(
     penerima_atau_sumber: payload.penerima_atau_sumber.trim(),
     keterangan: payload.keterangan?.trim() || null,
     bukti_url: resolvedBuktiUrl,
+    petugas_id: cleanPetugasId,
+    jenis_honor: cleanJenisHonor,
     created_by: session.blok_rumah,
     created_by_name: `${session.nama_warga} (${session.jabatan || 'Pengurus'})`,
     created_at: nowIso,
@@ -3490,25 +3619,43 @@ export async function createTransaksiKasAdmin(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      const baseInsert = {
+        no_bukti: newEntry.no_bukti,
+        jenis: newEntry.jenis,
+        kategori: newEntry.kategori,
+        termin: newEntry.termin,
+        tanggal: newEntry.tanggal,
+        nominal: newEntry.nominal,
+        penerima_atau_sumber: newEntry.penerima_atau_sumber,
+        keterangan: newEntry.keterangan,
+        bukti_url: newEntry.bukti_url,
+        created_by: newEntry.created_by,
+        created_by_name: newEntry.created_by_name,
+        created_at: newEntry.created_at,
+        updated_at: newEntry.updated_at,
+      };
+      const fullInsert = {
+        ...baseInsert,
+        petugas_id: cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null,
+        jenis_honor: cleanJenisHonor,
+      };
+
+      let { data, error } = await supabase
         .from('transaksi_kas')
-        .insert({
-          no_bukti: newEntry.no_bukti,
-          jenis: newEntry.jenis,
-          kategori: newEntry.kategori,
-          termin: newEntry.termin,
-          tanggal: newEntry.tanggal,
-          nominal: newEntry.nominal,
-          penerima_atau_sumber: newEntry.penerima_atau_sumber,
-          keterangan: newEntry.keterangan,
-          bukti_url: newEntry.bukti_url,
-          created_by: newEntry.created_by,
-          created_by_name: newEntry.created_by_name,
-          created_at: newEntry.created_at,
-          updated_at: newEntry.updated_at,
-        })
+        .insert(fullInsert)
         .select()
         .single();
+
+      const firstErrMsg = String((error as { message?: string })?.message || '');
+      if (error && (firstErrMsg.includes('petugas_id') || firstErrMsg.includes('jenis_honor'))) {
+        const retry = await supabase
+          .from('transaksi_kas')
+          .insert(baseInsert)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (!error && data) {
         const persisted = normalizeTransaksiKasRow(data as Record<string, unknown>);
@@ -3559,6 +3706,8 @@ export async function updateTransaksiKasAdmin(
     keterangan?: string;
     buktiFile?: File | null;
     bukti_url?: string | null;
+    petugas_id?: string | null;
+    jenis_honor?: JenisHonorPetugas | null;
   }
 ): Promise<ServiceResult<TransaksiKas>> {
   if (!isBendaharaFullAccess(session)) {
@@ -3575,7 +3724,13 @@ export async function updateTransaksiKasAdmin(
   }
 
   const nowIso = new Date().toISOString();
-  const patch = {
+  const cleanPetugasId = payload.petugas_id?.trim() || null;
+  const cleanJenisHonor: JenisHonorPetugas | null =
+    cleanPetugasId && (payload.jenis_honor === 'honor_rutin' || payload.jenis_honor === 'lembur')
+      ? payload.jenis_honor
+      : null;
+
+  const basePatch = {
     kategori: payload.kategori.trim(),
     termin: payload.termin?.trim() || null,
     tanggal: payload.tanggal.slice(0, 10),
@@ -3586,15 +3741,34 @@ export async function updateTransaksiKasAdmin(
     updated_at: nowIso,
   };
 
+  const fullPatch = {
+    ...basePatch,
+    petugas_id: cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null,
+    jenis_honor: cleanJenisHonor,
+  };
+
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured() && !id.startsWith('kas-')) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('transaksi_kas')
-        .update(patch)
+        .update(fullPatch)
         .eq('id', id)
         .select()
         .single();
+
+      const firstErrMsg = String((error as { message?: string })?.message || '');
+      if (error && (firstErrMsg.includes('petugas_id') || firstErrMsg.includes('jenis_honor'))) {
+        const retry = await supabase
+          .from('transaksi_kas')
+          .update(basePatch)
+          .eq('id', id)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
       if (!error && data) {
         const updated = normalizeTransaksiKasRow(data as Record<string, unknown>);
         const next = readLocalTransaksiKas().map((item) => (item.id === id ? updated : item));
@@ -3621,7 +3795,12 @@ export async function updateTransaksiKasAdmin(
   if (!existing) {
     return { error: 'Data transaksi kas tidak ditemukan.' };
   }
-  const updated: TransaksiKas = { ...existing, ...patch };
+  const updated: TransaksiKas = {
+    ...existing,
+    ...basePatch,
+    petugas_id: cleanPetugasId,
+    jenis_honor: cleanJenisHonor,
+  };
   writeLocalTransaksiKas(list.map((item) => (item.id === id ? updated : item)));
   await recordAuditLog({
     session,
@@ -3756,6 +3935,814 @@ export async function changeOwnAdminPinAdmin(
     entity_id: session.blok_rumah,
     summary: `Pengurus ${session.nama_warga} (${session.jabatan || 'Admin'}) memperbarui PIN 6 digit akunnya.`,
   });
+  return { data: true };
+}
+
+// =========================================================================
+// Portal Petugas Keamanan (NFC Patroli), Titik Checkpoint & Isolasi Ketat
+// =========================================================================
+
+function readLocalPetugasList(): PetugasKeamanan[] {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.PETUGAS_KEAMANAN);
+    if (!raw) {
+      safeStorageSet(STORAGE_KEYS.PETUGAS_KEAMANAN, JSON.stringify(SEED_PETUGAS_KEAMANAN));
+      return SEED_PETUGAS_KEAMANAN;
+    }
+    const parsed = JSON.parse(raw) as PetugasKeamanan[];
+    return Array.isArray(parsed) ? parsed : SEED_PETUGAS_KEAMANAN;
+  } catch {
+    return SEED_PETUGAS_KEAMANAN;
+  }
+}
+
+function writeLocalPetugasList(list: PetugasKeamanan[]) {
+  safeStorageSet(STORAGE_KEYS.PETUGAS_KEAMANAN, JSON.stringify(list));
+}
+
+function readLocalTitikPatroli(): TitikPatroli[] {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.TITIK_PATROLI);
+    if (!raw) {
+      safeStorageSet(STORAGE_KEYS.TITIK_PATROLI, JSON.stringify(SEED_TITIK_PATROLI));
+      return SEED_TITIK_PATROLI;
+    }
+    const parsed = JSON.parse(raw) as TitikPatroli[];
+    return Array.isArray(parsed) ? parsed : SEED_TITIK_PATROLI;
+  } catch {
+    return SEED_TITIK_PATROLI;
+  }
+}
+
+function writeLocalTitikPatroli(list: TitikPatroli[]) {
+  safeStorageSet(STORAGE_KEYS.TITIK_PATROLI, JSON.stringify(list));
+}
+
+function readLocalLogPatroli(): LogPatroli[] {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.LOG_PATROLI);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as LogPatroli[];
+    return Array.isArray(parsed)
+      ? parsed.sort((a, b) => new Date(b.waktu_scan).getTime() - new Date(a.waktu_scan).getTime())
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalLogPatroli(list: LogPatroli[]) {
+  safeStorageSet(STORAGE_KEYS.LOG_PATROLI, JSON.stringify(list.slice(0, 300)));
+}
+
+function normalizePetugasRow(row: Record<string, unknown>, includePin = false): PetugasKeamanan {
+  return {
+    id: String(row.id || ''),
+    nama: String(row.nama || ''),
+    username: String(row.username || ''),
+    pin: includePin && typeof row.pin === 'string' ? row.pin : undefined,
+    no_hp: normalizePhoneNumber(String(row.no_hp || '')),
+    shift: String(row.shift || 'Shift Pagi (07.00 – 19.00)'),
+    aktif: row.aktif !== false,
+    created_at: String(row.created_at || new Date().toISOString()),
+  };
+}
+
+function normalizeTitikRow(row: Record<string, unknown>): TitikPatroli {
+  return {
+    id: String(row.id || ''),
+    nama_lokasi: String(row.nama_lokasi || ''),
+    rfid_uid: String(row.rfid_uid || '').trim().toUpperCase(),
+    keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
+    aktif: row.aktif !== false,
+    created_at: String(row.created_at || new Date().toISOString()),
+  };
+}
+
+function normalizeLogPatroliRow(row: Record<string, unknown>): LogPatroli {
+  return {
+    id: String(row.id || `patroli-${Date.now()}`),
+    petugas_id: String(row.petugas_id || ''),
+    nama_petugas: String(row.nama_petugas || 'Petugas'),
+    titik_id: typeof row.titik_id === 'string' ? row.titik_id : null,
+    nama_lokasi: String(row.nama_lokasi || '-'),
+    waktu_scan: String(row.waktu_scan || new Date().toISOString()),
+    metode_scan: row.metode_scan === 'Input Manual' ? 'Input Manual' : 'NFC Tap',
+    status_kondisi: row.status_kondisi === 'Ada Catatan' ? 'Ada Catatan' : 'Aman',
+    catatan: typeof row.catatan === 'string' ? row.catatan : null,
+  };
+}
+
+/**
+ * Autentikasi Khusus Portal Petugas Keamanan (/petugas) — Terisolasi Penuh.
+ * Memverifikasi PIN melalui RPC SECURITY DEFINER `login_petugas` agar kolom PIN tidak pernah terekspos.
+ */
+export async function loginPetugasKeamanan(
+  usernameInput: string,
+  pinInput: string
+): Promise<ServiceResult<SessionUser>> {
+  const cleanUser = usernameInput.trim();
+  const cleanPin = pinInput.trim();
+
+  if (!cleanUser || !cleanPin) {
+    return { error: 'Mohon isi Username / Nama Petugas dan PIN 6 digit Anda.' };
+  }
+  if (!/^\d{6}$/.test(cleanPin)) {
+    return { error: 'PIN petugas keamanan harus terdiri dari tepat 6 digit angka.' };
+  }
+
+  const attemptKey = `petugas:${cleanUser.toLowerCase()}`;
+  const lockMsg = checkLocalLockout(attemptKey);
+  if (lockMsg) {
+    return { error: lockMsg };
+  }
+
+  const supabase = getSupabaseClient(null);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.rpc('login_petugas', {
+        p_username: cleanUser,
+        p_pin: cleanPin,
+      });
+
+      if (!error) {
+        const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+        if (!row || typeof row.id !== 'string') {
+          const lockErr = registerLocalFailedAttempt(attemptKey);
+          return {
+            error:
+              lockErr ||
+              'Username petugas atau PIN 6 digit tidak sesuai, atau akun petugas sedang nonaktif.',
+          };
+        }
+
+        clearLocalAttempts(attemptKey);
+        const session: SessionUser = {
+          role: 'petugas',
+          petugas_id: row.id,
+          blok_rumah: String(row.username || cleanUser),
+          nama_warga: String(row.nama || cleanUser),
+          no_wa: normalizePhoneNumber(String(row.no_hp || '')),
+          shift: String(row.shift || ''),
+          login_at: new Date().toISOString(),
+        };
+        saveStoredSession(session);
+        await recordAuditLog({
+          session,
+          action: 'LOGIN_PETUGAS_SUCCESS',
+          entity: 'petugas_keamanan',
+          entity_id: row.id,
+          summary: `Petugas Keamanan ${session.nama_warga} (${session.shift || 'Shift'}) masuk ke Portal Keamanan.`,
+        });
+        return { data: session };
+      }
+
+      const errMsg = String((error as { message?: string }).message || '');
+      const errCode = String((error as { code?: string }).code || '');
+      if (errCode !== '42883' && !errMsg.includes('login_petugas')) {
+        return { error: parseFriendlyError(error, 'Gagal memverifikasi akun petugas ke server.') };
+      }
+    } catch {
+      // Fallback bersih ke lokal bila RPC login_petugas belum dijalankan di Supabase
+    }
+  }
+
+  const list = readLocalPetugasList();
+  const matched = list.find(
+    (p) =>
+      p.aktif &&
+      (p.username.toLowerCase() === cleanUser.toLowerCase() ||
+        p.nama.toLowerCase() === cleanUser.toLowerCase()) &&
+      p.pin === cleanPin
+  );
+
+  if (!matched) {
+    const lockErr = registerLocalFailedAttempt(attemptKey);
+    return {
+      error:
+        lockErr ||
+        'Username petugas atau PIN 6 digit tidak ditemukan. Hubungi Pengurus untuk aktivasi akun.',
+    };
+  }
+
+  clearLocalAttempts(attemptKey);
+  const session: SessionUser = {
+    role: 'petugas',
+    petugas_id: matched.id,
+    blok_rumah: matched.username,
+    nama_warga: matched.nama,
+    no_wa: matched.no_hp,
+    shift: matched.shift,
+    login_at: new Date().toISOString(),
+  };
+  saveStoredSession(session);
+  return { data: session };
+}
+
+export interface PetugasOwnData {
+  profil: {
+    id: string;
+    nama: string;
+    username: string;
+    no_hp: string;
+    shift: string;
+  };
+  instruksiKeamanan: SystemNotification[];
+  titikPatroli: TitikPatroli[];
+  patroliPribadi: LogPatroli[];
+  riwayatHonor: TransaksiKas[];
+}
+
+/**
+ * Mengambil data khusus milik Petugas Keamanan yang sedang login (ISOLASI PRIVASI KETAT).
+ * TIDAK PERNAH mengambil data saldo kas lingkungan, data warga, tunggakan IPL, atau honor petugas lain.
+ */
+export async function fetchPetugasOwnData(
+  session: SessionUser
+): Promise<ServiceResult<PetugasOwnData>> {
+  if (session.role !== 'petugas' || !session.petugas_id) {
+    return { error: 'Sesi Petugas Keamanan tidak valid.' };
+  }
+
+  const ownId = session.petugas_id;
+  const fallbackProfil = {
+    id: ownId,
+    nama: session.nama_warga,
+    username: session.blok_rumah,
+    no_hp: session.no_wa || '',
+    shift: session.shift || 'Shift Keamanan',
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !ownId.startsWith('petugas-')) {
+    try {
+      const [profilRes, titikRes, patroliRes, honorRes, allNotifs] = await Promise.all([
+        supabase
+          .from('petugas_keamanan')
+          .select('id, nama, username, no_hp, shift')
+          .eq('id', ownId)
+          .maybeSingle(),
+        supabase
+          .from('titik_patroli')
+          .select('*')
+          .eq('aktif', true)
+          .order('nama_lokasi', { ascending: true }),
+        supabase
+          .from('log_patroli')
+          .select('*')
+          .eq('petugas_id', ownId)
+          .order('waktu_scan', { ascending: false })
+          .limit(40),
+        supabase
+          .from('transaksi_kas')
+          .select('*')
+          .eq('jenis', 'pengeluaran')
+          .eq('petugas_id', ownId)
+          .order('tanggal', { ascending: false })
+          .limit(60),
+        fetchSystemNotifications(session),
+      ]);
+
+      const profil =
+        !profilRes.error && profilRes.data
+          ? {
+              id: String(profilRes.data.id),
+              nama: String(profilRes.data.nama || fallbackProfil.nama),
+              username: String(profilRes.data.username || fallbackProfil.username),
+              no_hp: normalizePhoneNumber(String(profilRes.data.no_hp || fallbackProfil.no_hp)),
+              shift: String(profilRes.data.shift || fallbackProfil.shift),
+            }
+          : fallbackProfil;
+
+      const titikPatroli =
+        !titikRes.error && Array.isArray(titikRes.data)
+          ? (titikRes.data as Record<string, unknown>[]).map(normalizeTitikRow)
+          : readLocalTitikPatroli().filter((t) => t.aktif);
+
+      const patroliPribadi =
+        !patroliRes.error && Array.isArray(patroliRes.data)
+          ? (patroliRes.data as Record<string, unknown>[])
+              .map(normalizeLogPatroliRow)
+              .filter((p) => p.petugas_id === ownId)
+          : readLocalLogPatroli().filter((p) => p.petugas_id === ownId);
+
+      const riwayatHonor =
+        !honorRes.error && Array.isArray(honorRes.data)
+          ? (honorRes.data as Record<string, unknown>[])
+              .map(normalizeTransaksiKasRow)
+              .filter((h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId)
+          : readLocalTransaksiKas().filter(
+              (h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId
+            );
+
+      const instruksiKeamanan = allNotifs
+        .filter((n) => n.category === 'Keamanan')
+        .map(({ recipient_blocks: _omit, ...safe }) => safe)
+        .slice(0, 6);
+
+      return {
+        data: {
+          profil,
+          instruksiKeamanan,
+          titikPatroli,
+          patroliPribadi,
+          riwayatHonor,
+        },
+      };
+    } catch {
+      // Lanjut fallback lokal terisolasi
+    }
+  }
+
+  const allNotifs = await fetchSystemNotifications(session);
+  const instruksiKeamanan = allNotifs
+    .filter((n) => n.category === 'Keamanan')
+    .map(({ recipient_blocks: _omit, ...safe }) => safe)
+    .slice(0, 6);
+
+  return {
+    data: {
+      profil: fallbackProfil,
+      instruksiKeamanan,
+      titikPatroli: readLocalTitikPatroli().filter((t) => t.aktif),
+      patroliPribadi: readLocalLogPatroli().filter((p) => p.petugas_id === ownId),
+      riwayatHonor: readLocalTransaksiKas().filter(
+        (h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId
+      ),
+    },
+  };
+}
+
+export async function submitLogPatroliPetugas(
+  session: SessionUser,
+  payload: {
+    titik_id?: string | null;
+    nama_lokasi: string;
+    metode_scan: MetodeScanPatroli;
+    status_kondisi: StatusKondisiPatroli;
+    catatan?: string;
+  }
+): Promise<ServiceResult<LogPatroli>> {
+  if (session.role !== 'petugas' || !session.petugas_id) {
+    return { error: 'Hanya Petugas Keamanan aktif yang dapat mencatat patroli.' };
+  }
+  if (!payload.nama_lokasi.trim()) {
+    return { error: 'Titik lokasi patroli wajib dipilih atau di-scan via NFC.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const localEntry: LogPatroli = {
+    id: `patroli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    petugas_id: session.petugas_id,
+    nama_petugas: session.nama_warga,
+    titik_id: payload.titik_id || null,
+    nama_lokasi: payload.nama_lokasi.trim(),
+    waktu_scan: nowIso,
+    metode_scan: payload.metode_scan,
+    status_kondisi: payload.status_kondisi,
+    catatan: payload.catatan?.trim() || null,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !session.petugas_id.startsWith('petugas-')) {
+    try {
+      const { data, error } = await supabase
+        .from('log_patroli')
+        .insert({
+          petugas_id: session.petugas_id,
+          nama_petugas: session.nama_warga,
+          titik_id:
+            payload.titik_id && !payload.titik_id.startsWith('titik-') ? payload.titik_id : null,
+          nama_lokasi: localEntry.nama_lokasi,
+          waktu_scan: nowIso,
+          metode_scan: localEntry.metode_scan,
+          status_kondisi: localEntry.status_kondisi,
+          catatan: localEntry.catatan,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const saved = normalizeLogPatroliRow(data as Record<string, unknown>);
+        const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
+        writeLocalLogPatroli([saved, ...existing]);
+        return { data: saved };
+      }
+
+      const errCode = String((error as { code?: string })?.code || '');
+      const errMsg = String((error as { message?: string })?.message || '');
+      if (errCode !== '42P01' && !errMsg.includes('log_patroli')) {
+        return { error: parseFriendlyError(error, 'Gagal mengirim catatan patroli ke server.') };
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+
+  writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
+  return { data: localEntry };
+}
+
+/**
+ * Mengambil daftar kontak darurat petugas keamanan aktif (HANYA nama, shift, no_hp — TANPA PIN).
+ * Aman dipanggil oleh Portal Warga & Admin melalui RPC `get_petugas_kontak_darurat`.
+ */
+export async function fetchPetugasKontakDarurat(
+  session?: SessionUser | null
+): Promise<PetugasKontakDarurat[]> {
+  const supabase = getSupabaseClient(session || null);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.rpc('get_petugas_kontak_darurat');
+      if (!error && Array.isArray(data)) {
+        return (data as Record<string, unknown>[]).map((row) => ({
+          id: String(row.id || ''),
+          nama: String(row.nama || ''),
+          no_hp: normalizePhoneNumber(String(row.no_hp || '')),
+          shift: String(row.shift || 'Siaga'),
+        }));
+      }
+    } catch {
+      // Fallback ke lokal jika RPC belum dijalankan
+    }
+  }
+
+  return readLocalPetugasList()
+    .filter((p) => p.aktif)
+    .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }));
+}
+
+export async function fetchRecentLogPatroli(
+  session: SessionUser,
+  limit = 15
+): Promise<LogPatroli[]> {
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('log_patroli')
+        .select('*')
+        .order('waktu_scan', { ascending: false })
+        .limit(limit);
+
+      if (!error && Array.isArray(data)) {
+        const list = (data as Record<string, unknown>[]).map(normalizeLogPatroliRow);
+        writeLocalLogPatroli(list);
+        return list;
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+  return readLocalLogPatroli().slice(0, limit);
+}
+
+// =========================================================================
+// Manajemen Admin: Akun Petugas Keamanan & Titik Checkpoint RFID/NFC
+// =========================================================================
+
+export async function fetchPetugasListAdmin(session: SessionUser): Promise<PetugasKeamanan[]> {
+  if (session.role !== 'admin') return [];
+  const revealPin = isBendaharaFullAccess(session);
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const cols = revealPin
+        ? 'id, nama, username, pin, no_hp, shift, aktif, created_at'
+        : 'id, nama, username, no_hp, shift, aktif, created_at';
+      const { data, error } = await supabase
+        .from('petugas_keamanan')
+        .select(cols)
+        .order('aktif', { ascending: false })
+        .order('nama', { ascending: true });
+      if (!error && Array.isArray(data)) {
+        return (data as unknown as Record<string, unknown>[]).map((r) =>
+          normalizePetugasRow(r, revealPin)
+        );
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+  return readLocalPetugasList().map((p) => ({
+    ...p,
+    pin: revealPin ? p.pin : undefined,
+  }));
+}
+
+export async function savePetugasAdmin(
+  session: SessionUser,
+  payload: {
+    id?: string;
+    nama: string;
+    username: string;
+    pin: string;
+    no_hp: string;
+    shift: string;
+    aktif?: boolean;
+  }
+): Promise<ServiceResult<PetugasKeamanan>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: pengelolaan akun Petugas Keamanan khusus Bendahara.' };
+  }
+
+  const cleanNama = payload.nama.trim();
+  const cleanUsername = payload.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  const cleanPin = payload.pin.trim();
+  const cleanHp = normalizePhoneNumber(payload.no_hp);
+  const cleanShift = payload.shift.trim() || 'Shift Pagi (07.00 – 19.00)';
+
+  if (!cleanNama) return { error: 'Nama petugas wajib diisi.' };
+  if (!cleanUsername || cleanUsername.length < 3) {
+    return { error: 'Username petugas minimal 3 karakter (huruf/angka tanpa spasi).' };
+  }
+  if (!/^\d{6}$/.test(cleanPin)) {
+    return { error: 'PIN petugas wajib terdiri dari tepat 6 digit angka.' };
+  }
+  if (!cleanHp || cleanHp.length < 10) {
+    return { error: 'Nomor HP / WhatsApp aktif petugas wajib diisi dengan format valid.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      if (payload.id && !payload.id.startsWith('petugas-')) {
+        const { data, error } = await supabase
+          .from('petugas_keamanan')
+          .update({
+            nama: cleanNama,
+            username: cleanUsername,
+            pin: cleanPin,
+            no_hp: cleanHp,
+            shift: cleanShift,
+            aktif: payload.aktif ?? true,
+          })
+          .eq('id', payload.id)
+          .select()
+          .single();
+
+        if (!error && data) {
+          const saved = normalizePetugasRow(data as Record<string, unknown>, true);
+          await recordAuditLog({
+            session,
+            action: 'UPDATE_PETUGAS',
+            entity: 'petugas_keamanan',
+            entity_id: saved.id,
+            summary: `Memperbarui akun Petugas Keamanan ${saved.nama} (@${saved.username} · ${saved.shift}).`,
+          });
+          return { data: saved };
+        }
+        const errCode = String((error as { code?: string })?.code || '');
+        if (errCode !== '42P01') {
+          return { error: parseFriendlyError(error, 'Gagal memperbarui akun petugas di Supabase.') };
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('petugas_keamanan')
+          .insert({
+            nama: cleanNama,
+            username: cleanUsername,
+            pin: cleanPin,
+            no_hp: cleanHp,
+            shift: cleanShift,
+            aktif: payload.aktif ?? true,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          const saved = normalizePetugasRow(data as Record<string, unknown>, true);
+          await recordAuditLog({
+            session,
+            action: 'CREATE_PETUGAS',
+            entity: 'petugas_keamanan',
+            entity_id: saved.id,
+            summary: `Menambahkan akun Petugas Keamanan baru ${saved.nama} (@${saved.username}).`,
+          });
+          return { data: saved };
+        }
+        const errCode = String((error as { code?: string })?.code || '');
+        if (errCode !== '42P01') {
+          return { error: parseFriendlyError(error, 'Gagal menambahkan akun petugas di Supabase.') };
+        }
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+
+  const list = readLocalPetugasList();
+  const duplicate = list.find(
+    (p) => p.id !== payload.id && p.username.toLowerCase() === cleanUsername
+  );
+  if (duplicate) {
+    return { error: `Username "${cleanUsername}" sudah digunakan oleh petugas ${duplicate.nama}.` };
+  }
+
+  if (payload.id) {
+    let updated: PetugasKeamanan | undefined;
+    const next = list.map((p) => {
+      if (p.id !== payload.id) return p;
+      updated = {
+        ...p,
+        nama: cleanNama,
+        username: cleanUsername,
+        pin: cleanPin,
+        no_hp: cleanHp,
+        shift: cleanShift,
+        aktif: payload.aktif ?? p.aktif,
+      };
+      return updated;
+    });
+    if (!updated) return { error: 'Akun petugas tidak ditemukan.' };
+    writeLocalPetugasList(next);
+    return { data: updated };
+  }
+
+  const created: PetugasKeamanan = {
+    id: `petugas-${Date.now()}`,
+    nama: cleanNama,
+    username: cleanUsername,
+    pin: cleanPin,
+    no_hp: cleanHp,
+    shift: cleanShift,
+    aktif: true,
+    created_at: new Date().toISOString(),
+  };
+  writeLocalPetugasList([created, ...list]);
+  return { data: created };
+}
+
+export async function deletePetugasAdmin(
+  session: SessionUser,
+  petugas: PetugasKeamanan
+): Promise<ServiceResult<boolean>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: penghapusan akun petugas khusus Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !petugas.id.startsWith('petugas-')) {
+    try {
+      const { error } = await supabase.from('petugas_keamanan').delete().eq('id', petugas.id);
+      if (error && String((error as { code?: string }).code || '') !== '42P01') {
+        return { error: parseFriendlyError(error, 'Gagal menghapus akun petugas dari Supabase.') };
+      }
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal menghapus akun petugas.') };
+    }
+  }
+
+  writeLocalPetugasList(readLocalPetugasList().filter((p) => p.id !== petugas.id));
+  await recordAuditLog({
+    session,
+    action: 'DELETE_PETUGAS',
+    entity: 'petugas_keamanan',
+    entity_id: petugas.id,
+    summary: `Menghapus akun Petugas Keamanan ${petugas.nama} (@${petugas.username}).`,
+  });
+  return { data: true };
+}
+
+export async function fetchTitikPatroliAdmin(session: SessionUser): Promise<TitikPatroli[]> {
+  if (session.role !== 'admin') return [];
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('titik_patroli')
+        .select('*')
+        .order('nama_lokasi', { ascending: true });
+      if (!error && Array.isArray(data)) {
+        return (data as Record<string, unknown>[]).map(normalizeTitikRow);
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+  return readLocalTitikPatroli();
+}
+
+export async function saveTitikPatroliAdmin(
+  session: SessionUser,
+  payload: {
+    id?: string;
+    nama_lokasi: string;
+    rfid_uid: string;
+    keterangan?: string;
+    aktif?: boolean;
+  }
+): Promise<ServiceResult<TitikPatroli>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: pengelolaan titik checkpoint NFC khusus Bendahara.' };
+  }
+
+  const cleanLokasi = payload.nama_lokasi.trim();
+  const cleanUid = payload.rfid_uid.trim().toUpperCase();
+  if (!cleanLokasi) return { error: 'Nama lokasi titik patroli wajib diisi.' };
+  if (!cleanUid) return { error: 'Kode RFID / NFC Tag UID wajib diisi.' };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      if (payload.id && !payload.id.startsWith('titik-')) {
+        const { data, error } = await supabase
+          .from('titik_patroli')
+          .update({
+            nama_lokasi: cleanLokasi,
+            rfid_uid: cleanUid,
+            keterangan: payload.keterangan?.trim() || null,
+            aktif: payload.aktif ?? true,
+          })
+          .eq('id', payload.id)
+          .select()
+          .single();
+        if (!error && data) {
+          return { data: normalizeTitikRow(data as Record<string, unknown>) };
+        }
+        if (String((error as { code?: string })?.code || '') !== '42P01') {
+          return { error: parseFriendlyError(error, 'Gagal memperbarui titik patroli di Supabase.') };
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('titik_patroli')
+          .insert({
+            nama_lokasi: cleanLokasi,
+            rfid_uid: cleanUid,
+            keterangan: payload.keterangan?.trim() || null,
+            aktif: payload.aktif ?? true,
+          })
+          .select()
+          .single();
+        if (!error && data) {
+          return { data: normalizeTitikRow(data as Record<string, unknown>) };
+        }
+        if (String((error as { code?: string })?.code || '') !== '42P01') {
+          return { error: parseFriendlyError(error, 'Gagal menambahkan titik patroli di Supabase.') };
+        }
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+
+  const list = readLocalTitikPatroli();
+  const dup = list.find((t) => t.id !== payload.id && t.rfid_uid.toUpperCase() === cleanUid);
+  if (dup) {
+    return { error: `UID "${cleanUid}" sudah terdaftar untuk titik "${dup.nama_lokasi}".` };
+  }
+
+  if (payload.id) {
+    let updated: TitikPatroli | undefined;
+    const next = list.map((t) => {
+      if (t.id !== payload.id) return t;
+      updated = {
+        ...t,
+        nama_lokasi: cleanLokasi,
+        rfid_uid: cleanUid,
+        keterangan: payload.keterangan?.trim() || null,
+        aktif: payload.aktif ?? t.aktif,
+      };
+      return updated;
+    });
+    if (!updated) return { error: 'Titik patroli tidak ditemukan.' };
+    writeLocalTitikPatroli(next);
+    return { data: updated };
+  }
+
+  const created: TitikPatroli = {
+    id: `titik-${Date.now()}`,
+    nama_lokasi: cleanLokasi,
+    rfid_uid: cleanUid,
+    keterangan: payload.keterangan?.trim() || null,
+    aktif: true,
+    created_at: new Date().toISOString(),
+  };
+  writeLocalTitikPatroli([...list, created]);
+  return { data: created };
+}
+
+export async function deleteTitikPatroliAdmin(
+  session: SessionUser,
+  titik: TitikPatroli
+): Promise<ServiceResult<boolean>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: penghapusan titik checkpoint khusus Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !titik.id.startsWith('titik-')) {
+    try {
+      const { error } = await supabase.from('titik_patroli').delete().eq('id', titik.id);
+      if (error && String((error as { code?: string }).code || '') !== '42P01') {
+        return { error: parseFriendlyError(error, 'Gagal menghapus titik patroli.') };
+      }
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal menghapus titik patroli.') };
+    }
+  }
+
+  writeLocalTitikPatroli(readLocalTitikPatroli().filter((t) => t.id !== titik.id));
   return { data: true };
 }
 
