@@ -153,9 +153,7 @@ export function PetugasPortalPage({
 
   useEffect(() => {
     void loadData(false);
-    const unsubscribe = subscribePatroliRealtime(session, () => {
-      void loadData(true);
-    });
+    const unsubscribe = subscribePatroliRealtime(session, () => loadData(true));
     return () => {
       unsubscribe();
       nfcAbortRef.current?.abort();

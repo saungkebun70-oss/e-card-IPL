@@ -4,6 +4,7 @@ interface OfficialStampProps {
   srcOverride?: string | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  unstyledTransform?: boolean;
 }
 
 const SIZE_MAP = {
@@ -16,9 +17,11 @@ export function OfficialStamp({
   srcOverride,
   size = 'md',
   className = '',
+  unstyledTransform = false,
 }: OfficialStampProps) {
   const { brand } = useAppBrand();
   const resolvedSrc = srcOverride !== undefined ? srcOverride : brand.stempel_url;
+  const defaultVisualClass = unstyledTransform ? '' : 'opacity-85 -rotate-6';
 
   if (resolvedSrc) {
     return (
@@ -26,7 +29,7 @@ export function OfficialStamp({
         src={resolvedSrc}
         alt="Stempel Resmi Pengurus Lingkungan Perumahan Saung Kebun"
         referrerPolicy="no-referrer"
-        className={`${SIZE_MAP[size]} object-contain opacity-85 -rotate-6 select-none pointer-events-none ${className}`}
+        className={`${SIZE_MAP[size]} object-contain ${defaultVisualClass} select-none pointer-events-none ${className}`}
       />
     );
   }
@@ -36,7 +39,7 @@ export function OfficialStamp({
     <svg
       viewBox="0 0 140 140"
       aria-label="Stempel Resmi Pengurus Lingkungan Perumahan Saung Kebun"
-      className={`${SIZE_MAP[size]} opacity-85 -rotate-6 select-none pointer-events-none text-[#059669] ${className}`}
+      className={`${SIZE_MAP[size]} ${defaultVisualClass} select-none pointer-events-none text-[#059669] ${className}`}
     >
       <defs>
         <path id="stampTopArc" d="M 22,70 A 48,48 0 1,1 118,70" />

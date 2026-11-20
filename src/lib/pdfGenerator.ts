@@ -42,26 +42,146 @@ function getImageFormat(dataUrl: string): 'PNG' | 'JPEG' {
   return 'JPEG';
 }
 
+function rotateImageDataUrl(dataUrl: string, angleDeg: number): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') {
+      resolve(dataUrl);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const size = 280;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.clearRect(0, 0, size, size);
+        ctx.translate(size / 2, size / 2);
+        ctx.rotate((angleDeg * Math.PI) / 180);
+        const drawSize = size * 0.84;
+        ctx.drawImage(img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function applyStampOpacity(doc: jsPDF, opacity: number) {
+  try {
+    const docWithGState = doc as unknown as {
+      GState?: new (params: { opacity: number; 'stroke-opacity': number }) => unknown;
+      setGState?: (gState: unknown) => void;
+    };
+    if (docWithGState.GState && docWithGState.setGState) {
+      docWithGState.setGState(
+        new docWithGState.GState({ opacity, 'stroke-opacity': opacity })
+      );
+    }
+  } catch {
+    // Fallback aman bila GState tidak didukung
+  }
+}
+
 function drawVectorFallbackStamp(doc: jsPDF, centerX: number, centerY: number) {
   doc.saveGraphicsState();
-  // Lingkaran luar & dalam stempel biru-emerald resmi (proporsional 23mm)
+  applyStampOpacity(doc, 0.35);
+
+  // Sudut miring -8 derajat (berlawanan arah jarum jam, selaras dengan CSS rotate(-8deg))
+  const rad = (-8 * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rot = (lx: number, ly: number): [number, number] => [
+    centerX + lx * cos - ly * sin,
+    centerY + lx * sin + ly * cos,
+  ];
+
+  // Lingkaran luar & dalam stempel resmi (proporsional 24mm)
   doc.setDrawColor(5, 150, 105);
   doc.setLineWidth(0.65);
-  doc.circle(centerX, centerY, 11.2, 'S');
+  doc.circle(centerX, centerY, 11.4, 'S');
   doc.setLineWidth(0.32);
-  doc.circle(centerX, centerY, 9.7, 'S');
+  doc.circle(centerX, centerY, 9.8, 'S');
   doc.setLineWidth(0.22);
-  doc.line(centerX - 9.2, centerY - 2.7, centerX + 9.2, centerY - 2.7);
-  doc.line(centerX - 9.2, centerY + 2.7, centerX + 9.2, centerY + 2.7);
+
+  const [l1x1, l1y1] = rot(-9.3, -2.7);
+  const [l1x2, l1y2] = rot(9.3, -2.7);
+  doc.line(l1x1, l1y1, l1x2, l1y2);
+
+  const [l2x1, l2y1] = rot(-9.3, 2.7);
+  const [l2x2, l2y2] = rot(9.3, 2.7);
+  doc.line(l2x1, l2y1, l2x2, l2y2);
 
   doc.setTextColor(5, 150, 105);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(4.8);
-  doc.text('PENGURUS LINGKUNGAN', centerX, centerY - 4.4, { align: 'center' });
+  doc.setFontSize(4.7);
+  const [t1x, t1y] = rot(0, -4.4);
+  doc.text('PENGURUS LINGKUNGAN', t1x, t1y, { align: 'center', angle: 8 });
   doc.setFontSize(5.8);
-  doc.text('SAUNG KEBUN', centerX, centerY + 0.9, { align: 'center' });
+  const [t2x, t2y] = rot(0, 0.9);
+  doc.text('SAUNG KEBUN', t2x, t2y, { align: 'center', angle: 8 });
   doc.setFontSize(4.5);
-  doc.text('KARAWANG · SAH', centerX, centerY + 5.4, { align: 'center' });
+  const [t3x, t3y] = rot(0, 5.4);
+  doc.text('KARAWANG · SAH', t3x, t3y, { align: 'center', angle: 8 });
+  doc.restoreGraphicsState();
+}
+
+function drawRoleApprovalStamp(
+  doc: jsPDF,
+  role: 'ketua' | 'bendahara',
+  centerX: number,
+  centerY: number
+) {
+  const isKetua = role === 'ketua';
+  const r = isKetua ? 29 : 4;
+  const g = isKetua ? 78 : 120;
+  const b = isKetua ? 216 : 87;
+  const topLabel = 'PENGURUS LINGKUNGAN';
+  const mainLabel = isKetua ? 'KETUA' : 'BENDAHARA';
+  const bottomLabel = isKetua ? 'SAUNG KEBUN · DISAHKAN' : 'SAUNG KEBUN · TERVERIFIKASI';
+
+  const w = 44;
+  const h = 15.5;
+  const x = centerX - w / 2;
+  const y = centerY - h / 2;
+
+  doc.saveGraphicsState();
+  applyStampOpacity(doc, 0.88);
+  doc.setDrawColor(r, g, b);
+  doc.setTextColor(r, g, b);
+
+  // Bingkai luar & dalam bergaya stempel kantor
+  doc.setLineWidth(0.62);
+  doc.roundedRect(x, y, w, h, 2, 2, 'S');
+  doc.setLineWidth(0.24);
+  doc.roundedRect(x + 1.1, y + 1.1, w - 2.2, h - 2.2, 1.3, 1.3, 'S');
+
+  // Garis pemisah horizontal atas & bawah
+  doc.setLineWidth(0.2);
+  doc.line(x + 2.6, y + 4.7, x + w - 2.6, y + 4.7);
+  doc.line(x + 2.6, y + h - 4.5, x + w - 2.6, y + h - 4.5);
+
+  // Teks organisasi atas
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(4.7);
+  doc.text(topLabel, centerX, y + 3.6, { align: 'center' });
+
+  // Jabatan utama stempel
+  doc.setFontSize(isKetua ? 9.4 : 8.5);
+  doc.text(mainLabel, centerX, y + 9.4, { align: 'center' });
+
+  // Keterangan bawah
+  doc.setFontSize(4.4);
+  doc.text(bottomLabel, centerX, y + h - 1.9, { align: 'center' });
   doc.restoreGraphicsState();
 }
 
@@ -141,6 +261,7 @@ async function drawSignatureBlock(
   options: {
     tanggalLabel: string;
     includeMengetahui?: boolean;
+    statusVerifikasi?: string;
   }
 ) {
   const neededHeight = options.includeMengetahui ? 66 : 42;
@@ -150,12 +271,17 @@ async function drawSignatureBlock(
     y = PAGE_MARGIN + 4;
   }
 
+  const statusVerif = options.statusVerifikasi || 'Terverifikasi';
+  const isFinalVerified = statusVerif === 'Terverifikasi';
+  const isAccBendahara = statusVerif === 'ACC Bendahara';
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.2);
   doc.setTextColor(51, 65, 85);
   doc.text(`Karawang, ${options.tanggalLabel}`, PAGE_WIDTH - PAGE_MARGIN, y, { align: 'right' });
   y += 5.2;
 
+  const signatureTopY = y;
   const leftColX = PAGE_MARGIN + 40;
   const rightColX = PAGE_WIDTH - PAGE_MARGIN - 40;
 
@@ -165,37 +291,24 @@ async function drawSignatureBlock(
   doc.text('Ketua Lingkungan', leftColX, y, { align: 'center' });
   doc.text('Bendahara Lingkungan', rightColX, y, { align: 'center' });
 
-  // Stempel Otorisasi Digital Ketua Lingkungan
-  doc.setDrawColor(5, 150, 105);
-  doc.setFillColor(236, 253, 245);
-  doc.roundedRect(leftColX - 21, y + 6, 42, 11, 2, 2, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.6);
-  doc.setTextColor(6, 95, 70);
-  doc.text('DISAHKAN DIGITAL', leftColX, y + 10.6, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.8);
-  doc.text('Verifikasi Tahap 2 · Ketua', leftColX, y + 14.4, { align: 'center' });
-
-  // Stempel Digital Pengurus rapi di ruang tanda tangan (di atas garis TTD, tidak menutupi nama)
-  const stempelDataUrl = await loadImageAsDataUrl(brand.stempel_url);
-  const stampCenterX = rightColX - 15;
-  const stampCenterY = y + 12.5;
-  if (stempelDataUrl) {
-    try {
-      doc.addImage(
-        stempelDataUrl,
-        getImageFormat(stempelDataUrl),
-        stampCenterX - 11.5,
-        stampCenterY - 11.5,
-        23,
-        23
-      );
-    } catch {
-      drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
-    }
+  // Cap Ketua (Kolom Kiri)
+  if (isFinalVerified) {
+    drawRoleApprovalStamp(doc, 'ketua', leftColX, y + 12);
   } else {
-    drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.2);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Menunggu Pengesahan Ketua', leftColX, y + 12.5, { align: 'center' });
+  }
+
+  // Cap Bendahara (Kolom Kanan — Simetris dengan Kolom Ketua)
+  if (isFinalVerified || isAccBendahara) {
+    drawRoleApprovalStamp(doc, 'bendahara', rightColX, y + 12);
+  } else {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.2);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Menunggu ACC Bendahara', rightColX, y + 12.5, { align: 'center' });
   }
 
   y += 24;
@@ -216,6 +329,31 @@ async function drawSignatureBlock(
   doc.setTextColor(100, 116, 139);
   doc.text('Blok B3/7 · Perumahan Saung Kebun', leftColX, y + 3.6, { align: 'center' });
   doc.text('Blok B7/16 · Perumahan Saung Kebun', rightColX, y + 3.6, { align: 'center' });
+
+  // Stempel Bulat Resmi — Tepat di TENGAH (Di antara kolom Ketua & Bendahara), miring -8deg, opacity 0.35
+  const stempelDataUrl = await loadImageAsDataUrl(brand.stempel_url);
+  const stampCenterX = PAGE_WIDTH / 2;
+  const stampCenterY = signatureTopY + 15.5;
+  if (stempelDataUrl) {
+    try {
+      const rotatedStamp = await rotateImageDataUrl(stempelDataUrl, -8);
+      doc.saveGraphicsState();
+      applyStampOpacity(doc, 0.35);
+      doc.addImage(
+        rotatedStamp,
+        getImageFormat(rotatedStamp),
+        stampCenterX - 12.5,
+        stampCenterY - 12.5,
+        25,
+        25
+      );
+      doc.restoreGraphicsState();
+    } catch {
+      drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
+    }
+  } else {
+    drawVectorFallbackStamp(doc, stampCenterX, stampCenterY);
+  }
 
   if (options.includeMengetahui) {
     y += 11.5;
@@ -318,6 +456,7 @@ export async function downloadKwitansiIplPdf(trx: TransaksiIPL, brand: AppBrandC
   const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 70;
   await drawSignatureBlock(doc, finalY + 12, brand, {
     tanggalLabel: formatTanggal(trx.verified_at || trx.tanggal_setor),
+    statusVerifikasi: trx.status_verifikasi,
   });
 
   addPageNumbers(doc);
@@ -388,6 +527,7 @@ export async function downloadKwitansiKasPdf(trxKas: TransaksiKas, brand: AppBra
   const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 75;
   await drawSignatureBlock(doc, finalY + 12, brand, {
     tanggalLabel: formatTanggal(trxKas.tanggal),
+    statusVerifikasi: trxKas.status_verifikasi || 'Terverifikasi',
   });
 
   addPageNumbers(doc);

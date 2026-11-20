@@ -1444,25 +1444,168 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   };
 }
 
+interface RealtimeSyncOptions {
+  /** Tunda eksekusi untuk menggabungkan burst event beruntun (ms) */
+  debounceMs?: number;
+  /** Jeda minimal antar eksekusi sinkronisasi agar memori & query tetap rendah (ms) */
+  minIntervalMs?: number;
+  /** Batas maksimum penundaan agar UI tetap responsif saat event terus berdatangan (ms) */
+  maxWaitMs?: number;
+}
+
+/**
+ * Penjadwal sinkronisasi Realtime ringan (Debounce + Throttle + Single-Flight + Visibility-Aware):
+ * - Menggabungkan burst event beruntun menjadi 1 refresh (debounce).
+ * - Membatasi frekuensi fetch minimal setiap `minIntervalMs` (throttle) dengan jaminan `maxWaitMs`.
+ * - Mencegah fetch bertumpuk saat request sebelumnya masih berjalan (in-flight coalescing).
+ * - Menunda fetch saat tab browser sedang di background, lalu langsung menyinkronkan saat aktif kembali.
+ */
+function createRealtimeSyncScheduler(
+  onSync: () => void | Promise<void>,
+  options: RealtimeSyncOptions = {}
+) {
+  const debounceMs = options.debounceMs ?? 800;
+  const minIntervalMs = options.minIntervalMs ?? 2000;
+  const maxWaitMs = options.maxWaitMs ?? 3500;
+
+  let debounceTimer: number | null = null;
+  let maxWaitTimer: number | null = null;
+  let cooldownTimer: number | null = null;
+  let lastRunAt = 0;
+  let inFlight = false;
+  let pendingAfterFlight = false;
+  let deferredWhileHidden = false;
+  let disposed = false;
+
+  const clearTimers = () => {
+    if (debounceTimer !== null) {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    if (maxWaitTimer !== null) {
+      window.clearTimeout(maxWaitTimer);
+      maxWaitTimer = null;
+    }
+    if (cooldownTimer !== null) {
+      window.clearTimeout(cooldownTimer);
+      cooldownTimer = null;
+    }
+  };
+
+  const execute = () => {
+    if (disposed) return;
+    clearTimers();
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      deferredWhileHidden = true;
+      return;
+    }
+
+    if (inFlight) {
+      pendingAfterFlight = true;
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = now - lastRunAt;
+    if (lastRunAt > 0 && elapsed < minIntervalMs) {
+      const remaining = minIntervalMs - elapsed;
+      cooldownTimer = window.setTimeout(() => {
+        cooldownTimer = null;
+        execute();
+      }, remaining);
+      return;
+    }
+
+    lastRunAt = now;
+    inFlight = true;
+    pendingAfterFlight = false;
+    deferredWhileHidden = false;
+
+    Promise.resolve()
+      .then(() => onSync())
+      .catch(() => {
+        // Kegagalan jaringan ditangani di pemanggil
+      })
+      .finally(() => {
+        inFlight = false;
+        if (!disposed && pendingAfterFlight) {
+          pendingAfterFlight = false;
+          schedule();
+        }
+      });
+  };
+
+  const schedule = () => {
+    if (disposed) return;
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      deferredWhileHidden = true;
+      return;
+    }
+
+    if (inFlight) {
+      pendingAfterFlight = true;
+      return;
+    }
+
+    if (debounceTimer !== null) {
+      window.clearTimeout(debounceTimer);
+    }
+    debounceTimer = window.setTimeout(() => {
+      debounceTimer = null;
+      execute();
+    }, debounceMs);
+
+    if (maxWaitTimer === null) {
+      maxWaitTimer = window.setTimeout(() => {
+        maxWaitTimer = null;
+        execute();
+      }, maxWaitMs);
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (disposed) return;
+    if (document.visibilityState === 'visible' && deferredWhileHidden) {
+      deferredWhileHidden = false;
+      schedule();
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
+
+  const dispose = () => {
+    disposed = true;
+    clearTimers();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+  };
+
+  return { schedule, dispose };
+}
+
 /**
  * Langganan realtime perubahan data warga/setoran/patroli di Supabase agar Portal Admin
- * langsung memperbarui daftar setoran & log patroli tanpa perlu muat ulang manual.
+ * langsung memperbarui daftar setoran & log patroli dengan debounce + throttling hemat memori.
  */
 export function subscribeAdminRealtime(
   session: SessionUser,
-  onChange: () => void
+  onChange: () => void | Promise<void>,
+  options?: RealtimeSyncOptions
 ): () => void {
   if (session.role !== 'admin') return () => {};
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) return () => {};
 
-  let debounceTimer: number | null = null;
-  const triggerDebounced = () => {
-    if (debounceTimer !== null) window.clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(() => {
-      onChange();
-    }, 600);
-  };
+  const scheduler = createRealtimeSyncScheduler(onChange, {
+    debounceMs: options?.debounceMs ?? 900,
+    minIntervalMs: options?.minIntervalMs ?? 2500,
+    maxWaitMs: options?.maxWaitMs ?? 4000,
+  });
 
   try {
     const channel = supabase
@@ -1470,75 +1613,78 @@ export function subscribeAdminRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transaksi_ipl' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'status_ecard_bulanan' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'users_warga' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bot_wa_logs' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transaksi_kas' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'log_patroli' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'petugas_keamanan' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'titik_patroli' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'app_settings' },
-        triggerDebounced
+        scheduler.schedule
       )
       .subscribe();
 
     return () => {
-      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      scheduler.dispose();
       void supabase.removeChannel(channel);
     };
   } catch {
     return () => {
-      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      scheduler.dispose();
     };
   }
 }
 
+/**
+ * Langganan realtime khusus patroli & peta mapping untuk Petugas Keamanan & Warga.
+ * Menggunakan debounce + throttle + in-flight coalescing agar memori rendah & UI tetap responsif.
+ */
 export function subscribePatroliRealtime(
   session: SessionUser,
-  onChange: () => void
+  onChange: () => void | Promise<void>,
+  options?: RealtimeSyncOptions
 ): () => void {
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) return () => {};
 
-  let debounceTimer: number | null = null;
-  const triggerDebounced = () => {
-    if (debounceTimer !== null) window.clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(() => {
-      onChange();
-    }, 600);
-  };
+  const scheduler = createRealtimeSyncScheduler(onChange, {
+    debounceMs: options?.debounceMs ?? 800,
+    minIntervalMs: options?.minIntervalMs ?? 2000,
+    maxWaitMs: options?.maxWaitMs ?? 3500,
+  });
 
   try {
     const channel = supabase
@@ -1546,27 +1692,27 @@ export function subscribePatroliRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'log_patroli' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'titik_patroli' },
-        triggerDebounced
+        scheduler.schedule
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_settings' },
-        triggerDebounced
+        { event: 'UPDATE', schema: 'public', table: 'app_settings' },
+        scheduler.schedule
       )
       .subscribe();
 
     return () => {
-      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      scheduler.dispose();
       void supabase.removeChannel(channel);
     };
   } catch {
     return () => {
-      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      scheduler.dispose();
     };
   }
 }

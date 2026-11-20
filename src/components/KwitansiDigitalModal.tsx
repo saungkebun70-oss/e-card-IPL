@@ -17,6 +17,7 @@ import {
 import { downloadKwitansiIplPdf, downloadKwitansiKasPdf } from '../lib/pdfGenerator';
 import { BrandLogo } from './BrandLogo';
 import { OfficialStamp } from './OfficialStamp';
+import { RoleApprovalStamp } from './RoleApprovalStamp';
 
 type KwitansiDigitalModalProps =
   | {
@@ -286,27 +287,31 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               </div>
             </div>
 
-            {/* Area Tanda Tangan & Stempel Digital — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
+            {/* Area Tanda Tangan & Stempel Digital — Stempel Bulat Tepat di Tengah (Antara Ketua & Bendahara) */}
             <div className="avoid-break pt-1">
               <p className="text-[11px] sm:text-xs text-slate-600 text-right mb-3">
                 Karawang, {formatTanggal(tanggalIso)}
               </p>
 
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 items-end text-center">
+              <div className="relative grid grid-cols-2 gap-4 sm:gap-6 items-end text-center">
+                {/* Stempel Bulat Resmi — Overlay Tepat di Tengah Area TTD */}
+                <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
+                  <OfficialStamp
+                    size="md"
+                    unstyledTransform
+                    className="w-20 h-20 sm:w-24 sm:h-24 print:w-24 print:h-24"
+                  />
+                </div>
+
                 <div>
                   <p className="text-[11px] sm:text-xs font-semibold text-slate-700">
                     Ketua Lingkungan
                   </p>
                   <div className="h-16 sm:h-20 relative flex items-center justify-center">
                     {isFinalVerified ? (
-                      <div className="inline-flex flex-col items-center justify-center border border-emerald-500/70 bg-emerald-50/75 rounded-lg px-2.5 py-1 text-[9px] font-bold text-emerald-800 tracking-tight">
-                        <span>✓ DISAHKAN DIGITAL</span>
-                        <span className="font-mono font-normal text-[8px] text-emerald-700">
-                          Otorisasi Ketua
-                        </span>
-                      </div>
+                      <RoleApprovalStamp role="ketua" />
                     ) : (
-                      <span className="text-[10px] italic text-slate-400">Menunggu Pengesahan</span>
+                      <span className="text-[10px] italic text-slate-400">Menunggu Pengesahan Ketua</span>
                     )}
                   </div>
                   <div className="border-b border-slate-400 w-28 sm:w-36 mx-auto" />
@@ -319,13 +324,10 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                     Bendahara Lingkungan
                   </p>
                   <div className="h-16 sm:h-20 relative flex items-center justify-center">
-                    <div className="pointer-events-none -translate-x-3 sm:-translate-x-5 opacity-85">
-                      <OfficialStamp size="sm" />
-                    </div>
-                    {(isFinalVerified || isAccBendahara) && (
-                      <div className="absolute bottom-0.5 right-1 sm:right-3 border border-emerald-500/70 bg-emerald-50/85 rounded-md px-1.5 py-0.5 text-[8px] font-bold text-emerald-800">
-                        ✓ ACC Bendahara
-                      </div>
+                    {isFinalVerified || isAccBendahara ? (
+                      <RoleApprovalStamp role="bendahara" />
+                    ) : (
+                      <span className="text-[10px] italic text-slate-400">Menunggu ACC Bendahara</span>
                     )}
                   </div>
                   <div className="border-b border-slate-400 w-28 sm:w-36 mx-auto" />

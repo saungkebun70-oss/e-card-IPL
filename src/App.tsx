@@ -202,7 +202,7 @@ export default function App() {
     if (session.role === 'admin') {
       unsubscribeRealtime = subscribeAdminRealtime(session, () => {
         if (!settingsOpenRef.current) {
-          void loadPortalData(session, { silent: true });
+          return loadPortalData(session, { silent: true });
         }
       });
       intervalId = window.setInterval(() => {
@@ -211,9 +211,9 @@ export default function App() {
         }
       }, 20000);
     } else if (session.role === 'warga') {
-      unsubscribeRealtime = subscribePatroliRealtime(session, () => {
-        void loadPortalData(session, { silent: true });
-      });
+      unsubscribeRealtime = subscribePatroliRealtime(session, () =>
+        loadPortalData(session, { silent: true })
+      );
     }
 
     return () => {
