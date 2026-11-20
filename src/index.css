@@ -47,25 +47,68 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+@page {
+  size: A4 portrait;
+  margin: 15mm;
+}
+
 @media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   body * {
     visibility: hidden;
   }
+
   #printable-kwitansi,
-  #printable-kwitansi * {
+  #printable-kwitansi *,
+  #printable-report,
+  #printable-report * {
     visibility: visible;
   }
-  #printable-kwitansi {
-    position: fixed;
+
+  #printable-kwitansi,
+  #printable-report {
+    position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    max-width: 180mm;
     background: #ffffff !important;
-    padding: 24px !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
+    overflow: visible !important;
   }
+
+  #printable-report table,
+  #printable-kwitansi table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #printable-report thead,
+  #printable-kwitansi thead {
+    display: table-header-group !important;
+  }
+
+  #printable-report tr,
+  #printable-kwitansi tr,
+  .avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
   .no-print {
     display: none !important;
   }
 }
+

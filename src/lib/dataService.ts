@@ -23,6 +23,7 @@ import {
   type StatusVerifikasi,
   type SystemNotification,
   type TransaksiIPL,
+  type TransaksiKas,
   type Warga,
 } from '../types';
 import { recordAuditLog } from './auditLogger';
@@ -31,6 +32,7 @@ import {
   canonicalizeBlokKey,
   formatDaftarBulan,
   formatRupiah,
+  generateBuktiKasNumber,
   generateKwitansiNumber,
   generateRandomPin,
   getCurrentBillingMonth,
@@ -67,6 +69,8 @@ const STORAGE_KEYS = {
   SYSTEM_NOTIFICATIONS: 'saungkebun_system_notifications_v1',
   PAYMENT_CONFIG: 'saungkebun_payment_config_v1',
   BRAND_CONFIG: 'saungkebun_brand_config_v1',
+  TRANSAKSI_KAS: 'saungkebun_transaksi_kas_v1',
+  ADMIN_PIN_OVERRIDES: 'saungkebun_admin_pin_overrides_v1',
 } as const;
 
 const memoryStorageFallback = new Map<string, string>();
@@ -614,9 +618,19 @@ export async function loginAdminAccount(
     return { error: lockMessage };
   }
 
-  const matchedAdmin = LOCAL_ADMIN_ACCOUNTS.find(
-    (acc) => acc.username === cleanUsername && acc.pin === cleanPin
-  );
+  const pinOverrides = (() => {
+    try {
+      const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const matchedAdmin = LOCAL_ADMIN_ACCOUNTS.find((acc) => {
+    const effectivePin = pinOverrides[acc.username] || acc.pin;
+    return acc.username === cleanUsername && effectivePin === cleanPin;
+  });
   if (!matchedAdmin) {
     const lockErr = registerLocalFailedAttempt(attemptKey);
     await recordAuditLog({
@@ -1032,6 +1046,7 @@ export interface AdminSnapshot {
   wargaList: Warga[];
   pengurusAccounts: PengurusAccountInfo[];
   transaksiList: TransaksiIPL[];
+  transaksiKasList: TransaksiKas[];
   statusList: StatusEcardBulanan[];
   botConfig: BotWaConfig;
   botLogs: BotWaLog[];
@@ -1104,6 +1119,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         botLogRes,
         notifications,
         paymentConfig,
+        transaksiKasList,
       ] = await Promise.all([
         supabase
           .from('users_warga')
@@ -1124,6 +1140,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         supabase.from('bot_wa_logs').select('*').order('created_at', { ascending: false }).limit(200),
         fetchSystemNotifications(session),
         fetchPaymentConfig(session),
+        fetchTransaksiKasList(session),
       ]);
 
       if (wargaRes.error) throw wargaRes.error;
@@ -1155,6 +1172,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
             !adminAccRes.error ? (adminAccRes.data as Array<Record<string, string>>) : undefined
           ),
           transaksiList,
+          transaksiKasList,
           statusList: reconciledStatus,
           botConfig: (botCfgRes.data as BotWaConfig | null) || SEED_BOT_WA_CONFIG,
           botLogs: mergeBotWaLogs(remoteBotLogs, localFallbackLogs),
@@ -1186,9 +1204,10 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-  const [notifications, paymentConfig] = await Promise.all([
+  const [notifications, paymentConfig, transaksiKasList] = await Promise.all([
     fetchSystemNotifications(session),
     fetchPaymentConfig(session),
+    fetchTransaksiKasList(session),
   ]);
 
   return {
@@ -1196,6 +1215,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       wargaList,
       pengurusAccounts: buildPengurusAccountsList(session),
       transaksiList,
+      transaksiKasList,
       statusList,
       botConfig,
       botLogs,
@@ -1246,6 +1266,11 @@ export function subscribeAdminRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bot_wa_logs' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transaksi_kas' },
         triggerDebounced
       )
       .subscribe();
@@ -2915,6 +2940,10 @@ export async function savePaymentConfigAdmin(
     qris_image_url: config.qris_image_url || null,
     qris_label: String(config.qris_label || SEED_PAYMENT_CONFIG.qris_label).trim(),
     qris_catatan: String(config.qris_catatan || SEED_PAYMENT_CONFIG.qris_catatan).trim(),
+    nominal_ipl_bulanan:
+      Number(config.nominal_ipl_bulanan) > 0
+        ? Math.round(Number(config.nominal_ipl_bulanan))
+        : NOMINAL_IPL_STANDAR,
     rekening_list: Array.isArray(config.rekening_list)
       ? config.rekening_list.map((r) => ({
           id: r.id || `rek-${Date.now()}`,
@@ -2931,11 +2960,24 @@ export async function savePaymentConfigAdmin(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('payment_config')
         .upsert(updated, { onConflict: 'id' })
         .select()
         .single();
+
+      // Jika kolom nominal_ipl_bulanan belum ditambahkan di Supabase, coba ulang tanpa kolom tersebut
+      if (error && String((error as { message?: string }).message || '').includes('nominal_ipl_bulanan')) {
+        const { nominal_ipl_bulanan: _omit, ...legacyPayload } = updated;
+        const retry = await supabase
+          .from('payment_config')
+          .upsert(legacyPayload, { onConflict: 'id' })
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
       if (error) {
         const msg = String((error as { message?: string }).message || '');
         const code = String((error as { code?: string }).code || '');
@@ -2952,14 +2994,18 @@ export async function savePaymentConfigAdmin(
           ),
         };
       }
-      const saved = (data || updated) as PaymentConfig;
+      const saved: PaymentConfig = {
+        ...updated,
+        ...((data || {}) as Partial<PaymentConfig>),
+        nominal_ipl_bulanan: updated.nominal_ipl_bulanan,
+      };
       writeLocalPaymentConfig(saved);
       await recordAuditLog({
         session,
         action: 'UPDATE_PAYMENT_CONFIG',
         entity: 'payment_config',
         entity_id: updated.id,
-        summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+        summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening, IPL ${formatRupiah(updated.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)}).`,
       });
       return { data: saved };
     } catch (err) {
@@ -2978,7 +3024,7 @@ export async function savePaymentConfigAdmin(
     action: 'UPDATE_PAYMENT_CONFIG',
     entity: 'payment_config',
     entity_id: updated.id,
-    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening, IPL ${formatRupiah(updated.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)}).`,
   });
 
   return { data: updated };
@@ -3037,6 +3083,12 @@ function mergeAppBrandConfig(
         : incoming.logo_url === null
           ? null
           : base.logo_url,
+    stempel_url:
+      typeof incoming.stempel_url === 'string' && incoming.stempel_url.trim()
+        ? incoming.stempel_url.trim()
+        : incoming.stempel_url === null
+          ? null
+          : (base.stempel_url ?? null),
     wa_pengurus: rawWaPengurus || DEFAULT_APP_BRAND_CONFIG.wa_pengurus,
     wa_pengurus_label:
       typeof incoming.wa_pengurus_label === 'string' && incoming.wa_pengurus_label.trim()
@@ -3125,6 +3177,43 @@ export async function uploadAppLogoAdmin(
   }
 }
 
+export async function uploadStempelImageAdmin(
+  session: SessionUser,
+  file: File
+): Promise<ServiceResult<string>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: unggah stempel resmi hanya dapat dilakukan oleh Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const rawExt = file.name?.split('.').pop()?.toLowerCase() || '';
+      const safeExt = ['png', 'webp', 'svg'].includes(rawExt) ? rawExt : 'png';
+      const filePath = `branding/stempel-pengurus-${Date.now()}.${safeExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('bukti-ipl')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          return { data: publicUrlData.publicUrl };
+        }
+      }
+    } catch {
+      // Fallback ke data URL PNG transparan
+    }
+  }
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    return { data: dataUrl };
+  } catch (err) {
+    return { error: parseFriendlyError(err, 'Gagal membaca file gambar stempel resmi.') };
+  }
+}
+
 export async function saveAppBrandConfigAdmin(
   session: SessionUser,
   config: Pick<
@@ -3133,6 +3222,7 @@ export async function saveAppBrandConfigAdmin(
     | 'app_subtitle'
     | 'kop_resmi'
     | 'logo_url'
+    | 'stempel_url'
     | 'wa_pengurus'
     | 'wa_pengurus_label'
     | 'wa_bot'
@@ -3173,6 +3263,7 @@ export async function saveAppBrandConfigAdmin(
     app_subtitle: cleanSubtitle,
     kop_resmi: cleanKop || DEFAULT_APP_BRAND_CONFIG.kop_resmi,
     logo_url: config.logo_url?.trim() || null,
+    stempel_url: config.stempel_url?.trim() || null,
     wa_pengurus: cleanWaPengurus,
     wa_pengurus_label: config.wa_pengurus_label?.trim() || DEFAULT_APP_BRAND_CONFIG.wa_pengurus_label,
     wa_bot: cleanWaBot,
@@ -3186,20 +3277,36 @@ export async function saveAppBrandConfigAdmin(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('app_settings')
         .upsert(updated, { onConflict: 'id' })
         .select()
         .single();
+
+      // Jika kolom stempel_url belum ditambahkan di Supabase, coba ulang tanpa kolom tersebut
+      if (error && String((error as { message?: string }).message || '').includes('stempel_url')) {
+        const { stempel_url: _omit, ...legacyPayload } = updated;
+        const retry = await supabase
+          .from('app_settings')
+          .upsert(legacyPayload, { onConflict: 'id' })
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
       if (!error && data) {
-        const persisted = mergeAppBrandConfig(updated, data as Partial<AppBrandConfig>);
+        const persisted = mergeAppBrandConfig(updated, {
+          ...(data as Partial<AppBrandConfig>),
+          stempel_url: updated.stempel_url,
+        });
         writeLocalAppBrandConfig(persisted);
         await recordAuditLog({
           session,
           action: 'UPDATE_APP_BRAND',
           entity: 'app_settings',
           entity_id: updated.id,
-          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan aplikasi "${persisted.app_name}" & No. WA Pengurus (+${persisted.wa_pengurus}).`,
+          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan identitas "${persisted.app_name}", stempel resmi & No. WA Pengurus (+${persisted.wa_pengurus}).`,
         });
         return { data: persisted };
       }
@@ -3213,8 +3320,442 @@ export async function saveAppBrandConfigAdmin(
     action: 'UPDATE_APP_BRAND',
     entity: 'app_settings',
     entity_id: updated.id,
-    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan aplikasi "${updated.app_name}" & No. WA Pengurus (+${updated.wa_pengurus}).`,
+    summary: `Bendahara ${session.nama_warga} memperbarui pengaturan identitas "${updated.app_name}" & No. WA Pengurus (+${updated.wa_pengurus}).`,
   });
 
   return { data: updated };
 }
+
+// =========================================================================
+// Sistem Keuangan Terintegrasi: Pengeluaran Anggaran & Pemasukan Lain
+// =========================================================================
+
+function readLocalTransaksiKas(): TransaksiKas[] {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.TRANSAKSI_KAS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as TransaksiKas[];
+    return Array.isArray(parsed)
+      ? parsed.sort(
+          (a, b) =>
+            b.tanggal.localeCompare(a.tanggal) ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalTransaksiKas(list: TransaksiKas[]) {
+  safeStorageSet(STORAGE_KEYS.TRANSAKSI_KAS, JSON.stringify(list));
+}
+
+function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
+  return {
+    id: String(row.id || `kas-${Date.now()}`),
+    no_bukti: String(row.no_bukti || ''),
+    jenis: row.jenis === 'pemasukan_lain' ? 'pemasukan_lain' : 'pengeluaran',
+    kategori: String(row.kategori || 'Lain-lain'),
+    termin: typeof row.termin === 'string' && row.termin.trim() ? row.termin.trim() : null,
+    tanggal: String(row.tanggal || new Date().toISOString().slice(0, 10)).slice(0, 10),
+    nominal: Math.max(0, Number(row.nominal) || 0),
+    penerima_atau_sumber: String(row.penerima_atau_sumber || '-'),
+    keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
+    bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
+    created_by: String(row.created_by || 'admin'),
+    created_by_name: String(row.created_by_name || 'Pengurus'),
+    created_at: String(row.created_at || new Date().toISOString()),
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+  };
+}
+
+export async function fetchTransaksiKasList(session: SessionUser): Promise<TransaksiKas[]> {
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('transaksi_kas')
+        .select('*')
+        .order('tanggal', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (!error && Array.isArray(data)) {
+        const list = (data as Record<string, unknown>[]).map(normalizeTransaksiKasRow);
+        writeLocalTransaksiKas(list);
+        return list;
+      }
+    } catch {
+      // Fallback bersih jika tabel transaksi_kas belum dibuat di Supabase
+    }
+  }
+  return readLocalTransaksiKas();
+}
+
+export async function uploadBuktiKasAdmin(
+  session: SessionUser,
+  file: File
+): Promise<ServiceResult<string>> {
+  if (session.role !== 'admin') {
+    return { error: 'Akses ditolak: hanya Pengurus yang dapat mengunggah bukti kas.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `kas/bukti-kas-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('bukti-ipl')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          return { data: publicUrlData.publicUrl };
+        }
+      }
+    } catch {
+      // Fallback data URL
+    }
+  }
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    return { data: dataUrl };
+  } catch (err) {
+    return { error: parseFriendlyError(err, 'Gagal membaca file bukti nota/kwitansi.') };
+  }
+}
+
+export async function createTransaksiKasAdmin(
+  session: SessionUser,
+  payload: {
+    jenis: 'pengeluaran' | 'pemasukan_lain';
+    kategori: string;
+    termin?: string | null;
+    tanggal: string;
+    nominal: number;
+    penerima_atau_sumber: string;
+    keterangan?: string;
+    buktiFile?: File | null;
+    bukti_url?: string | null;
+  }
+): Promise<ServiceResult<TransaksiKas>> {
+  if (session.role !== 'admin') {
+    return { error: 'Akses ditolak: pencatatan kas khusus Pengurus / Admin.' };
+  }
+  if (!payload.kategori.trim()) {
+    return { error: 'Kategori transaksi wajib dipilih.' };
+  }
+  if (!payload.penerima_atau_sumber.trim()) {
+    return {
+      error:
+        payload.jenis === 'pengeluaran'
+          ? 'Nama penerima dana wajib diisi.'
+          : 'Nama sumber / penyetor dana wajib diisi.',
+    };
+  }
+  if (!Number.isFinite(payload.nominal) || payload.nominal <= 0) {
+    return { error: 'Nominal transaksi harus lebih dari Rp 0.' };
+  }
+
+  let resolvedBuktiUrl = payload.bukti_url || null;
+  if (payload.buktiFile) {
+    const up = await uploadBuktiKasAdmin(session, payload.buktiFile);
+    if (up.data) resolvedBuktiUrl = up.data;
+  }
+
+  const nowIso = new Date().toISOString();
+  const cleanDate = (payload.tanggal || nowIso.slice(0, 10)).slice(0, 10);
+  const noBukti = generateBuktiKasNumber(payload.jenis, cleanDate);
+
+  const newEntry: TransaksiKas = {
+    id: `kas-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    no_bukti: noBukti,
+    jenis: payload.jenis,
+    kategori: payload.kategori.trim(),
+    termin: payload.jenis === 'pengeluaran' ? payload.termin?.trim() || null : null,
+    tanggal: cleanDate,
+    nominal: Math.round(payload.nominal),
+    penerima_atau_sumber: payload.penerima_atau_sumber.trim(),
+    keterangan: payload.keterangan?.trim() || null,
+    bukti_url: resolvedBuktiUrl,
+    created_by: session.blok_rumah,
+    created_by_name: `${session.nama_warga} (${session.jabatan || 'Pengurus'})`,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('transaksi_kas')
+        .insert({
+          no_bukti: newEntry.no_bukti,
+          jenis: newEntry.jenis,
+          kategori: newEntry.kategori,
+          termin: newEntry.termin,
+          tanggal: newEntry.tanggal,
+          nominal: newEntry.nominal,
+          penerima_atau_sumber: newEntry.penerima_atau_sumber,
+          keterangan: newEntry.keterangan,
+          bukti_url: newEntry.bukti_url,
+          created_by: newEntry.created_by,
+          created_by_name: newEntry.created_by_name,
+          created_at: newEntry.created_at,
+          updated_at: newEntry.updated_at,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const persisted = normalizeTransaksiKasRow(data as Record<string, unknown>);
+        const current = readLocalTransaksiKas().filter((k) => k.id !== persisted.id);
+        writeLocalTransaksiKas([persisted, ...current]);
+        await recordAuditLog({
+          session,
+          action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
+          entity: 'transaksi_kas',
+          entity_id: persisted.id,
+          summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}).`,
+        });
+        return { data: persisted };
+      }
+
+      const errCode = String((error as { code?: string })?.code || '');
+      const errMsg = String((error as { message?: string })?.message || '');
+      if (errCode !== '42P01' && !errMsg.includes('transaksi_kas')) {
+        return {
+          error: parseFriendlyError(error, 'Gagal menyimpan transaksi kas ke Supabase.'),
+        };
+      }
+    } catch {
+      // Lanjut fallback lokal jika tabel belum dijalankan
+    }
+  }
+
+  writeLocalTransaksiKas([newEntry, ...readLocalTransaksiKas()]);
+  await recordAuditLog({
+    session,
+    action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
+    entity: 'transaksi_kas',
+    entity_id: newEntry.id,
+    summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}).`,
+  });
+  return { data: newEntry };
+}
+
+export async function updateTransaksiKasAdmin(
+  session: SessionUser,
+  id: string,
+  payload: {
+    kategori: string;
+    termin?: string | null;
+    tanggal: string;
+    nominal: number;
+    penerima_atau_sumber: string;
+    keterangan?: string;
+    buktiFile?: File | null;
+    bukti_url?: string | null;
+  }
+): Promise<ServiceResult<TransaksiKas>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: perubahan transaksi kas khusus Bendahara.' };
+  }
+  if (!Number.isFinite(payload.nominal) || payload.nominal <= 0) {
+    return { error: 'Nominal transaksi harus lebih dari Rp 0.' };
+  }
+
+  let resolvedBuktiUrl = payload.bukti_url ?? null;
+  if (payload.buktiFile) {
+    const up = await uploadBuktiKasAdmin(session, payload.buktiFile);
+    if (up.data) resolvedBuktiUrl = up.data;
+  }
+
+  const nowIso = new Date().toISOString();
+  const patch = {
+    kategori: payload.kategori.trim(),
+    termin: payload.termin?.trim() || null,
+    tanggal: payload.tanggal.slice(0, 10),
+    nominal: Math.round(payload.nominal),
+    penerima_atau_sumber: payload.penerima_atau_sumber.trim(),
+    keterangan: payload.keterangan?.trim() || null,
+    bukti_url: resolvedBuktiUrl,
+    updated_at: nowIso,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !id.startsWith('kas-')) {
+    try {
+      const { data, error } = await supabase
+        .from('transaksi_kas')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single();
+      if (!error && data) {
+        const updated = normalizeTransaksiKasRow(data as Record<string, unknown>);
+        const next = readLocalTransaksiKas().map((item) => (item.id === id ? updated : item));
+        writeLocalTransaksiKas(next);
+        await recordAuditLog({
+          session,
+          action: 'UPDATE_TRANSAKSI_KAS',
+          entity: 'transaksi_kas',
+          entity_id: id,
+          summary: `Bendahara ${session.nama_warga} memperbarui transaksi kas ${updated.no_bukti} menjadi ${formatRupiah(updated.nominal)}.`,
+        });
+        return { data: updated };
+      }
+      if (error) {
+        return { error: parseFriendlyError(error, 'Gagal memperbarui transaksi kas di Supabase.') };
+      }
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal memperbarui transaksi kas.') };
+    }
+  }
+
+  const list = readLocalTransaksiKas();
+  const existing = list.find((item) => item.id === id);
+  if (!existing) {
+    return { error: 'Data transaksi kas tidak ditemukan.' };
+  }
+  const updated: TransaksiKas = { ...existing, ...patch };
+  writeLocalTransaksiKas(list.map((item) => (item.id === id ? updated : item)));
+  await recordAuditLog({
+    session,
+    action: 'UPDATE_TRANSAKSI_KAS',
+    entity: 'transaksi_kas',
+    entity_id: id,
+    summary: `Bendahara ${session.nama_warga} memperbarui transaksi kas ${updated.no_bukti} menjadi ${formatRupiah(updated.nominal)}.`,
+  });
+  return { data: updated };
+}
+
+export async function deleteTransaksiKasAdmin(
+  session: SessionUser,
+  trxKas: TransaksiKas
+): Promise<ServiceResult<boolean>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: penghapusan transaksi kas khusus Bendahara.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !trxKas.id.startsWith('kas-')) {
+    try {
+      const { error } = await supabase.from('transaksi_kas').delete().eq('id', trxKas.id);
+      if (error && String((error as { code?: string }).code || '') !== '42P01') {
+        return { error: parseFriendlyError(error, 'Gagal menghapus transaksi kas di Supabase.') };
+      }
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal menghapus transaksi kas.') };
+    }
+  }
+
+  writeLocalTransaksiKas(readLocalTransaksiKas().filter((item) => item.id !== trxKas.id));
+  await recordAuditLog({
+    session,
+    action: 'DELETE_TRANSAKSI_KAS',
+    entity: 'transaksi_kas',
+    entity_id: trxKas.id,
+    summary: `Bendahara ${session.nama_warga} menghapus transaksi kas ${trxKas.no_bukti} (${formatRupiah(trxKas.nominal)}).`,
+  });
+  return { data: true };
+}
+
+// =========================================================================
+// Keamanan Akun Pengurus: Ganti PIN 6 Digit Sendiri
+// =========================================================================
+
+export async function changeOwnAdminPinAdmin(
+  session: SessionUser,
+  currentPin: string,
+  newPin: string
+): Promise<ServiceResult<boolean>> {
+  if (session.role !== 'admin') {
+    return { error: 'Hanya akun Pengurus yang dapat mengganti PIN dari menu ini.' };
+  }
+  const cleanOld = currentPin.trim();
+  const cleanNew = newPin.trim();
+
+  if (!/^\d{6}$/.test(cleanOld)) {
+    return { error: 'PIN lama harus terdiri dari 6 digit angka.' };
+  }
+  if (!/^\d{6}$/.test(cleanNew)) {
+    return { error: 'PIN baru harus terdiri dari tepat 6 digit angka.' };
+  }
+  if (cleanOld === cleanNew) {
+    return { error: 'PIN baru tidak boleh sama dengan PIN lama.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data: verifyData, error: verifyErr } = await supabase.rpc('login_ecard', {
+        p_blok: session.blok_rumah,
+        p_pin: cleanOld,
+      });
+      if (verifyErr) {
+        return { error: parseFriendlyError(verifyErr, 'Gagal memverifikasi PIN lama ke server.') };
+      }
+      const row = (Array.isArray(verifyData) ? verifyData[0] : verifyData) as
+        | Record<string, unknown>
+        | undefined;
+      if (!row || typeof row.blok_rumah !== 'string') {
+        return { error: 'PIN lama yang Anda masukkan tidak sesuai.' };
+      }
+
+      const { error: updErr } = await supabase
+        .from('users_warga')
+        .update({ pin_akses: cleanNew })
+        .eq('blok_rumah', session.blok_rumah)
+        .eq('role', 'admin');
+
+      if (updErr) {
+        return { error: parseFriendlyError(updErr, 'Gagal menyimpan PIN baru ke Supabase.') };
+      }
+
+      await recordAuditLog({
+        session,
+        action: 'CHANGE_ADMIN_PIN',
+        entity: 'users_warga',
+        entity_id: session.blok_rumah,
+        summary: `Pengurus ${session.nama_warga} (${session.jabatan || 'Admin'}) memperbarui PIN 6 digit akunnya.`,
+      });
+      return { data: true };
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Terjadi kesalahan saat mengubah PIN pengurus.') };
+    }
+  }
+
+  // Fallback mode lokal
+  const pinOverrides = (() => {
+    try {
+      const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const localAcc = LOCAL_ADMIN_ACCOUNTS.find(
+    (a) => a.username.toLowerCase() === session.blok_rumah.toLowerCase()
+  );
+  const effectiveOldPin = pinOverrides[session.blok_rumah.toLowerCase()] || localAcc?.pin || '';
+  if (!effectiveOldPin || effectiveOldPin !== cleanOld) {
+    return { error: 'PIN lama yang Anda masukkan tidak sesuai.' };
+  }
+
+  pinOverrides[session.blok_rumah.toLowerCase()] = cleanNew;
+  safeStorageSet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES, JSON.stringify(pinOverrides));
+  await recordAuditLog({
+    session,
+    action: 'CHANGE_ADMIN_PIN',
+    entity: 'users_warga',
+    entity_id: session.blok_rumah,
+    summary: `Pengurus ${session.nama_warga} (${session.jabatan || 'Admin'}) memperbarui PIN 6 digit akunnya.`,
+  });
+  return { data: true };
+}
+

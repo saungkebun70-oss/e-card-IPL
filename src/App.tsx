@@ -7,8 +7,9 @@ import {
   UserCircle2,
   LayoutDashboard,
   Users,
-  Bot,
+  Plus,
   TableProperties,
+  FileCheck2,
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -39,8 +40,10 @@ import { ProfilLingkungan } from './components/warga/ProfilLingkungan';
 import { WargaProfilSlide } from './components/warga/WargaProfilSlide';
 import { AdminDashboardSlide } from './components/admin/AdminDashboardSlide';
 import { AdminWargaSlide } from './components/admin/AdminWargaSlide';
-import { AdminBotWaSlide } from './components/admin/AdminBotWaSlide';
+import { AdminKeuanganSlide } from './components/admin/AdminKeuanganSlide';
 import { AdminRekapSlide } from './components/admin/AdminRekapSlide';
+import { AdminLpjSlide } from './components/admin/AdminLpjSlide';
+import { AdminSettingsDrawer } from './components/admin/AdminSettingsDrawer';
 
 type PortalRoute = 'warga' | 'admin';
 
@@ -59,6 +62,7 @@ export default function App() {
     return loadStoredSession(initialRoute);
   });
   const [activeTab, setActiveTab] = useState<string>('beranda');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // State Portal Warga (terisolasi 1 rumah)
@@ -127,6 +131,7 @@ export default function App() {
       const nextRoute = resolvePortalRouteFromPath(window.location.pathname);
       setPortalRoute(nextRoute);
       setSession(loadStoredSession(nextRoute));
+      setSettingsOpen(false);
       setWargaData(null);
       setAdminData(null);
       setDataError(null);
@@ -141,7 +146,7 @@ export default function App() {
     void loadPortalData(session);
   }, [session, portalRoute, loadPortalData]);
 
-  // Sinkronisasi otomatis agar setoran warga yang baru dikirim langsung tampil di Admin
+  // Sinkronisasi otomatis agar setoran warga & transaksi kas langsung tampil di Admin
   useEffect(() => {
     if (!session || session.role !== portalRoute) return;
 
@@ -205,6 +210,7 @@ export default function App() {
   const handleLogout = () => {
     clearStoredSession(session, portalRoute);
     setSession(null);
+    setSettingsOpen(false);
     setWargaData(null);
     setAdminData(null);
     setDataError(null);
@@ -224,7 +230,7 @@ export default function App() {
     );
   }
 
-  // Konfigurasi Navigasi 4 Slide untuk Warga & 4 Slide untuk Admin
+  // Konfigurasi Navigasi 5 Slide Warga & 5 Slide Admin (dengan Tombol Tengah Menonjol)
   const pendingCount =
     adminData?.transaksiList.filter(
       (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
@@ -248,8 +254,15 @@ export default function App() {
             badgeCount: pendingCount,
           },
           { id: 'warga', label: 'Master Warga & PIN', shortLabel: 'Warga', icon: Users },
-          { id: 'bot', label: 'Bot WhatsApp', shortLabel: 'Bot WA', icon: Bot },
-          { id: 'rekap', label: 'Rekap & Laporan', shortLabel: 'Rekap', icon: TableProperties },
+          {
+            id: 'keuangan',
+            label: 'Pengeluaran & Kas Lain',
+            shortLabel: 'Pengeluaran',
+            icon: Plus,
+            isCenterFab: true,
+          },
+          { id: 'rekap', label: 'Rekapitulasi Bulanan', shortLabel: 'Rekap', icon: TableProperties },
+          { id: 'lpj', label: 'LPJ Triwulanan', shortLabel: 'LPJ', icon: FileCheck2 },
         ];
 
   const renderContent = () => {
@@ -362,11 +375,10 @@ export default function App() {
             <AdminDashboardSlide
               session={session}
               wargaList={adminData.wargaList}
-              pengurusAccounts={adminData.pengurusAccounts}
               transaksiList={adminData.transaksiList}
+              transaksiKasList={adminData.transaksiKasList}
               statusList={adminData.statusList}
               notifications={adminData.notifications}
-              paymentConfig={adminData.paymentConfig}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
@@ -382,16 +394,12 @@ export default function App() {
               onToast={pushToast}
             />
           );
-        case 'bot':
+        case 'keuangan':
           return (
-            <AdminBotWaSlide
+            <AdminKeuanganSlide
               session={session}
-              botConfig={adminData.botConfig}
-              botLogs={adminData.botLogs}
-              wargaList={adminData.wargaList}
-              pengurusAccounts={adminData.pengurusAccounts}
-              statusList={adminData.statusList}
-              paymentConfig={adminData.paymentConfig}
+              transaksiList={adminData.transaksiList}
+              transaksiKasList={adminData.transaksiKasList}
               onRefresh={() => loadPortalData(session)}
               onToast={pushToast}
             />
@@ -403,7 +411,18 @@ export default function App() {
               wargaList={adminData.wargaList}
               statusList={adminData.statusList}
               transaksiList={adminData.transaksiList}
+              transaksiKasList={adminData.transaksiKasList}
               onRefresh={() => loadPortalData(session)}
+              onToast={pushToast}
+            />
+          );
+        case 'lpj':
+          return (
+            <AdminLpjSlide
+              wargaList={adminData.wargaList}
+              statusList={adminData.statusList}
+              transaksiList={adminData.transaksiList}
+              transaksiKasList={adminData.transaksiKasList}
               onToast={pushToast}
             />
           );
@@ -423,6 +442,7 @@ export default function App() {
         navItems={navItems}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onOpenSettings={session.role === 'admin' ? () => setSettingsOpen(true) : undefined}
         onLogout={handleLogout}
       >
         {dataError && (wargaData || adminData) && (
@@ -442,6 +462,23 @@ export default function App() {
         )}
         {renderContent()}
       </AppShell>
+
+      {/* Drawer Pengaturan Terpusat Admin (Ikon Gear) */}
+      {session.role === 'admin' && adminData && (
+        <AdminSettingsDrawer
+          open={settingsOpen}
+          session={session}
+          paymentConfig={adminData.paymentConfig}
+          botConfig={adminData.botConfig}
+          botLogs={adminData.botLogs}
+          wargaList={adminData.wargaList}
+          pengurusAccounts={adminData.pengurusAccounts}
+          statusList={adminData.statusList}
+          onClose={() => setSettingsOpen(false)}
+          onRefresh={() => loadPortalData(session)}
+          onToast={pushToast}
+        />
+      )}
     </>
   );
 }

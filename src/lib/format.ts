@@ -236,3 +236,90 @@ export function generateKwitansiNumber(blokRumah: string, tanggalIso?: string): 
   const rand = Math.floor(100 + Math.random() * 900);
   return `SKB/${y}${m}${d}/${blokClean}/${rand}`;
 }
+
+export function generateBuktiKasNumber(
+  jenis: 'pengeluaran' | 'pemasukan_lain',
+  tanggalIso?: string
+): string {
+  const date = tanggalIso ? new Date(tanggalIso) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const y = safeDate.getFullYear();
+  const m = String(safeDate.getMonth() + 1).padStart(2, '0');
+  const d = String(safeDate.getDate()).padStart(2, '0');
+  const prefix = jenis === 'pengeluaran' ? 'BKK' : 'BKM';
+  const rand = Math.floor(100 + Math.random() * 900);
+  return `${prefix}/SKB/${y}${m}${d}/${rand}`;
+}
+
+export function formatTanggalSingkat(isoString: string): string {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return isoString;
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function terbilangAngka(n: number): string {
+  const satuan = [
+    '',
+    'Satu',
+    'Dua',
+    'Tiga',
+    'Empat',
+    'Lima',
+    'Enam',
+    'Tujuh',
+    'Delapan',
+    'Sembilan',
+    'Sepuluh',
+    'Sebelas',
+  ];
+  const val = Math.floor(Math.abs(n));
+  if (val < 12) return satuan[val];
+  if (val < 20) return `${terbilangAngka(val - 10)} Belas`;
+  if (val < 100) {
+    const puluh = `${terbilangAngka(Math.floor(val / 10))} Puluh`;
+    const sisa = val % 10;
+    return sisa ? `${puluh} ${terbilangAngka(sisa)}` : puluh;
+  }
+  if (val < 200) {
+    const sisa = val - 100;
+    return sisa ? `Seratus ${terbilangAngka(sisa)}` : 'Seratus';
+  }
+  if (val < 1000) {
+    const ratus = `${terbilangAngka(Math.floor(val / 100))} Ratus`;
+    const sisa = val % 100;
+    return sisa ? `${ratus} ${terbilangAngka(sisa)}` : ratus;
+  }
+  if (val < 2000) {
+    const sisa = val - 1000;
+    return sisa ? `Seribu ${terbilangAngka(sisa)}` : 'Seribu';
+  }
+  if (val < 1_000_000) {
+    const ribu = `${terbilangAngka(Math.floor(val / 1000))} Ribu`;
+    const sisa = val % 1000;
+    return sisa ? `${ribu} ${terbilangAngka(sisa)}` : ribu;
+  }
+  if (val < 1_000_000_000) {
+    const juta = `${terbilangAngka(Math.floor(val / 1_000_000))} Juta`;
+    const sisa = val % 1_000_000;
+    return sisa ? `${juta} ${terbilangAngka(sisa)}` : juta;
+  }
+  if (val < 1_000_000_000_000) {
+    const miliar = `${terbilangAngka(Math.floor(val / 1_000_000_000))} Miliar`;
+    const sisa = val % 1_000_000_000;
+    return sisa ? `${miliar} ${terbilangAngka(sisa)}` : miliar;
+  }
+  return String(val);
+}
+
+export function terbilangRupiah(nominal: number): string {
+  if (!Number.isFinite(nominal) || Math.floor(nominal) === 0) {
+    return 'Nol Rupiah';
+  }
+  const prefix = nominal < 0 ? 'Minus ' : '';
+  return `${prefix}${terbilangAngka(nominal).replace(/\s+/g, ' ').trim()} Rupiah`;
+}
+

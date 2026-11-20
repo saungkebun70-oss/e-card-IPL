@@ -39,6 +39,7 @@ export interface PaymentConfig {
   qris_label: string;
   qris_catatan: string;
   rekening_list: RekeningPembayaran[];
+  nominal_ipl_bulanan?: number;
   updated_at: string;
   updated_by?: string | null;
 }
@@ -49,6 +50,7 @@ export interface AppBrandConfig {
   app_subtitle: string;
   kop_resmi: string;
   logo_url: string | null;
+  stempel_url?: string | null;
   wa_pengurus: string;
   wa_pengurus_label: string;
   wa_bot: string;
@@ -130,6 +132,77 @@ export interface TransaksiIPL {
   verified_at?: string | null;
   verified_by?: string | null;
 }
+
+export type JenisTransaksiKas = 'pengeluaran' | 'pemasukan_lain';
+
+export type KategoriPengeluaran =
+  | 'Honorarium Keamanan / Satpam'
+  | 'Kebersihan & Pengangkutan Sampah'
+  | 'Listrik PJU & Pos Keamanan'
+  | 'Perbaikan Fasilitas Umum'
+  | 'ATK & Administrasi Sekretariat'
+  | 'Kegiatan Warga & Sosial'
+  | 'Lain-lain';
+
+export type TerminPengeluaran =
+  | 'Termin Tgl 7'
+  | 'Termin Tgl 18'
+  | 'Bulanan'
+  | 'Insidental';
+
+export type KategoriPemasukanLain =
+  | 'Dana Darurat / Setoran Parsial'
+  | 'Sumbangan / Donasi Warga'
+  | 'Saldo Kas Awal'
+  | 'Pemasukan Lain-lain';
+
+export interface TransaksiKas {
+  id: string;
+  no_bukti: string;
+  jenis: JenisTransaksiKas;
+  kategori: string;
+  termin?: string | null;
+  tanggal: string; // YYYY-MM-DD
+  nominal: number;
+  penerima_atau_sumber: string;
+  keterangan?: string | null;
+  bukti_url?: string | null;
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export const KATEGORI_PENGELUARAN_LIST: KategoriPengeluaran[] = [
+  'Honorarium Keamanan / Satpam',
+  'Kebersihan & Pengangkutan Sampah',
+  'Listrik PJU & Pos Keamanan',
+  'Perbaikan Fasilitas Umum',
+  'ATK & Administrasi Sekretariat',
+  'Kegiatan Warga & Sosial',
+  'Lain-lain',
+];
+
+export const TERMIN_PENGELUARAN_LIST: TerminPengeluaran[] = [
+  'Termin Tgl 7',
+  'Termin Tgl 18',
+  'Bulanan',
+  'Insidental',
+];
+
+export const KATEGORI_PEMASUKAN_LAIN_LIST: KategoriPemasukanLain[] = [
+  'Dana Darurat / Setoran Parsial',
+  'Sumbangan / Donasi Warga',
+  'Saldo Kas Awal',
+  'Pemasukan Lain-lain',
+];
+
+export const TRIWULAN_LIST = [
+  { id: 1, label: 'Triwulan I', rentang: 'Januari – Maret', bulan: [1, 2, 3] as const },
+  { id: 2, label: 'Triwulan II', rentang: 'April – Juni', bulan: [4, 5, 6] as const },
+  { id: 3, label: 'Triwulan III', rentang: 'Juli – September', bulan: [7, 8, 9] as const },
+  { id: 4, label: 'Triwulan IV', rentang: 'Oktober – Desember', bulan: [10, 11, 12] as const },
+] as const;
 
 export interface BotWaConfig {
   id: string;
@@ -263,6 +336,7 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   qris_label: 'QRIS Kas Lingkungan Perumahan Saung Kebun',
   qris_catatan: 'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
   rekening_list: REKENING_KAS,
+  nominal_ipl_bulanan: NOMINAL_IPL_STANDAR,
   updated_at: '2026-11-01T07:00:00.000Z',
   updated_by: 'andriansyah',
 };
@@ -273,6 +347,7 @@ export const DEFAULT_APP_BRAND_CONFIG: AppBrandConfig = {
   app_subtitle: SUB_NAMA_APLIKASI,
   kop_resmi: KOP_RESMI,
   logo_url: null,
+  stempel_url: null,
   wa_pengurus: WA_PENGURUS,
   wa_pengurus_label: 'Andriansyah (Bendahara)',
   wa_bot: '',

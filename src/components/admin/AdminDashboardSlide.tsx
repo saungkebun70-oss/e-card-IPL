@@ -5,7 +5,6 @@ import {
   Clock,
   Image as ImageIcon,
   X,
-  History,
   RefreshCw,
   AlertTriangle,
   Megaphone,
@@ -13,23 +12,21 @@ import {
   Loader2,
   Trash2,
   Users,
-  QrCode,
-  Sparkles,
   Search,
+  Wallet,
+  ReceiptText,
 } from 'lucide-react';
 import {
   BULK_NOTIFICATION_TEMPLATES,
   isBendaharaFullAccess,
   TAHUN_AKTIF,
-  type AuditLogEntry,
   type NotificationCategory,
   type NotificationTargetScope,
-  type PaymentConfig,
-  type PengurusAccountInfo,
   type SessionUser,
   type StatusEcardBulanan,
   type SystemNotification,
   type TransaksiIPL,
+  type TransaksiKas,
   type Warga,
 } from '../../types';
 import {
@@ -45,9 +42,8 @@ import {
   sendBulkSystemNotificationAdmin,
   verifyTransaksiAdmin,
 } from '../../lib/dataService';
-import { fetchAuditLogs } from '../../lib/auditLogger';
-import { AdminPaymentSettingsModal } from './AdminPaymentSettingsModal';
-import { AdminBrandSettingsModal } from './AdminBrandSettingsModal';
+import { calculateGlobalCashSummary } from '../../lib/financeUtils';
+import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -61,11 +57,10 @@ type TrxFilterTab = 'Pending' | 'Semua' | 'Terverifikasi' | 'Ditolak';
 interface AdminDashboardSlideProps {
   session: SessionUser;
   wargaList: Warga[];
-  pengurusAccounts: PengurusAccountInfo[];
   transaksiList: TransaksiIPL[];
+  transaksiKasList: TransaksiKas[];
   statusList: StatusEcardBulanan[];
   notifications: SystemNotification[];
-  paymentConfig: PaymentConfig;
   isRefreshing?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -74,11 +69,10 @@ interface AdminDashboardSlideProps {
 export function AdminDashboardSlide({
   session,
   wargaList,
-  pengurusAccounts,
   transaksiList,
+  transaksiKasList,
   statusList,
   notifications,
-  paymentConfig,
   isRefreshing = false,
   onRefresh,
   onToast,
@@ -86,18 +80,13 @@ export function AdminDashboardSlide({
   const canManageFull = isBendaharaFullAccess(session);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewTrx, setPreviewTrx] = useState<TransaksiIPL | null>(null);
+  const [receiptTrx, setReceiptTrx] = useState<TransaksiIPL | null>(null);
   const [rejectTarget, setRejectTarget] = useState<TransaksiIPL | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
   const [trxFilter, setTrxFilter] = useState<TrxFilterTab>('Pending');
   const [trxSearch, setTrxSearch] = useState('');
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [auditLoading, setAuditLoading] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [visiblePendingCount, setVisiblePendingCount] = useState(15);
-  const [visibleAuditCount, setVisibleAuditCount] = useState(20);
-  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(false);
-  const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
 
   // State Modal Kirim Notifikasi Massal Sistem
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -110,6 +99,12 @@ export function AdminDashboardSlide({
 
   const currentMonth = getCurrentBillingMonth();
   const currentMonthName = getNamaBulan(currentMonth);
+
+  // Saldo Kas Real-Time (IPL Terverifikasi + Pemasukan Lain - Pengeluaran Anggaran)
+  const globalCash = useMemo(
+    () => calculateGlobalCashSummary(transaksiList, transaksiKasList),
+    [transaksiList, transaksiKasList]
+  );
 
   // Hitung KPI bulan berjalan dengan pencocokan blok kanonis (B05/02 == B5/2)
   const activeWarga = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
@@ -218,18 +213,6 @@ export function AdminDashboardSlide({
     }
   };
 
-  const openAuditDrawer = async () => {
-    setAuditOpen(true);
-    setVisibleAuditCount(20);
-    setAuditLoading(true);
-    try {
-      const logs = await fetchAuditLogs(session);
-      setAuditLogs(logs);
-    } finally {
-      setAuditLoading(false);
-    }
-  };
-
   const allRegisteredActiveCount = wargaList.filter((w) => w.aktif).length;
   const targetRecipientCount =
     notifScope === 'all_units' ? allRegisteredActiveCount : activeWarga.length;
@@ -254,7 +237,6 @@ export function AdminDashboardSlide({
 
     setSendingBroadcast(true);
     try {
-      // Simulasi jeda pengiriman sistem singkat agar umpan balik terasa natural
       await new Promise((resolve) => setTimeout(resolve, 450));
       const res = await sendBulkSystemNotificationAdmin(session, {
         title: notifTitle,
@@ -298,8 +280,8 @@ export function AdminDashboardSlide({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Kontekstual + Aksi Pengumuman Massal & Log Aktivitas */}
+    <div className="space-y-5">
+      {/* Header Periode + 2 Tombol Aksi Cepat Bersih (Grid 2 Kolom Sejajar) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-sm text-slate-600">
@@ -309,56 +291,73 @@ export function AdminDashboardSlide({
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setBrandSettingsOpen(true)}
-            className="min-h-[40px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-900 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Sparkles className="w-4 h-4 text-[#059669] shrink-0" />
-            <span>Nama, Logo &amp; WA</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPaymentSettingsOpen(true)}
-            className="min-h-[40px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <QrCode className="w-4 h-4 shrink-0" />
-            <span>QRIS &amp; Rekening</span>
-          </button>
+
+        <div className="grid grid-cols-2 gap-2.5 sm:w-auto sm:min-w-[330px]">
           <button
             type="button"
             onClick={openBroadcastModal}
-            className="min-h-[40px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[44px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs sm:text-sm font-semibold text-white inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <Megaphone className="w-4 h-4 shrink-0" />
             <span>Kirim Pengumuman</span>
           </button>
-          <button
-            type="button"
-            onClick={openAuditDrawer}
-            className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <History className="w-4 h-4 text-slate-500" />
-            <span>Log Aktivitas</span>
-          </button>
+
           <button
             type="button"
             disabled={isRefreshing}
             onClick={() => void onRefresh()}
-            className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Menyinkronkan...' : 'Muat Ulang'}</span>
+            <RefreshCw className={`w-4 h-4 text-slate-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Memuat...' : 'Muat Ulang Data'}</span>
           </button>
         </div>
       </div>
 
+      {/* Kartu Saldo Kas Real-Time Terintegrasi */}
+      <section className="rounded-2xl bg-[#0F172A] text-white p-5 sm:p-6 border border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-emerald-300 inline-flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 shrink-0" />
+              <span>Saldo Kas Lingkungan Real-Time</span>
+            </p>
+            <p className="text-2xl sm:text-3xl font-mono font-bold tracking-tight tabular-nums mt-1.5">
+              {formatRupiah(globalCash.saldoKas)}
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Otomatis tersinkronisasi: Pemasukan IPL Terverifikasi + Pemasukan Lain − Pengeluaran Anggaran
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3 md:min-w-[380px]">
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+              <p className="text-[11px] text-slate-400">IPL Masuk</p>
+              <p className="text-xs sm:text-sm font-mono font-bold text-emerald-300 tabular-nums mt-0.5 truncate">
+                {formatRupiah(globalCash.totalIplMasuk)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+              <p className="text-[11px] text-slate-400">Kas Lain</p>
+              <p className="text-xs sm:text-sm font-mono font-bold text-sky-300 tabular-nums mt-0.5 truncate">
+                {formatRupiah(globalCash.totalPemasukanLain)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+              <p className="text-[11px] text-slate-400">Pengeluaran</p>
+              <p className="text-xs sm:text-sm font-mono font-bold text-rose-300 tabular-nums mt-0.5 truncate">
+                {formatRupiah(globalCash.totalPengeluaran)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 4 KPI Ringkasan Kas Bulan Berjalan */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Pemasukan Terverifikasi</p>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-[#059669] tabular-nums mt-2 truncate">
+          <p className="text-lg sm:text-2xl font-mono font-bold text-[#059669] tabular-nums mt-2 truncate">
             {formatRupiah(pemasukanBulanIni)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Periode {currentMonthName} {TAHUN_AKTIF}</p>
@@ -366,7 +365,7 @@ export function AdminDashboardSlide({
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Rumah Lunas</p>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-2">
+          <p className="text-lg sm:text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-2">
             {rumahLunasBulanIni}{' '}
             <span className="text-sm font-normal text-slate-400">/ {activeWarga.length}</span>
           </p>
@@ -375,7 +374,7 @@ export function AdminDashboardSlide({
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Belum Bayar</p>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-red-700 tabular-nums mt-2">
+          <p className="text-lg sm:text-2xl font-mono font-bold text-red-700 tabular-nums mt-2">
             {rumahBelumBayarBulanIni}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Unit aktif belum setor</p>
@@ -383,7 +382,7 @@ export function AdminDashboardSlide({
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Antrean Verifikasi</p>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-amber-600 tabular-nums mt-2">
+          <p className="text-lg sm:text-2xl font-mono font-bold text-amber-600 tabular-nums mt-2">
             {pendingList.length}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Menunggu persetujuan</p>
@@ -460,7 +459,7 @@ export function AdminDashboardSlide({
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
               {trxFilter === 'Pending' && !trxSearch.trim()
                 ? 'Tidak ada transaksi berstatus Pending saat ini. Anda dapat klik tab "Semua" di atas untuk melihat seluruh riwayat kiriman warga.'
-                : 'Coba ubah filter status atau kata kunci pencarian, atau tekan Muat Ulang untuk sinkronisasi terbaru.'}
+                : 'Coba ubah filter status atau kata kunci pencarian, atau tekan Muat Ulang Data untuk sinkronisasi terbaru.'}
             </p>
             {trxFilter === 'Pending' && transaksiList.length > 0 && (
               <button
@@ -474,153 +473,164 @@ export function AdminDashboardSlide({
           </div>
         ) : (
           <>
-          <div className="divide-y divide-slate-100">
-            {filteredTransaksi.slice(0, visiblePendingCount).map((trx) => {
-              const isBusy = processingId === trx.id;
-              const isPending = trx.status_verifikasi === 'Pending';
-              const isVerified = trx.status_verifikasi === 'Terverifikasi';
-              return (
-                <article
-                  key={trx.id}
-                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-4 min-w-0">
-                    {/* Thumbnail Bukti Foto */}
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTrx(trx)}
-                      className="w-20 h-20 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 hover:border-emerald-600 transition-colors cursor-pointer flex items-center justify-center"
-                      title="Perbesar bukti transaksi"
-                    >
-                      {trx.bukti_url ? (
-                        <img
-                          src={trx.bukti_url}
-                          alt={`Bukti ${trx.blok_rumah}`}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <ImageIcon className="w-6 h-6 text-slate-400" />
-                      )}
-                    </button>
-
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="font-mono text-sm font-bold text-[#0F172A]">
-                          {trx.blok_rumah}
-                        </span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="text-sm font-semibold text-[#0F172A]">
-                          {trx.nama_warga}
-                        </span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        {isPending ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
-                            <Clock className="w-3.5 h-3.5" />
-                            Pending
-                          </span>
-                        ) : isVerified ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Terverifikasi
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
-                            <XCircle className="w-3.5 h-3.5" />
-                            Ditolak
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-sm font-mono font-bold text-emerald-700 tabular-nums">
-                        {formatRupiah(trx.nominal)}{' '}
-                        <span className="font-sans text-xs font-medium text-slate-600">
-                          untuk {formatDaftarBulan(trx.bulan_dibayar)} ({trx.tahun})
-                        </span>
-                      </p>
-
-                      <p className="text-xs text-slate-500">
-                        {trx.metode_bayar}
-                        {trx.petugas_penerima ? ` (Petugas: ${trx.petugas_penerima})` : ''} ·{' '}
-                        {formatTanggalWaktu(trx.tanggal_setor)} ·{' '}
-                        <span className="font-mono text-[11px]">{trx.no_kwitansi}</span>
-                      </p>
-
-                      {trx.keterangan && (
-                        <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
-                      )}
-                      {trx.catatan_admin && !isPending && (
-                        <p className="text-xs text-slate-500">
-                          Catatan pengurus: {trx.catatan_admin}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Aksi Preview & Approve / Reject (Khusus Bendahara untuk Pending) */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {trx.bukti_url && (
+            <div className="divide-y divide-slate-100">
+              {filteredTransaksi.slice(0, visiblePendingCount).map((trx) => {
+                const isBusy = processingId === trx.id;
+                const isPending = trx.status_verifikasi === 'Pending';
+                const isVerified = trx.status_verifikasi === 'Terverifikasi';
+                return (
+                  <article
+                    key={trx.id}
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-start gap-4 min-w-0">
+                      {/* Thumbnail Bukti Foto */}
                       <button
                         type="button"
                         onClick={() => setPreviewTrx(trx)}
-                        className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        className="w-20 h-20 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 hover:border-emerald-600 transition-colors cursor-pointer flex items-center justify-center"
+                        title="Perbesar bukti transaksi"
                       >
-                        <ImageIcon className="w-4 h-4" />
-                        <span>Perbesar Bukti</span>
+                        {trx.bukti_url ? (
+                          <img
+                            src={trx.bukti_url}
+                            alt={`Bukti ${trx.blok_rumah}`}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ImageIcon className="w-6 h-6 text-slate-400" />
+                        )}
                       </button>
-                    )}
 
-                    {isPending &&
-                      (canManageFull ? (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => {
-                              setRejectTarget(trx);
-                              setRejectReason('');
-                            }}
-                            className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            <span>Tolak</span>
-                          </button>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="font-mono text-sm font-bold text-[#0F172A]">
+                            {trx.blok_rumah}
+                          </span>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span className="text-sm font-semibold text-[#0F172A]">
+                            {trx.nama_warga}
+                          </span>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          {isPending ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Pending
+                            </span>
+                          ) : isVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Terverifikasi
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                              <XCircle className="w-3.5 h-3.5" />
+                              Ditolak
+                            </span>
+                          )}
+                        </div>
 
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => void handleApprove(trx)}
-                            className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>{isBusy ? 'Memproses...' : 'Setujui (Approve)'}</span>
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-xs font-medium text-slate-500 px-2">
-                          Verifikasi khusus Bendahara
-                        </span>
-                      ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          {filteredTransaksi.length > visiblePendingCount && (
-            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-500 tabular-nums">
-                Menampilkan {Math.min(visiblePendingCount, filteredTransaksi.length)} dari{' '}
-                {filteredTransaksi.length} setoran
-              </span>
-              <button
-                type="button"
-                onClick={() => setVisiblePendingCount((c) => c + 15)}
-                className="min-h-[36px] px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] cursor-pointer"
-              >
-                Tampilkan Lebih Banyak
-              </button>
+                        <p className="text-sm font-mono font-bold text-emerald-700 tabular-nums">
+                          {formatRupiah(trx.nominal)}{' '}
+                          <span className="font-sans text-xs font-medium text-slate-600">
+                            untuk {formatDaftarBulan(trx.bulan_dibayar)} ({trx.tahun})
+                          </span>
+                        </p>
+
+                        <p className="text-xs text-slate-500">
+                          {trx.metode_bayar}
+                          {trx.petugas_penerima ? ` (Petugas: ${trx.petugas_penerima})` : ''} ·{' '}
+                          {formatTanggalWaktu(trx.tanggal_setor)} ·{' '}
+                          <span className="font-mono text-[11px]">{trx.no_kwitansi}</span>
+                        </p>
+
+                        {trx.keterangan && (
+                          <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
+                        )}
+                        {trx.catatan_admin && !isPending && (
+                          <p className="text-xs text-slate-500">
+                            Catatan pengurus: {trx.catatan_admin}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Aksi Preview, e-Kwitansi & Approve / Reject */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {trx.bukti_url && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTrx(trx)}
+                          className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Perbesar Bukti</span>
+                        </button>
+                      )}
+
+                      {isVerified && (
+                        <button
+                          type="button"
+                          onClick={() => setReceiptTrx(trx)}
+                          className="min-h-[42px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <ReceiptText className="w-4 h-4" />
+                          <span>e-Kwitansi</span>
+                        </button>
+                      )}
+
+                      {isPending &&
+                        (canManageFull ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => {
+                                setRejectTarget(trx);
+                                setRejectReason('');
+                              }}
+                              className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              <span>Tolak</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => void handleApprove(trx)}
+                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>{isBusy ? 'Memproses...' : 'Setujui (Approve)'}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-500 px-2">
+                            Verifikasi khusus Bendahara
+                          </span>
+                        ))}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          )}
+            {filteredTransaksi.length > visiblePendingCount && (
+              <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 tabular-nums">
+                  Menampilkan {Math.min(visiblePendingCount, filteredTransaksi.length)} dari{' '}
+                  {filteredTransaksi.length} setoran
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVisiblePendingCount((c) => c + 15)}
+                  className="min-h-[36px] px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] cursor-pointer"
+                >
+                  Tampilkan Lebih Banyak
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -832,86 +842,6 @@ export function AdminDashboardSlide({
         </div>
       )}
 
-      {/* Modal Log Aktivitas Perubahan Data di Server */}
-      {auditOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setAuditOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[82vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-bold text-[#0F172A]">
-                  Log Aktivitas Perubahan Data Server
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Jejak audit login, setoran warga, verifikasi, perubahan data, dan pengiriman bot.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAuditOpen(false)}
-                aria-label="Tutup log"
-                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-              {auditLoading ? (
-                <div className="p-8 text-center text-sm text-slate-500">Memuat log server...</div>
-              ) : auditLogs.length === 0 ? (
-                <div className="p-8 text-center text-sm text-slate-500">
-                  Belum ada catatan aktivitas yang terekam.
-                </div>
-              ) : (
-                <>
-                  {auditLogs.slice(0, visibleAuditCount).map((log) => (
-                    <div key={log.id} className="px-5 py-3.5 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-mono font-bold text-[#0F172A]">{log.action}</span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
-                          <span className="text-slate-600">
-                            {log.actor_name} ({log.actor_id})
-                          </span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
-                          <span className="font-mono text-slate-500">{log.entity}</span>
-                        </div>
-                        <span className="text-xs font-mono text-slate-400 tabular-nums">
-                          {formatTanggalWaktu(log.timestamp)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-700 mt-1">{log.summary}</p>
-                    </div>
-                  ))}
-                  {auditLogs.length > visibleAuditCount && (
-                    <div className="px-5 py-3 bg-slate-50 flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-500 tabular-nums">
-                        Menampilkan {Math.min(visibleAuditCount, auditLogs.length)} dari{' '}
-                        {auditLogs.length} log
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setVisibleAuditCount((c) => c + 25)}
-                        className="min-h-[36px] px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] cursor-pointer"
-                      >
-                        Muat Lebih Banyak
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       {/* Modal Kirim Notifikasi / Pengumuman Massal Sistem */}
       {broadcastOpen && (
         <div
@@ -1139,25 +1069,15 @@ export function AdminDashboardSlide({
           </form>
         </div>
       )}
-      {/* Modal Pengaturan Pembayaran (QRIS, Nomor Rekening & Susunan Pengurus) */}
-      <AdminPaymentSettingsModal
-        open={paymentSettingsOpen}
-        session={session}
-        paymentConfig={paymentConfig}
-        pengurusAccounts={pengurusAccounts}
-        onClose={() => setPaymentSettingsOpen(false)}
-        onSaved={onRefresh}
-        onToast={onToast}
-      />
 
-      {/* Modal Pengaturan Nama Aplikasi, Logo & WA Pengurus */}
-      <AdminBrandSettingsModal
-        open={brandSettingsOpen}
-        session={session}
-        pengurusAccounts={pengurusAccounts}
-        onClose={() => setBrandSettingsOpen(false)}
-        onToast={onToast}
-      />
+      {/* Modal Kwitansi Digital + Stempel Resmi untuk Transaksi Terverifikasi */}
+      {receiptTrx && (
+        <KwitansiDigitalModal
+          mode="ipl"
+          trx={receiptTrx}
+          onClose={() => setReceiptTrx(null)}
+        />
+      )}
     </div>
   );
 }

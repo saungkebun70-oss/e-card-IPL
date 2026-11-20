@@ -7,20 +7,22 @@ export const LOGO_SAUNG_KEBUN_SRC = defaultLogoAsset;
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'light' | 'dark';
   className?: string;
   srcOverride?: string | null;
   altOverride?: string;
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
-  sm: 'w-10 h-10 rounded-xl p-1',
-  md: 'w-12 h-12 rounded-xl p-1',
-  lg: 'w-20 h-20 rounded-2xl p-1.5',
-  xl: 'w-24 h-24 sm:w-28 sm:h-28 rounded-2xl p-2',
+  sm: 'w-10 h-10 rounded-xl',
+  md: 'w-12 h-12 rounded-xl',
+  lg: 'w-16 h-16 sm:w-20 sm:h-20 rounded-2xl',
+  xl: 'w-20 h-20 sm:w-24 sm:h-24 rounded-2xl',
 };
 
 export function BrandLogo({
   size = 'md',
+  variant = 'light',
   className = '',
   srcOverride,
   altOverride,
@@ -42,16 +44,25 @@ export function BrandLogo({
   if (failed) {
     return (
       <div
-        className={`bg-[#059669] flex items-center justify-center shrink-0 ${SIZE_CLASSES[size]} ${className}`}
+        className={`bg-[#059669] flex items-center justify-center shrink-0 shadow-md ring-1 ring-emerald-400/30 ${SIZE_CLASSES[size]} ${className}`}
       >
         <Building2 className="w-1/2 h-1/2 text-white" />
       </div>
     );
   }
 
+  // Wadah proporsional tanpa padding putih berlebih agar menyatu elegan dengan latar gelap/emerald
+  const frameSurface = isDefaultAsset
+    ? variant === 'dark'
+      ? 'bg-[#F5F4D8] p-0.5 shadow-lg ring-1 ring-emerald-400/35'
+      : 'bg-[#F5F4D8] p-0.5 shadow-sm ring-1 ring-slate-200/90'
+    : variant === 'dark'
+      ? 'bg-white/95 p-1 shadow-lg ring-1 ring-emerald-400/30'
+      : 'bg-white p-1 shadow-sm ring-1 ring-slate-200/90';
+
   return (
     <div
-      className={`bg-white flex items-center justify-center shrink-0 overflow-hidden border border-slate-200/80 shadow-sm ${SIZE_CLASSES[size]} ${className}`}
+      className={`flex items-center justify-center shrink-0 overflow-hidden ${SIZE_CLASSES[size]} ${frameSurface} ${className}`}
     >
       <img
         src={resolvedSrc}
@@ -59,7 +70,9 @@ export function BrandLogo({
         referrerPolicy="no-referrer"
         decoding="async"
         onError={() => setFailed(true)}
-        className={`w-full h-full object-contain ${isDefaultAsset ? 'scale-125' : ''}`}
+        className={`w-full h-full rounded-[inherit] ${
+          isDefaultAsset ? 'object-cover scale-[1.06]' : 'object-contain'
+        }`}
       />
     </div>
   );

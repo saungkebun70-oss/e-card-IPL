@@ -55,13 +55,13 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
         />
 
         <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <BrandLogo size="xl" className="border-white/15 shadow-lg shadow-black/25" />
+          <div className="flex items-center gap-4">
+            <BrandLogo size="xl" variant="dark" />
             <div className="min-w-0">
               <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
                 {brand.app_name}
               </p>
-              <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5">
+              <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5 leading-snug">
                 Portal Admin &amp; Pengurus · {brand.app_subtitle}
               </p>
             </div>
