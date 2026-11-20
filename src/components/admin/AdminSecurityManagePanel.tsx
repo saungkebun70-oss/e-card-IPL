@@ -1061,13 +1061,14 @@ export function AdminSecurityManagePanel({
             </div>
           )}
 
-          {/* Kanvas Peta Editor Interaktif */}
+          {/* Kanvas Peta Editor Interaktif (Klik Langsung / Drag Pin Presisi) */}
           <PatrolInteractiveMap
             mode="editor"
             titikList={titikPatroliList}
             patroliLogs={[]}
             patrolMapConfig={localMapConfig}
             selectedEditorTitikId={canEdit ? selectedPinTitikId : null}
+            onSelectEditorTitik={canEdit ? setSelectedPinTitikId : undefined}
             onPlacePin={canEdit ? handlePlacePin : undefined}
             savingPin={savingPin}
           />
