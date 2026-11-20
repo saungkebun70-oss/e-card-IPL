@@ -507,6 +507,7 @@ export default function App() {
                 .filter((p) => p.aktif)
                 .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }))}
               patroliFeed={adminData.patroliFeed}
+              titikPatroliList={adminData.titikPatroliList}
               notifications={adminData.notifications}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
