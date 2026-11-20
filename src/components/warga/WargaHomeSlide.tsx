@@ -20,6 +20,7 @@ import {
   type StatusBulanEcard,
   type StatusEcardBulanan,
   type SystemNotification,
+  type TransaksiIPL,
   type Warga,
 } from '../../types';
 import {
@@ -35,6 +36,7 @@ import { PanduanBotWaModal } from './PanduanBotWaModal';
 interface WargaHomeSlideProps {
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
+  riwayat?: TransaksiIPL[];
   notifications: SystemNotification[];
   onQuickPayMonth: (bulan: number) => void;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -88,6 +90,7 @@ function getMonthCellStyles(status: StatusBulanEcard) {
 export function WargaHomeSlide({
   profil,
   statusBulanan,
+  riwayat = [],
   notifications,
   onQuickPayMonth,
   onToast,
@@ -123,20 +126,32 @@ export function WargaHomeSlide({
 
   const currentStatusObj = statusBulanan.find((s) => s.bulan === currentMonth);
   const rawCurrentStatus = currentStatusObj?.status || 'Belum Bayar';
+  const currentMonthTrx = riwayat.find(
+    (t) =>
+      t.tahun === TAHUN_AKTIF &&
+      t.bulan_dibayar.includes(currentMonth) &&
+      (t.status_verifikasi === 'ACC Bendahara' || t.status_verifikasi === 'Pending')
+  );
 
   const ecardBadge =
     rawCurrentStatus === 'Lunas'
       ? {
-          text: 'LUNAS',
+          text: 'LUNAS · SAH BEND & KETUA',
           bg: 'bg-emerald-500 text-white',
           icon: CheckCircle2,
         }
       : rawCurrentStatus === 'Menunggu Verifikasi'
-        ? {
-            text: 'MENUNGGU VERIFIKASI',
-            bg: 'bg-amber-500 text-slate-950',
-            icon: Clock,
-          }
+        ? currentMonthTrx?.status_verifikasi === 'ACC Bendahara'
+          ? {
+              text: 'ACC BENDAHARA · MENUNGGU KETUA',
+              bg: 'bg-sky-500 text-white',
+              icon: ShieldCheck,
+            }
+          : {
+              text: 'MENUNGGU BENDAHARA',
+              bg: 'bg-amber-500 text-slate-950',
+              icon: Clock,
+            }
         : {
             text: 'BELUM BAYAR',
             bg: 'bg-red-600 text-white',

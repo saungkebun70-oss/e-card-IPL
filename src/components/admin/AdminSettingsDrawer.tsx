@@ -27,12 +27,14 @@ import {
 import {
   DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
+  isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
   SUSUNAN_PENGURUS,
   type AppBrandConfig,
   type AuditLogEntry,
   type BotWaConfig,
   type BotWaLog,
+  type PatrolMapConfig,
   type PaymentConfig,
   type PengurusAccountInfo,
   type PetugasKeamanan,
@@ -73,6 +75,7 @@ interface AdminSettingsDrawerProps {
   statusList: StatusEcardBulanan[];
   petugasList: PetugasKeamanan[];
   titikPatroliList: TitikPatroli[];
+  patrolMapConfig?: PatrolMapConfig | null;
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -90,14 +93,19 @@ export function AdminSettingsDrawer({
   statusList,
   petugasList,
   titikPatroliList,
+  patrolMapConfig,
   onClose,
   onRefresh,
   onToast,
 }: AdminSettingsDrawerProps) {
   const { brand, setBrand } = useAppBrand();
   const canEdit = isBendaharaFullAccess(session);
+  const canAccessBotWa = isBendaharaOnly(session);
 
-  const [activeTab, setActiveTab] = useState<SettingsDrawerTab>(initialTab);
+  const resolveSafeTab = (tab: SettingsDrawerTab): SettingsDrawerTab =>
+    tab === 'bot_wa' && !canAccessBotWa ? 'identitas' : tab;
+
+  const [activeTab, setActiveTab] = useState<SettingsDrawerTab>(resolveSafeTab(initialTab));
 
   // Tab 1: Identitas, Logo, Stempel & WA Pengurus
   const [brandDraft, setBrandDraft] = useState<AppBrandConfig>(brand);
@@ -139,7 +147,7 @@ export function AdminSettingsDrawer({
     if (wasOpenRef.current) return;
     wasOpenRef.current = true;
 
-    setActiveTab(initialTab);
+    setActiveTab(resolveSafeTab(initialTab));
     setBrandDraft({
       ...brand,
       pengurus_wa_map: { ...(brand.pengurus_wa_map || {}) },
@@ -362,7 +370,9 @@ export function AdminSettingsDrawer({
                 Pengaturan Sistem Terpusat
               </h2>
               <p className="text-xs text-slate-500 truncate">
-                Identitas &amp; Stempel, Pembayaran IPL, Bot WhatsApp, Keamanan PIN &amp; Log Aktivitas
+                {canAccessBotWa
+                  ? 'Identitas & Stempel, Pembayaran IPL, Bot WhatsApp, Petugas & Peta Patroli, PIN & Log'
+                  : 'Identitas & Stempel, Pembayaran IPL, Petugas & Peta Patroli, Keamanan PIN & Log'}
               </p>
             </div>
           </div>
@@ -377,15 +387,20 @@ export function AdminSettingsDrawer({
           </button>
         </div>
 
-        {/* 5 Tab Navigasi Pengaturan Terpusat */}
+        {/* Tab Navigasi Pengaturan Terpusat (Tab Bot WA Eksklusif Bendahara) */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
-          <div role="tablist" className="grid grid-cols-5 gap-1 p-1 bg-slate-200/75 rounded-xl">
+          <div
+            role="tablist"
+            className={`grid ${canAccessBotWa ? 'grid-cols-5' : 'grid-cols-4'} gap-1 p-1 bg-slate-200/75 rounded-xl`}
+          >
             {(
               [
                 { id: 'identitas', label: 'Identitas & Stempel', short: 'Identitas', icon: Sparkles },
                 { id: 'pembayaran', label: 'Pembayaran', short: 'Bayar', icon: CreditCard },
-                { id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot },
-                { id: 'petugas_nfc', label: 'Petugas & NFC', short: 'Petugas', icon: Radio },
+                ...(canAccessBotWa
+                  ? [{ id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot }]
+                  : []),
+                { id: 'petugas_nfc', label: 'Petugas & Peta', short: 'Petugas', icon: Radio },
                 { id: 'keamanan', label: 'Keamanan & Log', short: 'PIN & Log', icon: ShieldCheck },
               ] as const
             ).map((tab) => {
@@ -397,7 +412,7 @@ export function AdminSettingsDrawer({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setActiveTab(tab.id as SettingsDrawerTab)}
                   className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-lg text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-colors cursor-pointer min-w-0 ${
                     active
                       ? 'bg-white text-[#0F172A] shadow-sm'
@@ -945,8 +960,8 @@ export function AdminSettingsDrawer({
             </form>
           )}
 
-          {/* TAB 3: KONFIGURASI BOT WHATSAPP */}
-          {activeTab === 'bot_wa' && (
+          {/* TAB 3: KONFIGURASI BOT WHATSAPP (EKSKLUSIF BENDAHARA) */}
+          {activeTab === 'bot_wa' && canAccessBotWa && (
             <AdminBotWaSlide
               session={session}
               botConfig={botConfig}
@@ -1118,12 +1133,13 @@ export function AdminSettingsDrawer({
             </div>
           )}
 
-          {/* TAB 5: PETUGAS KEAMANAN & TITIK CHECKPOINT NFC */}
+          {/* TAB 5: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING */}
           {activeTab === 'petugas_nfc' && (
             <AdminSecurityManagePanel
               session={session}
               petugasList={petugasList}
               titikPatroliList={titikPatroliList}
+              patrolMapConfig={patrolMapConfig}
               onRefresh={onRefresh}
               onToast={onToast}
             />

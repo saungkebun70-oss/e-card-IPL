@@ -22,7 +22,7 @@ import {
 import {
   APP_ADMIN_PORTAL_URL,
   APP_PORTAL_URL,
-  isBendaharaFullAccess,
+  isBendaharaOnly,
   SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   TEMPLATE_VARIABLES,
@@ -80,7 +80,7 @@ export function AdminBotWaSlide({
   onToast,
 }: AdminBotWaSlideProps) {
   const { brand } = useAppBrand();
-  const canManageFull = isBendaharaFullAccess(session);
+  const canManageFull = isBendaharaOnly(session);
   const [config, setConfig] = useState<BotWaConfig>(botConfig);
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -282,6 +282,20 @@ export function AdminBotWaSlide({
       '{hak_akses}',
       'Akses Pengurus (Monitoring Setoran, Tambah Warga & Input Setoran Tunai)'
     );
+
+  if (!canManageFull) {
+    return (
+      <div className="rounded-2xl bg-amber-50 border border-amber-200 p-6 text-center space-y-2">
+        <p className="text-sm font-bold text-amber-950">
+          Akses Terbatas — Khusus Bendahara
+        </p>
+        <p className="text-xs text-amber-800 max-w-md mx-auto leading-relaxed">
+          Pengaturan gateway, jadwal pengingat, template pesan, dan blast Bot WhatsApp hanya dapat
+          diakses dan dikelola oleh akun <strong>Bendahara</strong>.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

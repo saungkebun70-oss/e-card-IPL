@@ -4,18 +4,26 @@ import {
   ArrowUpRight,
   Calendar,
   Camera,
+  CheckCircle2,
+  Clock,
   Edit3,
   FileText,
   Image as ImageIcon,
   Loader2,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
+  Undo2,
   Wallet,
   X,
+  XCircle,
 } from 'lucide-react';
 import {
+  getStatusVerifikasiShortLabel,
   isBendaharaFullAccess,
+  isBendaharaOnly,
+  isKetuaRole,
   KATEGORI_PEMASUKAN_LAIN_LIST,
   KATEGORI_PENGELUARAN_LIST,
   TERMIN_PENGELUARAN_LIST,
@@ -23,6 +31,7 @@ import {
   type JenisTransaksiKas,
   type PetugasKeamanan,
   type SessionUser,
+  type StatusVerifikasi,
   type TransaksiIPL,
   type TransaksiKas,
 } from '../../types';
@@ -30,6 +39,8 @@ import {
   createTransaksiKasAdmin,
   deleteTransaksiKasAdmin,
   updateTransaksiKasAdmin,
+  verifyTransaksiKasBendaharaAdmin,
+  verifyTransaksiKasKetuaAdmin,
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import {
@@ -58,6 +69,8 @@ export function AdminKeuanganSlide({
   onToast,
 }: AdminKeuanganSlideProps) {
   const canEditDelete = isBendaharaFullAccess(session);
+  const isBendahara = isBendaharaOnly(session);
+  const isKetua = isKetuaRole(session);
   const todayIso = new Date().toISOString().slice(0, 10);
 
   // Form Pengeluaran / Pemasukan Lain
@@ -81,10 +94,17 @@ export function AdminKeuanganSlide({
 
   // Filter & Search Daftar Transaksi Kas
   const [filterJenis, setFilterJenis] = useState<'semua' | JenisTransaksiKas>('semua');
+  const [filterStatus, setFilterStatus] = useState<'semua' | StatusVerifikasi>('semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKwitansi, setSelectedKwitansi] = useState<TransaksiKas | null>(null);
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [actionNoteModal, setActionNoteModal] = useState<{
+    mode: 'bendahara_reject' | 'ketua_return';
+    item: TransaksiKas;
+  } | null>(null);
+  const [actionNoteText, setActionNoteText] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -218,7 +238,7 @@ export function AdminKeuanganSlide({
             'success',
             `${
               formJenis === 'pengeluaran' ? 'Pengeluaran anggaran' : 'Pemasukan lain'
-            } sebesar ${formatRupiah(res.data.nominal)} berhasil dicatat (${res.data.no_bukti}).`
+            } ${formatRupiah(res.data.nominal)} dicatat (${res.data.no_bukti}) — berstatus Menunggu Verifikasi Bendahara.`
           );
           resetForm(formJenis);
           await onRefresh();
@@ -226,6 +246,76 @@ export function AdminKeuanganSlide({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleBendaharaAccKas = async (item: TransaksiKas) => {
+    setVerifyingId(item.id);
+    try {
+      const res = await verifyTransaksiKasBendaharaAdmin(session, item, 'ACC Bendahara');
+      if (res.error) onToast('error', res.error);
+      else {
+        onToast(
+          'success',
+          `ACC Bendahara untuk ${item.no_bukti} berhasil — diteruskan ke Antrean Verifikasi Ketua.`
+        );
+        await onRefresh();
+      }
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const handleKetuaApproveKas = async (item: TransaksiKas) => {
+    setVerifyingId(item.id);
+    try {
+      const res = await verifyTransaksiKasKetuaAdmin(session, item, 'Terverifikasi');
+      if (res.error) onToast('error', res.error);
+      else {
+        onToast(
+          'success',
+          `Transaksi kas ${item.no_bukti} disahkan final oleh Ketua & memperbarui Saldo Kas.`
+        );
+        await onRefresh();
+      }
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const handleConfirmActionNote = async () => {
+    if (!actionNoteModal || !actionNoteText.trim()) return;
+    setVerifyingId(actionNoteModal.item.id);
+    try {
+      const res =
+        actionNoteModal.mode === 'bendahara_reject'
+          ? await verifyTransaksiKasBendaharaAdmin(
+              session,
+              actionNoteModal.item,
+              'Ditolak',
+              actionNoteText.trim()
+            )
+          : await verifyTransaksiKasKetuaAdmin(
+              session,
+              actionNoteModal.item,
+              'Kembalikan',
+              actionNoteText.trim()
+            );
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast(
+          'info',
+          actionNoteModal.mode === 'bendahara_reject'
+            ? `Transaksi kas ${actionNoteModal.item.no_bukti} ditolak.`
+            : `Transaksi kas ${actionNoteModal.item.no_bukti} dikembalikan ke Bendahara.`
+        );
+        setActionNoteModal(null);
+        setActionNoteText('');
+        await onRefresh();
+      }
+    } finally {
+      setVerifyingId(null);
     }
   };
 
@@ -249,6 +339,8 @@ export function AdminKeuanganSlide({
     const q = searchQuery.trim().toLowerCase();
     return transaksiKasList.filter((item) => {
       if (filterJenis !== 'semua' && item.jenis !== filterJenis) return false;
+      const itemStatus: StatusVerifikasi = item.status_verifikasi || 'Terverifikasi';
+      if (filterStatus !== 'semua' && itemStatus !== filterStatus) return false;
       if (!q) return true;
       return (
         item.no_bukti.toLowerCase().includes(q) ||
@@ -257,7 +349,7 @@ export function AdminKeuanganSlide({
         (item.keterangan || '').toLowerCase().includes(q)
       );
     });
-  }, [transaksiKasList, filterJenis, searchQuery]);
+  }, [transaksiKasList, filterJenis, filterStatus, searchQuery]);
 
   const kategoriOptions =
     formJenis === 'pengeluaran' ? KATEGORI_PENGELUARAN_LIST : KATEGORI_PEMASUKAN_LAIN_LIST;
@@ -616,6 +708,13 @@ export function AdminKeuanganSlide({
                       : 'Simpan Pemasukan Lain'}
               </span>
             </button>
+
+            {!editingItem && (
+              <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                Transaksi kas baru berstatus <strong>Menunggu Verifikasi Bendahara</strong> dan
+                memperbarui Saldo Kas Real-Time setelah disahkan <strong>Bendahara &amp; Ketua</strong>.
+              </p>
+            )}
           </form>
         </section>
 
@@ -655,6 +754,32 @@ export function AdminKeuanganSlide({
               </div>
             </div>
 
+            {/* Filter Tahap Verifikasi Berjenjang */}
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+              {(
+                [
+                  { id: 'semua', label: 'Semua Status' },
+                  { id: 'Pending', label: 'Menunggu Bendahara' },
+                  { id: 'ACC Bendahara', label: 'ACC Bendahara' },
+                  { id: 'Terverifikasi', label: 'Sah Final' },
+                  { id: 'Ditolak', label: 'Ditolak' },
+                ] as const
+              ).map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setFilterStatus(st.id)}
+                  className={`min-h-[30px] px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer ${
+                    filterStatus === st.id
+                      ? 'bg-white text-[#0F172A] shadow-sm'
+                      : 'text-slate-600 hover:text-[#0F172A]'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -682,6 +807,8 @@ export function AdminKeuanganSlide({
             ) : (
               filteredKas.map((item) => {
                 const isOut = item.jenis === 'pengeluaran';
+                const statusVerif: StatusVerifikasi = item.status_verifikasi || 'Terverifikasi';
+                const isBusy = verifyingId === item.id;
                 return (
                   <article key={item.id} className="p-4 sm:p-5 hover:bg-slate-50/70 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -702,6 +829,28 @@ export function AdminKeuanganSlide({
                               <span className="text-slate-500">{item.termin}</span>
                             </>
                           )}
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          {statusVerif === 'Terverifikasi' ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              {getStatusVerifikasiShortLabel('Terverifikasi')}
+                            </span>
+                          ) : statusVerif === 'ACC Bendahara' ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-sky-700">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              ACC Bendahara — Menunggu Ketua
+                            </span>
+                          ) : statusVerif === 'Ditolak' ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                              <XCircle className="w-3.5 h-3.5" />
+                              Ditolak
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Menunggu Bendahara
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-sm font-bold text-[#0F172A]">
@@ -711,6 +860,11 @@ export function AdminKeuanganSlide({
                         {item.keterangan && (
                           <p className="text-xs text-slate-600 leading-relaxed">
                             {item.keterangan}
+                          </p>
+                        )}
+                        {item.ketua_catatan && statusVerif !== 'Terverifikasi' && (
+                          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 inline-block">
+                            Catatan: {item.ketua_catatan}
                           </p>
                         )}
 
@@ -728,11 +882,65 @@ export function AdminKeuanganSlide({
                           {isOut ? '−' : '+'} {formatRupiah(item.nominal)}
                         </p>
 
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          {/* Tahap 1: ACC / Tolak oleh Bendahara */}
+                          {statusVerif === 'Pending' && isBendahara && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleBendaharaAccKas(item)}
+                                className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{isBusy ? '...' : 'ACC Bendahara'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => {
+                                  setActionNoteModal({ mode: 'bendahara_reject', item });
+                                  setActionNoteText('');
+                                }}
+                                className="min-h-[34px] px-2.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Tolak</span>
+                              </button>
+                            </>
+                          )}
+
+                          {/* Tahap 2: Sahkan Final / Kembalikan oleh Ketua */}
+                          {statusVerif === 'ACC Bendahara' && isKetua && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleKetuaApproveKas(item)}
+                                className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>{isBusy ? '...' : 'Sahkan Final'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => {
+                                  setActionNoteModal({ mode: 'ketua_return', item });
+                                  setActionNoteText('');
+                                }}
+                                className="min-h-[34px] px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <Undo2 className="w-3.5 h-3.5" />
+                                <span>Kembalikan</span>
+                              </button>
+                            </>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => setSelectedKwitansi(item)}
-                            className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                            className="min-h-[34px] px-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>Kwitansi</span>
@@ -819,6 +1027,74 @@ export function AdminKeuanganSlide({
                 referrerPolicy="no-referrer"
                 className="max-h-[70vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
               />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Catatan Tolak / Kembalikan Kas */}
+      {actionNoteModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setActionNoteModal(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#0F172A]">
+                {actionNoteModal.mode === 'bendahara_reject'
+                  ? 'Tolak Transaksi Kas'
+                  : 'Kembalikan Kas ke Bendahara'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActionNoteModal(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-600">
+                Bukti <strong>{actionNoteModal.item.no_bukti}</strong> (
+                {actionNoteModal.item.penerima_atau_sumber} ·{' '}
+                {formatRupiah(actionNoteModal.item.nominal)})
+              </p>
+              <textarea
+                rows={3}
+                value={actionNoteText}
+                onChange={(e) => setActionNoteText(e.target.value)}
+                placeholder={
+                  actionNoteModal.mode === 'bendahara_reject'
+                    ? 'Tulis alasan penolakan transaksi kas...'
+                    : 'Tulis catatan Ketua untuk pemeriksaan ulang Bendahara...'
+                }
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm"
+              />
+            </div>
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setActionNoteModal(null)}
+                className="min-h-[40px] px-4 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!actionNoteText.trim() || Boolean(verifyingId)}
+                onClick={() => void handleConfirmActionNote()}
+                className={`min-h-[40px] px-4 rounded-xl text-white text-xs font-semibold disabled:opacity-50 ${
+                  actionNoteModal.mode === 'bendahara_reject'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                Konfirmasi
+              </button>
             </div>
           </div>
         </div>

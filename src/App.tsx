@@ -14,7 +14,9 @@ import {
   Shield,
 } from 'lucide-react';
 import {
+  isKetuaRole,
   type LogPatroli,
+  type PatrolMapConfig,
   type PaymentConfig,
   type PetugasKontakDarurat,
   type SessionUser,
@@ -100,6 +102,7 @@ export default function App() {
     petugasKontak: PetugasKontakDarurat[];
     patroliFeed: LogPatroli[];
     titikPatroli: TitikPatroli[];
+    patrolMapConfig?: PatrolMapConfig;
   } | null>(null);
   const [preselectedMonth, setPreselectedMonth] = useState<number | null>(null);
   const [preselectedPetugas, setPreselectedPetugas] = useState<string | null>(null);
@@ -286,10 +289,18 @@ export default function App() {
   }
 
   // Konfigurasi Navigasi 6 Slide Warga & 5 Menu Utama Simetris Admin (LPJ & Pengaturan di Sidebar)
-  const pendingCount =
-    adminData?.transaksiList.filter(
-      (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
-    ).length || 0;
+  const isKetuaSession = isKetuaRole(session);
+  const pendingCount = isKetuaSession
+    ? (adminData?.transaksiList.filter((t) => t.status_verifikasi === 'ACC Bendahara').length ||
+        0) +
+      (adminData?.transaksiKasList.filter((k) => k.status_verifikasi === 'ACC Bendahara').length ||
+        0)
+    : (adminData?.transaksiList.filter(
+        (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
+      ).length || 0) +
+      (adminData?.transaksiKasList.filter(
+        (k) => String(k.status_verifikasi || '').trim().toLowerCase() === 'pending'
+      ).length || 0);
 
   const navItems: NavItem[] =
     session.role === 'warga'
@@ -361,6 +372,7 @@ export default function App() {
             <WargaHomeSlide
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
+              riwayat={wargaData.riwayat}
               notifications={wargaData.notifications}
               onQuickPayMonth={(bulan) => {
                 setPreselectedMonth(bulan);
@@ -404,6 +416,7 @@ export default function App() {
               petugasKontak={wargaData.petugasKontak}
               patroliFeed={wargaData.patroliFeed}
               titikPatroliList={wargaData.titikPatroli}
+              patrolMapConfig={wargaData.patrolMapConfig}
               notifications={wargaData.notifications}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}
@@ -510,6 +523,7 @@ export default function App() {
                 .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }))}
               patroliFeed={adminData.patroliFeed}
               titikPatroliList={adminData.titikPatroliList}
+              patrolMapConfig={adminData.patrolMapConfig}
               notifications={adminData.notifications}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session, { silent: true })}
@@ -578,6 +592,7 @@ export default function App() {
           statusList={adminData.statusList}
           petugasList={adminData.petugasList}
           titikPatroliList={adminData.titikPatroliList}
+          patrolMapConfig={adminData.patrolMapConfig}
           onClose={() => setSettingsOpen(false)}
           onRefresh={() => loadPortalData(session, { silent: true })}
           onToast={pushToast}

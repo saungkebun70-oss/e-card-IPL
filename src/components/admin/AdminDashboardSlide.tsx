@@ -15,10 +15,17 @@ import {
   Search,
   Wallet,
   ReceiptText,
+  ShieldCheck,
+  Undo2,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from 'lucide-react';
 import {
   BULK_NOTIFICATION_TEMPLATES,
+  getStatusVerifikasiShortLabel,
   isBendaharaFullAccess,
+  isBendaharaOnly,
+  isKetuaRole,
   TAHUN_AKTIF,
   type NotificationCategory,
   type NotificationTargetScope,
@@ -33,6 +40,7 @@ import {
   canonicalizeBlokKey,
   formatDaftarBulan,
   formatRupiah,
+  formatTanggalSingkat,
   formatTanggalWaktu,
   getCurrentBillingMonth,
   getNamaBulan,
@@ -41,6 +49,8 @@ import {
   deleteSystemNotificationAdmin,
   sendBulkSystemNotificationAdmin,
   verifyTransaksiAdmin,
+  verifyTransaksiKasKetuaAdmin,
+  verifyTransaksiKetuaAdmin,
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
@@ -52,7 +62,7 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Keuangan & IPL',
 ];
 
-type TrxFilterTab = 'Pending' | 'Semua' | 'Terverifikasi' | 'Ditolak';
+type TrxFilterTab = 'Pending' | 'ACC Bendahara' | 'Semua' | 'Terverifikasi' | 'Ditolak';
 
 interface AdminDashboardSlideProps {
   session: SessionUser;
@@ -78,17 +88,28 @@ export function AdminDashboardSlide({
   onToast,
 }: AdminDashboardSlideProps) {
   const canManageFull = isBendaharaFullAccess(session);
+  const canAccessBotWa = isBendaharaOnly(session);
+  const isKetua = isKetuaRole(session);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewTrx, setPreviewTrx] = useState<TransaksiIPL | null>(null);
+  const [previewProofUrl, setPreviewProofUrl] = useState<{ title: string; url: string } | null>(null);
   const [receiptTrx, setReceiptTrx] = useState<TransaksiIPL | null>(null);
   const [rejectTarget, setRejectTarget] = useState<TransaksiIPL | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [ketuaReturnTarget, setKetuaReturnTarget] = useState<
+    | { kind: 'ipl'; trx: TransaksiIPL }
+    | { kind: 'kas'; kas: TransaksiKas }
+    | null
+  >(null);
+  const [ketuaReturnNote, setKetuaReturnNote] = useState('');
 
-  const [trxFilter, setTrxFilter] = useState<TrxFilterTab>('Pending');
+  const [trxFilter, setTrxFilter] = useState<TrxFilterTab>(
+    isKetua ? 'ACC Bendahara' : 'Pending'
+  );
   const [trxSearch, setTrxSearch] = useState('');
   const [visiblePendingCount, setVisiblePendingCount] = useState(15);
 
-  // State Modal Kirim Notifikasi Massal Sistem
+  // State Modal Kirim Notifikasi Massal Sistem (Eksklusif Bendahara)
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [notifCategory, setNotifCategory] = useState<NotificationCategory>('Perawatan & Fasilitas');
   const [notifScope, setNotifScope] = useState<NotificationTargetScope>('all_active');
@@ -144,6 +165,16 @@ export function AdminDashboardSlide({
     () => transaksiList.filter((t) => t.status_verifikasi === 'Pending'),
     [transaksiList]
   );
+  const accBendaharaList = useMemo(
+    () => transaksiList.filter((t) => t.status_verifikasi === 'ACC Bendahara'),
+    [transaksiList]
+  );
+  const accBendaharaKasList = useMemo(
+    () => transaksiKasList.filter((k) => k.status_verifikasi === 'ACC Bendahara'),
+    [transaksiKasList]
+  );
+  const totalKetuaQueueCount = accBendaharaList.length + accBendaharaKasList.length;
+
   const verifiedList = useMemo(
     () => transaksiList.filter((t) => t.status_verifikasi === 'Terverifikasi'),
     [transaksiList]
@@ -157,11 +188,13 @@ export function AdminDashboardSlide({
     const base =
       trxFilter === 'Pending'
         ? pendingList
-        : trxFilter === 'Terverifikasi'
-          ? verifiedList
-          : trxFilter === 'Ditolak'
-            ? rejectedList
-            : transaksiList;
+        : trxFilter === 'ACC Bendahara'
+          ? accBendaharaList
+          : trxFilter === 'Terverifikasi'
+            ? verifiedList
+            : trxFilter === 'Ditolak'
+              ? rejectedList
+              : transaksiList;
     const q = trxSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter(
@@ -171,20 +204,116 @@ export function AdminDashboardSlide({
         t.no_kwitansi.toLowerCase().includes(q) ||
         t.metode_bayar.toLowerCase().includes(q)
     );
-  }, [trxFilter, trxSearch, pendingList, verifiedList, rejectedList, transaksiList]);
+  }, [
+    trxFilter,
+    trxSearch,
+    pendingList,
+    accBendaharaList,
+    verifiedList,
+    rejectedList,
+    transaksiList,
+  ]);
 
-  const handleApprove = async (trx: TransaksiIPL) => {
+  const handleBendaharaAcc = async (trx: TransaksiIPL) => {
     setProcessingId(trx.id);
     try {
-      const res = await verifyTransaksiAdmin(session, trx, 'Terverifikasi');
+      const res = await verifyTransaksiAdmin(session, trx, 'ACC Bendahara');
       if (res.error) {
         onToast('error', res.error);
       } else {
         onToast(
           'success',
-          `Setoran ${trx.blok_rumah} (${formatRupiah(trx.nominal)}) disetujui & e-Card diperbarui menjadi Lunas.`
+          `ACC Tahap 1 Bendahara untuk ${trx.blok_rumah} (${formatRupiah(trx.nominal)}) berhasil — diteruskan ke Antrean Verifikasi Ketua.`
         );
         await onRefresh();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleKetuaApproveIpl = async (trx: TransaksiIPL) => {
+    setProcessingId(trx.id);
+    try {
+      const res = await verifyTransaksiKetuaAdmin(session, trx, 'Terverifikasi');
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast(
+          'success',
+          `Disahkan final oleh Ketua! Setoran ${trx.blok_rumah} (${formatRupiah(trx.nominal)}) resmi Lunas & masuk Saldo Kas.`
+        );
+        await onRefresh();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleKetuaApproveKas = async (kas: TransaksiKas) => {
+    setProcessingId(kas.id);
+    try {
+      const res = await verifyTransaksiKasKetuaAdmin(session, kas, 'Terverifikasi');
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast(
+          'success',
+          `Transaksi kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}) disahkan final & memperbarui Saldo Kas.`
+        );
+        await onRefresh();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleConfirmKetuaReturn = async () => {
+    if (!ketuaReturnTarget) return;
+    if (!ketuaReturnNote.trim()) {
+      onToast('error', 'Mohon isi catatan / alasan pengembalian ke Bendahara.');
+      return;
+    }
+    const targetId =
+      ketuaReturnTarget.kind === 'ipl' ? ketuaReturnTarget.trx.id : ketuaReturnTarget.kas.id;
+    setProcessingId(targetId);
+    try {
+      if (ketuaReturnTarget.kind === 'ipl') {
+        const res = await verifyTransaksiKetuaAdmin(
+          session,
+          ketuaReturnTarget.trx,
+          'Kembalikan',
+          ketuaReturnNote.trim()
+        );
+        if (res.error) {
+          onToast('error', res.error);
+        } else {
+          onToast(
+            'info',
+            `Setoran ${ketuaReturnTarget.trx.blok_rumah} dikembalikan ke Bendahara dengan catatan Ketua.`
+          );
+          setKetuaReturnTarget(null);
+          setKetuaReturnNote('');
+          await onRefresh();
+        }
+      } else {
+        const res = await verifyTransaksiKasKetuaAdmin(
+          session,
+          ketuaReturnTarget.kas,
+          'Kembalikan',
+          ketuaReturnNote.trim()
+        );
+        if (res.error) {
+          onToast('error', res.error);
+        } else {
+          onToast(
+            'info',
+            `Transaksi kas ${ketuaReturnTarget.kas.no_bukti} dikembalikan ke Bendahara dengan catatan Ketua.`
+          );
+          setKetuaReturnTarget(null);
+          setKetuaReturnNote('');
+          await onRefresh();
+        }
       }
     } finally {
       setProcessingId(null);
@@ -292,15 +421,23 @@ export function AdminDashboardSlide({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:w-auto sm:min-w-[330px]">
-          <button
-            type="button"
-            onClick={openBroadcastModal}
-            className="min-h-[44px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs sm:text-sm font-semibold text-white inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Megaphone className="w-4 h-4 shrink-0" />
-            <span>Kirim Pengumuman</span>
-          </button>
+        <div
+          className={
+            canAccessBotWa
+              ? 'grid grid-cols-2 gap-2.5 sm:w-auto sm:min-w-[330px]'
+              : 'flex items-center justify-end'
+          }
+        >
+          {canAccessBotWa && (
+            <button
+              type="button"
+              onClick={openBroadcastModal}
+              className="min-h-[44px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs sm:text-sm font-semibold text-white inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Megaphone className="w-4 h-4 shrink-0" />
+              <span>Kirim Pengumuman</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -381,13 +518,232 @@ export function AdminDashboardSlide({
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
-          <p className="text-xs font-medium text-slate-500">Antrean Verifikasi</p>
-          <p className="text-lg sm:text-2xl font-mono font-bold text-amber-600 tabular-nums mt-2">
-            {pendingList.length}
+          <p className="text-xs font-medium text-slate-500">
+            {isKetua ? 'Antrean Verifikasi Ketua' : 'Antrean Verifikasi'}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">Menunggu persetujuan</p>
+          <p className="text-lg sm:text-2xl font-mono font-bold text-amber-600 tabular-nums mt-2">
+            {isKetua ? totalKetuaQueueCount : pendingList.length}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            {isKetua
+              ? `${accBendaharaList.length} IPL · ${accBendaharaKasList.length} Kas (ACC Bendahara)`
+              : `${accBendaharaList.length} menunggu pengesahan Ketua`}
+          </p>
         </div>
       </section>
+
+      {/* PANEL KHUSUS KETUA (TAHAP 2): Antrean Verifikasi Final Transaksi ACC Bendahara */}
+      {isKetua && (
+        <section className="bg-white border-2 border-sky-200 rounded-2xl overflow-hidden shadow-xs">
+          <div className="px-5 py-4 bg-sky-50/80 border-b border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-start gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#0F172A]">
+                  Antrean Verifikasi Ketua (Pengesahan Final Tahap 2)
+                </h2>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Transaksi IPL &amp; Kas di bawah ini telah di-ACC Bendahara dan menunggu
+                  pengesahan final Anda sebelum masuk Saldo Kas Real-Time &amp; status Lunas.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-600 text-white text-xs font-mono font-bold tabular-nums shrink-0 self-start sm:self-center">
+              {totalKetuaQueueCount} Menunggu Ketua
+            </span>
+          </div>
+
+          {totalKetuaQueueCount === 0 ? (
+            <div className="p-6 text-center">
+              <CheckCircle2 className="w-8 h-8 text-[#059669] mx-auto" />
+              <p className="text-sm font-bold text-[#0F172A] mt-2">
+                Tidak Ada Antrean Pengesahan Ketua
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Seluruh transaksi yang telah di-ACC Bendahara sudah disahkan.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {accBendaharaList.map((trx) => {
+                const isBusy = processingId === trx.id;
+                return (
+                  <article
+                    key={`ketua-ipl-${trx.id}`}
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white"
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewTrx(trx)}
+                        className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 hover:border-sky-500 flex items-center justify-center cursor-pointer"
+                      >
+                        {trx.bukti_url ? (
+                          <img
+                            src={trx.bukti_url}
+                            alt={`Bukti ${trx.blok_rumah}`}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-slate-400" />
+                        )}
+                      </button>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                          <span className="font-bold text-emerald-700">Setoran IPL Warga</span>
+                          <span className="text-slate-300">·</span>
+                          <span className="font-mono font-bold text-[#0F172A]">
+                            Blok {trx.blok_rumah} ({trx.nama_warga})
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="font-semibold text-sky-700">
+                            ACC Bendahara ({trx.bendahara_approved_by || 'Andriansyah'})
+                          </span>
+                        </div>
+                        <p className="text-sm font-mono font-bold text-[#059669] tabular-nums">
+                          {formatRupiah(trx.nominal)}{' '}
+                          <span className="font-sans text-xs font-medium text-slate-600">
+                            · {formatDaftarBulan(trx.bulan_dibayar)} {trx.tahun} ({trx.metode_bayar})
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-mono">
+                          {trx.no_kwitansi} · {formatTanggalWaktu(trx.tanggal_setor)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {trx.bukti_url && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTrx(trx)}
+                          className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Periksa Bukti</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => {
+                          setKetuaReturnTarget({ kind: 'ipl', trx });
+                          setKetuaReturnNote('');
+                        }}
+                        className="min-h-[40px] px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Undo2 className="w-4 h-4" />
+                        <span>Kembalikan ke Bendahara</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleKetuaApproveIpl(trx)}
+                        className="min-h-[40px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {accBendaharaKasList.map((kas) => {
+                const isBusy = processingId === kas.id;
+                const isOut = kas.jenis === 'pengeluaran';
+                return (
+                  <article
+                    key={`ketua-kas-${kas.id}`}
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/40"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                        <span
+                          className={`inline-flex items-center gap-1 font-bold ${
+                            isOut ? 'text-red-700' : 'text-emerald-700'
+                          }`}
+                        >
+                          {isOut ? (
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                          )}
+                          {isOut ? 'Pengeluaran Kas' : 'Pemasukan Kas Lain'}
+                        </span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-semibold text-[#0F172A]">{kas.kategori}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-semibold text-sky-700">
+                          ACC Bendahara ({kas.bendahara_approved_by || 'Andriansyah'})
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-[#0F172A]">
+                        {kas.penerima_atau_sumber} ·{' '}
+                        <span
+                          className={`font-mono tabular-nums ${
+                            isOut ? 'text-red-700' : 'text-[#059669]'
+                          }`}
+                        >
+                          {isOut ? '−' : '+'} {formatRupiah(kas.nominal)}
+                        </span>
+                      </p>
+                      {kas.keterangan && (
+                        <p className="text-xs text-slate-600">{kas.keterangan}</p>
+                      )}
+                      <p className="text-[11px] text-slate-500 font-mono">
+                        {kas.no_bukti} · {formatTanggalSingkat(kas.tanggal)} · {kas.created_by_name}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {kas.bukti_url && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewProofUrl({
+                              title: `Nota ${kas.no_bukti} (${kas.penerima_atau_sumber})`,
+                              url: kas.bukti_url || '',
+                            })
+                          }
+                          className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Lihat Nota</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => {
+                          setKetuaReturnTarget({ kind: 'kas', kas });
+                          setKetuaReturnNote('');
+                        }}
+                        className="min-h-[40px] px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Undo2 className="w-4 h-4" />
+                        <span>Kembalikan</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleKetuaApproveKas(kas)}
+                        className="min-h-[40px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Daftar Verifikasi & Riwayat Setoran Masuk Warga */}
       <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -395,15 +751,15 @@ export function AdminDashboardSlide({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">
-                Antrean Verifikasi &amp; Setoran Masuk Warga
+                Verifikasi Berjenjang &amp; Riwayat Setoran IPL Warga
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Semua kiriman setoran warga tampil otomatis di sini. Periksa bukti foto sebelum
-                menyetujui pelunasan e-Card.
+                Alur 2 Tahap: Setoran Warga → ACC Tahap 1 Bendahara → Pengesahan Final Ketua (Lunas
+                &amp; Masuk Saldo Kas).
               </p>
             </div>
             <span className="text-xs font-mono font-semibold text-amber-700 tabular-nums shrink-0">
-              {pendingList.length} Pending · {transaksiList.length} Total Setoran
+              {pendingList.length} Menunggu Bendahara · {accBendaharaList.length} Menunggu Ketua
             </span>
           </div>
 
@@ -411,10 +767,11 @@ export function AdminDashboardSlide({
             <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
               {(
                 [
-                  { id: 'Pending', label: `Pending (${pendingList.length})` },
-                  { id: 'Semua', label: `Semua (${transaksiList.length})` },
-                  { id: 'Terverifikasi', label: `Lunas (${verifiedList.length})` },
+                  { id: 'Pending', label: `Menunggu Bendahara (${pendingList.length})` },
+                  { id: 'ACC Bendahara', label: `ACC Bendahara (${accBendaharaList.length})` },
+                  { id: 'Terverifikasi', label: `Sah Lunas (${verifiedList.length})` },
                   { id: 'Ditolak', label: `Ditolak (${rejectedList.length})` },
+                  { id: 'Semua', label: `Semua (${transaksiList.length})` },
                 ] as const
               ).map((tab) => (
                 <button
@@ -477,6 +834,7 @@ export function AdminDashboardSlide({
               {filteredTransaksi.slice(0, visiblePendingCount).map((trx) => {
                 const isBusy = processingId === trx.id;
                 const isPending = trx.status_verifikasi === 'Pending';
+                const isAccBendahara = trx.status_verifikasi === 'ACC Bendahara';
                 const isVerified = trx.status_verifikasi === 'Terverifikasi';
                 return (
                   <article
@@ -516,12 +874,17 @@ export function AdminDashboardSlide({
                           {isPending ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
                               <Clock className="w-3.5 h-3.5" />
-                              Pending
+                              {getStatusVerifikasiShortLabel('Pending')}
+                            </span>
+                          ) : isAccBendahara ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              ACC Bendahara — Menunggu Ketua
                             </span>
                           ) : isVerified ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              Terverifikasi
+                              {getStatusVerifikasiShortLabel('Terverifikasi')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
@@ -548,6 +911,11 @@ export function AdminDashboardSlide({
                         {trx.keterangan && (
                           <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
                         )}
+                        {trx.ketua_catatan && isPending && (
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 inline-block">
+                            Catatan Ketua: {trx.ketua_catatan}
+                          </p>
+                        )}
                         {trx.catatan_admin && !isPending && (
                           <p className="text-xs text-slate-500">
                             Catatan pengurus: {trx.catatan_admin}
@@ -556,7 +924,7 @@ export function AdminDashboardSlide({
                       </div>
                     </div>
 
-                    {/* Aksi Preview, e-Kwitansi & Approve / Reject */}
+                    {/* Aksi Preview, e-Kwitansi & Verifikasi 2 Tahap (Bendahara -> Ketua) */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {trx.bukti_url && (
                         <button
@@ -581,7 +949,7 @@ export function AdminDashboardSlide({
                       )}
 
                       {isPending &&
-                        (canManageFull ? (
+                        (canAccessBotWa ? (
                           <>
                             <button
                               type="button"
@@ -599,16 +967,48 @@ export function AdminDashboardSlide({
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => void handleApprove(trx)}
+                              onClick={() => void handleBendaharaAcc(trx)}
                               className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
                             >
                               <CheckCircle2 className="w-4 h-4" />
-                              <span>{isBusy ? 'Memproses...' : 'Setujui (Approve)'}</span>
+                              <span>{isBusy ? 'Memproses...' : 'ACC / Verifikasi'}</span>
                             </button>
                           </>
                         ) : (
                           <span className="text-xs font-medium text-slate-500 px-2">
-                            Verifikasi khusus Bendahara
+                            Menunggu ACC Tahap 1 Bendahara
+                          </span>
+                        ))}
+
+                      {isAccBendahara &&
+                        (isKetua ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => {
+                                setKetuaReturnTarget({ kind: 'ipl', trx });
+                                setKetuaReturnNote('');
+                              }}
+                              className="min-h-[42px] px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            >
+                              <Undo2 className="w-4 h-4" />
+                              <span>Kembalikan</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => void handleKetuaApproveIpl(trx)}
+                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                              <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2.5 py-1.5">
+                            Menunggu Pengesahan Ketua
                           </span>
                         ))}
                     </div>
@@ -647,14 +1047,16 @@ export function AdminDashboardSlide({
               perawatan, keamanan, atau rapat lingkungan.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={openBroadcastModal}
-            className="min-h-[38px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Megaphone className="w-3.5 h-3.5 shrink-0" />
-            <span>Buat Pengumuman Baru</span>
-          </button>
+          {canAccessBotWa && (
+            <button
+              type="button"
+              onClick={openBroadcastModal}
+              className="min-h-[38px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Megaphone className="w-3.5 h-3.5 shrink-0" />
+              <span>Buat Pengumuman Baru</span>
+            </button>
+          )}
         </div>
 
         {notifications.length === 0 ? (
@@ -842,8 +1244,124 @@ export function AdminDashboardSlide({
         </div>
       )}
 
-      {/* Modal Kirim Notifikasi / Pengumuman Massal Sistem */}
-      {broadcastOpen && (
+      {/* Modal Preview Foto Nota Kas (dari Antrean Ketua) */}
+      {previewProofUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewProofUrl(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-[#0F172A] truncate">{previewProofUrl.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewProofUrl(null)}
+                aria-label="Tutup"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-50 flex items-center justify-center">
+              <img
+                src={previewProofUrl.url}
+                alt={previewProofUrl.title}
+                referrerPolicy="no-referrer"
+                className="max-h-[65vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kembalikan ke Bendahara (Ketua Tahap 2) */}
+      {ketuaReturnTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setKetuaReturnTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Undo2 className="w-5 h-5 text-amber-600" />
+                <h3 className="text-base font-bold text-[#0F172A]">
+                  Kembalikan ke Bendahara
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKetuaReturnTarget(null)}
+                aria-label="Tutup modal"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Transaksi{' '}
+                <span className="font-bold text-[#0F172A]">
+                  {ketuaReturnTarget.kind === 'ipl'
+                    ? `IPL ${ketuaReturnTarget.trx.nama_warga} (${ketuaReturnTarget.trx.blok_rumah})`
+                    : `${ketuaReturnTarget.kas.no_bukti} (${ketuaReturnTarget.kas.penerima_atau_sumber})`}
+                </span>{' '}
+                akan dikembalikan ke status{' '}
+                <span className="font-semibold text-amber-700">Menunggu Verifikasi Bendahara</span>{' '}
+                untuk diperiksa ulang.
+              </p>
+
+              <div>
+                <label
+                  htmlFor="ketua-return-note"
+                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                >
+                  Catatan Ketua untuk Bendahara (Wajib)
+                </label>
+                <textarea
+                  id="ketua-return-note"
+                  rows={3}
+                  value={ketuaReturnNote}
+                  onChange={(e) => setKetuaReturnNote(e.target.value)}
+                  placeholder="Contoh: Mohon konfirmasi ulang nominal transfer / lampirkan foto nota yang lebih jelas."
+                  className="w-full rounded-xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setKetuaReturnTarget(null)}
+                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!ketuaReturnNote.trim() || Boolean(processingId)}
+                onClick={() => void handleConfirmKetuaReturn()}
+                className="min-h-[42px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+              >
+                Kembalikan ke Bendahara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kirim Notifikasi / Pengumuman Massal Sistem (Eksklusif Bendahara) */}
+      {broadcastOpen && canAccessBotWa && (
         <div
           role="dialog"
           aria-modal="true"

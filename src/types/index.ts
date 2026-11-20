@@ -20,7 +20,11 @@ export type StatusBulanEcard =
 
 export type MetodeBayar = 'QRIS' | 'Transfer Bank' | 'E-Wallet' | 'Setor Tunai';
 
-export type StatusVerifikasi = 'Pending' | 'Terverifikasi' | 'Ditolak';
+export type StatusVerifikasi =
+  | 'Pending'
+  | 'ACC Bendahara'
+  | 'Terverifikasi'
+  | 'Ditolak';
 
 export type BotProvider = 'Fonnte' | 'Wablas';
 
@@ -90,6 +94,47 @@ export function isBendaharaFullAccess(session?: SessionUser | null): boolean {
   return session?.role === 'admin' && session.admin_permission === 'full';
 }
 
+export function isBendaharaOnly(session?: SessionUser | null): boolean {
+  return (
+    session?.role === 'admin' &&
+    (session.jabatan === 'Bendahara' || session.admin_permission === 'full')
+  );
+}
+
+export function isKetuaRole(session?: SessionUser | null): boolean {
+  return session?.role === 'admin' && session.jabatan === 'Ketua';
+}
+
+export function getStatusVerifikasiLabel(status?: StatusVerifikasi | string | null): string {
+  switch (status) {
+    case 'Pending':
+      return 'Menunggu Verifikasi Bendahara';
+    case 'ACC Bendahara':
+      return 'ACC Bendahara — Menunggu Verifikasi Ketua';
+    case 'Terverifikasi':
+      return 'Terverifikasi Sah (Bendahara & Ketua)';
+    case 'Ditolak':
+      return 'Ditolak';
+    default:
+      return 'Terverifikasi Sah (Bendahara & Ketua)';
+  }
+}
+
+export function getStatusVerifikasiShortLabel(status?: StatusVerifikasi | string | null): string {
+  switch (status) {
+    case 'Pending':
+      return 'Menunggu Bendahara';
+    case 'ACC Bendahara':
+      return 'ACC Bendahara';
+    case 'Terverifikasi':
+      return 'Sah Disetujui Ketua';
+    case 'Ditolak':
+      return 'Ditolak';
+    default:
+      return 'Sah Disetujui Ketua';
+  }
+}
+
 export type BotAccessRole = 'warga' | 'admin' | 'bendahara';
 
 export interface Warga {
@@ -133,6 +178,11 @@ export interface TransaksiIPL {
   tanggal_setor: string;
   verified_at?: string | null;
   verified_by?: string | null;
+  bendahara_approved_at?: string | null;
+  bendahara_approved_by?: string | null;
+  ketua_approved_at?: string | null;
+  ketua_approved_by?: string | null;
+  ketua_catatan?: string | null;
 }
 
 export type JenisTransaksiKas = 'pengeluaran' | 'pemasukan_lain';
@@ -178,6 +228,13 @@ export interface TransaksiKas {
   created_by_name: string;
   created_at: string;
   updated_at?: string;
+  status_verifikasi?: StatusVerifikasi;
+  bendahara_approved_at?: string | null;
+  bendahara_approved_by?: string | null;
+  ketua_approved_at?: string | null;
+  ketua_approved_by?: string | null;
+  ketua_catatan?: string | null;
+  catatan_verifikasi?: string | null;
 }
 
 export const KATEGORI_PENGELUARAN_LIST: KategoriPengeluaran[] = [
@@ -281,8 +338,23 @@ export interface TitikPatroli {
   nama_lokasi: string;
   rfid_uid: string;
   keterangan?: string | null;
+  x_percent?: number | null;
+  y_percent?: number | null;
   aktif: boolean;
   created_at: string;
+}
+
+export interface PatrolPinCoordinate {
+  x_percent: number;
+  y_percent: number;
+}
+
+export interface PatrolMapConfig {
+  map_image_url: string | null;
+  cycle_reset_at: string | null;
+  pin_positions: Record<string, PatrolPinCoordinate>;
+  updated_at?: string;
+  updated_by?: string | null;
 }
 
 export interface LogPatroli {
@@ -309,33 +381,51 @@ export const SHIFT_PETUGAS_OPTIONS = [
 export const SEED_TITIK_PATROLI: TitikPatroli[] = [
   {
     id: 'titik-gerbang',
-    nama_lokasi: 'Pos Gerbang Utama',
+    nama_lokasi: 'Pos Utama',
     rfid_uid: 'NFC-GERBANG-01',
     keterangan: 'Pintu masuk utama & pos jaga depan',
+    x_percent: 50,
+    y_percent: 84,
     aktif: true,
     created_at: '2026-11-01T07:00:00.000Z',
   },
   {
     id: 'titik-bloka',
-    nama_lokasi: 'Blok A Ujung',
+    nama_lokasi: 'Checkpoint 2 (Blok A)',
     rfid_uid: 'NFC-BLOKA-02',
-    keterangan: 'Sudut jalan ujung Blok A & batas pagar timur',
+    keterangan: 'Sudut jalan ujung Blok A & batas pagar barat',
+    x_percent: 22,
+    y_percent: 42,
     aktif: true,
     created_at: '2026-11-01T07:00:00.000Z',
   },
   {
     id: 'titik-blokb',
-    nama_lokasi: 'Blok B Tengah',
+    nama_lokasi: 'Checkpoint 3 (Blok B Tengah)',
     rfid_uid: 'NFC-BLOKB-03',
     keterangan: 'Area persimpangan Blok B3–B7 & Sekretariat',
+    x_percent: 52,
+    y_percent: 48,
     aktif: true,
     created_at: '2026-11-01T07:00:00.000Z',
   },
   {
     id: 'titik-fasum',
-    nama_lokasi: 'Fasum & Lapangan',
+    nama_lokasi: 'Checkpoint 4 (Fasum & Taman)',
     rfid_uid: 'NFC-FASUM-04',
     keterangan: 'Area fasilitas umum, taman, dan lapangan warga',
+    x_percent: 78,
+    y_percent: 54,
+    aktif: true,
+    created_at: '2026-11-01T07:00:00.000Z',
+  },
+  {
+    id: 'titik-belakang',
+    nama_lokasi: 'Checkpoint 5 (Blok Belakang)',
+    rfid_uid: 'NFC-BELAKANG-05',
+    keterangan: 'Batas pagar belakang & penerangan jalan utara',
+    x_percent: 50,
+    y_percent: 18,
     aktif: true,
     created_at: '2026-11-01T07:00:00.000Z',
   },

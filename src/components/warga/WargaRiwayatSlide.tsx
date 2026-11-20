@@ -5,9 +5,10 @@ import {
   XCircle,
   Image as ImageIcon,
   FileText,
+  ShieldCheck,
   X,
 } from 'lucide-react';
-import { type TransaksiIPL, type Warga } from '../../types';
+import { getStatusVerifikasiLabel, type TransaksiIPL, type Warga } from '../../types';
 import { formatDaftarBulan, formatRupiah, formatTanggalWaktu } from '../../lib/format';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 
@@ -58,6 +59,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
       <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
         {riwayat.map((trx) => {
           const isVerified = trx.status_verifikasi === 'Terverifikasi';
+          const isAccBendahara = trx.status_verifikasi === 'ACC Bendahara';
           const isPending = trx.status_verifikasi === 'Pending';
 
           return (
@@ -73,19 +75,23 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                       className={`inline-flex items-center gap-1 text-xs font-semibold ${
                         isVerified
                           ? 'text-emerald-700'
-                          : isPending
-                            ? 'text-amber-700'
-                            : 'text-red-700'
+                          : isAccBendahara
+                            ? 'text-sky-700'
+                            : isPending
+                              ? 'text-amber-700'
+                              : 'text-red-700'
                       }`}
                     >
                       {isVerified ? (
                         <CheckCircle2 className="w-3.5 h-3.5" />
+                      ) : isAccBendahara ? (
+                        <ShieldCheck className="w-3.5 h-3.5" />
                       ) : isPending ? (
                         <Clock className="w-3.5 h-3.5" />
                       ) : (
                         <XCircle className="w-3.5 h-3.5" />
                       )}
-                      {trx.status_verifikasi}
+                      {getStatusVerifikasiLabel(trx.status_verifikasi)}
                     </span>
                   </div>
 

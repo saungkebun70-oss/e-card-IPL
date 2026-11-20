@@ -2,6 +2,8 @@ import {
   APP_PORTAL_URL,
   DEFAULT_APP_BRAND_CONFIG,
   isBendaharaFullAccess,
+  isBendaharaOnly,
+  isKetuaRole,
   NOMINAL_IPL_STANDAR,
   SEED_PETUGAS_KEAMANAN,
   SEED_TITIK_PATROLI,
@@ -20,6 +22,8 @@ import {
   type MetodeScanPatroli,
   type NotificationCategory,
   type NotificationTargetScope,
+  type PatrolMapConfig,
+  type PatrolPinCoordinate,
   type PaymentConfig,
   type PengurusAccountInfo,
   type PetugasKeamanan,
@@ -85,6 +89,8 @@ const STORAGE_KEYS = {
   PETUGAS_KEAMANAN: 'saungkebun_petugas_keamanan_v1',
   TITIK_PATROLI: 'saungkebun_titik_patroli_v1',
   LOG_PATROLI: 'saungkebun_log_patroli_v1',
+  PATROL_MAP_CONFIG: 'saungkebun_patrol_map_config_v1',
+  APPROVAL_OVERLAY: 'saungkebun_two_step_approval_overlay_v1',
 } as const;
 
 const memoryStorageFallback = new Map<string, string>();
@@ -245,7 +251,9 @@ function syncLocalStatusForHouse(blokRumah: string) {
       (t) => t.status_verifikasi === 'Terverifikasi' && t.bulan_dibayar.includes(bulan)
     );
     const pending = allTrx.find(
-      (t) => t.status_verifikasi === 'Pending' && t.bulan_dibayar.includes(bulan)
+      (t) =>
+        (t.status_verifikasi === 'Pending' || t.status_verifikasi === 'ACC Bendahara') &&
+        t.bulan_dibayar.includes(bulan)
     );
     let status = getDefaultUnpaidStatusForMonth(bulan);
     let transaksi_id: string | null = null;
@@ -711,6 +719,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     petugasKontak: PetugasKontakDarurat[];
     patroliFeed: LogPatroli[];
     titikPatroli: TitikPatroli[];
+    patrolMapConfig: PatrolMapConfig;
   }>
 > {
   if (session.role !== 'warga') {
@@ -729,6 +738,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         petugasKontak,
         patroliFeed,
         titikPatroli,
+        patrolMapConfig,
       ] = await Promise.all([
         supabase
           .from('users_warga')
@@ -749,16 +759,24 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         fetchSystemNotifications(session),
         fetchPaymentConfig(session),
         fetchPetugasKontakDarurat(session),
-        fetchRecentLogPatroli(session, 20),
+        fetchRecentLogPatroli(session, 30),
         fetchTitikPatroliPublic(session),
+        fetchPatrolMapConfig(session),
       ]);
 
       if (profilRes.error) throw profilRes.error;
       if (statusRes.error) throw statusRes.error;
       if (trxRes.error) throw trxRes.error;
 
+      const normalizedRiwayat = ((trxRes.data || []) as Record<string, unknown>[]).map(
+        normalizeTransaksiRow
+      );
+      const reconciled = reconcileStatusWithTransactions(
+        (statusRes.data || []) as StatusEcardBulanan[],
+        normalizedRiwayat
+      );
       const existingMap = new Map<number, StatusEcardBulanan>();
-      for (const row of (statusRes.data || []) as StatusEcardBulanan[]) {
+      for (const row of reconciled) {
         existingMap.set(row.bulan, row);
       }
       const complete12: StatusEcardBulanan[] = Array.from({ length: 12 }, (_, idx) => {
@@ -785,12 +803,13 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         data: {
           profil,
           statusBulanan: complete12,
-          riwayat: (trxRes.data || []) as TransaksiIPL[],
+          riwayat: normalizedRiwayat,
           notifications: relevantNotifications,
           paymentConfig,
           petugasKontak,
           patroliFeed,
           titikPatroli,
+          patrolMapConfig,
         },
       };
     } catch (err) {
@@ -812,15 +831,18 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
 
   const riwayat = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, [])
     .filter((t) => t.blok_rumah === session.blok_rumah)
+    .map((t) => normalizeTransaksiRow(t as unknown as Record<string, unknown>))
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
 
-  const [notifications, paymentConfig, petugasKontak, patroliFeed, titikPatroli] = await Promise.all([
-    fetchSystemNotifications(session),
-    fetchPaymentConfig(session),
-    fetchPetugasKontakDarurat(session),
-    fetchRecentLogPatroli(session, 20),
-    fetchTitikPatroliPublic(session),
-  ]);
+  const [notifications, paymentConfig, petugasKontak, patroliFeed, titikPatroli, patrolMapConfig] =
+    await Promise.all([
+      fetchSystemNotifications(session),
+      fetchPaymentConfig(session),
+      fetchPetugasKontakDarurat(session),
+      fetchRecentLogPatroli(session, 30),
+      fetchTitikPatroliPublic(session),
+      fetchPatrolMapConfig(session),
+    ]);
 
   const safeNotifications = notifications
     .filter((n) => n.target_scope === 'all_units' || profil.status_hunian !== 'Kosong')
@@ -836,6 +858,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
       petugasKontak,
       patroliFeed,
       titikPatroli,
+      patrolMapConfig,
     },
   };
 }
@@ -856,10 +879,54 @@ export type SetorSubmitStage =
   | 'syncing_ecard'
   | 'refreshing';
 
+interface ApprovalOverlayEntry {
+  status_verifikasi: StatusVerifikasi;
+  bendahara_approved_at?: string | null;
+  bendahara_approved_by?: string | null;
+  ketua_approved_at?: string | null;
+  ketua_approved_by?: string | null;
+  ketua_catatan?: string | null;
+  catatan_admin?: string | null;
+  verified_at?: string | null;
+  verified_by?: string | null;
+}
+
+function readApprovalOverlay(): Record<string, ApprovalOverlayEntry> {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.APPROVAL_OVERLAY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, ApprovalOverlayEntry>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeApprovalOverlayEntry(key: string, entry: ApprovalOverlayEntry | null) {
+  const map = readApprovalOverlay();
+  if (!entry) {
+    delete map[key];
+  } else {
+    map[key] = entry;
+  }
+  safeStorageSet(STORAGE_KEYS.APPROVAL_OVERLAY, JSON.stringify(map));
+}
+
+const ACC_MARKER_REGEX = /^\[ACC_BENDAHARA\|([^|\]]+)\|([^\]]+)\]\s*/;
+
+function stripInternalMarkers(text: string | null): string | null {
+  if (!text) return null;
+  const cleaned = text.replace(ACC_MARKER_REGEX, '').trim();
+  return cleaned || null;
+}
+
 function normalizeStatusVerifikasi(raw: unknown): StatusVerifikasi {
   const val = String(raw || '').trim().toLowerCase();
   if (val === 'terverifikasi' || val === 'approved' || val === 'lunas' || val === 'verified') {
     return 'Terverifikasi';
+  }
+  if (val === 'acc bendahara' || val === 'acc_bendahara' || val === 'bendahara_acc') {
+    return 'ACC Bendahara';
   }
   if (val === 'ditolak' || val === 'rejected') {
     return 'Ditolak';
@@ -873,8 +940,64 @@ function normalizeTransaksiRow(row: Record<string, unknown>): TransaksiIPL {
     ? rawBulan.map((b) => Number(b)).filter((b) => Number.isFinite(b) && b >= 1 && b <= 12)
     : [];
   const parsedTahun = Number(row.tahun);
+  const id = String(row.id || '');
+  const rawCatatan = typeof row.catatan_admin === 'string' ? row.catatan_admin : null;
+  const markerMatch = rawCatatan ? rawCatatan.match(ACC_MARKER_REGEX) : null;
+
+  let status = normalizeStatusVerifikasi(row.status_verifikasi);
+  let bendaharaApprovedAt =
+    typeof row.bendahara_approved_at === 'string' ? row.bendahara_approved_at : null;
+  let bendaharaApprovedBy =
+    typeof row.bendahara_approved_by === 'string' ? row.bendahara_approved_by : null;
+  let ketuaApprovedAt = typeof row.ketua_approved_at === 'string' ? row.ketua_approved_at : null;
+  let ketuaApprovedBy = typeof row.ketua_approved_by === 'string' ? row.ketua_approved_by : null;
+  let ketuaCatatan = typeof row.ketua_catatan === 'string' ? row.ketua_catatan : null;
+  let catatanAdmin = stripInternalMarkers(rawCatatan);
+  let verifiedAt = typeof row.verified_at === 'string' ? row.verified_at : null;
+  let verifiedBy = typeof row.verified_by === 'string' ? row.verified_by : null;
+
+  if (status === 'Pending' && markerMatch) {
+    status = 'ACC Bendahara';
+    bendaharaApprovedBy = bendaharaApprovedBy || markerMatch[1];
+    bendaharaApprovedAt = bendaharaApprovedAt || markerMatch[2];
+  }
+
+  // Merge sidecar overlay untuk kompatibilitas sebelum migrasi SQL v3 dijalankan
+  const overlay = id ? readApprovalOverlay()[`ipl::${id}`] : undefined;
+  if (overlay) {
+    if (status === 'Terverifikasi' && overlay.status_verifikasi === 'ACC Bendahara') {
+      // DB sudah final, bersihkan overlay lama
+    } else {
+      status = overlay.status_verifikasi;
+      if (overlay.bendahara_approved_at !== undefined) {
+        bendaharaApprovedAt = overlay.bendahara_approved_at;
+      }
+      if (overlay.bendahara_approved_by !== undefined) {
+        bendaharaApprovedBy = overlay.bendahara_approved_by;
+      }
+      if (overlay.ketua_approved_at !== undefined) {
+        ketuaApprovedAt = overlay.ketua_approved_at;
+      }
+      if (overlay.ketua_approved_by !== undefined) {
+        ketuaApprovedBy = overlay.ketua_approved_by;
+      }
+      if (overlay.ketua_catatan !== undefined) {
+        ketuaCatatan = overlay.ketua_catatan;
+      }
+      if (overlay.catatan_admin !== undefined) {
+        catatanAdmin = stripInternalMarkers(overlay.catatan_admin);
+      }
+      if (overlay.verified_at !== undefined) {
+        verifiedAt = overlay.verified_at;
+      }
+      if (overlay.verified_by !== undefined) {
+        verifiedBy = overlay.verified_by;
+      }
+    }
+  }
+
   return {
-    id: String(row.id || ''),
+    id,
     no_kwitansi: String(row.no_kwitansi || ''),
     blok_rumah: String(row.blok_rumah || '').trim(),
     nama_warga: String(row.nama_warga || '').trim() || String(row.blok_rumah || ''),
@@ -884,12 +1007,17 @@ function normalizeTransaksiRow(row: Record<string, unknown>): TransaksiIPL {
     metode_bayar: (row.metode_bayar as MetodeBayar) || 'Transfer Bank',
     petugas_penerima: typeof row.petugas_penerima === 'string' ? row.petugas_penerima : null,
     bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
-    status_verifikasi: normalizeStatusVerifikasi(row.status_verifikasi),
-    catatan_admin: typeof row.catatan_admin === 'string' ? row.catatan_admin : null,
+    status_verifikasi: status,
+    catatan_admin: catatanAdmin,
     keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
     tanggal_setor: String(row.tanggal_setor || new Date().toISOString()),
-    verified_at: typeof row.verified_at === 'string' ? row.verified_at : null,
-    verified_by: typeof row.verified_by === 'string' ? row.verified_by : null,
+    verified_at: verifiedAt,
+    verified_by: verifiedBy,
+    bendahara_approved_at: bendaharaApprovedAt,
+    bendahara_approved_by: bendaharaApprovedBy,
+    ketua_approved_at: ketuaApprovedAt,
+    ketua_approved_by: ketuaApprovedBy,
+    ketua_catatan: ketuaCatatan,
   };
 }
 
@@ -904,7 +1032,11 @@ function reconcileStatusWithTransactions(
   }
 
   for (const trx of transaksiList) {
-    if (trx.status_verifikasi !== 'Terverifikasi' && trx.status_verifikasi !== 'Pending') {
+    if (
+      trx.status_verifikasi !== 'Terverifikasi' &&
+      trx.status_verifikasi !== 'Pending' &&
+      trx.status_verifikasi !== 'ACC Bendahara'
+    ) {
       continue;
     }
     const targetStatus =
@@ -923,7 +1055,7 @@ function reconcileStatusWithTransactions(
           bulan,
           status: targetStatus,
           transaksi_id: trx.id,
-          updated_at: trx.verified_at || trx.tanggal_setor,
+          updated_at: trx.verified_at || trx.bendahara_approved_at || trx.tanggal_setor,
         });
       }
     }
@@ -1110,6 +1242,7 @@ export interface AdminSnapshot {
   petugasList: PetugasKeamanan[];
   titikPatroliList: TitikPatroli[];
   patroliFeed: LogPatroli[];
+  patrolMapConfig: PatrolMapConfig;
 }
 
 function buildPengurusAccountsList(
@@ -1181,6 +1314,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         petugasList,
         titikPatroliList,
         patroliFeed,
+        patrolMapConfig,
       ] = await Promise.all([
         supabase
           .from('users_warga')
@@ -1204,7 +1338,8 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
         fetchTransaksiKasList(session),
         fetchPetugasListAdmin(session),
         fetchTitikPatroliAdmin(session),
-        fetchRecentLogPatroli(session, 20),
+        fetchRecentLogPatroli(session, 40),
+        fetchPatrolMapConfig(session),
       ]);
 
       if (wargaRes.error) throw wargaRes.error;
@@ -1245,6 +1380,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
           petugasList,
           titikPatroliList,
           patroliFeed,
+          patrolMapConfig,
         },
       };
     } catch (err) {
@@ -1271,15 +1407,23 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-  const [notifications, paymentConfig, transaksiKasList, petugasList, titikPatroliList, patroliFeed] =
-    await Promise.all([
-      fetchSystemNotifications(session),
-      fetchPaymentConfig(session),
-      fetchTransaksiKasList(session),
-      fetchPetugasListAdmin(session),
-      fetchTitikPatroliAdmin(session),
-      fetchRecentLogPatroli(session, 20),
-    ]);
+  const [
+    notifications,
+    paymentConfig,
+    transaksiKasList,
+    petugasList,
+    titikPatroliList,
+    patroliFeed,
+    patrolMapConfig,
+  ] = await Promise.all([
+    fetchSystemNotifications(session),
+    fetchPaymentConfig(session),
+    fetchTransaksiKasList(session),
+    fetchPetugasListAdmin(session),
+    fetchTitikPatroliAdmin(session),
+    fetchRecentLogPatroli(session, 40),
+    fetchPatrolMapConfig(session),
+  ]);
 
   return {
     data: {
@@ -1295,6 +1439,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       petugasList,
       titikPatroliList,
       patroliFeed,
+      patrolMapConfig,
     },
   };
 }
@@ -1357,6 +1502,16 @@ export function subscribeAdminRealtime(
         { event: '*', schema: 'public', table: 'petugas_keamanan' },
         triggerDebounced
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'titik_patroli' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        triggerDebounced
+      )
       .subscribe();
 
     return () => {
@@ -1393,6 +1548,16 @@ export function subscribePatroliRealtime(
         { event: '*', schema: 'public', table: 'log_patroli' },
         triggerDebounced
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'titik_patroli' },
+        triggerDebounced
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        triggerDebounced
+      )
       .subscribe();
 
     return () => {
@@ -1406,48 +1571,125 @@ export function subscribePatroliRealtime(
   }
 }
 
+/**
+ * Tahap 1 Verifikasi Berjenjang (Bendahara — Andriansyah):
+ * - ACC / Verifikasi -> 'ACC Bendahara' (Menunggu Verifikasi Ketua, BELUM final/lunas).
+ * - Tolak -> 'Ditolak' (dengan alasan wajib).
+ */
 export async function verifyTransaksiAdmin(
   session: SessionUser,
   trx: TransaksiIPL,
-  decision: 'Terverifikasi' | 'Ditolak',
+  decision: 'ACC Bendahara' | 'Terverifikasi' | 'Ditolak',
   catatanAdmin?: string
 ): Promise<ServiceResult<TransaksiIPL>> {
-  if (!isBendaharaFullAccess(session)) {
-    return { error: 'Akses ditolak: verifikasi/perubahan status transaksi khusus Bendahara.' };
+  if (!isBendaharaOnly(session)) {
+    return { error: 'Akses ditolak: verifikasi Tahap 1 transaksi IPL khusus Bendahara.' };
   }
-  if (decision === 'Ditolak' && !catatanAdmin?.trim()) {
+  const effectiveStatus: StatusVerifikasi =
+    decision === 'Ditolak' ? 'Ditolak' : 'ACC Bendahara';
+  if (effectiveStatus === 'Ditolak' && !catatanAdmin?.trim()) {
     return { error: 'Alasan penolakan wajib diisi.' };
   }
 
   const nowIso = new Date().toISOString();
+  const approverName = session.nama_warga || 'Andriansyah';
+  const cleanNote =
+    catatanAdmin?.trim() ||
+    (effectiveStatus === 'ACC Bendahara'
+      ? `ACC Tahap 1 oleh Bendahara (${approverName}) — Menunggu Verifikasi Ketua.`
+      : null);
+
   const supabase = getSupabaseClient(session);
 
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      const fullPatch =
+        effectiveStatus === 'ACC Bendahara'
+          ? {
+              status_verifikasi: 'ACC Bendahara',
+              catatan_admin: cleanNote,
+              bendahara_approved_at: nowIso,
+              bendahara_approved_by: approverName,
+              ketua_catatan: null,
+            }
+          : {
+              status_verifikasi: 'Ditolak',
+              catatan_admin: cleanNote,
+              verified_at: nowIso,
+              verified_by: session.blok_rumah,
+              bendahara_approved_at: null,
+              bendahara_approved_by: null,
+            };
+
+      let { data, error } = await supabase
         .from('transaksi_ipl')
-        .update({
-          status_verifikasi: decision,
-          catatan_admin: catatanAdmin?.trim() || (decision === 'Terverifikasi' ? 'Terverifikasi oleh Pengurus.' : null),
-          verified_at: nowIso,
-          verified_by: session.blok_rumah,
-        })
+        .update(fullPatch)
         .eq('id', trx.id)
         .select()
         .single();
 
+      // Fallback kompatibilitas bila migrasi SQL v3 belum dijalankan (check constraint / kolom baru)
+      if (error) {
+        const msg = String((error as { message?: string }).message || '').toLowerCase();
+        const isSchemaMismatch =
+          msg.includes('check constraint') ||
+          msg.includes('bendahara_approved') ||
+          msg.includes('ketua_catatan') ||
+          msg.includes('column') ||
+          msg.includes('42703') ||
+          msg.includes('23514');
+
+        if (isSchemaMismatch) {
+          const fallbackPatch =
+            effectiveStatus === 'ACC Bendahara'
+              ? {
+                  status_verifikasi: 'Pending',
+                  catatan_admin: `[ACC_BENDAHARA|${approverName}|${nowIso}] ${cleanNote || ''}`.trim(),
+                }
+              : {
+                  status_verifikasi: 'Ditolak',
+                  catatan_admin: cleanNote,
+                  verified_at: nowIso,
+                  verified_by: session.blok_rumah,
+                };
+          const retry = await supabase
+            .from('transaksi_ipl')
+            .update(fallbackPatch)
+            .eq('id', trx.id)
+            .select()
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
+      }
+
       if (error) throw error;
 
-      // Sinkronkan status_ecard_bulanan untuk semua bulan pada transaksi tersebut
+      writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+        status_verifikasi: effectiveStatus,
+        bendahara_approved_at: effectiveStatus === 'ACC Bendahara' ? nowIso : null,
+        bendahara_approved_by: effectiveStatus === 'ACC Bendahara' ? approverName : null,
+        ketua_approved_at: null,
+        ketua_approved_by: null,
+        ketua_catatan: null,
+        catatan_admin: cleanNote,
+        verified_at: effectiveStatus === 'Ditolak' ? nowIso : null,
+        verified_by: effectiveStatus === 'Ditolak' ? session.blok_rumah : null,
+      });
+
+      // Sinkronkan status_ecard_bulanan (Tahap 1 ACC Bendahara tetap 'Menunggu Verifikasi', belum Lunas)
       for (const bulan of trx.bulan_dibayar) {
-        const nextStatus = decision === 'Terverifikasi' ? 'Lunas' : getDefaultUnpaidStatusForMonth(bulan);
+        const nextStatus =
+          effectiveStatus === 'ACC Bendahara'
+            ? 'Menunggu Verifikasi'
+            : getDefaultUnpaidStatusForMonth(bulan);
         await supabase.from('status_ecard_bulanan').upsert(
           {
             blok_rumah: trx.blok_rumah,
             tahun: trx.tahun,
             bulan,
             status: nextStatus,
-            transaksi_id: decision === 'Terverifikasi' ? trx.id : null,
+            transaksi_id: effectiveStatus === 'ACC Bendahara' ? trx.id : null,
             updated_at: nowIso,
           },
           { onConflict: 'blok_rumah,tahun,bulan' }
@@ -1456,16 +1698,20 @@ export async function verifyTransaksiAdmin(
 
       await recordAuditLog({
         session,
-        action: decision === 'Terverifikasi' ? 'APPROVE_TRANSAKSI' : 'REJECT_TRANSAKSI',
+        action: effectiveStatus === 'ACC Bendahara' ? 'ACC_BENDAHARA_IPL' : 'REJECT_TRANSAKSI',
         entity: 'transaksi_ipl',
         entity_id: trx.id,
-        summary: `Admin ${decision === 'Terverifikasi' ? 'menyetujui' : 'menolak'} setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`,
-        metadata: { catatan: catatanAdmin || null, blok: trx.blok_rumah },
+        summary: `Bendahara ${approverName} ${
+          effectiveStatus === 'ACC Bendahara'
+            ? 'memberikan ACC Tahap 1 (diteruskan ke Ketua)'
+            : 'menolak'
+        } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`,
+        metadata: { catatan: cleanNote, blok: trx.blok_rumah },
       });
 
-      return { data: data as TransaksiIPL };
+      return { data: normalizeTransaksiRow((data || trx) as Record<string, unknown>) };
     } catch (err) {
-      return { error: parseFriendlyError(err, 'Gagal memperbarui status verifikasi.') };
+      return { error: parseFriendlyError(err, 'Gagal memperbarui status verifikasi Bendahara.') };
     }
   }
 
@@ -1475,26 +1721,237 @@ export async function verifyTransaksiAdmin(
     if (item.id !== trx.id) return item;
     updatedItem = {
       ...item,
-      status_verifikasi: decision,
-      catatan_admin:
-        catatanAdmin?.trim() || (decision === 'Terverifikasi' ? 'Terverifikasi oleh Pengurus.' : null),
-      verified_at: nowIso,
-      verified_by: session.blok_rumah,
+      status_verifikasi: effectiveStatus,
+      catatan_admin: cleanNote,
+      bendahara_approved_at: effectiveStatus === 'ACC Bendahara' ? nowIso : null,
+      bendahara_approved_by: effectiveStatus === 'ACC Bendahara' ? approverName : null,
+      ketua_approved_at: null,
+      ketua_approved_by: null,
+      ketua_catatan: null,
+      verified_at: effectiveStatus === 'Ditolak' ? nowIso : null,
+      verified_by: effectiveStatus === 'Ditolak' ? session.blok_rumah : null,
     };
     return updatedItem;
   });
 
   if (!updatedItem) return { error: 'Transaksi tidak ditemukan.' };
   writeLocal(STORAGE_KEYS.TRANSAKSI, nextTrx);
+  writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+    status_verifikasi: effectiveStatus,
+    bendahara_approved_at: updatedItem.bendahara_approved_at,
+    bendahara_approved_by: updatedItem.bendahara_approved_by,
+    ketua_approved_at: null,
+    ketua_approved_by: null,
+    ketua_catatan: null,
+    catatan_admin: cleanNote,
+  });
   syncLocalStatusForHouse(trx.blok_rumah);
 
   await recordAuditLog({
     session,
-    action: decision === 'Terverifikasi' ? 'APPROVE_TRANSAKSI' : 'REJECT_TRANSAKSI',
+    action: effectiveStatus === 'ACC Bendahara' ? 'ACC_BENDAHARA_IPL' : 'REJECT_TRANSAKSI',
     entity: 'transaksi_ipl',
     entity_id: trx.id,
-    summary: `Admin ${decision === 'Terverifikasi' ? 'menyetujui' : 'menolak'} setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`,
-    metadata: { catatan: catatanAdmin || null, blok: trx.blok_rumah },
+    summary: `Bendahara ${approverName} ${
+      effectiveStatus === 'ACC Bendahara'
+        ? 'memberikan ACC Tahap 1 (diteruskan ke Ketua)'
+        : 'menolak'
+    } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`,
+    metadata: { catatan: cleanNote, blok: trx.blok_rumah },
+  });
+
+  return { data: updatedItem };
+}
+
+/**
+ * Tahap 2 Verifikasi Berjenjang (Ketua — Erlangga):
+ * - 'Terverifikasi' -> Sah Final (Bendahara & Ketua), mengubah e-Card menjadi Lunas & menambah Saldo Kas.
+ * - 'Kembalikan' -> Mengembalikan ke antrean Bendahara ('Pending') beserta catatan Ketua.
+ */
+export async function verifyTransaksiKetuaAdmin(
+  session: SessionUser,
+  trx: TransaksiIPL,
+  decision: 'Terverifikasi' | 'Kembalikan',
+  catatanKetua?: string
+): Promise<ServiceResult<TransaksiIPL>> {
+  if (!isKetuaRole(session)) {
+    return {
+      error: 'Akses ditolak: pengesahan final (Tahap 2) hanya dapat dilakukan oleh Ketua Lingkungan.',
+    };
+  }
+  if (decision === 'Kembalikan' && !catatanKetua?.trim()) {
+    return { error: 'Mohon isi catatan / alasan pengembalian transaksi ke Bendahara.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const ketuaName = session.nama_warga || 'Erlangga';
+  const nextStatus: StatusVerifikasi = decision === 'Terverifikasi' ? 'Terverifikasi' : 'Pending';
+  const cleanKetuaNote =
+    catatanKetua?.trim() ||
+    (decision === 'Terverifikasi'
+      ? `Disahkan final oleh Ketua (${ketuaName}) setelah ACC Bendahara.`
+      : 'Dikembalikan ke Bendahara untuk pengecekan ulang.');
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const fullPatch =
+        decision === 'Terverifikasi'
+          ? {
+              status_verifikasi: 'Terverifikasi',
+              catatan_admin: cleanKetuaNote,
+              verified_at: nowIso,
+              verified_by: `${trx.bendahara_approved_by || 'Bendahara'} & ${ketuaName}`,
+              ketua_approved_at: nowIso,
+              ketua_approved_by: ketuaName,
+              ketua_catatan: cleanKetuaNote,
+            }
+          : {
+              status_verifikasi: 'Pending',
+              catatan_admin: `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
+              bendahara_approved_at: null,
+              bendahara_approved_by: null,
+              ketua_approved_at: null,
+              ketua_approved_by: null,
+              ketua_catatan: cleanKetuaNote,
+            };
+
+      let { data, error } = await supabase
+        .from('transaksi_ipl')
+        .update(fullPatch)
+        .eq('id', trx.id)
+        .select()
+        .single();
+
+      if (error) {
+        const legacyPatch =
+          decision === 'Terverifikasi'
+            ? {
+                status_verifikasi: 'Terverifikasi',
+                catatan_admin: cleanKetuaNote,
+                verified_at: nowIso,
+                verified_by: ketuaName,
+              }
+            : {
+                status_verifikasi: 'Pending',
+                catatan_admin: `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
+              };
+        const retry = await supabase
+          .from('transaksi_ipl')
+          .update(legacyPatch)
+          .eq('id', trx.id)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
+      // Simpan overlay agar tetap tersinkron di browser meski RLS migrasi v3 belum dijalankan
+      writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+        status_verifikasi: nextStatus,
+        bendahara_approved_at:
+          decision === 'Terverifikasi' ? trx.bendahara_approved_at || nowIso : null,
+        bendahara_approved_by:
+          decision === 'Terverifikasi' ? trx.bendahara_approved_by || 'Andriansyah' : null,
+        ketua_approved_at: decision === 'Terverifikasi' ? nowIso : null,
+        ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
+        ketua_catatan: cleanKetuaNote,
+        catatan_admin:
+          decision === 'Terverifikasi'
+            ? cleanKetuaNote
+            : `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
+        verified_at: decision === 'Terverifikasi' ? nowIso : null,
+        verified_by: decision === 'Terverifikasi' ? ketuaName : null,
+      });
+
+      if (!error) {
+        for (const bulan of trx.bulan_dibayar) {
+          await supabase.from('status_ecard_bulanan').upsert(
+            {
+              blok_rumah: trx.blok_rumah,
+              tahun: trx.tahun,
+              bulan,
+              status: decision === 'Terverifikasi' ? 'Lunas' : 'Menunggu Verifikasi',
+              transaksi_id: trx.id,
+              updated_at: nowIso,
+            },
+            { onConflict: 'blok_rumah,tahun,bulan' }
+          );
+        }
+      }
+
+      await recordAuditLog({
+        session,
+        action:
+          decision === 'Terverifikasi' ? 'KETUA_FINAL_APPROVE_IPL' : 'KETUA_RETURN_IPL',
+        entity: 'transaksi_ipl',
+        entity_id: trx.id,
+        summary: `Ketua ${ketuaName} ${
+          decision === 'Terverifikasi'
+            ? 'mensahkan final (Lunas)'
+            : 'mengembalikan ke Bendahara'
+        } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)}.`,
+        metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
+      });
+
+      return {
+        data: normalizeTransaksiRow(((data as Record<string, unknown>) || trx) as Record<string, unknown>),
+      };
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal memproses verifikasi final Ketua.') };
+    }
+  }
+
+  const allTrx = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI);
+  let updatedItem: TransaksiIPL | undefined;
+  const nextTrx = allTrx.map((item) => {
+    if (item.id !== trx.id) return item;
+    updatedItem = {
+      ...item,
+      status_verifikasi: nextStatus,
+      catatan_admin:
+        decision === 'Terverifikasi'
+          ? cleanKetuaNote
+          : `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
+      bendahara_approved_at:
+        decision === 'Terverifikasi' ? item.bendahara_approved_at || nowIso : null,
+      bendahara_approved_by:
+        decision === 'Terverifikasi' ? item.bendahara_approved_by || 'Andriansyah' : null,
+      ketua_approved_at: decision === 'Terverifikasi' ? nowIso : null,
+      ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
+      ketua_catatan: cleanKetuaNote,
+      verified_at: decision === 'Terverifikasi' ? nowIso : null,
+      verified_by: decision === 'Terverifikasi' ? ketuaName : null,
+    };
+    return updatedItem;
+  });
+
+  if (!updatedItem) return { error: 'Transaksi tidak ditemukan.' };
+  writeLocal(STORAGE_KEYS.TRANSAKSI, nextTrx);
+  writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+    status_verifikasi: nextStatus,
+    bendahara_approved_at: updatedItem.bendahara_approved_at,
+    bendahara_approved_by: updatedItem.bendahara_approved_by,
+    ketua_approved_at: updatedItem.ketua_approved_at,
+    ketua_approved_by: updatedItem.ketua_approved_by,
+    ketua_catatan: cleanKetuaNote,
+    catatan_admin: updatedItem.catatan_admin,
+    verified_at: updatedItem.verified_at,
+    verified_by: updatedItem.verified_by,
+  });
+  syncLocalStatusForHouse(trx.blok_rumah);
+
+  await recordAuditLog({
+    session,
+    action: decision === 'Terverifikasi' ? 'KETUA_FINAL_APPROVE_IPL' : 'KETUA_RETURN_IPL',
+    entity: 'transaksi_ipl',
+    entity_id: trx.id,
+    summary: `Ketua ${ketuaName} ${
+      decision === 'Terverifikasi'
+        ? 'mensahkan final (Lunas)'
+        : 'mengembalikan ke Bendahara'
+    } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)}.`,
+    metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
   });
 
   return { data: updatedItem };
@@ -2211,8 +2668,8 @@ export async function saveBotWaConfigAdmin(
   session: SessionUser,
   config: BotWaConfig
 ): Promise<ServiceResult<BotWaConfig>> {
-  if (!isBendaharaFullAccess(session)) {
-    return { error: 'Akses ditolak: perubahan konfigurasi Bot WhatsApp khusus Bendahara.' };
+  if (!isBendaharaOnly(session)) {
+    return { error: 'Akses ditolak: fitur dan pengaturan Bot WhatsApp khusus Bendahara.' };
   }
 
   const updatedConfig: BotWaConfig = {
@@ -2357,7 +2814,7 @@ export async function sendTestWaMessageAdmin(
   config: BotWaConfig,
   targetPhoneInput: string
 ): Promise<ServiceResult<{ status: 'Terkirim' | 'Gagal'; detail: string }>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (!isBendaharaOnly(session)) {
     return { error: 'Akses ditolak: uji kirim Bot WhatsApp khusus Bendahara.' };
   }
 
@@ -2445,7 +2902,7 @@ export async function triggerManualWaReminderAdmin(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[]
 ): Promise<ServiceResult<{ sentCount: number; message: string }>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (!isBendaharaOnly(session)) {
     return { error: 'Akses ditolak: pengiriman pengingat Bot WA manual khusus Bendahara.' };
   }
 
@@ -2611,7 +3068,7 @@ export async function sendWargaAccessCredentialsWaAdmin(
   wargaList: Warga[],
   customTemplate?: string
 ): Promise<ServiceResult<{ sentCount: number; message: string }>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (!isBendaharaOnly(session)) {
     return { error: 'Akses ditolak: pengiriman massal akun & PIN warga khusus Bendahara.' };
   }
 
@@ -2708,7 +3165,7 @@ export async function sendWargaBotActivationWaAdmin(
   config: BotWaConfig,
   warga: Warga
 ): Promise<ServiceResult<{ sentViaGateway: boolean; message: string }>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (!isBendaharaOnly(session)) {
     return { error: 'Akses ditolak: pengiriman via gateway Bot WA khusus Bendahara.' };
   }
 
@@ -2838,8 +3295,8 @@ export async function sendBulkSystemNotificationAdmin(
     wargaList: Warga[];
   }
 ): Promise<ServiceResult<SystemNotification>> {
-  if (session.role !== 'admin') {
-    return { error: 'Akses ditolak: hanya Pengurus yang dapat mengirim pengumuman sistem.' };
+  if (!isBendaharaOnly(session)) {
+    return { error: 'Akses ditolak: fitur kirim pengumuman / blast khusus Bendahara.' };
   }
 
   const cleanTitle = payload.title.trim();
@@ -3475,8 +3932,31 @@ function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
   const rawJenisHonor = row.jenis_honor;
   const jenisHonor: JenisHonorPetugas | null =
     rawJenisHonor === 'honor_rutin' || rawJenisHonor === 'lembur' ? rawJenisHonor : null;
+  const id = String(row.id || `kas-${Date.now()}`);
+  const hasExplicitStatus = typeof row.status_verifikasi === 'string' && row.status_verifikasi.trim().length > 0;
+  let statusVerifikasi: StatusVerifikasi = hasExplicitStatus
+    ? normalizeStatusVerifikasi(row.status_verifikasi)
+    : 'Terverifikasi';
+  let bendaharaApprovedAt =
+    typeof row.bendahara_approved_at === 'string' ? row.bendahara_approved_at : null;
+  let bendaharaApprovedBy =
+    typeof row.bendahara_approved_by === 'string' ? row.bendahara_approved_by : null;
+  let ketuaApprovedAt = typeof row.ketua_approved_at === 'string' ? row.ketua_approved_at : null;
+  let ketuaApprovedBy = typeof row.ketua_approved_by === 'string' ? row.ketua_approved_by : null;
+  let ketuaCatatan = typeof row.ketua_catatan === 'string' ? row.ketua_catatan : null;
+
+  const overlay = readApprovalOverlay()[`kas::${id}`];
+  if (overlay) {
+    statusVerifikasi = overlay.status_verifikasi;
+    if (overlay.bendahara_approved_at !== undefined) bendaharaApprovedAt = overlay.bendahara_approved_at;
+    if (overlay.bendahara_approved_by !== undefined) bendaharaApprovedBy = overlay.bendahara_approved_by;
+    if (overlay.ketua_approved_at !== undefined) ketuaApprovedAt = overlay.ketua_approved_at;
+    if (overlay.ketua_approved_by !== undefined) ketuaApprovedBy = overlay.ketua_approved_by;
+    if (overlay.ketua_catatan !== undefined) ketuaCatatan = overlay.ketua_catatan;
+  }
+
   return {
-    id: String(row.id || `kas-${Date.now()}`),
+    id,
     no_bukti: String(row.no_bukti || ''),
     jenis: row.jenis === 'pemasukan_lain' ? 'pemasukan_lain' : 'pengeluaran',
     kategori: String(row.kategori || 'Lain-lain'),
@@ -3488,6 +3968,12 @@ function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
     bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
     petugas_id: typeof row.petugas_id === 'string' && row.petugas_id.trim() ? row.petugas_id.trim() : null,
     jenis_honor: jenisHonor,
+    status_verifikasi: statusVerifikasi,
+    bendahara_approved_at: bendaharaApprovedAt,
+    bendahara_approved_by: bendaharaApprovedBy,
+    ketua_approved_at: ketuaApprovedAt,
+    ketua_approved_by: ketuaApprovedBy,
+    ketua_catatan: ketuaCatatan,
     created_by: String(row.created_by || 'admin'),
     created_by_name: String(row.created_by_name || 'Pengurus'),
     created_at: String(row.created_at || new Date().toISOString()),
@@ -3616,6 +4102,12 @@ export async function createTransaksiKasAdmin(
     bukti_url: resolvedBuktiUrl,
     petugas_id: cleanPetugasId,
     jenis_honor: cleanJenisHonor,
+    status_verifikasi: 'Pending',
+    bendahara_approved_at: null,
+    bendahara_approved_by: null,
+    ketua_approved_at: null,
+    ketua_approved_by: null,
+    ketua_catatan: null,
     created_by: session.blok_rumah,
     created_by_name: `${session.nama_warga} (${session.jabatan || 'Pengurus'})`,
     created_at: nowIso,
@@ -3644,6 +4136,7 @@ export async function createTransaksiKasAdmin(
         ...baseInsert,
         petugas_id: cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null,
         jenis_honor: cleanJenisHonor,
+        status_verifikasi: 'Pending',
       };
 
       let { data, error } = await supabase
@@ -3652,8 +4145,14 @@ export async function createTransaksiKasAdmin(
         .select()
         .single();
 
-      const firstErrMsg = String((error as { message?: string })?.message || '');
-      if (error && (firstErrMsg.includes('petugas_id') || firstErrMsg.includes('jenis_honor'))) {
+      const firstErrMsg = String((error as { message?: string })?.message || '').toLowerCase();
+      if (
+        error &&
+        (firstErrMsg.includes('petugas_id') ||
+          firstErrMsg.includes('jenis_honor') ||
+          firstErrMsg.includes('status_verifikasi') ||
+          firstErrMsg.includes('column'))
+      ) {
         const retry = await supabase
           .from('transaksi_kas')
           .insert(baseInsert)
@@ -3664,6 +4163,15 @@ export async function createTransaksiKasAdmin(
       }
 
       if (!error && data) {
+        const rawId = String((data as Record<string, unknown>).id || newEntry.id);
+        writeApprovalOverlayEntry(`kas::${rawId}`, {
+          status_verifikasi: 'Pending',
+          bendahara_approved_at: null,
+          bendahara_approved_by: null,
+          ketua_approved_at: null,
+          ketua_approved_by: null,
+          ketua_catatan: null,
+        });
         const persisted = normalizeTransaksiKasRow(data as Record<string, unknown>);
         const current = readLocalTransaksiKas().filter((k) => k.id !== persisted.id);
         writeLocalTransaksiKas([persisted, ...current]);
@@ -3672,7 +4180,7 @@ export async function createTransaksiKasAdmin(
           action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
           entity: 'transaksi_kas',
           entity_id: persisted.id,
-          summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}).`,
+          summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}) [Menunggu Verifikasi Bendahara].`,
         });
         return { data: persisted };
       }
@@ -3690,14 +4198,178 @@ export async function createTransaksiKasAdmin(
   }
 
   writeLocalTransaksiKas([newEntry, ...readLocalTransaksiKas()]);
+  writeApprovalOverlayEntry(`kas::${newEntry.id}`, {
+    status_verifikasi: 'Pending',
+  });
   await recordAuditLog({
     session,
     action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
     entity: 'transaksi_kas',
     entity_id: newEntry.id,
-    summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}).`,
+    summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}) [Menunggu Verifikasi Bendahara].`,
   });
   return { data: newEntry };
+}
+
+/**
+ * Verifikasi Tahap 1 Transaksi Kas (Bendahara — Andriansyah)
+ */
+export async function verifyTransaksiKasBendaharaAdmin(
+  session: SessionUser,
+  kas: TransaksiKas,
+  decision: 'ACC Bendahara' | 'Ditolak',
+  catatan?: string
+): Promise<ServiceResult<TransaksiKas>> {
+  if (!isBendaharaOnly(session)) {
+    return { error: 'Akses ditolak: verifikasi Tahap 1 transaksi kas khusus Bendahara.' };
+  }
+  if (decision === 'Ditolak' && !catatan?.trim()) {
+    return { error: 'Alasan penolakan transaksi kas wajib diisi.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const approverName = session.nama_warga || 'Andriansyah';
+  const nextStatus: StatusVerifikasi = decision;
+
+  const overlayEntry: ApprovalOverlayEntry = {
+    status_verifikasi: nextStatus,
+    bendahara_approved_at: decision === 'ACC Bendahara' ? nowIso : null,
+    bendahara_approved_by: decision === 'ACC Bendahara' ? approverName : null,
+    ketua_approved_at: null,
+    ketua_approved_by: null,
+    ketua_catatan: decision === 'Ditolak' ? catatan?.trim() || null : null,
+  };
+  writeApprovalOverlayEntry(`kas::${kas.id}`, overlayEntry);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !kas.id.startsWith('kas-')) {
+    try {
+      await supabase
+        .from('transaksi_kas')
+        .update({
+          status_verifikasi: nextStatus,
+          bendahara_approved_at: overlayEntry.bendahara_approved_at,
+          bendahara_approved_by: overlayEntry.bendahara_approved_by,
+          ketua_catatan: overlayEntry.ketua_catatan,
+          updated_at: nowIso,
+        })
+        .eq('id', kas.id);
+    } catch {
+      // Tetap sinkron via overlay jika kolom migrasi v3 belum dijalankan
+    }
+  }
+
+  const updated: TransaksiKas = {
+    ...kas,
+    status_verifikasi: nextStatus,
+    bendahara_approved_at: overlayEntry.bendahara_approved_at,
+    bendahara_approved_by: overlayEntry.bendahara_approved_by,
+    ketua_approved_at: null,
+    ketua_approved_by: null,
+    ketua_catatan: overlayEntry.ketua_catatan,
+    updated_at: nowIso,
+  };
+  writeLocalTransaksiKas(
+    readLocalTransaksiKas().map((item) => (item.id === kas.id ? updated : item))
+  );
+
+  await recordAuditLog({
+    session,
+    action: decision === 'ACC Bendahara' ? 'ACC_BENDAHARA_KAS' : 'REJECT_KAS',
+    entity: 'transaksi_kas',
+    entity_id: kas.id,
+    summary: `Bendahara ${approverName} ${
+      decision === 'ACC Bendahara' ? 'memberikan ACC Tahap 1 (diteruskan ke Ketua)' : 'menolak'
+    } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
+  });
+
+  return { data: updated };
+}
+
+/**
+ * Verifikasi Tahap 2 Transaksi Kas (Ketua — Erlangga)
+ */
+export async function verifyTransaksiKasKetuaAdmin(
+  session: SessionUser,
+  kas: TransaksiKas,
+  decision: 'Terverifikasi' | 'Kembalikan',
+  catatanKetua?: string
+): Promise<ServiceResult<TransaksiKas>> {
+  if (!isKetuaRole(session)) {
+    return {
+      error: 'Akses ditolak: pengesahan final (Tahap 2) transaksi kas khusus Ketua Lingkungan.',
+    };
+  }
+  if (decision === 'Kembalikan' && !catatanKetua?.trim()) {
+    return { error: 'Alasan pengembalian transaksi kas ke Bendahara wajib diisi.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const ketuaName = session.nama_warga || 'Erlangga';
+  const nextStatus: StatusVerifikasi = decision === 'Terverifikasi' ? 'Terverifikasi' : 'Pending';
+  const cleanNote =
+    catatanKetua?.trim() ||
+    (decision === 'Terverifikasi'
+      ? `Disahkan final oleh Ketua (${ketuaName}).`
+      : 'Dikembalikan ke Bendahara.');
+
+  const overlayEntry: ApprovalOverlayEntry = {
+    status_verifikasi: nextStatus,
+    bendahara_approved_at:
+      decision === 'Terverifikasi' ? kas.bendahara_approved_at || nowIso : null,
+    bendahara_approved_by:
+      decision === 'Terverifikasi' ? kas.bendahara_approved_by || 'Andriansyah' : null,
+    ketua_approved_at: decision === 'Terverifikasi' ? nowIso : null,
+    ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
+    ketua_catatan: cleanNote,
+  };
+  writeApprovalOverlayEntry(`kas::${kas.id}`, overlayEntry);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !kas.id.startsWith('kas-')) {
+    try {
+      await supabase
+        .from('transaksi_kas')
+        .update({
+          status_verifikasi: nextStatus,
+          bendahara_approved_at: overlayEntry.bendahara_approved_at,
+          bendahara_approved_by: overlayEntry.bendahara_approved_by,
+          ketua_approved_at: overlayEntry.ketua_approved_at,
+          ketua_approved_by: overlayEntry.ketua_approved_by,
+          ketua_catatan: cleanNote,
+          updated_at: nowIso,
+        })
+        .eq('id', kas.id);
+    } catch {
+      // Tetap sinkron via overlay jika kolom migrasi v3 belum dijalankan
+    }
+  }
+
+  const updated: TransaksiKas = {
+    ...kas,
+    status_verifikasi: nextStatus,
+    bendahara_approved_at: overlayEntry.bendahara_approved_at,
+    bendahara_approved_by: overlayEntry.bendahara_approved_by,
+    ketua_approved_at: overlayEntry.ketua_approved_at,
+    ketua_approved_by: overlayEntry.ketua_approved_by,
+    ketua_catatan: cleanNote,
+    updated_at: nowIso,
+  };
+  writeLocalTransaksiKas(
+    readLocalTransaksiKas().map((item) => (item.id === kas.id ? updated : item))
+  );
+
+  await recordAuditLog({
+    session,
+    action: decision === 'Terverifikasi' ? 'KETUA_FINAL_APPROVE_KAS' : 'KETUA_RETURN_KAS',
+    entity: 'transaksi_kas',
+    entity_id: kas.id,
+    summary: `Ketua ${ketuaName} ${
+      decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan ke Bendahara'
+    } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
+  });
+
+  return { data: updated };
 }
 
 export async function updateTransaksiKasAdmin(
@@ -4014,13 +4686,56 @@ function normalizePetugasRow(row: Record<string, unknown>, includePin = false): 
   };
 }
 
-function normalizeTitikRow(row: Record<string, unknown>): TitikPatroli {
+function readLocalPatrolMapConfig(): PatrolMapConfig {
+  try {
+    const raw = safeStorageGet(STORAGE_KEYS.PATROL_MAP_CONFIG);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<PatrolMapConfig>;
+      return {
+        map_image_url: typeof parsed.map_image_url === 'string' ? parsed.map_image_url : null,
+        cycle_reset_at: typeof parsed.cycle_reset_at === 'string' ? parsed.cycle_reset_at : null,
+        pin_positions:
+          parsed.pin_positions && typeof parsed.pin_positions === 'object'
+            ? parsed.pin_positions
+            : {},
+        updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : undefined,
+      };
+    }
+  } catch {
+    // Abaikan
+  }
   return {
-    id: String(row.id || ''),
+    map_image_url: null,
+    cycle_reset_at: null,
+    pin_positions: {},
+  };
+}
+
+function writeLocalPatrolMapConfig(cfg: PatrolMapConfig) {
+  safeStorageSet(STORAGE_KEYS.PATROL_MAP_CONFIG, JSON.stringify(cfg));
+}
+
+function parseFinitePercent(val: unknown): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const num = Number(val);
+  if (!Number.isFinite(num)) return null;
+  return Math.max(2, Math.min(98, Math.round(num * 100) / 100));
+}
+
+function normalizeTitikRow(row: Record<string, unknown>): TitikPatroli {
+  const id = String(row.id || '');
+  const localPins = readLocalPatrolMapConfig().pin_positions || {};
+  const pinOverride = id ? localPins[id] : undefined;
+  const xPercent = parseFinitePercent(row.x_percent) ?? pinOverride?.x_percent ?? null;
+  const yPercent = parseFinitePercent(row.y_percent) ?? pinOverride?.y_percent ?? null;
+  return {
+    id,
     nama_lokasi: String(row.nama_lokasi || ''),
     rfid_uid: String(row.rfid_uid || '').trim().toUpperCase(),
     keterangan: typeof row.keterangan === 'string' ? row.keterangan : null,
     aktif: row.aktif !== false,
+    x_percent: xPercent,
+    y_percent: yPercent,
     created_at: String(row.created_at || new Date().toISOString()),
   };
 }
@@ -4156,6 +4871,8 @@ export interface PetugasOwnData {
   instruksiKeamanan: SystemNotification[];
   titikPatroli: TitikPatroli[];
   patroliPribadi: LogPatroli[];
+  patroliCycleLogs: LogPatroli[];
+  patrolMapConfig: PatrolMapConfig;
   riwayatHonor: TransaksiKas[];
 }
 
@@ -4182,32 +4899,39 @@ export async function fetchPetugasOwnData(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured() && !ownId.startsWith('petugas-')) {
     try {
-      const [profilRes, titikRes, patroliRes, honorRes, allNotifs] = await Promise.all([
-        supabase
-          .from('petugas_keamanan')
-          .select('id, nama, username, no_hp, shift')
-          .eq('id', ownId)
-          .maybeSingle(),
-        supabase
-          .from('titik_patroli')
-          .select('*')
-          .eq('aktif', true)
-          .order('nama_lokasi', { ascending: true }),
-        supabase
-          .from('log_patroli')
-          .select('*')
-          .eq('petugas_id', ownId)
-          .order('waktu_scan', { ascending: false })
-          .limit(40),
-        supabase
-          .from('transaksi_kas')
-          .select('*')
-          .eq('jenis', 'pengeluaran')
-          .eq('petugas_id', ownId)
-          .order('tanggal', { ascending: false })
-          .limit(60),
-        fetchSystemNotifications(session),
-      ]);
+      const [profilRes, titikRes, patroliRes, cycleLogsRes, honorRes, allNotifs, patrolMapConfig] =
+        await Promise.all([
+          supabase
+            .from('petugas_keamanan')
+            .select('id, nama, username, no_hp, shift')
+            .eq('id', ownId)
+            .maybeSingle(),
+          supabase
+            .from('titik_patroli')
+            .select('*')
+            .eq('aktif', true)
+            .order('nama_lokasi', { ascending: true }),
+          supabase
+            .from('log_patroli')
+            .select('*')
+            .eq('petugas_id', ownId)
+            .order('waktu_scan', { ascending: false })
+            .limit(50),
+          supabase
+            .from('log_patroli')
+            .select('*')
+            .order('waktu_scan', { ascending: false })
+            .limit(40),
+          supabase
+            .from('transaksi_kas')
+            .select('*')
+            .eq('jenis', 'pengeluaran')
+            .eq('petugas_id', ownId)
+            .order('tanggal', { ascending: false })
+            .limit(60),
+          fetchSystemNotifications(session),
+          fetchPatrolMapConfig(session),
+        ]);
 
       const profil =
         !profilRes.error && profilRes.data
@@ -4232,6 +4956,11 @@ export async function fetchPetugasOwnData(
               .filter((p) => p.petugas_id === ownId)
           : readLocalLogPatroli().filter((p) => p.petugas_id === ownId);
 
+      const patroliCycleLogs =
+        !cycleLogsRes.error && Array.isArray(cycleLogsRes.data)
+          ? (cycleLogsRes.data as Record<string, unknown>[]).map(normalizeLogPatroliRow)
+          : readLocalLogPatroli().slice(0, 40);
+
       const riwayatHonor =
         !honorRes.error && Array.isArray(honorRes.data)
           ? (honorRes.data as Record<string, unknown>[])
@@ -4252,6 +4981,8 @@ export async function fetchPetugasOwnData(
           instruksiKeamanan,
           titikPatroli,
           patroliPribadi,
+          patroliCycleLogs,
+          patrolMapConfig,
           riwayatHonor,
         },
       };
@@ -4260,18 +4991,24 @@ export async function fetchPetugasOwnData(
     }
   }
 
-  const allNotifs = await fetchSystemNotifications(session);
+  const [allNotifs, patrolMapConfig] = await Promise.all([
+    fetchSystemNotifications(session),
+    fetchPatrolMapConfig(session),
+  ]);
   const instruksiKeamanan = allNotifs
     .filter((n) => n.category === 'Keamanan')
     .map(({ recipient_blocks: _omit, ...safe }) => safe)
     .slice(0, 6);
 
+  const allLogs = readLocalLogPatroli();
   return {
     data: {
       profil: fallbackProfil,
       instruksiKeamanan,
       titikPatroli: readLocalTitikPatroli().filter((t) => t.aktif),
-      patroliPribadi: readLocalLogPatroli().filter((p) => p.petugas_id === ownId),
+      patroliPribadi: allLogs.filter((p) => p.petugas_id === ownId),
+      patroliCycleLogs: allLogs.slice(0, 40),
+      patrolMapConfig,
       riwayatHonor: readLocalTransaksiKas().filter(
         (h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId
       ),
@@ -4694,11 +5431,20 @@ export async function fetchTitikPatroliPublic(session: SessionUser): Promise<Tit
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('titik_patroli')
-        .select('id, nama_lokasi, keterangan, aktif, created_at')
+        .select('id, nama_lokasi, keterangan, aktif, x_percent, y_percent, created_at')
         .eq('aktif', true)
         .order('nama_lokasi', { ascending: true });
+      if (error) {
+        const retry = await supabase
+          .from('titik_patroli')
+          .select('id, nama_lokasi, keterangan, aktif, created_at')
+          .eq('aktif', true)
+          .order('nama_lokasi', { ascending: true });
+        data = retry.data as typeof data;
+        error = retry.error;
+      }
       if (!error && Array.isArray(data)) {
         return (data as Record<string, unknown>[]).map((row) => ({
           ...normalizeTitikRow(row),
@@ -4855,4 +5601,235 @@ export async function deleteTitikPatroliAdmin(
   writeLocalTitikPatroli(readLocalTitikPatroli().filter((t) => t.id !== titik.id));
   return { data: true };
 }
+
+// =========================================================================
+// Peta Mapping Rute Patroli Interaktif & Koordinat Pin Checkpoint
+// =========================================================================
+
+export async function fetchPatrolMapConfig(
+  session?: SessionUser | null
+): Promise<PatrolMapConfig> {
+  const localCfg = readLocalPatrolMapConfig();
+  const supabase = getSupabaseClient(session || null);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('patrol_map_image_url, patrol_cycle_reset_at, patrol_pin_positions, updated_at')
+        .eq('id', 'default-app-brand')
+        .maybeSingle();
+
+      if (!error && data) {
+        const row = data as Record<string, unknown>;
+        const remotePins =
+          row.patrol_pin_positions && typeof row.patrol_pin_positions === 'object'
+            ? (row.patrol_pin_positions as Record<string, PatrolPinCoordinate>)
+            : {};
+        const merged: PatrolMapConfig = {
+          map_image_url:
+            typeof row.patrol_map_image_url === 'string' && row.patrol_map_image_url.trim()
+              ? row.patrol_map_image_url.trim()
+              : localCfg.map_image_url,
+          cycle_reset_at:
+            typeof row.patrol_cycle_reset_at === 'string' && row.patrol_cycle_reset_at.trim()
+              ? row.patrol_cycle_reset_at.trim()
+              : localCfg.cycle_reset_at,
+          pin_positions: {
+            ...localCfg.pin_positions,
+            ...remotePins,
+          },
+          updated_at:
+            typeof row.updated_at === 'string' ? row.updated_at : localCfg.updated_at,
+        };
+        writeLocalPatrolMapConfig(merged);
+        return merged;
+      }
+    } catch {
+      // Fallback lokal bila kolom patrol_map_* belum ditambahkan di app_settings
+    }
+  }
+  return localCfg;
+}
+
+export async function uploadPatrolMapImageAdmin(
+  session: SessionUser,
+  file: File
+): Promise<ServiceResult<string>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: unggah gambar peta patroli khusus Bendahara.' };
+  }
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const rawExt = file.name?.split('.').pop()?.toLowerCase() || '';
+      const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? rawExt : 'png';
+      const filePath = `patrol-map/denah-perumahan-${Date.now()}.${safeExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('bukti-ipl')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          return { data: publicUrlData.publicUrl };
+        }
+      }
+    } catch {
+      // Lanjut fallback data URL
+    }
+  }
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    return { data: dataUrl };
+  } catch (err) {
+    return { error: parseFriendlyError(err, 'Gagal membaca file gambar peta perumahan.') };
+  }
+}
+
+export async function savePatrolMapImageAdmin(
+  session: SessionUser,
+  imageUrl: string | null
+): Promise<ServiceResult<PatrolMapConfig>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: pengaturan gambar peta patroli khusus Bendahara.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const current = readLocalPatrolMapConfig();
+  const updated: PatrolMapConfig = {
+    ...current,
+    map_image_url: imageUrl?.trim() || null,
+    updated_at: nowIso,
+  };
+  writeLocalPatrolMapConfig(updated);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      await supabase
+        .from('app_settings')
+        .update({
+          patrol_map_image_url: updated.map_image_url,
+          updated_at: nowIso,
+        })
+        .eq('id', 'default-app-brand');
+    } catch {
+      // Tetap tersimpan lokal
+    }
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'UPDATE_PATROL_MAP_IMAGE',
+    entity: 'app_settings',
+    entity_id: 'default-app-brand',
+    summary: updated.map_image_url
+      ? 'Memperbarui gambar Peta Mapping Rute Patroli Perumahan.'
+      : 'Menghapus gambar peta kustom (kembali ke denah vektor standar).',
+  });
+
+  return { data: updated };
+}
+
+export async function saveTitikPinPositionAdmin(
+  session: SessionUser,
+  titikId: string,
+  xPercent: number,
+  yPercent: number
+): Promise<ServiceResult<PatrolMapConfig>> {
+  if (!isBendaharaFullAccess(session)) {
+    return { error: 'Akses ditolak: penempatan koordinat pin patroli khusus Bendahara.' };
+  }
+
+  const clampedX = Math.max(2, Math.min(98, Math.round(xPercent * 100) / 100));
+  const clampedY = Math.max(2, Math.min(98, Math.round(yPercent * 100) / 100));
+  const nowIso = new Date().toISOString();
+
+  const current = readLocalPatrolMapConfig();
+  const nextPins: Record<string, PatrolPinCoordinate> = {
+    ...current.pin_positions,
+    [titikId]: { x_percent: clampedX, y_percent: clampedY },
+  };
+  const updatedConfig: PatrolMapConfig = {
+    ...current,
+    pin_positions: nextPins,
+    updated_at: nowIso,
+  };
+  writeLocalPatrolMapConfig(updatedConfig);
+
+  // Perbarui juga cache lokal titik_patroli
+  const localTitik = readLocalTitikPatroli();
+  writeLocalTitikPatroli(
+    localTitik.map((t) =>
+      t.id === titikId ? { ...t, x_percent: clampedX, y_percent: clampedY } : t
+    )
+  );
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      if (!titikId.startsWith('titik-')) {
+        await supabase
+          .from('titik_patroli')
+          .update({ x_percent: clampedX, y_percent: clampedY })
+          .eq('id', titikId);
+      }
+      await supabase
+        .from('app_settings')
+        .update({
+          patrol_pin_positions: nextPins,
+          updated_at: nowIso,
+        })
+        .eq('id', 'default-app-brand');
+    } catch {
+      // Tetap tersimpan lokal
+    }
+  }
+
+  return { data: updatedConfig };
+}
+
+export async function resetPatrolCycle(
+  session: SessionUser
+): Promise<ServiceResult<PatrolMapConfig>> {
+  if (session.role !== 'admin' && session.role !== 'petugas') {
+    return { error: 'Akses ditolak: reset siklus patroli hanya untuk Pengurus atau Petugas Keamanan.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const current = readLocalPatrolMapConfig();
+  const updated: PatrolMapConfig = {
+    ...current,
+    cycle_reset_at: nowIso,
+    updated_at: nowIso,
+  };
+  writeLocalPatrolMapConfig(updated);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      await supabase
+        .from('app_settings')
+        .update({
+          patrol_cycle_reset_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq('id', 'default-app-brand');
+    } catch {
+      // Tetap tersimpan lokal bila migrasi SQL belum dijalankan
+    }
+  }
+
+  await recordAuditLog({
+    session,
+    action: 'RESET_PATROL_CYCLE',
+    entity: 'app_settings',
+    entity_id: 'default-app-brand',
+    summary: `${session.nama_warga} mereset siklus patroli aktif (pergantian shift). Riwayat log patroli tetap tersimpan aman.`,
+  });
+
+  return { data: updated };
+}
+
 

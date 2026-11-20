@@ -110,9 +110,13 @@ function parseDateParts(dateStr: string): { tahun: number; bulan: number; hari: 
   };
 }
 
+export function isTransaksiKasFinalVerified(kas: TransaksiKas): boolean {
+  return !kas.status_verifikasi || kas.status_verifikasi === 'Terverifikasi';
+}
+
 /**
  * Saldo Kas Real-Time:
- * Total Pemasukan IPL Terverifikasi + Total Pemasukan Lain - Total Pengeluaran Anggaran
+ * Total Pemasukan IPL Terverifikasi Sah + Total Pemasukan Lain Sah - Total Pengeluaran Sah
  */
 export function calculateGlobalCashSummary(
   transaksiList: TransaksiIPL[],
@@ -122,11 +126,13 @@ export function calculateGlobalCashSummary(
     .filter((t) => t.status_verifikasi === 'Terverifikasi')
     .reduce((sum, t) => sum + (Number(t.nominal) || 0), 0);
 
-  const totalPemasukanLain = transaksiKasList
+  const verifiedKas = transaksiKasList.filter(isTransaksiKasFinalVerified);
+
+  const totalPemasukanLain = verifiedKas
     .filter((k) => k.jenis === 'pemasukan_lain')
     .reduce((sum, k) => sum + (Number(k.nominal) || 0), 0);
 
-  const totalPengeluaran = transaksiKasList
+  const totalPengeluaran = verifiedKas
     .filter((k) => k.jenis === 'pengeluaran')
     .reduce((sum, k) => sum + (Number(k.nominal) || 0), 0);
 
@@ -212,7 +218,7 @@ export function buildMonthlyCashReport(
     }
   }
 
-  for (const kas of transaksiKasList) {
+  for (const kas of transaksiKasList.filter(isTransaksiKasFinalVerified)) {
     const effDate = getDateOnly(kas.tanggal);
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;
@@ -337,7 +343,7 @@ export function buildQuarterlyLpjReport(
     }
   }
 
-  for (const kas of transaksiKasList) {
+  for (const kas of transaksiKasList.filter(isTransaksiKasFinalVerified)) {
     const effDate = getDateOnly(kas.tanggal);
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;

@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { type SessionUser } from '../types';
+import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 
@@ -47,6 +47,7 @@ export function AppShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isAdmin = session.role === 'admin';
+  const canAccessBotWa = isBendaharaOnly(session);
   const adminIdentityLabel = `${session.nama_warga} — ${session.jabatan || 'Pengurus'}`;
   const isLpjActive = activeTab === 'lpj';
 
@@ -196,8 +197,9 @@ export function AppShell({
                         Pengaturan Sistem Terpusat
                       </p>
                       <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                        Identitas &amp; Stempel, Bayar/QRIS, Bot WA, Petugas &amp; Titik RFID, PIN
-                        &amp; Log
+                        {canAccessBotWa
+                          ? 'Identitas & Stempel, Bayar/QRIS, Bot WA, Petugas & Peta RFID, PIN & Log'
+                          : 'Identitas & Stempel, Bayar/QRIS, Petugas & Peta RFID, PIN & Log'}
                       </p>
                     </div>
                   </button>
@@ -337,8 +339,9 @@ export function AppShell({
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold leading-snug">Pengaturan Sistem Terpusat</p>
                         <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                          Identitas &amp; Stempel, Bayar/QRIS, Bot WA, Petugas &amp; Titik RFID, PIN
-                          &amp; Log
+                          {canAccessBotWa
+                            ? 'Identitas & Stempel, Bayar/QRIS, Bot WA, Petugas & Peta RFID, PIN & Log'
+                            : 'Identitas & Stempel, Bayar/QRIS, Petugas & Peta RFID, PIN & Log'}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />

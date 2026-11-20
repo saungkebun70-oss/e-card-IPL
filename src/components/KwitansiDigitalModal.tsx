@@ -47,6 +47,11 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
 
   const isIpl = props.mode === 'ipl';
   const isPengeluaran = props.mode === 'kas' && props.trxKas.jenis === 'pengeluaran';
+  const statusVerifikasi = isIpl
+    ? props.trx.status_verifikasi
+    : props.trxKas.status_verifikasi || 'Terverifikasi';
+  const isFinalVerified = statusVerifikasi === 'Terverifikasi';
+  const isAccBendahara = statusVerifikasi === 'ACC Bendahara';
 
   const nomorDokumen = isIpl ? props.trx.no_kwitansi : props.trxKas.no_bukti;
   const nominal = isIpl ? props.trx.nominal : props.trxKas.nominal;
@@ -158,12 +163,18 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               />
               <span>
                 {isIpl
-                  ? props.trx.status_verifikasi === 'Terverifikasi'
-                    ? 'TERVERIFIKASI LUNAS — BUKTI PEMBAYARAN SAH'
-                    : `STATUS: ${props.trx.status_verifikasi.toUpperCase()}`
-                  : isPengeluaran
-                    ? 'BUKTI PENGELUARAN KAS LINGKUNGAN'
-                    : 'BUKTI PEMASUKAN KAS LAIN-LAIN'}
+                  ? isFinalVerified
+                    ? 'TERVERIFIKASI SAH (BENDAHARA & KETUA) — LUNAS'
+                    : isAccBendahara
+                      ? 'ACC BENDAHARA — MENUNGGU VERIFIKASI KETUA'
+                      : `STATUS: ${statusVerifikasi.toUpperCase()}`
+                  : isFinalVerified
+                    ? isPengeluaran
+                      ? 'BUKTI PENGELUARAN KAS — TERVERIFIKASI SAH (BENDAHARA & KETUA)'
+                      : 'BUKTI PEMASUKAN KAS LAIN — TERVERIFIKASI SAH (BENDAHARA & KETUA)'
+                    : isAccBendahara
+                      ? 'ACC BENDAHARA — MENUNGGU PENGESAHAN KETUA'
+                      : 'MENUNGGU VERIFIKASI BENDAHARA'}
               </span>
             </div>
 
@@ -286,7 +297,18 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                   <p className="text-[11px] sm:text-xs font-semibold text-slate-700">
                     Ketua Lingkungan
                   </p>
-                  <div className="h-16 sm:h-20" />
+                  <div className="h-16 sm:h-20 relative flex items-center justify-center">
+                    {isFinalVerified ? (
+                      <div className="inline-flex flex-col items-center justify-center border border-emerald-500/70 bg-emerald-50/75 rounded-lg px-2.5 py-1 text-[9px] font-bold text-emerald-800 tracking-tight">
+                        <span>✓ DISAHKAN DIGITAL</span>
+                        <span className="font-mono font-normal text-[8px] text-emerald-700">
+                          Otorisasi Ketua
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] italic text-slate-400">Menunggu Pengesahan</span>
+                    )}
+                  </div>
                   <div className="border-b border-slate-400 w-28 sm:w-36 mx-auto" />
                   <p className="text-xs font-bold text-[#0F172A] mt-1.5">Erlangga</p>
                   <p className="text-[10px] text-slate-500">Perumahan Saung Kebun</p>
@@ -300,6 +322,11 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                     <div className="pointer-events-none -translate-x-3 sm:-translate-x-5 opacity-85">
                       <OfficialStamp size="sm" />
                     </div>
+                    {(isFinalVerified || isAccBendahara) && (
+                      <div className="absolute bottom-0.5 right-1 sm:right-3 border border-emerald-500/70 bg-emerald-50/85 rounded-md px-1.5 py-0.5 text-[8px] font-bold text-emerald-800">
+                        ✓ ACC Bendahara
+                      </div>
+                    )}
                   </div>
                   <div className="border-b border-slate-400 w-28 sm:w-36 mx-auto" />
                   <p className="text-xs font-bold text-[#0F172A] mt-1.5">Andriansyah</p>
@@ -309,7 +336,8 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
 
               <p className="text-[10px] text-slate-400 text-center mt-4 pt-3 border-t border-slate-100 leading-relaxed">
                 Dokumen kwitansi ini diterbitkan secara elektronik oleh sistem e-Card IPL Digital
-                Perumahan Saung Kebun dan sah sebagai bukti transaksi resmi.
+                Perumahan Saung Kebun dengan verifikasi berjenjang (Bendahara &amp; Ketua) dan sah
+                sebagai bukti transaksi resmi.
               </p>
             </div>
           </div>

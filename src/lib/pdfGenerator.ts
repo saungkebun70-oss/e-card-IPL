@@ -165,6 +165,18 @@ async function drawSignatureBlock(
   doc.text('Ketua Lingkungan', leftColX, y, { align: 'center' });
   doc.text('Bendahara Lingkungan', rightColX, y, { align: 'center' });
 
+  // Stempel Otorisasi Digital Ketua Lingkungan
+  doc.setDrawColor(5, 150, 105);
+  doc.setFillColor(236, 253, 245);
+  doc.roundedRect(leftColX - 21, y + 6, 42, 11, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.6);
+  doc.setTextColor(6, 95, 70);
+  doc.text('DISAHKAN DIGITAL', leftColX, y + 10.6, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.text('Verifikasi Tahap 2 · Ketua', leftColX, y + 14.4, { align: 'center' });
+
   // Stempel Digital Pengurus rapi di ruang tanda tangan (di atas garis TTD, tidak menutupi nama)
   const stempelDataUrl = await loadImageAsDataUrl(brand.stempel_url);
   const stampCenterX = rightColX - 15;

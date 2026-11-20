@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   isBendaharaFullAccess,
+  isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
   type BotAccessRole,
   type BotWaConfig,
@@ -91,6 +92,7 @@ export function AdminWargaSlide({
 }: AdminWargaSlideProps) {
   const PAGE_SIZE = 20;
   const canManageFull = isBendaharaFullAccess(session);
+  const canAccessBotWa = isBendaharaOnly(session);
   const hasGatewayToken = Boolean(botConfig?.api_token?.trim());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | StatusHunian>('Semua');
@@ -426,10 +428,10 @@ export function AdminWargaSlide({
       {!canManageFull && (
         <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-700">
           <span className="font-semibold text-[#0F172A]">
-            Hak Akses {session.jabatan || 'Pengurus'} (Tambah Data):
+            Hak Akses {session.jabatan || 'Pengurus'}:
           </span>{' '}
-          Anda dapat menambahkan data warga baru, menyalin info login, dan mengirim aktivasi Bot WA.
-          Pengubahan data (Edit), Reset PIN, dan Hapus unit hanya tersedia untuk akun{' '}
+          Anda dapat menambahkan data warga baru dan menyalin info login warga. Pengubahan data
+          (Edit), Reset PIN, Hapus unit, dan fitur Bot WA hanya tersedia untuk akun{' '}
           <span className="font-semibold">Bendahara</span>.
         </div>
       )}
@@ -530,47 +532,48 @@ export function AdminWargaSlide({
                             </button>
                           )}
 
-                          {/* Tombol Kirim Info Aktivasi Bot */}
-                          {!hasAnyRealWa ? (
-                            <button
-                              type="button"
-                              disabled
-                              title="Daftarkan nomor WA warga terlebih dahulu untuk mengaktifkan Bot"
-                              className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-400 text-xs font-semibold inline-flex items-center gap-1 cursor-not-allowed"
-                            >
-                              <Bot className="w-3.5 h-3.5" />
-                              <span className="hidden 2xl:inline">Aktivasi Bot</span>
-                            </button>
-                          ) : canManageFull && hasGatewayToken ? (
-                            <button
-                              type="button"
-                              disabled={activatingId === w.id}
-                              onClick={() => void handleSendBotActivationGateway(w)}
-                              title={`Kirim Info Aktivasi Bot WA (perintah CEK) via ${botConfig?.provider || 'Fonnte'}`}
-                              className="min-h-[36px] px-2.5 rounded-lg border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                            >
-                              {activatingId === w.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
+                          {/* Tombol Kirim Info Aktivasi Bot (Eksklusif Bendahara) */}
+                          {canAccessBotWa &&
+                            (!hasAnyRealWa ? (
+                              <button
+                                type="button"
+                                disabled
+                                title="Daftarkan nomor WA warga terlebih dahulu untuk mengaktifkan Bot"
+                                className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-400 text-xs font-semibold inline-flex items-center gap-1 cursor-not-allowed"
+                              >
                                 <Bot className="w-3.5 h-3.5" />
-                              )}
-                              <span className="hidden 2xl:inline">Aktivasi Bot</span>
-                            </button>
-                          ) : (
-                            <a
-                              href={buildWhatsAppLink(
-                                primaryLinkNumber,
-                                buildWargaBotActivationMessage(w)
-                              )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Kirim Info Aktivasi Bot WA ke warga bahwa perintah CEK sudah aktif"
-                              className="min-h-[36px] px-2.5 rounded-lg border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 transition-colors"
-                            >
-                              <Bot className="w-3.5 h-3.5" />
-                              <span className="hidden 2xl:inline">Aktivasi Bot</span>
-                            </a>
-                          )}
+                                <span className="hidden 2xl:inline">Aktivasi Bot</span>
+                              </button>
+                            ) : hasGatewayToken ? (
+                              <button
+                                type="button"
+                                disabled={activatingId === w.id}
+                                onClick={() => void handleSendBotActivationGateway(w)}
+                                title={`Kirim Info Aktivasi Bot WA (perintah CEK) via ${botConfig?.provider || 'Fonnte'}`}
+                                className="min-h-[36px] px-2.5 rounded-lg border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                {activatingId === w.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Bot className="w-3.5 h-3.5" />
+                                )}
+                                <span className="hidden 2xl:inline">Aktivasi Bot</span>
+                              </button>
+                            ) : (
+                              <a
+                                href={buildWhatsAppLink(
+                                  primaryLinkNumber,
+                                  buildWargaBotActivationMessage(w)
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Kirim Info Aktivasi Bot WA ke warga bahwa perintah CEK sudah aktif"
+                                className="min-h-[36px] px-2.5 rounded-lg border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 transition-colors"
+                              >
+                                <Bot className="w-3.5 h-3.5" />
+                                <span className="hidden 2xl:inline">Aktivasi Bot</span>
+                              </a>
+                            ))}
 
                           {hasAnyRealWa ? (
                             <a

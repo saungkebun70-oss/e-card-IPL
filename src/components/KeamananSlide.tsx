@@ -18,6 +18,7 @@ import {
 import {
   APP_PETUGAS_PORTAL_URL,
   type LogPatroli,
+  type PatrolMapConfig,
   type PetugasKontakDarurat,
   type SessionUser,
   type StatusKondisiPatroli,
@@ -25,7 +26,7 @@ import {
   type TitikPatroli,
 } from '../types';
 import { formatTanggalWaktu } from '../lib/format';
-import { submitLogPatroliAdmin } from '../lib/dataService';
+import { resetPatrolCycle, submitLogPatroliAdmin } from '../lib/dataService';
 import {
   describeWebNfcError,
   extractNfcReadingData,
@@ -39,10 +40,10 @@ import {
   SecurityPatrolFeedCard,
 } from './SecurityLiveWidgets';
 import {
-  SecurityPatrolMapSvg,
   type CheckpointKondisiState,
   type CheckpointStatusItem,
 } from './SecurityPatrolMapSvg';
+import { PatrolInteractiveMap } from './PatrolInteractiveMap';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -53,6 +54,7 @@ interface KeamananSlideProps {
   petugasKontak: PetugasKontakDarurat[];
   patroliFeed: LogPatroli[];
   titikPatroliList?: TitikPatroli[];
+  patrolMapConfig?: PatrolMapConfig | null;
   notifications: SystemNotification[];
   isRefreshing?: boolean;
   onRefresh: () => Promise<void>;
@@ -79,6 +81,7 @@ export function KeamananSlide({
   petugasKontak,
   patroliFeed,
   titikPatroliList = [],
+  patrolMapConfig = null,
   notifications,
   isRefreshing = false,
   onRefresh,
@@ -89,6 +92,7 @@ export function KeamananSlide({
   const [checkpointFilter, setCheckpointFilter] = useState<
     'semua' | CheckpointKondisiState | 'belum_hari_ini'
   >('semua');
+  const [resettingCycle, setResettingCycle] = useState(false);
 
   // State Panel Scan Checkpoint Patroli NFC (Admin)
   const nfcSupported = isWebNfcSupported();
@@ -225,6 +229,25 @@ export function KeamananSlide({
       onToast('success', `Link Portal Petugas (${APP_PETUGAS_PORTAL_URL}) berhasil disalin.`);
     } catch {
       onToast('info', `Link Portal Petugas: ${APP_PETUGAS_PORTAL_URL}`);
+    }
+  };
+
+  const handleResetPatrolCycle = async () => {
+    if (!session || role !== 'admin' || resettingCycle) return;
+    setResettingCycle(true);
+    try {
+      const res = await resetPatrolCycle(session);
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast(
+          'success',
+          'Siklus patroli berhasil direset untuk shift baru. Riwayat patroli sebelumnya tetap tersimpan.'
+        );
+        await onRefresh();
+      }
+    } finally {
+      setResettingCycle(false);
     }
   };
 
@@ -728,11 +751,15 @@ export function KeamananSlide({
         </section>
       )}
 
-      {/* Denah Blok Perumahan Interaktif (SVG) — Hijau Aman, Merah Perlu Perhatian */}
-      <SecurityPatrolMapSvg
-        role={role}
-        checkpoints={checkpointStatuses}
-        onOpenPetugasSettings={onOpenPetugasSettings}
+      {/* Peta Mapping Rute Patroli Interaktif Real-Time (Pin Merah Belum Scan -> Hijau Terverifikasi NFC) */}
+      <PatrolInteractiveMap
+        mode={role === 'admin' ? 'admin' : 'warga'}
+        titikList={titikPatroliList}
+        patroliLogs={patroliFeed}
+        patrolMapConfig={patrolMapConfig}
+        canResetCycle={role === 'admin' && Boolean(session)}
+        onResetCycle={role === 'admin' && session ? handleResetPatrolCycle : undefined}
+        resettingCycle={resettingCycle}
       />
 
       {/* Visualisasi Status Kondisi & Progres Harian Titik Checkpoint Patroli */}

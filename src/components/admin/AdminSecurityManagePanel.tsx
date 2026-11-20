@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Copy,
   Edit3,
+  ImagePlus,
   Loader2,
   MapPin,
   MessageCircle,
   Plus,
   Radio,
   RefreshCw,
+  RotateCcw,
   Shield,
   ShieldAlert,
   Smartphone,
@@ -20,6 +22,7 @@ import {
   APP_PETUGAS_PORTAL_URL,
   isBendaharaFullAccess,
   SHIFT_PETUGAS_OPTIONS,
+  type PatrolMapConfig,
   type PetugasKeamanan,
   type SessionUser,
   type TitikPatroli,
@@ -36,14 +39,19 @@ import {
 import {
   deletePetugasAdmin,
   deleteTitikPatroliAdmin,
+  savePatrolMapImageAdmin,
   savePetugasAdmin,
   saveTitikPatroliAdmin,
+  saveTitikPinPositionAdmin,
+  uploadPatrolMapImageAdmin,
 } from '../../lib/dataService';
+import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 
 interface AdminSecurityManagePanelProps {
   session: SessionUser;
   petugasList: PetugasKeamanan[];
   titikPatroliList: TitikPatroli[];
+  patrolMapConfig?: PatrolMapConfig | null;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -52,10 +60,46 @@ export function AdminSecurityManagePanel({
   session,
   petugasList,
   titikPatroliList,
+  patrolMapConfig,
   onRefresh,
   onToast,
 }: AdminSecurityManagePanelProps) {
   const canEdit = isBendaharaFullAccess(session);
+
+  // State Peta Mapping Rute Patroli & Editor Pin
+  const activeTitikList = useMemo(
+    () => titikPatroliList.filter((t) => t.aktif !== false),
+    [titikPatroliList]
+  );
+  const [localMapConfig, setLocalMapConfig] = useState<PatrolMapConfig>(
+    () =>
+      patrolMapConfig || {
+        map_image_url: null,
+        cycle_reset_at: null,
+        pin_positions: {},
+      }
+  );
+  const [selectedPinTitikId, setSelectedPinTitikId] = useState<string>(
+    () => activeTitikList[0]?.id || ''
+  );
+  const [uploadingMap, setUploadingMap] = useState(false);
+  const [savingPin, setSavingPin] = useState(false);
+  const mapFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (patrolMapConfig) {
+      setLocalMapConfig(patrolMapConfig);
+    }
+  }, [patrolMapConfig]);
+
+  useEffect(() => {
+    if (
+      activeTitikList.length > 0 &&
+      (!selectedPinTitikId || !activeTitikList.some((t) => t.id === selectedPinTitikId))
+    ) {
+      setSelectedPinTitikId(activeTitikList[0].id);
+    }
+  }, [activeTitikList, selectedPinTitikId]);
 
   // Form Petugas Keamanan
   const [editPetugasId, setEditPetugasId] = useState<string | null>(null);
@@ -206,6 +250,80 @@ export function AdminSecurityManagePanel({
       onToast('info', `Titik checkpoint "${t.nama_lokasi}" dihapus.`);
       if (editTitikId === t.id) resetTitikForm();
       await onRefresh();
+    }
+  };
+
+  const handleUploadMapFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !canEdit) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      onToast('error', 'Format peta harus berupa gambar JPG, PNG, atau WebP.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      onToast('error', 'Ukuran gambar peta maksimal 8 MB.');
+      return;
+    }
+
+    setUploadingMap(true);
+    try {
+      const uploadRes = await uploadPatrolMapImageAdmin(session, file);
+      if (uploadRes.error || !uploadRes.data) {
+        onToast('error', uploadRes.error || 'Gagal mengunggah gambar peta perumahan.');
+        return;
+      }
+      const saveRes = await savePatrolMapImageAdmin(session, uploadRes.data);
+      if (saveRes.error || !saveRes.data) {
+        onToast('error', saveRes.error || 'Gagal menyimpan URL peta perumahan.');
+        return;
+      }
+      setLocalMapConfig(saveRes.data);
+      onToast('success', 'Gambar Peta Mapping Rute Patroli berhasil diperbarui.');
+      await onRefresh();
+    } finally {
+      setUploadingMap(false);
+    }
+  };
+
+  const handleClearCustomMap = async () => {
+    if (!canEdit || uploadingMap) return;
+    setUploadingMap(true);
+    try {
+      const saveRes = await savePatrolMapImageAdmin(session, null);
+      if (saveRes.error || !saveRes.data) {
+        onToast('error', saveRes.error || 'Gagal mereset gambar peta.');
+        return;
+      }
+      setLocalMapConfig(saveRes.data);
+      onToast('info', 'Peta dikembalikan ke denah vektor standar Perumahan Saung Kebun.');
+      await onRefresh();
+    } finally {
+      setUploadingMap(false);
+    }
+  };
+
+  const handlePlacePin = async (titikId: string, xPercent: number, yPercent: number) => {
+    if (!canEdit || savingPin) return;
+    setSavingPin(true);
+    try {
+      const res = await saveTitikPinPositionAdmin(session, titikId, xPercent, yPercent);
+      if (res.error || !res.data) {
+        onToast('error', res.error || 'Gagal menyimpan koordinat pin patroli.');
+        return;
+      }
+      setLocalMapConfig(res.data);
+      const targetName =
+        activeTitikList.find((t) => t.id === titikId)?.nama_lokasi || 'Checkpoint';
+      onToast(
+        'success',
+        `Posisi pin "${targetName}" disimpan (${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%).`
+      );
+      await onRefresh();
+    } finally {
+      setSavingPin(false);
     }
   };
 
@@ -820,6 +938,139 @@ export function AdminSecurityManagePanel({
               )}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* BAGIAN C: PETA MAPPING RUTE PATROLI & PENEMPATAN PIN INTERAKTIF */}
+      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+              <ImagePlus className="w-4 h-4 text-[#059669]" />
+              <span>Peta Mapping Rute Patroli</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Unggah denah/foto peta Perumahan Saung Kebun (JPG/PNG/WebP), lalu pilih titik
+              checkpoint dan klik pada peta untuk menyimpan posisi pin real-time.
+            </p>
+          </div>
+
+          {canEdit && (
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <input
+                ref={mapFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => void handleUploadMapFile(e)}
+                className="hidden"
+              />
+              <button
+                type="button"
+                disabled={uploadingMap}
+                onClick={() => mapFileInputRef.current?.click()}
+                className="min-h-[40px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                {uploadingMap ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ImagePlus className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {uploadingMap
+                    ? 'Mengunggah...'
+                    : localMapConfig.map_image_url
+                      ? 'Ganti Gambar Peta'
+                      : 'Unggah Gambar Peta Perumahan'}
+                </span>
+              </button>
+
+              {localMapConfig.map_image_url && (
+                <button
+                  type="button"
+                  disabled={uploadingMap}
+                  onClick={() => void handleClearCustomMap()}
+                  className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Denah Bawaan</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Pemilih Titik Checkpoint untuk Penempatan Pin */}
+          {activeTitikList.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                1. Pilih Checkpoint yang Akan Ditempatkan di Peta:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {activeTitikList.map((titik, idx) => {
+                  const savedPos = localMapConfig.pin_positions?.[titik.id];
+                  const posX =
+                    typeof savedPos?.x_percent === 'number'
+                      ? savedPos.x_percent
+                      : titik.x_percent;
+                  const posY =
+                    typeof savedPos?.y_percent === 'number'
+                      ? savedPos.y_percent
+                      : titik.y_percent;
+                  const isSelected = selectedPinTitikId === titik.id;
+
+                  return (
+                    <button
+                      key={titik.id}
+                      type="button"
+                      onClick={() => setSelectedPinTitikId(titik.id)}
+                      className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#059669] border-[#059669] text-white shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                          isSelected
+                            ? 'bg-white text-[#059669]'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span>{titik.nama_lokasi}</span>
+                      {typeof posX === 'number' && typeof posY === 'number' && (
+                        <span
+                          className={`text-[10px] font-mono tabular-nums ${
+                            isSelected ? 'text-emerald-100' : 'text-slate-400'
+                          }`}
+                        >
+                          ({Math.round(posX)}%,{Math.round(posY)}%)
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">
+              Tambahkan minimal 1 Titik Checkpoint RFID / NFC di atas untuk mulai memetakan pin di
+              denah perumahan.
+            </div>
+          )}
+
+          {/* Kanvas Peta Editor Interaktif */}
+          <PatrolInteractiveMap
+            mode="editor"
+            titikList={titikPatroliList}
+            patroliLogs={[]}
+            patrolMapConfig={localMapConfig}
+            selectedEditorTitikId={canEdit ? selectedPinTitikId : null}
+            onPlacePin={canEdit ? handlePlacePin : undefined}
+            savingPin={savingPin}
+          />
         </div>
       </section>
     </div>
