@@ -24,6 +24,11 @@ import {
   EmergencySecurityContactCard,
   SecurityPatrolFeedCard,
 } from './SecurityLiveWidgets';
+import {
+  SecurityPatrolMapSvg,
+  type CheckpointKondisiState,
+  type CheckpointStatusItem,
+} from './SecurityPatrolMapSvg';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -38,15 +43,6 @@ interface KeamananSlideProps {
   onRefresh: () => Promise<void>;
   onOpenPetugasSettings?: () => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
-}
-
-type CheckpointKondisiState = 'aman' | 'perlu_perhatian' | 'belum_dipatroli';
-
-interface CheckpointStatusItem {
-  titik: TitikPatroli;
-  latestLog: LogPatroli | null;
-  state: CheckpointKondisiState;
-  scannedToday: boolean;
 }
 
 function isTodayLocal(isoDate: string): boolean {
@@ -275,6 +271,13 @@ export function KeamananSlide({
         </section>
       )}
 
+      {/* Denah Blok Perumahan Interaktif (SVG) — Hijau Aman, Merah Perlu Perhatian */}
+      <SecurityPatrolMapSvg
+        role={role}
+        checkpoints={checkpointStatuses}
+        onOpenPetugasSettings={onOpenPetugasSettings}
+      />
+
       {/* Visualisasi Status Kondisi Terkini Titik Checkpoint Patroli (Khusus Admin) */}
       {role === 'admin' && (
         <section
@@ -341,8 +344,8 @@ export function KeamananSlide({
                     <span className="w-2 h-2 rounded-full bg-[#059669]" aria-hidden="true" />
                     Aman: <span className="font-mono tabular-nums">{checkpointSummary.aman}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-amber-700">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-red-700">
+                    <span className="w-2 h-2 rounded-full bg-[#DC2626]" aria-hidden="true" />
                     Perlu Perhatian:{' '}
                     <span className="font-mono tabular-nums">
                       {checkpointSummary.perluPerhatian}
@@ -374,7 +377,7 @@ export function KeamananSlide({
                 )}
                 {checkpointSummary.perluPerhatian > 0 && (
                   <div
-                    className="bg-amber-500 h-full transition-all"
+                    className="bg-[#DC2626] h-full transition-all"
                     style={{
                       width: `${
                         (checkpointSummary.perluPerhatian / checkpointSummary.total) * 100
@@ -423,7 +426,7 @@ export function KeamananSlide({
                     key={titik.id}
                     className={`rounded-xl border p-3.5 sm:p-4 flex flex-col justify-between gap-2.5 transition-colors ${
                       isAttention
-                        ? 'border-amber-300 bg-amber-50/50'
+                        ? 'border-red-300 bg-red-50/50'
                         : isAman
                           ? 'border-emerald-200/80 bg-emerald-50/25'
                           : 'border-slate-200 bg-slate-50/60'
@@ -436,7 +439,7 @@ export function KeamananSlide({
                           <MapPin
                             className={`w-3.5 h-3.5 shrink-0 ${
                               isAttention
-                                ? 'text-amber-600'
+                                ? 'text-red-600'
                                 : isAman
                                   ? 'text-[#059669]'
                                   : 'text-slate-400'
@@ -453,7 +456,7 @@ export function KeamananSlide({
                       <span
                         className={`text-xs font-bold inline-flex items-center gap-1 shrink-0 whitespace-nowrap ${
                           isAttention
-                            ? 'text-amber-700'
+                            ? 'text-red-700'
                             : isAman
                               ? 'text-emerald-700'
                               : 'text-slate-500'
@@ -494,7 +497,7 @@ export function KeamananSlide({
                           <p
                             className={`text-xs rounded-lg px-2.5 py-1.5 leading-relaxed ${
                               isAttention
-                                ? 'bg-white border border-amber-200 text-amber-950 font-medium'
+                                ? 'bg-white border border-red-200 text-red-950 font-medium'
                                 : 'bg-white border border-slate-200/80 text-slate-700'
                             }`}
                           >

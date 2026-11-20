@@ -21,6 +21,7 @@ import {
   type SessionUser,
   type StatusEcardBulanan,
   type SystemNotification,
+  type TitikPatroli,
   type TransaksiIPL,
   type Warga,
 } from './types';
@@ -99,6 +100,7 @@ export default function App() {
     paymentConfig: PaymentConfig;
     petugasKontak: PetugasKontakDarurat[];
     patroliFeed: LogPatroli[];
+    titikPatroli: TitikPatroli[];
   } | null>(null);
   const [preselectedMonth, setPreselectedMonth] = useState<number | null>(null);
   const [preselectedPetugas, setPreselectedPetugas] = useState<string | null>(null);
@@ -403,6 +405,7 @@ export default function App() {
               senderBlok={wargaData.profil.blok_rumah}
               petugasKontak={wargaData.petugasKontak}
               patroliFeed={wargaData.patroliFeed}
+              titikPatroliList={wargaData.titikPatroli}
               notifications={wargaData.notifications}
               isRefreshing={loadingData}
               onRefresh={() => loadPortalData(session)}

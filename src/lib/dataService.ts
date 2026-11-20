@@ -710,6 +710,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     paymentConfig: PaymentConfig;
     petugasKontak: PetugasKontakDarurat[];
     patroliFeed: LogPatroli[];
+    titikPatroli: TitikPatroli[];
   }>
 > {
   if (session.role !== 'warga') {
@@ -727,6 +728,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         paymentConfig,
         petugasKontak,
         patroliFeed,
+        titikPatroli,
       ] = await Promise.all([
         supabase
           .from('users_warga')
@@ -747,7 +749,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         fetchSystemNotifications(session),
         fetchPaymentConfig(session),
         fetchPetugasKontakDarurat(session),
-        fetchRecentLogPatroli(session, 12),
+        fetchRecentLogPatroli(session, 20),
+        fetchTitikPatroliPublic(session),
       ]);
 
       if (profilRes.error) throw profilRes.error;
@@ -787,6 +790,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
           paymentConfig,
           petugasKontak,
           patroliFeed,
+          titikPatroli,
         },
       };
     } catch (err) {
@@ -810,11 +814,12 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     .filter((t) => t.blok_rumah === session.blok_rumah)
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
 
-  const [notifications, paymentConfig, petugasKontak, patroliFeed] = await Promise.all([
+  const [notifications, paymentConfig, petugasKontak, patroliFeed, titikPatroli] = await Promise.all([
     fetchSystemNotifications(session),
     fetchPaymentConfig(session),
     fetchPetugasKontakDarurat(session),
-    fetchRecentLogPatroli(session, 12),
+    fetchRecentLogPatroli(session, 20),
+    fetchTitikPatroliPublic(session),
   ]);
 
   const safeNotifications = notifications
@@ -830,6 +835,7 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
       paymentConfig,
       petugasKontak,
       patroliFeed,
+      titikPatroli,
     },
   };
 }
@@ -4602,6 +4608,30 @@ export async function deletePetugasAdmin(
     summary: `Menghapus akun Petugas Keamanan ${petugas.nama} (@${petugas.username}).`,
   });
   return { data: true };
+}
+
+export async function fetchTitikPatroliPublic(session: SessionUser): Promise<TitikPatroli[]> {
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('titik_patroli')
+        .select('id, nama_lokasi, keterangan, aktif, created_at')
+        .eq('aktif', true)
+        .order('nama_lokasi', { ascending: true });
+      if (!error && Array.isArray(data)) {
+        return (data as Record<string, unknown>[]).map((row) => ({
+          ...normalizeTitikRow(row),
+          rfid_uid: '',
+        }));
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+  return readLocalTitikPatroli()
+    .filter((t) => t.aktif)
+    .map((t) => ({ ...t, rfid_uid: '' }));
 }
 
 export async function fetchTitikPatroliAdmin(session: SessionUser): Promise<TitikPatroli[]> {
