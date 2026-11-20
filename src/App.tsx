@@ -9,7 +9,6 @@ import {
   Users,
   Plus,
   TableProperties,
-  FileCheck2,
   AlertCircle,
   RefreshCw,
   Shield,
@@ -286,7 +285,7 @@ export default function App() {
     );
   }
 
-  // Konfigurasi Navigasi 6 Slide Warga & 6 Slide Admin (Termasuk Slide Khusus Keamanan)
+  // Konfigurasi Navigasi 6 Slide Warga & 5 Menu Utama Simetris Admin (LPJ & Pengaturan di Sidebar)
   const pendingCount =
     adminData?.transaksiList.filter(
       (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
@@ -319,7 +318,6 @@ export default function App() {
             isCenterFab: true,
           },
           { id: 'rekap', label: 'Rekapitulasi Bulanan', shortLabel: 'Rekap', icon: TableProperties },
-          { id: 'lpj', label: 'LPJ Triwulanan', shortLabel: 'LPJ', icon: FileCheck2 },
           { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
         ];
 
@@ -504,6 +502,7 @@ export default function App() {
           return (
             <KeamananSlide
               role="admin"
+              session={session}
               senderName={session.nama_warga}
               senderJabatan={session.jabatan || 'Pengurus'}
               petugasKontak={adminData.petugasList
@@ -513,7 +512,7 @@ export default function App() {
               titikPatroliList={adminData.titikPatroliList}
               notifications={adminData.notifications}
               isRefreshing={loadingData}
-              onRefresh={() => loadPortalData(session)}
+              onRefresh={() => loadPortalData(session, { silent: true })}
               onOpenPetugasSettings={() => {
                 setSettingsTab('petugas_nfc');
                 setSettingsOpen(true);

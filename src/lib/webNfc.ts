@@ -119,9 +119,9 @@ export function extractNfcReadingData(rawEvent: Event): {
 }
 
 /**
- * Getaran singkat (default 100ms) sebagai konfirmasi sentuhan saat tag NFC terbaca.
+ * Getaran haptik singkat ([100, 50, 100] ms) sebagai konfirmasi sentuhan saat tag NFC terbaca.
  */
-export function triggerNfcVibrate(pattern: number | number[] = 100): void {
+export function triggerNfcVibrate(pattern: number | number[] = [100, 50, 100]): void {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {
       navigator.vibrate(pattern);

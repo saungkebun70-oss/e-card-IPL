@@ -4349,6 +4349,86 @@ export async function submitLogPatroliPetugas(
   return { data: localEntry };
 }
 
+export async function submitLogPatroliAdmin(
+  session: SessionUser,
+  payload: {
+    petugas_id?: string | null;
+    nama_petugas?: string;
+    titik_id?: string | null;
+    nama_lokasi: string;
+    metode_scan: MetodeScanPatroli;
+    status_kondisi: StatusKondisiPatroli;
+    catatan?: string;
+  }
+): Promise<ServiceResult<LogPatroli>> {
+  if (session.role !== 'admin') {
+    return { error: 'Hanya Pengurus/Admin yang dapat mencatat patroli dari panel ini.' };
+  }
+  if (!payload.nama_lokasi.trim()) {
+    return { error: 'Titik lokasi patroli wajib dipilih atau di-scan via NFC.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const petugasId = payload.petugas_id || `admin-${session.blok_rumah}`;
+  const namaPetugas =
+    payload.nama_petugas?.trim() || `${session.nama_warga} (${session.jabatan || 'Pengurus'})`;
+
+  const localEntry: LogPatroli = {
+    id: `patroli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    petugas_id: petugasId,
+    nama_petugas: namaPetugas,
+    titik_id: payload.titik_id || null,
+    nama_lokasi: payload.nama_lokasi.trim(),
+    waktu_scan: nowIso,
+    metode_scan: payload.metode_scan,
+    status_kondisi: payload.status_kondisi,
+    catatan: payload.catatan?.trim() || null,
+  };
+
+  const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    petugasId
+  );
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && isValidUuid) {
+    try {
+      const { data, error } = await supabase
+        .from('log_patroli')
+        .insert({
+          petugas_id: petugasId,
+          nama_petugas: namaPetugas,
+          titik_id:
+            payload.titik_id && !payload.titik_id.startsWith('titik-') ? payload.titik_id : null,
+          nama_lokasi: localEntry.nama_lokasi,
+          waktu_scan: nowIso,
+          metode_scan: localEntry.metode_scan,
+          status_kondisi: localEntry.status_kondisi,
+          catatan: localEntry.catatan,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const saved = normalizeLogPatroliRow(data as Record<string, unknown>);
+        const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
+        writeLocalLogPatroli([saved, ...existing]);
+        return { data: saved };
+      }
+
+      const errCode = String((error as { code?: string })?.code || '');
+      const errMsg = String((error as { message?: string })?.message || '');
+      if (errCode !== '42P01' && !errMsg.includes('log_patroli')) {
+        return { error: parseFriendlyError(error, 'Gagal mengirim catatan patroli ke server.') };
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+
+  writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
+  return { data: localEntry };
+}
+
 /**
  * Mengambil daftar kontak darurat petugas keamanan aktif (HANYA nama, shift, no_hp — TANPA PIN).
  * Aman dipanggil oleh Portal Warga & Admin melalui RPC `get_petugas_kontak_darurat`.

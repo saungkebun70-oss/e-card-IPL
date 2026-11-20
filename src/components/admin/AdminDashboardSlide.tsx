@@ -315,7 +315,7 @@ export function AdminDashboardSlide({
       </div>
 
       {/* Kartu Saldo Kas Real-Time Terintegrasi */}
-      <section className="rounded-2xl bg-[#0F172A] text-white p-5 sm:p-6 border border-slate-800">
+      <section className="rounded-2xl bg-[#0F172A] text-white p-4 sm:p-6 border border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-medium text-emerald-300 inline-flex items-center gap-1.5">
@@ -330,22 +330,22 @@ export function AdminDashboardSlide({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-3 md:min-w-[380px]">
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
-              <p className="text-[11px] text-slate-400">IPL Masuk</p>
-              <p className="text-xs sm:text-sm font-mono font-bold text-emerald-300 tabular-nums mt-0.5 truncate">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 md:min-w-[390px]">
+            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">IPL Masuk</p>
+              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-emerald-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
                 {formatRupiah(globalCash.totalIplMasuk)}
               </p>
             </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
-              <p className="text-[11px] text-slate-400">Kas Lain</p>
-              <p className="text-xs sm:text-sm font-mono font-bold text-sky-300 tabular-nums mt-0.5 truncate">
+            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">Kas Lain</p>
+              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-sky-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
                 {formatRupiah(globalCash.totalPemasukanLain)}
               </p>
             </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
-              <p className="text-[11px] text-slate-400">Pengeluaran</p>
-              <p className="text-xs sm:text-sm font-mono font-bold text-rose-300 tabular-nums mt-0.5 truncate">
+            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">Pengeluaran</p>
+              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-rose-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
                 {formatRupiah(globalCash.totalPengeluaran)}
               </p>
             </div>

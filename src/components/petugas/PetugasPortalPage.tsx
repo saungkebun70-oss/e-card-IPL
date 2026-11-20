@@ -228,15 +228,15 @@ export function PetugasPortalPage({
           stopNfcScan();
 
           if (matched) {
-            triggerNfcVibrate(100);
+            triggerNfcVibrate([100, 50, 100]);
             setNfcStatusError(false);
             setNfcStatusText(
-              `Tag NFC terbaca: ${matched.nama_lokasi} (UID: ${uid || normalizeNfcUid(matched.rfid_uid)})`
+              `Stiker NFC terbaca: ${matched.nama_lokasi} (UID: ${uid || normalizeNfcUid(matched.rfid_uid)})`
             );
             void recordPatrolEntry(matched, matched.nama_lokasi, 'NFC Tap');
           } else {
             const displayUid = uid || 'TIDAK-DIKENAL';
-            triggerNfcVibrate(60);
+            triggerNfcVibrate([60]);
             setNfcStatusError(true);
             setNfcStatusText(
               `UID "${displayUid}" belum terdaftar di master titik checkpoint. Minta Bendahara mendaftarkannya atau catat manual.`
@@ -249,7 +249,7 @@ export function PetugasPortalPage({
 
       setScanningNfc(true);
       setNfcStatusError(false);
-      setNfcStatusText('Tempelkan stiker NFC ke belakang HP sekarang... (mode foreground aktif)');
+      setNfcStatusText('Mode Scan Aktif — Tempelkan stiker NFC ke belakang HP sekarang...');
 
       await ndef.scan({ signal: controller.signal });
     } catch (err) {
@@ -523,8 +523,8 @@ export function PetugasPortalPage({
                     {submittingPatroli
                       ? 'Menyimpan Patroli...'
                       : scanningNfc
-                        ? 'Menunggu Tap Tag NFC... (Ketuk untuk Batal)'
-                        : 'Mulai Scan NFC Tag Checkpoint'}
+                        ? 'Mode Scan Aktif... (Ketuk untuk Batal)'
+                        : 'Mulai Scan Checkpoint Patroli'}
                   </span>
                 </button>
 
@@ -538,9 +538,10 @@ export function PetugasPortalPage({
                     }`}
                   >
                     {scanningNfc ? (
-                      <span className="relative flex h-3 w-3 mt-0.5 shrink-0">
+                      <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-300 opacity-60 [animation-delay:250ms]" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
                       </span>
                     ) : nfcStatusError ? (
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />

@@ -240,13 +240,13 @@ export function AdminSecurityManagePanel({
           const { uid } = extractNfcReadingData(event);
           stopNfcOperation();
           if (uid) {
-            triggerNfcVibrate(100);
+            triggerNfcVibrate([100, 50, 100]);
             setRfidUid(uid);
             setNfcFeedback({
               type: 'success',
-              text: `UID Tag NFC berhasil terbaca & diisi otomatis: ${uid}`,
+              text: `UID Stiker NFC berhasil terbaca & diisi otomatis: ${uid}`,
             });
-            onToast('success', `UID Tag NFC terbaca: ${uid}`);
+            onToast('success', `UID Stiker NFC terbaca: ${uid}`);
           } else {
             const emptyMsg =
               'Tag NFC terdeteksi tetapi serialNumber/UID kosong. Gunakan stiker NTAG213/215/216 atau ketik UID manual.';
@@ -271,7 +271,7 @@ export function AdminSecurityManagePanel({
       setReadingNfcUid(true);
       setNfcFeedback({
         type: 'scanning',
-        text: 'Mode foreground NFC aktif — tempelkan stiker NFC ke belakang HP sekarang...',
+        text: 'Mode Scan Aktif — Tempelkan stiker NFC ke belakang HP sekarang...',
       });
 
       // Jalankan foreground scan dengan AbortController agar Chrome mengambil alih NFC dari OS Android
@@ -327,7 +327,7 @@ export function AdminSecurityManagePanel({
       );
 
       stopNfcOperation();
-      triggerNfcVibrate(100);
+      triggerNfcVibrate([100, 50, 100]);
       setRfidUid(targetCode);
       setNfcFeedback({
         type: 'success',
@@ -682,7 +682,7 @@ export function AdminSecurityManagePanel({
                       ) : (
                         <>
                           <Smartphone className="w-4 h-4 shrink-0" />
-                          <span>Tap / Scan Tag NFC</span>
+                          <span>Tap / Scan Stiker NFC</span>
                         </>
                       )}
                     </button>
@@ -718,11 +718,12 @@ export function AdminSecurityManagePanel({
                           : 'bg-amber-50 border-amber-200 text-amber-900'
                     }`}
                   >
-                    <div className="flex items-start gap-2 min-w-0">
+                    <div className="flex items-start gap-2.5 min-w-0">
                       {nfcFeedback.type === 'scanning' ? (
-                        <span className="relative flex h-3 w-3 mt-0.5 shrink-0">
+                        <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-300 opacity-60 [animation-delay:250ms]" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
                         </span>
                       ) : nfcFeedback.type === 'error' ? (
                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -746,7 +747,7 @@ export function AdminSecurityManagePanel({
                 )}
 
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Tekan <strong>Tap / Scan Tag NFC</strong> terlebih dahulu sebelum menempelkan
+                  Tekan <strong>Tap / Scan Stiker NFC</strong> terlebih dahulu sebelum menempelkan
                   stiker agar Chrome Android mengambil alih sensor NFC (mencegah pop-up
                   DANA/GoPay/OVO). Gunakan stiker NFC tipe <strong>NTAG213/215/216</strong>; kartu
                   e-Money/MIFARE Classic non-NDEF tidak didukung Web NFC browser.
