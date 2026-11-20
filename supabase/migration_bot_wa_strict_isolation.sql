@@ -77,3 +77,52 @@ create index if not exists idx_users_warga_canonical_blok
 drop policy if exists "admin_bot_logs_insert" on public.bot_wa_logs;
 create policy "admin_bot_logs_insert" on public.bot_wa_logs
   for insert with check (public.req_header('x-user-role') in ('admin', 'bendahara'));
+
+-- 5. Pastikan tabel payment_config & RLS tersedia agar rekening aplikasi dan Bot WA selalu sinkron
+create table if not exists public.payment_config (
+  id text primary key default 'default-payment-config',
+  qris_aktif boolean not null default false,
+  qris_image_url text,
+  qris_label text not null default 'QRIS Kas Lingkungan Perumahan Saung Kebun',
+  qris_catatan text not null default 'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
+  rekening_list jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now(),
+  updated_by text
+);
+
+alter table public.payment_config enable row level security;
+
+drop policy if exists "payment_config_select_portal" on public.payment_config;
+create policy "payment_config_select_portal" on public.payment_config
+  for select using (true);
+
+drop policy if exists "bendahara_payment_config_write" on public.payment_config;
+create policy "bendahara_payment_config_write" on public.payment_config
+  for all using (
+    public.req_header('x-user-role') in ('admin', 'bendahara')
+    and public.req_header('x-admin-permission') = 'full'
+  )
+  with check (
+    public.req_header('x-user-role') in ('admin', 'bendahara')
+    and public.req_header('x-admin-permission') = 'full'
+  );
+
+-- Sinkronkan rekening resmi Blu (BCA Digital) a.n. Andriansyah bila belum ada atau masih memakai data dummy lama
+insert into public.payment_config (id, qris_aktif, qris_image_url, qris_label, qris_catatan, rekening_list, updated_by)
+values (
+  'default-payment-config',
+  false,
+  null,
+  'QRIS Kas Lingkungan Perumahan Saung Kebun',
+  'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
+  '[{"id":"rek-blu-default","bank":"Blu (BCA Digital)","nomor":"006424363822","atasNama":"Andriansyah","tipe":"Transfer Bank"}]'::jsonb,
+  'andriansyah'
+)
+on conflict (id) do update
+set
+  rekening_list = excluded.rekening_list,
+  updated_at = now()
+where
+  public.payment_config.rekening_list is null
+  or jsonb_array_length(public.payment_config.rekening_list) = 0
+  or public.payment_config.rekening_list::text like '%7401829304%';

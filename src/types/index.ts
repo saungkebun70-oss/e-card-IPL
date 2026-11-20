@@ -248,25 +248,11 @@ export const PETUGAS_PENERIMA: string[] = SUSUNAN_PENGURUS.map(
 
 export const REKENING_KAS: RekeningPembayaran[] = [
   {
-    id: 'rek-bca-default',
-    bank: 'Bank BCA',
-    nomor: '7401829304',
-    atasNama: 'Kas Lingkungan Perumahan Saung Kebun (Bendahara Andriansyah)',
+    id: 'rek-blu-default',
+    bank: 'Blu (BCA Digital)',
+    nomor: '006424363822',
+    atasNama: 'Andriansyah',
     tipe: 'Transfer Bank',
-  },
-  {
-    id: 'rek-mandiri-default',
-    bank: 'Bank Mandiri',
-    nomor: '1730009845120',
-    atasNama: 'Pengurus Lingkungan Perumahan Saung Kebun',
-    tipe: 'Transfer Bank',
-  },
-  {
-    id: 'rek-ewallet-default',
-    bank: 'DANA / GoPay / OVO',
-    nomor: '081234567890',
-    atasNama: 'Bendahara Saung Kebun (Andriansyah)',
-    tipe: 'E-Wallet',
   },
 ];
 

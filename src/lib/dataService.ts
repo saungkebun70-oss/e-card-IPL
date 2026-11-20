@@ -2847,13 +2847,15 @@ export async function fetchPaymentConfig(session: SessionUser): Promise<PaymentC
         .maybeSingle();
       if (!error && data) {
         const row = data as Partial<PaymentConfig>;
-        return {
+        const resolved: PaymentConfig = {
           ...SEED_PAYMENT_CONFIG,
           ...row,
           rekening_list: Array.isArray(row.rekening_list)
             ? row.rekening_list
             : SEED_PAYMENT_CONFIG.rekening_list,
         };
+        writeLocalPaymentConfig(resolved);
+        return resolved;
       }
     } catch {
       // Fallback aman ke localStorage jika tabel payment_config belum dijalankan di Supabase
@@ -2908,13 +2910,23 @@ export async function savePaymentConfigAdmin(
   }
 
   const updated: PaymentConfig = {
-    ...config,
     id: 'default-payment-config',
+    qris_aktif: Boolean(config.qris_aktif),
+    qris_image_url: config.qris_image_url || null,
+    qris_label: String(config.qris_label || SEED_PAYMENT_CONFIG.qris_label).trim(),
+    qris_catatan: String(config.qris_catatan || SEED_PAYMENT_CONFIG.qris_catatan).trim(),
+    rekening_list: Array.isArray(config.rekening_list)
+      ? config.rekening_list.map((r) => ({
+          id: r.id || `rek-${Date.now()}`,
+          bank: String(r.bank || '').trim(),
+          nomor: String(r.nomor || '').trim(),
+          atasNama: String(r.atasNama || '').trim(),
+          tipe: r.tipe === 'E-Wallet' ? 'E-Wallet' : 'Transfer Bank',
+        }))
+      : [],
     updated_at: new Date().toISOString(),
     updated_by: session.blok_rumah,
   };
-
-  writeLocalPaymentConfig(updated);
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
@@ -2924,21 +2936,43 @@ export async function savePaymentConfigAdmin(
         .upsert(updated, { onConflict: 'id' })
         .select()
         .single();
-      if (!error && data) {
-        await recordAuditLog({
-          session,
-          action: 'UPDATE_PAYMENT_CONFIG',
-          entity: 'payment_config',
-          entity_id: updated.id,
-          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
-        });
-        return { data: data as PaymentConfig };
+      if (error) {
+        const msg = String((error as { message?: string }).message || '');
+        const code = String((error as { code?: string }).code || '');
+        if (code === '42P01' || msg.includes('payment_config')) {
+          return {
+            error:
+              'Tabel payment_config belum ada di Supabase. Jalankan SQL sinkronisasi payment_config di Supabase SQL Editor agar rekening tersimpan untuk semua warga & Bot WA.',
+          };
+        }
+        return {
+          error: parseFriendlyError(
+            error,
+            'Gagal menyimpan nomor rekening ke database Supabase (Bot WA belum tersinkron).'
+          ),
+        };
       }
-    } catch {
-      // Tetap berhasil tersimpan lokal bila tabel belum ditambahkan di Supabase
+      const saved = (data || updated) as PaymentConfig;
+      writeLocalPaymentConfig(saved);
+      await recordAuditLog({
+        session,
+        action: 'UPDATE_PAYMENT_CONFIG',
+        entity: 'payment_config',
+        entity_id: updated.id,
+        summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening).`,
+      });
+      return { data: saved };
+    } catch (err) {
+      return {
+        error: parseFriendlyError(
+          err,
+          'Gagal menyinkronkan nomor rekening ke database Supabase.'
+        ),
+      };
     }
   }
 
+  writeLocalPaymentConfig(updated);
   await recordAuditLog({
     session,
     action: 'UPDATE_PAYMENT_CONFIG',

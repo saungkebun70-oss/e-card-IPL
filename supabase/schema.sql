@@ -400,10 +400,10 @@ create policy "bendahara_hapus_notifikasi" on public.system_notifications
     and public.req_header('x-admin-permission') = 'full'
   );
 
--- Kebijakan RLS payment_config (Warga & Admin baca, Upload QRIS & Kelola Rekening khusus Bendahara)
+-- Kebijakan RLS payment_config (Warga, Admin & Webhook baca, Upload QRIS & Kelola Rekening khusus Bendahara)
 drop policy if exists "payment_config_select_portal" on public.payment_config;
 create policy "payment_config_select_portal" on public.payment_config
-  for select using (public.req_header('x-user-role') in ('admin', 'warga'));
+  for select using (true);
 
 drop policy if exists "bendahara_payment_config_write" on public.payment_config;
 create policy "bendahara_payment_config_write" on public.payment_config
@@ -578,7 +578,7 @@ values (
   null,
   'QRIS Kas Lingkungan Perumahan Saung Kebun',
   'Scan kode QRIS di atas via m-Banking atau E-Wallet, lalu unggah bukti bayar di bawah.',
-  '[{"id":"rek-bca-default","bank":"Bank BCA","nomor":"7401829304","atasNama":"Kas Lingkungan Perumahan Saung Kebun (Bendahara Andriansyah)","tipe":"Transfer Bank"},{"id":"rek-mandiri-default","bank":"Bank Mandiri","nomor":"1730009845120","atasNama":"Pengurus Lingkungan Perumahan Saung Kebun","tipe":"Transfer Bank"},{"id":"rek-ewallet-default","bank":"DANA / GoPay / OVO","nomor":"081234567890","atasNama":"Bendahara Saung Kebun (Andriansyah)","tipe":"E-Wallet"}]'::jsonb,
+  '[{"id":"rek-blu-default","bank":"Blu (BCA Digital)","nomor":"006424363822","atasNama":"Andriansyah","tipe":"Transfer Bank"}]'::jsonb,
   'andriansyah'
 )
 on conflict (id) do nothing;

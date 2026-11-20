@@ -494,10 +494,43 @@ async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise
   ].join('\n');
 }
 
+function parseRekeningList(raw: unknown): RekeningItem[] {
+  let list: unknown = raw;
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item) => ({
+      bank: String(item.bank || '').trim(),
+      nomor: String(item.nomor || '').trim(),
+      atasNama: String(item.atasNama || item.atas_nama || '').trim(),
+      tipe: String(item.tipe || 'Transfer Bank').trim(),
+    }))
+    .filter((item) => item.bank.length > 0 && item.nomor.length > 0);
+}
+
 async function buildRekeningReply(): Promise<string> {
-  const configs = await supabaseRestGet<PaymentConfigRow>('payment_config?select=*&limit=1');
+  let configs = await supabaseRestGet<PaymentConfigRow>(
+    'payment_config?select=*&id=eq.default-payment-config&limit=1'
+  );
+  if (configs.length === 0) {
+    configs = await supabaseRestGet<PaymentConfigRow>(
+      'payment_config?select=*&order=updated_at.desc&limit=1'
+    );
+  }
+
   const cfg = configs[0];
-  const rekList = Array.isArray(cfg?.rekening_list) ? cfg.rekening_list : [];
+  const rekList = parseRekeningList(cfg?.rekening_list);
+  const banks = rekList.filter((r) => r.tipe.toLowerCase() !== 'e-wallet');
+  const ewallets = rekList.filter((r) => r.tipe.toLowerCase() === 'e-wallet');
+
   const lines = [
     `*Info Pembayaran Resmi IPL Perumahan Saung Kebun*`,
     `Iuran Wajib: ${formatRupiah(NOMINAL_DEFAULT)} / bulan (Jatuh tempo tgl 7)`,
@@ -505,22 +538,33 @@ async function buildRekeningReply(): Promise<string> {
   ];
 
   if (cfg?.qris_aktif && cfg?.qris_image_url) {
-    lines.push(`*1. Via QRIS Resmi:* ${cfg.qris_label}`);
+    lines.push(`*Via QRIS Resmi:* ${cfg.qris_label || 'QRIS Kas Lingkungan Saung Kebun'}`);
     lines.push(`Buka ${APP_PORTAL_URL} → Menu Setor → Pilih *Via QR / QRIS* untuk scan kode QRIS.`);
     lines.push(``);
   }
 
-  if (rekList.length > 0) {
-    lines.push(`*Transfer Bank / E-Wallet:*`);
-    rekList.forEach((r) => {
-      lines.push(`• *${r.bank}* (${r.tipe}): ${r.nomor} a.n. ${r.atasNama}`);
+  if (banks.length > 0) {
+    lines.push(`*Transfer Bank:*`);
+    banks.forEach((b) => {
+      lines.push(`• *${b.bank}*: ${b.nomor}${b.atasNama ? ` (a.n. ${b.atasNama})` : ''}`);
     });
-  } else {
-    lines.push(`• *Bank BCA*: 7401829304 (Kas Lingkungan Saung Kebun)`);
-    lines.push(`• *Bank Mandiri*: 1730009845120 (Pengurus Saung Kebun)`);
+    lines.push(``);
   }
 
-  lines.push(``);
+  if (ewallets.length > 0) {
+    lines.push(`*E-Wallet:*`);
+    ewallets.forEach((e) => {
+      lines.push(`• *${e.bank}*: ${e.nomor}${e.atasNama ? ` (a.n. ${e.atasNama})` : ''}`);
+    });
+    lines.push(``);
+  }
+
+  if (banks.length === 0 && ewallets.length === 0) {
+    lines.push(`*Transfer Bank:*`);
+    lines.push(`• *Blu (BCA Digital)*: 006424363822 (a.n. Andriansyah)`);
+    lines.push(``);
+  }
+
   lines.push(`*Titip Pengurus:* Dapat diserahkan tunai ke Bendahara atau Pengurus Lingkungan resmi.`);
   lines.push(`Setelah pembayaran, unggah bukti setor di ${APP_PORTAL_URL} agar status e-Card otomatis diverifikasi.`);
   return lines.join('\n');

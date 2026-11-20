@@ -218,9 +218,9 @@ export function AdminPaymentSettingsModal({
           <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
             {(
               [
-                { id: 'qris', label: 'QR / QRIS', icon: QrCode },
-                { id: 'rekening', label: 'Rekening TF', icon: CreditCard },
-                { id: 'pengurus', label: 'Susunan Pengurus', icon: Users },
+                { id: 'qris', label: 'QR / QRIS', shortLabel: 'QRIS', icon: QrCode },
+                { id: 'rekening', label: 'Rekening TF', shortLabel: 'Rekening', icon: CreditCard },
+                { id: 'pengurus', label: 'Susunan Pengurus', shortLabel: 'Pengurus', icon: Users },
               ] as const
             ).map((tab) => {
               const Icon = tab.icon;
@@ -230,14 +230,15 @@ export function AdminPaymentSettingsModal({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`min-h-[38px] px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[38px] px-1.5 sm:px-2.5 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors cursor-pointer min-w-0 ${
                     active
                       ? 'bg-white text-[#0F172A] shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{tab.label}</span>
+                  <span className="sm:hidden truncate">{tab.shortLabel}</span>
+                  <span className="hidden sm:inline truncate">{tab.label}</span>
                 </button>
               );
             })}
