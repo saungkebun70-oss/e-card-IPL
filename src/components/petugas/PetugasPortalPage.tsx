@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Shield,
   ShieldAlert,
-  Smartphone,
   Wallet,
 } from 'lucide-react';
 import {
@@ -118,6 +117,15 @@ export function PetugasPortalPage({
   const [showManualForm, setShowManualForm] = useState(!nfcSupported);
   const nfcAbortRef = useRef<AbortController | null>(null);
 
+  // Ref terbaru agar kondisi & catatan yang diubah saat scan aktif tetap ikut tersimpan
+  const statusKondisiRef = useRef<StatusKondisiPatroli>(statusKondisi);
+  const catatanPatroliRef = useRef<string>(catatanPatroli);
+  const titikPatroliRef = useRef<TitikPatroli[]>([]);
+
+  statusKondisiRef.current = statusKondisi;
+  catatanPatroliRef.current = catatanPatroli;
+  titikPatroliRef.current = data?.titikPatroli || [];
+
   // State Kwitansi Honor Pribadi
   const [selectedHonorTrx, setSelectedHonorTrx] = useState<TransaksiKas | null>(null);
 
@@ -195,8 +203,8 @@ export function PetugasPortalPage({
           titik_id: titik?.id || null,
           nama_lokasi: titik?.nama_lokasi || fallbackLabel,
           metode_scan: metode,
-          status_kondisi: statusKondisi,
-          catatan: catatanPatroli,
+          status_kondisi: statusKondisiRef.current,
+          catatan: catatanPatroliRef.current,
         });
         if (res.error || !res.data) {
           onToast('error', res.error || 'Gagal mencatat patroli.');
@@ -213,10 +221,12 @@ export function PetugasPortalPage({
         setSubmittingPatroli(false);
       }
     },
-    [session, statusKondisi, catatanPatroli, onToast, loadData]
+    [session, onToast, loadData]
   );
 
   const handleStartNfcScan = async () => {
+    if (submittingPatroli) return;
+
     if (scanningNfc) {
       stopNfcScan();
       setNfcStatusText(null);
@@ -256,7 +266,7 @@ export function PetugasPortalPage({
         'reading',
         (event) => {
           const { uid, allNormalizedTokens } = extractNfcReadingData(event);
-          const checkpoints = data?.titikPatroli || [];
+          const checkpoints = titikPatroliRef.current;
           const matched = checkpoints.find((t) => {
             const normTarget = normalizeNfcUid(t.rfid_uid);
             return normTarget && allNormalizedTokens.includes(normTarget);
@@ -265,7 +275,7 @@ export function PetugasPortalPage({
           stopNfcScan();
 
           if (matched) {
-            triggerNfcVibrate([100, 50, 100]);
+            triggerNfcVibrate(100);
             setNfcStatusError(false);
             setNfcStatusText(
               `Stiker NFC terbaca: ${matched.nama_lokasi} (UID: ${uid || normalizeNfcUid(matched.rfid_uid)})`
@@ -273,7 +283,7 @@ export function PetugasPortalPage({
             void recordPatrolEntry(matched, matched.nama_lokasi, 'NFC Tap');
           } else {
             const displayUid = uid || 'TIDAK-DIKENAL';
-            triggerNfcVibrate([60]);
+            triggerNfcVibrate(60);
             setNfcStatusError(true);
             setNfcStatusText(
               `UID "${displayUid}" belum terdaftar di master titik checkpoint. Minta Bendahara mendaftarkannya atau catat manual.`
@@ -298,6 +308,26 @@ export function PetugasPortalPage({
       setShowManualForm(true);
       onToast('error', readableErr);
     }
+  };
+
+  /**
+   * Tombol bulat tengah "Scan NFC":
+   * - Jika sedang scanning -> hentikan mode scan (abort).
+   * - Jika belum scanning -> langsung buka tab "Patroli & Scan Checkpoint NFC" sekaligus picu ndef.scan().
+   */
+  const handleCenterScanFabClick = () => {
+    if (submittingPatroli) return;
+    if (scanningNfc) {
+      stopNfcScan();
+      setNfcStatusText(null);
+      setNfcStatusError(false);
+      return;
+    }
+    if (activeTab !== 'scan') {
+      setActiveTab('scan');
+      void loadData(true);
+    }
+    void handleStartNfcScan();
   };
 
   const handleManualSubmit = async () => {
@@ -498,7 +528,7 @@ export function PetugasPortalPage({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => handleSelectTab('scan')}
+                      onClick={handleCenterScanFabClick}
                       className="min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-600 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Radio className="w-4 h-4 shrink-0" />
@@ -634,7 +664,7 @@ export function PetugasPortalPage({
 
                   <button
                     type="button"
-                    onClick={() => handleSelectTab('scan')}
+                    onClick={handleCenterScanFabClick}
                     className="min-h-[36px] px-3 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <Radio className="w-3.5 h-3.5" />
@@ -762,55 +792,53 @@ export function PetugasPortalPage({
                   </div>
                 </div>
 
-                {/* Tombol Utama Scan NFC Foreground Anti Pop-up Android */}
+                {/* Status Banner Scan NFC (Dikendalikan langsung oleh Tombol Bulat Tengah "Scan NFC") */}
                 <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    disabled={submittingPatroli}
-                    onClick={() => void handleStartNfcScan()}
-                    className={`w-full min-h-[58px] rounded-2xl text-sm sm:text-base font-bold flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-60 ${
-                      scanningNfc
-                        ? 'bg-amber-600 hover:bg-amber-700 text-white ring-4 ring-amber-200'
-                        : 'bg-[#059669] hover:bg-emerald-700 active:scale-[0.99] text-white shadow-md shadow-emerald-600/25'
-                    }`}
-                  >
-                    {submittingPatroli ? (
-                      <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-                    ) : (
-                      <Smartphone
-                        className={`w-5 h-5 shrink-0 ${scanningNfc ? 'animate-pulse' : ''}`}
-                      />
-                    )}
-                    <span>
-                      {submittingPatroli
-                        ? 'Menyimpan Patroli...'
-                        : scanningNfc
-                          ? 'Mode Scan Aktif... (Ketuk untuk Batal)'
-                          : 'Mulai Scan Checkpoint NFC'}
-                    </span>
-                  </button>
-
-                  {nfcStatusText && (
+                  {submittingPatroli ? (
+                    <div
+                      role="status"
+                      className="rounded-xl px-3.5 py-3 text-xs font-semibold flex items-center gap-2.5 border bg-emerald-50 border-emerald-200 text-emerald-900"
+                    >
+                      <Loader2 className="w-4 h-4 animate-spin text-[#059669] shrink-0" />
+                      <span>Menyimpan log patroli &amp; memperbarui status pin peta...</span>
+                    </div>
+                  ) : scanningNfc ? (
+                    <div
+                      role="status"
+                      className="rounded-xl px-3.5 py-3 text-xs font-semibold flex items-start gap-2.5 border bg-emerald-50 border-emerald-200 text-emerald-900"
+                    >
+                      <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-60 [animation-delay:250ms]" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#059669]" />
+                      </span>
+                      <span className="leading-relaxed">
+                        Mode Scan Aktif — Tempelkan stiker NFC ke belakang HP sekarang...
+                      </span>
+                    </div>
+                  ) : nfcStatusText ? (
                     <div
                       role="status"
                       className={`rounded-xl px-3.5 py-3 text-xs font-medium flex items-start gap-2.5 border ${
                         nfcStatusError
                           ? 'bg-amber-50 border-amber-200 text-amber-900'
-                          : 'bg-[#0F172A] border-slate-800 text-emerald-300'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
                       }`}
                     >
-                      {scanningNfc ? (
-                        <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-300 opacity-60 [animation-delay:250ms]" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
-                        </span>
-                      ) : nfcStatusError ? (
+                      {nfcStatusError ? (
                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       ) : (
-                        <Radio className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
                       )}
                       <span className="leading-relaxed">{nfcStatusText}</span>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl px-3.5 py-2.5 text-xs text-slate-600 bg-slate-50 border border-dashed border-slate-200 flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-[#059669] shrink-0" />
+                      <span>
+                        Ketuk tombol bulat <strong>Scan NFC</strong> di tengah bawah untuk
+                        mengaktifkan sensor NFC.
+                      </span>
                     </div>
                   )}
 
@@ -991,7 +1019,7 @@ export function PetugasPortalPage({
 
                 <button
                   type="button"
-                  onClick={() => handleSelectTab('scan')}
+                  onClick={handleCenterScanFabClick}
                   className="w-full min-h-[48px] rounded-2xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
                   <Radio className="w-4 h-4" />
@@ -1033,30 +1061,58 @@ export function PetugasPortalPage({
             <span className="text-[10px] font-bold leading-tight">Riwayat</span>
           </button>
 
-          {/* 3. TENGAH MENONJOL: SCAN NFC FAB */}
+          {/* 3. TENGAH MENONJOL: TOMBOL LANGSUNG PEMICU SCAN WEB NFC */}
           <div className="flex flex-col items-center justify-center relative">
             <button
               type="button"
-              onClick={() => handleSelectTab('scan')}
-              aria-label="Scan NFC Checkpoint Patroli"
-              className={`relative -mt-7 w-14 h-14 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer ${
-                activeTab === 'scan'
-                  ? 'bg-emerald-700 text-white shadow-emerald-700/40 scale-105'
-                  : 'bg-[#059669] hover:bg-emerald-600 text-white shadow-emerald-600/35'
+              disabled={submittingPatroli}
+              onClick={handleCenterScanFabClick}
+              aria-label={
+                scanningNfc
+                  ? 'Hentikan Mode Scan NFC Patroli'
+                  : 'Aktifkan Scan NFC Checkpoint Patroli'
+              }
+              aria-pressed={scanningNfc}
+              className={`relative -mt-7 w-14 h-14 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
+                scanningNfc
+                  ? 'bg-emerald-600 text-white shadow-emerald-500/50 ring-4 ring-emerald-300/60 scale-105'
+                  : activeTab === 'scan'
+                    ? 'bg-emerald-700 text-white shadow-emerald-700/40'
+                    : 'bg-[#059669] hover:bg-emerald-600 text-white shadow-emerald-600/35'
               }`}
             >
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping pointer-events-none"
-              />
-              <Radio className="w-6 h-6 relative z-10 stroke-[2.5]" />
+              {scanningNfc && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="absolute -inset-2 rounded-full bg-emerald-400/45 animate-ping pointer-events-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-full bg-emerald-300/40 animate-ping [animation-delay:300ms] pointer-events-none"
+                  />
+                </>
+              )}
+              {submittingPatroli ? (
+                <Loader2 className="w-6 h-6 relative z-10 animate-spin" />
+              ) : (
+                <Radio
+                  className={`w-6 h-6 relative z-10 stroke-[2.5] ${
+                    scanningNfc ? 'animate-pulse' : ''
+                  }`}
+                />
+              )}
             </button>
             <span
               className={`text-[10px] font-extrabold leading-tight mt-0.5 ${
-                activeTab === 'scan' ? 'text-[#059669]' : 'text-slate-700'
+                scanningNfc
+                  ? 'text-[#059669] animate-pulse'
+                  : activeTab === 'scan'
+                    ? 'text-[#059669]'
+                    : 'text-slate-700'
               }`}
             >
-              Scan NFC
+              {submittingPatroli ? 'Menyimpan...' : scanningNfc ? 'Scanning...' : 'Scan NFC'}
             </span>
           </div>
 
