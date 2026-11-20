@@ -59,6 +59,107 @@ import { KeamananSlide } from './components/KeamananSlide';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
+interface WargaPortalData {
+  profil: Warga;
+  statusBulanan: StatusEcardBulanan[];
+  riwayat: TransaksiIPL[];
+  notifications: SystemNotification[];
+  paymentConfig: PaymentConfig;
+  petugasKontak: PetugasKontakDarurat[];
+  patroliFeed: LogPatroli[];
+  titikPatroli: TitikPatroli[];
+  patrolMapConfig?: PatrolMapConfig;
+}
+
+const REALTIME_DEBOUNCE_MS = 2000;
+const REALTIME_THROTTLE_MS = 2000;
+const REALTIME_MAX_WAIT_MS = 5000;
+
+/**
+ * Menghasilkan sidik jari ringkas (O(n)) dari data Admin agar pembaruan state
+ * hanya dipicu saat terdapat perubahan data yang signifikan.
+ */
+function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
+  const wargaSig = `${data.wargaList.length}:${data.wargaList
+    .map((w) => `${w.id}|${w.blok_rumah}|${w.aktif ? 1 : 0}|${w.nominal_iuran}|${w.status_hunian}`)
+    .join(',')}`;
+  const trxSig = `${data.transaksiList.length}:${data.transaksiList
+    .map((t) => `${t.id}|${t.status_verifikasi}|${t.nominal}|${t.verified_at || ''}`)
+    .join(',')}`;
+  const kasSig = `${data.transaksiKasList.length}:${data.transaksiKasList
+    .map((k) => `${k.id}|${k.status_verifikasi || ''}|${k.nominal}|${k.tanggal}`)
+    .join(',')}`;
+  const statusSig = `${data.statusList.length}:${data.statusList
+    .map((s) => `${s.blok_rumah}|${s.tahun}|${s.bulan}|${s.status}`)
+    .join(',')}`;
+  const patroliSig = `${data.patroliFeed.length}:${data.patroliFeed
+    .slice(0, 60)
+    .map((p) => `${p.id}|${p.waktu_scan}|${p.status_kondisi}|${p.catatan || ''}`)
+    .join(',')}`;
+  const titikSig = `${data.titikPatroliList.length}:${data.titikPatroliList
+    .map((t) => `${t.id}|${t.aktif ? 1 : 0}|${t.x_percent ?? ''}|${t.y_percent ?? ''}|${t.nama_lokasi}`)
+    .join(',')}`;
+  const petugasSig = `${data.petugasList.length}:${data.petugasList
+    .map((p) => `${p.id}|${p.aktif ? 1 : 0}|${p.shift}|${p.nama}`)
+    .join(',')}`;
+  const notifSig = `${data.notifications.length}:${data.notifications
+    .slice(0, 20)
+    .map((n) => n.id)
+    .join(',')}`;
+  const botLogSig = `${data.botLogs.length}:${data.botLogs[0]?.id || ''}`;
+  const mapSig = `${data.patrolMapConfig?.updated_at || ''}|${data.patrolMapConfig?.cycle_reset_at || ''}|${data.patrolMapConfig?.map_image_url?.length || 0}`;
+  const paySig = `${data.paymentConfig.updated_at}|${data.paymentConfig.qris_aktif ? 1 : 0}|${data.paymentConfig.rekening_list.length}`;
+  const botSig = `${data.botConfig.aktif ? 1 : 0}|${data.botConfig.updated_at}`;
+
+  return [
+    wargaSig,
+    trxSig,
+    kasSig,
+    statusSig,
+    patroliSig,
+    titikSig,
+    petugasSig,
+    notifSig,
+    botLogSig,
+    mapSig,
+    paySig,
+    botSig,
+  ].join('#');
+}
+
+/**
+ * Menghasilkan sidik jari ringkas (O(n)) dari data Warga agar state tidak
+ * diperbarui ulang apabila tidak ada perubahan signifikan pada data rumah/patroli.
+ */
+function computeWargaDataFingerprint(data: WargaPortalData): string {
+  const profilSig = `${data.profil.id}|${data.profil.nama_warga}|${data.profil.blok_rumah}|${data.profil.aktif ? 1 : 0}|${data.profil.nominal_iuran}|${data.profil.status_hunian}`;
+  const statusSig = `${data.statusBulanan.length}:${data.statusBulanan
+    .map((s) => `${s.tahun}|${s.bulan}|${s.status}`)
+    .join(',')}`;
+  const riwayatSig = `${data.riwayat.length}:${data.riwayat
+    .map((r) => `${r.id}|${r.status_verifikasi}|${r.nominal}|${r.verified_at || ''}`)
+    .join(',')}`;
+  const patroliSig = `${data.patroliFeed.length}:${data.patroliFeed
+    .slice(0, 60)
+    .map((p) => `${p.id}|${p.waktu_scan}|${p.status_kondisi}|${p.catatan || ''}`)
+    .join(',')}`;
+  const titikSig = `${data.titikPatroli.length}:${data.titikPatroli
+    .map((t) => `${t.id}|${t.aktif ? 1 : 0}|${t.x_percent ?? ''}|${t.y_percent ?? ''}|${t.nama_lokasi}`)
+    .join(',')}`;
+  const notifSig = `${data.notifications.length}:${data.notifications
+    .slice(0, 20)
+    .map((n) => n.id)
+    .join(',')}`;
+  const mapSig = `${data.patrolMapConfig?.updated_at || ''}|${data.patrolMapConfig?.cycle_reset_at || ''}|${data.patrolMapConfig?.map_image_url?.length || 0}`;
+  const kontakSig = `${data.petugasKontak.length}:${data.petugasKontak
+    .map((k) => `${k.id}|${k.shift}|${k.no_hp}`)
+    .join(',')}`;
+
+  return [profilSig, statusSig, riwayatSig, patroliSig, titikSig, notifSig, mapSig, kontakSig].join(
+    '#'
+  );
+}
+
 function resolvePortalRouteFromPath(pathname: string): PortalRoute {
   const clean = pathname.trim().toLowerCase();
   if (clean === '/admin' || clean.startsWith('/admin/')) return 'admin';
@@ -93,22 +194,17 @@ export default function App() {
   }, [settingsOpen]);
 
   // State Portal Warga (terisolasi 1 rumah)
-  const [wargaData, setWargaData] = useState<{
-    profil: Warga;
-    statusBulanan: StatusEcardBulanan[];
-    riwayat: TransaksiIPL[];
-    notifications: SystemNotification[];
-    paymentConfig: PaymentConfig;
-    petugasKontak: PetugasKontakDarurat[];
-    patroliFeed: LogPatroli[];
-    titikPatroli: TitikPatroli[];
-    patrolMapConfig?: PatrolMapConfig;
-  } | null>(null);
+  const [wargaData, setWargaData] = useState<WargaPortalData | null>(null);
   const [preselectedMonth, setPreselectedMonth] = useState<number | null>(null);
   const [preselectedPetugas, setPreselectedPetugas] = useState<string | null>(null);
 
   // State Portal Admin
   const [adminData, setAdminData] = useState<AdminSnapshot | null>(null);
+
+  // Sidik jari snapshot terakhir untuk menghindari pembaruan state yang tidak signifikan
+  const lastAdminFingerprintRef = useRef<string | null>(null);
+  const lastWargaFingerprintRef = useRef<string | null>(null);
+  const syncInFlightRef = useRef<boolean>(false);
 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -126,12 +222,21 @@ export default function App() {
   }, []);
 
   const loadPortalData = useCallback(
-    async (activeSession: SessionUser, options?: { silent?: boolean }) => {
+    async (activeSession: SessionUser, options?: { silent?: boolean; force?: boolean }) => {
       const silent = Boolean(options?.silent);
+      const force = Boolean(options?.force);
+
+      // Cegah fetch silent bertumpuk saat sinkronisasi sebelumnya masih berjalan
+      if (silent && syncInFlightRef.current) {
+        return;
+      }
+
       if (!silent) {
         setLoadingData(true);
         setDataError(null);
       }
+
+      syncInFlightRef.current = true;
       try {
         if (activeSession.role === 'petugas') {
           return;
@@ -141,7 +246,11 @@ export default function App() {
           if (res.error || !res.data) {
             if (!silent) setDataError(res.error || 'Gagal memuat data rumah Anda.');
           } else {
-            setWargaData(res.data);
+            const nextFingerprint = computeWargaDataFingerprint(res.data);
+            if (force || !silent || nextFingerprint !== lastWargaFingerprintRef.current) {
+              lastWargaFingerprintRef.current = nextFingerprint;
+              setWargaData(res.data);
+            }
             setDataError(null);
           }
         } else {
@@ -149,11 +258,16 @@ export default function App() {
           if (res.error || !res.data) {
             if (!silent) setDataError(res.error || 'Gagal memuat data Pengurus.');
           } else {
-            setAdminData(res.data);
+            const nextFingerprint = computeAdminSnapshotFingerprint(res.data);
+            if (force || !silent || nextFingerprint !== lastAdminFingerprintRef.current) {
+              lastAdminFingerprintRef.current = nextFingerprint;
+              setAdminData(res.data);
+            }
             setDataError(null);
           }
         }
       } finally {
+        syncInFlightRef.current = false;
         if (!silent) setLoadingData(false);
       }
     },
@@ -166,6 +280,8 @@ export default function App() {
       setPortalRoute(nextRoute);
       setSession(loadStoredSession(nextRoute));
       setSettingsOpen(false);
+      lastAdminFingerprintRef.current = null;
+      lastWargaFingerprintRef.current = null;
       setWargaData(null);
       setAdminData(null);
       setDataError(null);
@@ -176,22 +292,87 @@ export default function App() {
 
   useEffect(() => {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;
+    lastAdminFingerprintRef.current = null;
+    lastWargaFingerprintRef.current = null;
     setActiveTab(session.role === 'admin' ? 'dashboard' : 'beranda');
-    void loadPortalData(session);
+    void loadPortalData(session, { force: true });
   }, [session, portalRoute, loadPortalData]);
 
-  // Sinkronisasi otomatis agar setoran warga, transaksi kas & patroli langsung tampil
+  // Sinkronisasi realtime dengan debouncing (2 detik), throttling, dan deteksi perubahan signifikan
   useEffect(() => {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;
 
-    const triggerSilentSync = () => {
-      if (document.visibilityState === 'visible' && !settingsOpenRef.current) {
-        void loadPortalData(session, { silent: true });
+    let debounceTimer: number | null = null;
+    let throttleTimer: number | null = null;
+    let maxWaitTimer: number | null = null;
+    let lastSyncExecutedAt = 0;
+    let disposed = false;
+
+    const clearSyncTimers = () => {
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      if (throttleTimer !== null) {
+        window.clearTimeout(throttleTimer);
+        throttleTimer = null;
+      }
+      if (maxWaitTimer !== null) {
+        window.clearTimeout(maxWaitTimer);
+        maxWaitTimer = null;
       }
     };
 
-    const handleFocus = () => triggerSilentSync();
-    const handleVisibility = () => triggerSilentSync();
+    const runThrottledSync = () => {
+      if (disposed) return;
+      clearSyncTimers();
+
+      if (document.visibilityState !== 'visible') return;
+      if (session.role === 'admin' && settingsOpenRef.current) return;
+
+      const now = Date.now();
+      const elapsed = now - lastSyncExecutedAt;
+
+      if (lastSyncExecutedAt > 0 && elapsed < REALTIME_THROTTLE_MS) {
+        const remaining = REALTIME_THROTTLE_MS - elapsed;
+        throttleTimer = window.setTimeout(() => {
+          throttleTimer = null;
+          runThrottledSync();
+        }, remaining);
+        return;
+      }
+
+      lastSyncExecutedAt = now;
+      void loadPortalData(session, { silent: true });
+    };
+
+    const scheduleDebouncedSync = () => {
+      if (disposed) return;
+      if (document.visibilityState !== 'visible') return;
+      if (session.role === 'admin' && settingsOpenRef.current) return;
+
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+      }
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null;
+        runThrottledSync();
+      }, REALTIME_DEBOUNCE_MS);
+
+      if (maxWaitTimer === null) {
+        maxWaitTimer = window.setTimeout(() => {
+          maxWaitTimer = null;
+          runThrottledSync();
+        }, REALTIME_MAX_WAIT_MS);
+      }
+    };
+
+    const handleFocus = () => scheduleDebouncedSync();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        scheduleDebouncedSync();
+      }
+    };
 
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
@@ -199,24 +380,42 @@ export default function App() {
     let unsubscribeRealtime = () => {};
     let intervalId: number | null = null;
 
+    // Jeda debounce (2 detik) & throttle (2 detik) dikoordinasikan terpusat di App.tsx
+    // agar event realtime, focus, dan visibility digabung tanpa double-delay.
+    const passthroughOptions = {
+      debounceMs: 0,
+      minIntervalMs: 0,
+      maxWaitMs: 0,
+    };
+
     if (session.role === 'admin') {
-      unsubscribeRealtime = subscribeAdminRealtime(session, () => {
-        if (!settingsOpenRef.current) {
-          return loadPortalData(session, { silent: true });
-        }
-      });
+      unsubscribeRealtime = subscribeAdminRealtime(
+        session,
+        () => {
+          if (!settingsOpenRef.current) {
+            scheduleDebouncedSync();
+          }
+        },
+        passthroughOptions
+      );
       intervalId = window.setInterval(() => {
         if (document.visibilityState === 'visible' && !settingsOpenRef.current) {
-          void loadPortalData(session, { silent: true });
+          runThrottledSync();
         }
       }, 20000);
     } else if (session.role === 'warga') {
-      unsubscribeRealtime = subscribePatroliRealtime(session, () =>
-        loadPortalData(session, { silent: true })
+      unsubscribeRealtime = subscribePatroliRealtime(
+        session,
+        () => {
+          scheduleDebouncedSync();
+        },
+        passthroughOptions
       );
     }
 
     return () => {
+      disposed = true;
+      clearSyncTimers();
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       unsubscribeRealtime();
@@ -253,6 +452,8 @@ export default function App() {
     clearStoredSession(session, portalRoute);
     setSession(null);
     setSettingsOpen(false);
+    lastAdminFingerprintRef.current = null;
+    lastWargaFingerprintRef.current = null;
     setWargaData(null);
     setAdminData(null);
     setDataError(null);
