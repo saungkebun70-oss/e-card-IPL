@@ -36,30 +36,16 @@ import {
   submitLogPatroliPetugas,
   type PetugasOwnData,
 } from '../../lib/dataService';
+import {
+  describeWebNfcError,
+  extractNfcReadingData,
+  getNdefReaderConstructor,
+  isWebNfcSupported,
+  normalizeNfcUid,
+  triggerNfcVibrate,
+} from '../../lib/webNfc';
 import { BrandLogo } from '../BrandLogo';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
-
-interface WebNdefRecord {
-  recordType?: string;
-  data?: DataView;
-}
-
-interface WebNdefReadingEvent extends Event {
-  serialNumber?: string;
-  message?: {
-    records?: WebNdefRecord[];
-  };
-}
-
-interface WebNdefReader {
-  scan: (options?: { signal?: AbortSignal }) => Promise<void>;
-  onreading: ((event: WebNdefReadingEvent) => void) | null;
-  onreadingerror: (() => void) | null;
-}
-
-interface WindowWithNdef extends Window {
-  NDEFReader?: new () => WebNdefReader;
-}
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -77,26 +63,6 @@ function isSameLocalDay(isoDate: string): boolean {
   );
 }
 
-function extractNdefText(event: WebNdefReadingEvent): string[] {
-  const results: string[] = [];
-  if (event.serialNumber) {
-    results.push(event.serialNumber.trim().toUpperCase());
-  }
-  const records = event.message?.records || [];
-  const decoder = new TextDecoder();
-  for (const rec of records) {
-    if (rec.data) {
-      try {
-        const text = decoder.decode(rec.data).trim().toUpperCase();
-        if (text) results.push(text);
-      } catch {
-        // Abaikan record non-teks
-      }
-    }
-  }
-  return results;
-}
-
 export function PetugasPortalPage({
   session,
   onLogout,
@@ -108,9 +74,10 @@ export function PetugasPortalPage({
   const [refreshing, setRefreshing] = useState(false);
 
   // State Patroli NFC & Manual Fallback
-  const nfcSupported = typeof window !== 'undefined' && 'NDEFReader' in window;
+  const nfcSupported = isWebNfcSupported();
   const [scanningNfc, setScanningNfc] = useState(false);
   const [nfcStatusText, setNfcStatusText] = useState<string | null>(null);
+  const [nfcStatusError, setNfcStatusError] = useState(false);
   const [selectedTitikId, setSelectedTitikId] = useState<string>('');
   const [statusKondisi, setStatusKondisi] = useState<StatusKondisiPatroli>('Aman');
   const [catatanPatroli, setCatatanPatroli] = useState('');
@@ -216,16 +183,18 @@ export function PetugasPortalPage({
     if (scanningNfc) {
       stopNfcScan();
       setNfcStatusText(null);
+      setNfcStatusError(false);
       return;
     }
 
-    const NDEFReaderCtor = (window as unknown as WindowWithNdef).NDEFReader;
+    const NDEFReaderCtor = getNdefReaderConstructor();
     if (!NDEFReaderCtor) {
+      const msg =
+        'Web NFC hanya tersedia di browser Chrome Android (HTTPS). Gunakan pilihan Input Manual di bawah.';
       setShowManualForm(true);
-      onToast(
-        'info',
-        'Perangkat/browser ini tidak mendukung Web NFC. Gunakan pilihan Input Manual di bawah.'
-      );
+      setNfcStatusError(true);
+      setNfcStatusText(msg);
+      onToast('error', msg);
       return;
     }
 
@@ -233,46 +202,64 @@ export function PetugasPortalPage({
       const controller = new AbortController();
       nfcAbortRef.current = controller;
       const ndef = new NDEFReaderCtor();
+
+      // Daftarkan listener SEBELUM ndef.scan() agar foreground NFC langsung menangkap UID
+      ndef.addEventListener(
+        'readingerror',
+        () => {
+          setNfcStatusError(true);
+          setNfcStatusText(
+            'Tag terdeteksi tetapi tidak berformat NDEF (misal kartu e-Money/MIFARE Classic) atau stiker belum diformat. Gunakan stiker NTAG213/215/216 atau Input Manual.'
+          );
+        },
+        { signal: controller.signal }
+      );
+
+      ndef.addEventListener(
+        'reading',
+        (event) => {
+          const { uid, allNormalizedTokens } = extractNfcReadingData(event);
+          const checkpoints = data?.titikPatroli || [];
+          const matched = checkpoints.find((t) => {
+            const normTarget = normalizeNfcUid(t.rfid_uid);
+            return normTarget && allNormalizedTokens.includes(normTarget);
+          });
+
+          stopNfcScan();
+
+          if (matched) {
+            triggerNfcVibrate(100);
+            setNfcStatusError(false);
+            setNfcStatusText(
+              `Tag NFC terbaca: ${matched.nama_lokasi} (UID: ${uid || normalizeNfcUid(matched.rfid_uid)})`
+            );
+            void recordPatrolEntry(matched, matched.nama_lokasi, 'NFC Tap');
+          } else {
+            const displayUid = uid || 'TIDAK-DIKENAL';
+            triggerNfcVibrate(60);
+            setNfcStatusError(true);
+            setNfcStatusText(
+              `UID "${displayUid}" belum terdaftar di master titik checkpoint. Minta Bendahara mendaftarkannya atau catat manual.`
+            );
+            onToast('error', `Tag NFC (${displayUid}) belum terdaftar pada titik patroli.`);
+          }
+        },
+        { signal: controller.signal }
+      );
+
       setScanningNfc(true);
-      setNfcStatusText('NFC aktif — tempelkan bagian belakang HP ke stiker RFID/NFC titik patroli...');
+      setNfcStatusError(false);
+      setNfcStatusText('Tempelkan stiker NFC ke belakang HP sekarang... (mode foreground aktif)');
 
       await ndef.scan({ signal: controller.signal });
-
-      ndef.onreadingerror = () => {
-        setNfcStatusText('Gagal membaca tag NFC. Coba tempelkan kembali lebih dekat ke stiker RFID.');
-      };
-
-      ndef.onreading = (event: WebNdefReadingEvent) => {
-        const tokens = extractNdefText(event);
-        const checkpoints = data?.titikPatroli || [];
-        const matched = checkpoints.find((t) =>
-          tokens.some(
-            (tok) =>
-              tok === t.rfid_uid.toUpperCase() ||
-              tok.replace(/[:\-\s]/g, '') === t.rfid_uid.toUpperCase().replace(/[:\-\s]/g, '')
-          )
-        );
-
-        stopNfcScan();
-
-        if (matched) {
-          setNfcStatusText(`Tag terbaca: ${matched.nama_lokasi} (${matched.rfid_uid})`);
-          void recordPatrolEntry(matched, matched.nama_lokasi, 'NFC Tap');
-        } else {
-          const rawUid = tokens[0] || 'TAG-TIDAK-TERDAFTAR';
-          setNfcStatusText(
-            `UID "${rawUid}" belum terdaftar di master titik checkpoint. Hubungi Bendahara atau catat manual.`
-          );
-          onToast('error', `Tag NFC (${rawUid}) belum terdaftar pada titik patroli.`);
-        }
-      };
     } catch (err) {
       stopNfcScan();
-      const msg =
-        err instanceof Error ? err.message : 'Izin NFC ditolak atau sensor NFC HP sedang nonaktif.';
-      setNfcStatusText(`Sensor NFC tidak aktif: ${msg}`);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const readableErr = describeWebNfcError(err);
+      setNfcStatusError(true);
+      setNfcStatusText(readableErr);
       setShowManualForm(true);
-      onToast('error', 'Aktifkan fitur NFC di pengaturan HP Anda, atau gunakan Input Manual.');
+      onToast('error', readableErr);
     }
   };
 
@@ -542,9 +529,25 @@ export function PetugasPortalPage({
                 </button>
 
                 {nfcStatusText && (
-                  <div className="rounded-xl bg-slate-900 text-emerald-300 px-3.5 py-2.5 text-xs font-medium flex items-center gap-2">
-                    <Radio className={`w-4 h-4 shrink-0 ${scanningNfc ? 'animate-ping' : ''}`} />
-                    <span>{nfcStatusText}</span>
+                  <div
+                    role="status"
+                    className={`rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-start gap-2.5 border ${
+                      nfcStatusError
+                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                        : 'bg-[#0F172A] border-slate-800 text-emerald-300'
+                    }`}
+                  >
+                    {scanningNfc ? (
+                      <span className="relative flex h-3 w-3 mt-0.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                      </span>
+                    ) : nfcStatusError ? (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <Radio className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    )}
+                    <span className="leading-relaxed">{nfcStatusText}</span>
                   </div>
                 )}
 

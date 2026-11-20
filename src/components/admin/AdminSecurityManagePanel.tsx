@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Copy,
   Edit3,
   Loader2,
@@ -13,6 +14,7 @@ import {
   Smartphone,
   Trash2,
   UserPlus,
+  X,
 } from 'lucide-react';
 import {
   APP_PETUGAS_PORTAL_URL,
@@ -23,6 +25,14 @@ import {
   type TitikPatroli,
 } from '../../types';
 import { generateRandomPin, normalizePhoneNumber } from '../../lib/format';
+import {
+  describeWebNfcError,
+  extractNfcReadingData,
+  getNdefReaderConstructor,
+  isWebNfcSupported,
+  normalizeNfcUid,
+  triggerNfcVibrate,
+} from '../../lib/webNfc';
 import {
   deletePetugasAdmin,
   deleteTitikPatroliAdmin,
@@ -64,6 +74,28 @@ export function AdminSecurityManagePanel({
   const [keteranganTitik, setKeteranganTitik] = useState('');
   const [savingTitik, setSavingTitik] = useState(false);
   const [readingNfcUid, setReadingNfcUid] = useState(false);
+  const [writingNfcTag, setWritingNfcTag] = useState(false);
+  const [nfcFeedback, setNfcFeedback] = useState<{
+    type: 'scanning' | 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const nfcAbortRef = useRef<AbortController | null>(null);
+  const nfcSupported = isWebNfcSupported();
+
+  const stopNfcOperation = useCallback(() => {
+    if (nfcAbortRef.current) {
+      nfcAbortRef.current.abort();
+      nfcAbortRef.current = null;
+    }
+    setReadingNfcUid(false);
+    setWritingNfcTag(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      nfcAbortRef.current?.abort();
+    };
+  }, []);
 
   const resetPetugasForm = () => {
     setEditPetugasId(null);
@@ -76,6 +108,8 @@ export function AdminSecurityManagePanel({
   };
 
   const resetTitikForm = () => {
+    stopNfcOperation();
+    setNfcFeedback(null);
     setEditTitikId(null);
     setNamaLokasi('');
     setRfidUid('');
@@ -176,41 +210,136 @@ export function AdminSecurityManagePanel({
   };
 
   const handleScanUidFromNfc = async () => {
-    const NDEFReaderCtor = (
-      window as unknown as {
-        NDEFReader?: new () => {
-          scan: () => Promise<void>;
-          onreading: ((ev: { serialNumber?: string }) => void) | null;
-        };
-      }
-    ).NDEFReader;
+    // Jika sedang aktif scanning, ketuk lagi untuk membatalkan foreground NFC scan
+    if (readingNfcUid) {
+      stopNfcOperation();
+      setNfcFeedback(null);
+      return;
+    }
 
+    stopNfcOperation();
+
+    const NDEFReaderCtor = getNdefReaderConstructor();
     if (!NDEFReaderCtor) {
-      onToast(
-        'info',
-        'Web NFC hanya aktif di Chrome Android. Ketik kode UID RFID secara manual pada kolom UID.'
-      );
+      const msg =
+        'Web NFC hanya didukung di browser Chrome Android (koneksi HTTPS). Silakan ketik Kode UID Tag secara manual.';
+      setNfcFeedback({ type: 'error', text: msg });
+      onToast('error', msg);
       return;
     }
 
     try {
-      setReadingNfcUid(true);
-      onToast('info', 'Tempelkan stiker NFC/RFID ke belakang HP untuk membaca UID otomatis...');
+      const controller = new AbortController();
+      nfcAbortRef.current = controller;
       const ndef = new NDEFReaderCtor();
-      await ndef.scan();
-      ndef.onreading = (ev) => {
-        const uid = (ev.serialNumber || '').trim().toUpperCase();
-        setReadingNfcUid(false);
-        if (uid) {
-          setRfidUid(uid);
-          onToast('success', `UID Tag NFC terbaca: ${uid}`);
-        } else {
-          onToast('error', 'Tag terbaca tetapi UID kosong. Silakan isi manual.');
-        }
-      };
-    } catch {
-      setReadingNfcUid(false);
-      onToast('error', 'Gagal memulai sensor NFC. Pastikan NFC HP aktif.');
+
+      // Daftarkan listener SEBELUM scan() agar event pertama langsung tertangkap
+      ndef.addEventListener(
+        'reading',
+        (event) => {
+          const { uid } = extractNfcReadingData(event);
+          stopNfcOperation();
+          if (uid) {
+            triggerNfcVibrate(100);
+            setRfidUid(uid);
+            setNfcFeedback({
+              type: 'success',
+              text: `UID Tag NFC berhasil terbaca & diisi otomatis: ${uid}`,
+            });
+            onToast('success', `UID Tag NFC terbaca: ${uid}`);
+          } else {
+            const emptyMsg =
+              'Tag NFC terdeteksi tetapi serialNumber/UID kosong. Gunakan stiker NTAG213/215/216 atau ketik UID manual.';
+            setNfcFeedback({ type: 'error', text: emptyMsg });
+            onToast('error', emptyMsg);
+          }
+        },
+        { signal: controller.signal }
+      );
+
+      ndef.addEventListener(
+        'readingerror',
+        () => {
+          const errMsg =
+            'Tag terdeteksi tetapi tidak berformat NDEF (misal kartu e-Money/Flazz/MIFARE Classic) atau stiker masih kosong. Gunakan stiker NTAG213/215/216, atau klik "Format NDEF" jika memakai stiker NTAG baru.';
+          setNfcFeedback({ type: 'error', text: errMsg });
+          onToast('error', 'Gagal membaca tag NFC. Pastikan stiker berformat NDEF (NTAG213/215/216).');
+        },
+        { signal: controller.signal }
+      );
+
+      setReadingNfcUid(true);
+      setNfcFeedback({
+        type: 'scanning',
+        text: 'Mode foreground NFC aktif — tempelkan stiker NFC ke belakang HP sekarang...',
+      });
+
+      // Jalankan foreground scan dengan AbortController agar Chrome mengambil alih NFC dari OS Android
+      await ndef.scan({ signal: controller.signal });
+    } catch (err) {
+      stopNfcOperation();
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const readableErr = describeWebNfcError(err);
+      setNfcFeedback({ type: 'error', text: readableErr });
+      onToast('error', readableErr);
+    }
+  };
+
+  const handleWriteNdefCheckpointTag = async () => {
+    if (writingNfcTag) {
+      stopNfcOperation();
+      setNfcFeedback(null);
+      return;
+    }
+
+    stopNfcOperation();
+
+    const NDEFReaderCtor = getNdefReaderConstructor();
+    if (!NDEFReaderCtor) {
+      const msg = 'Penulisan tag NFC hanya tersedia di browser Chrome Android (HTTPS).';
+      setNfcFeedback({ type: 'error', text: msg });
+      onToast('error', msg);
+      return;
+    }
+
+    const targetCode =
+      normalizeNfcUid(rfidUid) ||
+      `SKB${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    if (!rfidUid.trim()) {
+      setRfidUid(targetCode);
+    }
+
+    try {
+      const controller = new AbortController();
+      nfcAbortRef.current = controller;
+      const ndef = new NDEFReaderCtor();
+
+      setWritingNfcTag(true);
+      setNfcFeedback({
+        type: 'scanning',
+        text: `Siap memformat tag NDEF (${targetCode}) — tempelkan stiker NTAG213/215/216 ke belakang HP selama 2 detik...`,
+      });
+
+      const payload = `SKB-CP:${targetCode}|${(namaLokasi || 'TITIK PATROLI').trim().toUpperCase()}`;
+      await ndef.write(
+        { records: [{ recordType: 'text', data: payload }] },
+        { signal: controller.signal, overwrite: true }
+      );
+
+      stopNfcOperation();
+      triggerNfcVibrate(100);
+      setRfidUid(targetCode);
+      setNfcFeedback({
+        type: 'success',
+        text: `Stiker NFC berhasil diformat NDEF dengan kode ${targetCode}. Kini tidak akan memicu pop-up DANA/GoPay/OVO.`,
+      });
+      onToast('success', `Tag NFC berhasil ditulis (${targetCode}).`);
+    } catch (err) {
+      stopNfcOperation();
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const readableErr = describeWebNfcError(err);
+      setNfcFeedback({ type: 'error', text: readableErr });
+      onToast('error', readableErr);
     }
   };
 
@@ -494,7 +623,7 @@ export function AdminSecurityManagePanel({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Nama Titik Lokasi
@@ -510,31 +639,6 @@ export function AdminSecurityManagePanel({
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Kode UID Tag RFID / NFC
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    required
-                    value={rfidUid}
-                    onChange={(e) => setRfidUid(e.target.value.toUpperCase())}
-                    placeholder="Contoh: 04:A1:B2:C3"
-                    className="flex-1 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono uppercase text-[#0F172A]"
-                  />
-                  <button
-                    type="button"
-                    disabled={readingNfcUid}
-                    onClick={() => void handleScanUidFromNfc()}
-                    title="Tap Stiker NFC untuk Isi UID Otomatis"
-                    className="min-h-[42px] px-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0"
-                  >
-                    <Smartphone className={`w-3.5 h-3.5 ${readingNfcUid ? 'animate-pulse' : ''}`} />
-                    <span>Tap</span>
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Keterangan (Opsional)
                 </label>
                 <input
@@ -544,6 +648,109 @@ export function AdminSecurityManagePanel({
                   placeholder="Area gerbang / sudut blok..."
                   className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
                 />
+              </div>
+
+              <div className="sm:col-span-2 space-y-2">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Kode UID Tag RFID / NFC
+                </label>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={rfidUid}
+                    onChange={(e) => setRfidUid(normalizeNfcUid(e.target.value))}
+                    placeholder="Contoh: 04A1B2C3"
+                    className="flex-1 min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono font-bold tracking-wider uppercase text-[#0F172A]"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={writingNfcTag}
+                      onClick={() => void handleScanUidFromNfc()}
+                      className={`flex-1 sm:flex-initial min-h-[44px] px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 ${
+                        readingNfcUid
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-300'
+                          : 'bg-[#059669] hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {readingNfcUid ? (
+                        <>
+                          <Radio className="w-4 h-4 animate-pulse shrink-0" />
+                          <span>Batal Scan</span>
+                        </>
+                      ) : (
+                        <>
+                          <Smartphone className="w-4 h-4 shrink-0" />
+                          <span>Tap / Scan Tag NFC</span>
+                        </>
+                      )}
+                    </button>
+
+                    {nfcSupported && (
+                      <button
+                        type="button"
+                        disabled={readingNfcUid}
+                        onClick={() => void handleWriteNdefCheckpointTag()}
+                        title="Format stiker NTAG kosong ke NDEF agar tidak memicu pop-up e-Wallet di Android"
+                        className={`min-h-[44px] px-3 rounded-xl border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 ${
+                          writingNfcTag
+                            ? 'border-amber-500 bg-amber-50 text-amber-800'
+                            : 'border-slate-300 bg-white hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <Radio className={`w-3.5 h-3.5 shrink-0 ${writingNfcTag ? 'animate-pulse text-amber-600' : 'text-slate-500'}`} />
+                        <span>{writingNfcTag ? 'Batal Tulis' : 'Format NDEF'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Indikator Status Aktif Scan / Hasil / Error NFC */}
+                {nfcFeedback && (
+                  <div
+                    role="status"
+                    className={`rounded-xl px-3.5 py-2.5 text-xs flex items-start justify-between gap-2.5 border ${
+                      nfcFeedback.type === 'scanning'
+                        ? 'bg-[#0F172A] border-slate-800 text-emerald-300'
+                        : nfcFeedback.type === 'success'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                          : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2 min-w-0">
+                      {nfcFeedback.type === 'scanning' ? (
+                        <span className="relative flex h-3 w-3 mt-0.5 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                        </span>
+                      ) : nfcFeedback.type === 'error' ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <Radio className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      )}
+                      <span className="leading-relaxed font-medium">{nfcFeedback.text}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopNfcOperation();
+                        setNfcFeedback(null);
+                      }}
+                      aria-label="Tutup status NFC"
+                      className="p-0.5 rounded opacity-70 hover:opacity-100 cursor-pointer shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Tekan <strong>Tap / Scan Tag NFC</strong> terlebih dahulu sebelum menempelkan
+                  stiker agar Chrome Android mengambil alih sensor NFC (mencegah pop-up
+                  DANA/GoPay/OVO). Gunakan stiker NFC tipe <strong>NTAG213/215/216</strong>; kartu
+                  e-Money/MIFARE Classic non-NDEF tidak didukung Web NFC browser.
+                </p>
               </div>
             </div>
 
