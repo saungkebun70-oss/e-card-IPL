@@ -13,9 +13,11 @@ import {
   TableProperties,
   Loader2,
   BookOpen,
+  FileBarChart2,
 } from 'lucide-react';
 import {
   BULAN_LIST,
+  isKetuaRole,
   NOMINAL_IPL_STANDAR,
   PETUGAS_PENERIMA,
   TAHUN_AKTIF,
@@ -47,6 +49,7 @@ import { downloadRekapBulananPdf } from '../../lib/pdfGenerator';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
+import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
 interface AdminRekapSlideProps {
   session: SessionUser;
@@ -58,7 +61,7 @@ interface AdminRekapSlideProps {
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
-type RekapSubTab = 'bulanan' | 'matriks';
+type RekapSubTab = 'bulanan' | 'matriks' | 'ketua';
 
 function getMatrixCellBadge(status: StatusBulanEcard) {
   switch (status) {
@@ -84,10 +87,11 @@ export function AdminRekapSlide({
   onToast,
 }: AdminRekapSlideProps) {
   const { brand } = useAppBrand();
+  const isKetua = isKetuaRole(session);
   const PAGE_SIZE = 20;
   const currentMonth = getCurrentBillingMonth();
 
-  // Sub-tab Rekap Bulanan (Buku Kas Umum) vs Matriks 12 Bulan
+  // Sub-tab Rekap Bulanan (Buku Kas Umum), Laporan Otomatis Ketua, vs Matriks 12 Bulan
   const [subTab, setSubTab] = useState<RekapSubTab>('bulanan');
   const [selectedBulan, setSelectedBulan] = useState<number>(currentMonth);
   const [selectedTahun, setSelectedTahun] = useState<number>(TAHUN_AKTIF);
@@ -292,6 +296,20 @@ export function AdminRekapSlide({
             <TableProperties className="w-4 h-4 text-slate-500 shrink-0" />
             <span>Matriks IPL 12 Bulan</span>
           </button>
+          {isKetua && (
+            <button
+              type="button"
+              onClick={() => setSubTab('ketua')}
+              className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                subTab === 'ketua'
+                  ? 'bg-white text-[#0F172A] shadow-sm'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <FileBarChart2 className="w-4 h-4 text-[#059669] shrink-0" />
+              <span>Laporan Ketua (PDF)</span>
+            </button>
+          )}
         </div>
 
         <button
@@ -303,6 +321,27 @@ export function AdminRekapSlide({
           <span>Input Tunai Manual</span>
         </button>
       </div>
+
+      {/* ================================================================= */}
+      {/* SUB-TAB KHUSUS KETUA: GENERATOR LAPORAN RINGKASAN OTOMATIS (PDF) */}
+      {/* ================================================================= */}
+      {subTab === 'ketua' && isKetua && (
+        <ChairmanMonthlyReportPanel
+          session={session}
+          wargaList={wargaList}
+          statusList={statusList}
+          transaksiList={transaksiList}
+          transaksiKasList={transaksiKasList}
+          onToast={onToast}
+          mode="full"
+          bulanOverride={selectedBulan}
+          tahunOverride={selectedTahun}
+          onPeriodChange={(b, t) => {
+            setSelectedBulan(b);
+            setSelectedTahun(t);
+          }}
+        />
+      )}
 
       {/* ================================================================= */}
       {/* SUB-TAB 1: REKAPITULASI KEUANGAN BULANAN (BUKU KAS UMUM + PDF A4) */}
@@ -593,7 +632,15 @@ export function AdminRekapSlide({
               <p className="text-xs print:text-[10px] text-slate-600 text-right mb-3">
                 Karawang, {formatTanggal(new Date().toISOString())}
               </p>
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 text-center text-xs print:text-[10px] items-end">
+              <div className="relative grid grid-cols-2 gap-4 sm:gap-6 text-center text-xs print:text-[10px] items-end">
+                <div className="signature-center-stamp pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
+                  <OfficialStamp
+                    size="md"
+                    unstyledTransform
+                    className="w-20 h-20 sm:w-24 sm:h-24 print:w-24 print:h-24"
+                  />
+                </div>
+
                 <div>
                   <p className="text-slate-500">Mengetahui,</p>
                   <p className="font-bold text-[#0F172A]">Ketua Lingkungan</p>
@@ -606,11 +653,7 @@ export function AdminRekapSlide({
                 <div>
                   <p className="text-slate-500">Disusun &amp; Disahkan oleh,</p>
                   <p className="font-bold text-[#0F172A]">Bendahara Lingkungan</p>
-                  <div className="h-16 sm:h-20 print:h-14 relative flex items-center justify-center">
-                    <div className="pointer-events-none -translate-x-4 sm:-translate-x-6 opacity-85">
-                      <OfficialStamp size="sm" />
-                    </div>
-                  </div>
+                  <div className="h-16 sm:h-20 print:h-14" />
                   <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
                   <p className="font-bold text-[#0F172A] mt-1.5">Andriansyah</p>
                   <p className="text-[10px] text-slate-500">Pengurus Kas &amp; IPL</p>

@@ -5,7 +5,7 @@ import {
   type TransaksiKas,
   type Warga,
 } from '../types';
-import { formatDaftarBulan, getNamaBulan } from './format';
+import { canonicalizeBlokKey, formatDaftarBulan, formatRupiah, getNamaBulan } from './format';
 
 export interface GlobalCashSummary {
   totalIplMasuk: number;
@@ -78,6 +78,63 @@ export interface QuarterlyLpjReport {
   rataRataKepatuhan: number;
   totalUnitAktif: number;
   mutasiKronologis: CashLedgerRow[];
+}
+
+export interface PaymentMethodSummaryItem {
+  metode: string;
+  jumlahTransaksi: number;
+  totalNominal: number;
+  persentase: number;
+}
+
+export interface ChairmanExpenseLogItem {
+  id: string;
+  tanggal: string;
+  noBukti: string;
+  kategori: string;
+  penerima: string;
+  termin: string | null;
+  keterangan: string;
+  nominal: number;
+  createdBy: string;
+  statusVerifikasi: string;
+  approvedByBendahara: string | null;
+  approvedByKetua: string | null;
+}
+
+export interface ChairmanMonthlyCompliance {
+  unitAktif: number;
+  unitLunas: number;
+  unitBelumBayar: number;
+  persentaseKepatuhan: number;
+}
+
+export interface ChairmanMonthlyPipeline {
+  iplPendingCount: number;
+  iplAccBendaharaCount: number;
+  kasPendingCount: number;
+  kasAccBendaharaCount: number;
+  totalMenungguKetuaCount: number;
+  totalMenungguKetuaNominal: number;
+}
+
+export interface ChairmanMonthlySummaryReport {
+  documentNumber: string;
+  generatedAt: string;
+  tahun: number;
+  bulan: number;
+  namaBulan: string;
+  monthlyCash: MonthlyCashReport;
+  surplusDefisit: number;
+  totalTransaksiTerverifikasi: number;
+  metodePembayaranBreakdown: PaymentMethodSummaryItem[];
+  compliance: ChairmanMonthlyCompliance;
+  pipeline: ChairmanMonthlyPipeline;
+  expenseLogs: ChairmanExpenseLogItem[];
+  totalExpenseAll: number;
+  totalExpenseVerified: number;
+  totalExpenseUnverified: number;
+  executiveHighlights: string[];
 }
 
 function getDateOnly(isoOrDate: string): string {
@@ -462,5 +519,207 @@ export function buildQuarterlyLpjReport(
     rataRataKepatuhan,
     totalUnitAktif,
     mutasiKronologis,
+  };
+}
+
+/**
+ * Automated Chairman Monthly Summary Report Compiler:
+ * Compiles monthly transaction totals, payment method distribution, compliance,
+ * pending approval pipeline, chronological expense logs, and executive highlights
+ * into a single structured report ready for PDF export.
+ */
+export function buildChairmanMonthlySummaryReport(
+  tahun: number,
+  bulan: number,
+  wargaList: Warga[],
+  statusList: StatusEcardBulanan[],
+  transaksiList: TransaksiIPL[],
+  transaksiKasList: TransaksiKas[]
+): ChairmanMonthlySummaryReport {
+  const monthlyCash = buildMonthlyCashReport(tahun, bulan, transaksiList, transaksiKasList);
+  const periodKey = tahun * 100 + bulan;
+  const paddedMonth = String(bulan).padStart(2, '0');
+  const documentNumber = `LAP-KETUA/${tahun}/${paddedMonth}/SK`;
+
+  // 1. Breakdown Metode Pembayaran IPL Terverifikasi pada bulan terpilih
+  const methodMap = new Map<string, { count: number; total: number }>();
+  let totalIplVerifiedForMethod = 0;
+
+  let iplPendingCount = 0;
+  let iplAccBendaharaCount = 0;
+  let totalMenungguKetuaNominal = 0;
+
+  for (const trx of transaksiList) {
+    const effDate = getEffectiveIplDate(trx);
+    const parts = parseDateParts(effDate);
+    const ymKey = parts.tahun * 100 + parts.bulan;
+    const nominal = Number(trx.nominal) || 0;
+
+    if (trx.status_verifikasi === 'Terverifikasi' && ymKey === periodKey) {
+      totalIplVerifiedForMethod += nominal;
+      const key = trx.metode_bayar || 'Lainnya';
+      const prev = methodMap.get(key) || { count: 0, total: 0 };
+      methodMap.set(key, { count: prev.count + 1, total: prev.total + nominal });
+    } else if (ymKey === periodKey) {
+      if (trx.status_verifikasi === 'Pending') {
+        iplPendingCount += 1;
+      } else if (trx.status_verifikasi === 'ACC Bendahara') {
+        iplAccBendaharaCount += 1;
+        totalMenungguKetuaNominal += nominal;
+      }
+    }
+  }
+
+  const metodePembayaranBreakdown: PaymentMethodSummaryItem[] = Array.from(methodMap.entries())
+    .map(([metode, stats]) => ({
+      metode,
+      jumlahTransaksi: stats.count,
+      totalNominal: stats.total,
+      persentase:
+        totalIplVerifiedForMethod > 0
+          ? Math.round((stats.total / totalIplVerifiedForMethod) * 1000) / 10
+          : 0,
+    }))
+    .sort((a, b) => b.totalNominal - a.totalNominal);
+
+  // 2. Kumpulkan seluruh Log Pengeluaran (Expense Logs) & status antrean Kas pada bulan terpilih
+  let kasPendingCount = 0;
+  let kasAccBendaharaCount = 0;
+  const expenseLogs: ChairmanExpenseLogItem[] = [];
+
+  for (const kas of transaksiKasList) {
+    const effDate = getDateOnly(kas.tanggal);
+    const parts = parseDateParts(effDate);
+    const ymKey = parts.tahun * 100 + parts.bulan;
+    if (ymKey !== periodKey) continue;
+
+    const nominal = Number(kas.nominal) || 0;
+    const statusVerif = kas.status_verifikasi || 'Terverifikasi';
+
+    if (statusVerif === 'Pending') {
+      kasPendingCount += 1;
+    } else if (statusVerif === 'ACC Bendahara') {
+      kasAccBendaharaCount += 1;
+      totalMenungguKetuaNominal += nominal;
+    }
+
+    if (kas.jenis === 'pengeluaran' && statusVerif !== 'Ditolak') {
+      expenseLogs.push({
+        id: kas.id,
+        tanggal: effDate,
+        noBukti: kas.no_bukti,
+        kategori: kas.kategori,
+        penerima: kas.penerima_atau_sumber,
+        termin: kas.termin || null,
+        keterangan: kas.keterangan || '-',
+        nominal,
+        createdBy: kas.created_by_name,
+        statusVerifikasi: statusVerif,
+        approvedByBendahara: kas.bendahara_approved_by || null,
+        approvedByKetua: kas.ketua_approved_by || null,
+      });
+    }
+  }
+
+  expenseLogs.sort(
+    (a, b) => a.tanggal.localeCompare(b.tanggal) || a.noBukti.localeCompare(b.noBukti)
+  );
+
+  const totalExpenseVerified = expenseLogs
+    .filter((e) => e.statusVerifikasi === 'Terverifikasi')
+    .reduce((sum, e) => sum + e.nominal, 0);
+  const totalExpenseAll = expenseLogs.reduce((sum, e) => sum + e.nominal, 0);
+  const totalExpenseUnverified = Math.max(0, totalExpenseAll - totalExpenseVerified);
+
+  // 3. Kepatuhan Pembayaran IPL Unit Aktif pada bulan terpilih
+  const activeUnits = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
+  const activeUnitKeys = new Set(activeUnits.map((w) => canonicalizeBlokKey(w.blok_rumah)));
+  const lunasKeys = new Set(
+    statusList
+      .filter(
+        (s) =>
+          s.tahun === tahun &&
+          s.bulan === bulan &&
+          s.status === 'Lunas' &&
+          activeUnitKeys.has(canonicalizeBlokKey(s.blok_rumah))
+      )
+      .map((s) => canonicalizeBlokKey(s.blok_rumah))
+  );
+
+  const unitAktif = activeUnits.length;
+  const unitLunas = lunasKeys.size;
+  const unitBelumBayar = Math.max(0, unitAktif - unitLunas);
+  const persentaseKepatuhan =
+    unitAktif > 0 ? Math.round((unitLunas / unitAktif) * 1000) / 10 : 0;
+
+  const surplusDefisit = monthlyCash.totalMasukBulanIni - monthlyCash.totalKeluarBulanIni;
+  const totalTransaksiTerverifikasi =
+    monthlyCash.jumlahTransaksiIpl +
+    monthlyCash.jumlahPemasukanLain +
+    monthlyCash.jumlahPengeluaran;
+  const totalMenungguKetuaCount = iplAccBendaharaCount + kasAccBendaharaCount;
+
+  // 4. Ringkasan Eksekutif Otomatis
+  const executiveHighlights: string[] = [];
+  if (surplusDefisit >= 0) {
+    executiveHighlights.push(
+      `Arus kas periode ${monthlyCash.namaBulan} ${tahun} mencatat SURPLUS sebesar ${formatRupiah(surplusDefisit)} dengan saldo akhir kas ${formatRupiah(monthlyCash.saldoAkhir)}.`
+    );
+  } else {
+    executiveHighlights.push(
+      `Arus kas periode ${monthlyCash.namaBulan} ${tahun} mencatat DEFISIT sebesar ${formatRupiah(Math.abs(surplusDefisit))}; posisi saldo akhir kas tetap terjaga di ${formatRupiah(monthlyCash.saldoAkhir)}.`
+    );
+  }
+
+  executiveHighlights.push(
+    `Total ${totalTransaksiTerverifikasi} transaksi terverifikasi (${monthlyCash.jumlahTransaksiIpl} IPL, ${monthlyCash.jumlahPemasukanLain} kas lain, ${monthlyCash.jumlahPengeluaran} pengeluaran) dengan tingkat kepatuhan IPL ${persentaseKepatuhan}% (${unitLunas}/${unitAktif} unit aktif lunas).`
+  );
+
+  if (monthlyCash.pengeluaranPerKategori.length > 0) {
+    const topExp = monthlyCash.pengeluaranPerKategori[0];
+    executiveHighlights.push(
+      `Pos pengeluaran terbesar bulan ini adalah "${topExp.kategori}" sebesar ${formatRupiah(topExp.totalNominal)} (${topExp.persentase}% dari total pengeluaran terverifikasi).`
+    );
+  } else {
+    executiveHighlights.push(
+      `Belum terdapat pengeluaran anggaran terverifikasi pada periode ${monthlyCash.namaBulan} ${tahun}.`
+    );
+  }
+
+  if (totalMenungguKetuaCount > 0) {
+    executiveHighlights.push(
+      `Terdapat ${totalMenungguKetuaCount} transaksi (senilai ${formatRupiah(totalMenungguKetuaNominal)}) yang telah di-ACC Bendahara dan menunggu pengesahan final Ketua.`
+    );
+  }
+
+  return {
+    documentNumber,
+    generatedAt: new Date().toISOString(),
+    tahun,
+    bulan,
+    namaBulan: monthlyCash.namaBulan,
+    monthlyCash,
+    surplusDefisit,
+    totalTransaksiTerverifikasi,
+    metodePembayaranBreakdown,
+    compliance: {
+      unitAktif,
+      unitLunas,
+      unitBelumBayar,
+      persentaseKepatuhan,
+    },
+    pipeline: {
+      iplPendingCount,
+      iplAccBendaharaCount,
+      kasPendingCount,
+      kasAccBendaharaCount,
+      totalMenungguKetuaCount,
+      totalMenungguKetuaNominal,
+    },
+    expenseLogs,
+    totalExpenseAll,
+    totalExpenseVerified,
+    totalExpenseUnverified,
+    executiveHighlights,
   };
 }

@@ -368,7 +368,15 @@ export function AdminLpjSlide({
             <span>Karawang, {formatTanggal(new Date().toISOString())}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 text-center items-end">
+          <div className="relative grid grid-cols-2 gap-4 sm:gap-6 text-center items-end">
+            <div className="signature-center-stamp pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
+              <OfficialStamp
+                size="md"
+                unstyledTransform
+                className="w-20 h-20 sm:w-24 sm:h-24 print:w-24 print:h-24"
+              />
+            </div>
+
             <div>
               <p className="text-xs print:text-[10px] font-semibold text-slate-700">
                 Ketua Lingkungan
@@ -387,11 +395,7 @@ export function AdminLpjSlide({
               <p className="text-xs print:text-[10px] font-semibold text-slate-700">
                 Bendahara Lingkungan
               </p>
-              <div className="h-16 sm:h-20 print:h-14 relative flex items-center justify-center">
-                <div className="pointer-events-none -translate-x-4 sm:-translate-x-6 opacity-85">
-                  <OfficialStamp size="sm" />
-                </div>
-              </div>
+              <div className="h-16 sm:h-20 print:h-14" />
               <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
               <p className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A] mt-1.5">
                 Andriansyah

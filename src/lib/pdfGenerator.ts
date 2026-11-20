@@ -13,7 +13,11 @@ import {
   getNamaBulan,
   terbilangRupiah,
 } from './format';
-import type { MonthlyCashReport, QuarterlyLpjReport } from './financeUtils';
+import type {
+  ChairmanMonthlySummaryReport,
+  MonthlyCashReport,
+  QuarterlyLpjReport,
+} from './financeUtils';
 
 const PAGE_MARGIN = 15; // 15mm presisi A4
 const PAGE_WIDTH = 210;
@@ -805,4 +809,346 @@ export async function downloadLpjTriwulanPdf(
 
   addPageNumbers(doc);
   doc.save(`LPJ_${lpj.labelTriwulan.replace(/\s+/g, '_')}_${lpj.tahun}_Saung_Kebun.pdf`);
+}
+
+/**
+ * Unduh Laporan Ringkasan Eksekutif Bulanan Otomatis (Khusus Ketua Lingkungan):
+ * Mengompilasi total transaksi bulanan, kepatuhan IPL, breakdown metode pembayaran,
+ * rekap pos anggaran, log rincian pengeluaran (expense logs), dan mutasi kronologis ke PDF A4.
+ */
+export async function downloadChairmanMonthlySummaryPdf(
+  report: ChairmanMonthlySummaryReport,
+  brand: AppBrandConfig
+) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const mc = report.monthlyCash;
+
+  let y = await drawOfficialKop(
+    doc,
+    brand,
+    `LAPORAN RINGKASAN TRANSAKSI & PENGELUARAN — ${report.namaBulan.toUpperCase()} ${report.tahun}`,
+    `Dokumen Eksekutif Ketua Lingkungan  ·  No: ${report.documentNumber}  ·  Dicetak: ${formatTanggal(report.generatedAt)}`
+  );
+
+  // Kotak Sorotan Eksekutif Otomatis
+  const highlightLines: string[] = [];
+  for (const item of report.executiveHighlights) {
+    const wrapped = doc.splitTextToSize(`• ${item}`, CONTENT_WIDTH - 8) as string[];
+    highlightLines.push(...wrapped);
+  }
+  const boxHeight = Math.max(14, highlightLines.length * 3.8 + 7.5);
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(PAGE_MARGIN, y, CONTENT_WIDTH, boxHeight, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.6);
+  doc.setTextColor(15, 23, 42);
+  doc.text('RINGKASAN OTOMATIS PERIODE', PAGE_MARGIN + 4, y + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.3);
+  doc.setTextColor(51, 65, 85);
+  doc.text(highlightLines, PAGE_MARGIN + 4, y + 8.4);
+  y += boxHeight + 5.5;
+
+  // 1. Total Transaksi & Posisi Kas Bulanan
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text('1. Kompilasi Total Transaksi & Posisi Kas Bulanan', PAGE_MARGIN, y);
+  y += 3;
+
+  const surplusPositive = report.surplusDefisit >= 0;
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+    theme: 'grid',
+    rowPageBreak: 'avoid',
+    head: [['Komponen Keuangan & Transaksi Bulanan', 'Volume / Keterangan', 'Nominal']],
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.2, fontStyle: 'bold' },
+    styles: { fontSize: 8.2, cellPadding: 2.7, lineColor: [226, 232, 240], lineWidth: 0.25 },
+    columnStyles: {
+      0: { cellWidth: 84 },
+      1: { cellWidth: 50, textColor: [71, 85, 105] },
+      2: { cellWidth: 46, halign: 'right', fontStyle: 'bold' },
+    },
+    body: [
+      ['Saldo Kas Awal Bulan', `Per awal ${report.namaBulan} ${report.tahun}`, formatRupiah(mc.saldoAwal)],
+      [
+        '(+) Pemasukan IPL Warga Terverifikasi',
+        `${mc.jumlahTransaksiIpl} transaksi sah`,
+        formatRupiah(mc.totalIplBulanIni),
+      ],
+      [
+        '(+) Pemasukan Kas Lain-lain',
+        `${mc.jumlahPemasukanLain} transaksi sah`,
+        formatRupiah(mc.totalPemasukanLainBulanIni),
+      ],
+      [
+        { content: 'Total Pemasukan Bulan Ini', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
+        {
+          content: `${mc.jumlahTransaksiIpl + mc.jumlahPemasukanLain} transaksi masuk`,
+          styles: { fontStyle: 'bold', fillColor: [248, 250, 252] },
+        },
+        {
+          content: formatRupiah(mc.totalMasukBulanIni),
+          styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [4, 120, 87], halign: 'right' },
+        },
+      ],
+      [
+        '(-) Total Pengeluaran Terverifikasi',
+        `${mc.jumlahPengeluaran} log pengeluaran sah`,
+        formatRupiah(mc.totalKeluarBulanIni),
+      ],
+      [
+        {
+          content: surplusPositive ? 'Surplus Arus Kas Bulan Ini' : 'Defisit Arus Kas Bulan Ini',
+          styles: { fontStyle: 'bold' },
+        },
+        {
+          content: `Kepatuhan IPL: ${report.compliance.unitLunas}/${report.compliance.unitAktif} unit (${report.compliance.persentaseKepatuhan}%)`,
+          styles: { fontSize: 7.5 },
+        },
+        {
+          content: `${surplusPositive ? '+' : '-'}${formatRupiah(Math.abs(report.surplusDefisit))}`,
+          styles: {
+            fontStyle: 'bold',
+            halign: 'right',
+            textColor: surplusPositive ? [4, 120, 87] : [185, 28, 28],
+          },
+        },
+      ],
+      [
+        { content: 'SALDO AKHIR KAS BULANAN', styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
+        {
+          content: `${report.totalTransaksiTerverifikasi} total trx terverifikasi`,
+          styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] },
+        },
+        {
+          content: formatRupiah(mc.saldoAkhir),
+          styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right' },
+        },
+      ],
+    ],
+  });
+
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 45) + 6.5;
+
+  // 2. Ringkasan Metode Pembayaran IPL & Antrean Pengesahan
+  if (report.metodePembayaranBreakdown.length > 0 || report.pipeline.totalMenungguKetuaCount > 0) {
+    if (y > 245) {
+      doc.addPage();
+      y = PAGE_MARGIN + 4;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text('2. Ringkasan Metode Pembayaran IPL & Status Verifikasi', PAGE_MARGIN, y);
+    y += 3;
+
+    const methodRows =
+      report.metodePembayaranBreakdown.length > 0
+        ? report.metodePembayaranBreakdown.map((m) => [
+            m.metode,
+            String(m.jumlahTransaksi),
+            `${m.persentase}%`,
+            formatRupiah(m.totalNominal),
+          ])
+        : [['Belum ada pembayaran IPL terverifikasi pada bulan ini', '0', '0%', formatRupiah(0)]];
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+      theme: 'grid',
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      head: [['Metode Pembayaran IPL', 'Jml Trx', 'Porsi (%)', 'Total Nominal']],
+      headStyles: { fillColor: [5, 150, 105], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 2.4, lineColor: [226, 232, 240], lineWidth: 0.2 },
+      columnStyles: {
+        0: { cellWidth: 94 },
+        1: { cellWidth: 18, halign: 'center' },
+        2: { cellWidth: 24, halign: 'right' },
+        3: { cellWidth: 44, halign: 'right', fontStyle: 'bold' },
+      },
+      body: methodRows,
+    });
+
+    y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 25) + 6.5;
+  }
+
+  // 3. Rekapitulasi Pengeluaran per Pos Anggaran
+  if (y > 242) {
+    doc.addPage();
+    y = PAGE_MARGIN + 4;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text('3. Rekapitulasi Pengeluaran per Pos Anggaran', PAGE_MARGIN, y);
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    head: [['Pos Anggaran / Kategori', 'Jml Log', 'Porsi (%)', 'Total Pengeluaran']],
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2.4, lineColor: [226, 232, 240], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 94 },
+      1: { cellWidth: 18, halign: 'center' },
+      2: { cellWidth: 24, halign: 'right' },
+      3: { cellWidth: 44, halign: 'right', fontStyle: 'bold' },
+    },
+    body:
+      mc.pengeluaranPerKategori.length > 0
+        ? [
+            ...mc.pengeluaranPerKategori.map((k) => [
+              k.kategori,
+              String(k.jumlahTransaksi),
+              `${k.persentase}%`,
+              formatRupiah(k.totalNominal),
+            ]),
+            [
+              { content: 'TOTAL PENGELUARAN TERVERIFIKASI', styles: { fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [185, 28, 28] } },
+              { content: String(mc.jumlahPengeluaran), styles: { halign: 'center', fontStyle: 'bold', fillColor: [254, 242, 242] } },
+              { content: '100%', styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 242, 242] } },
+              { content: formatRupiah(mc.totalKeluarBulanIni), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [185, 28, 28] } },
+            ],
+          ]
+        : [['Belum ada pengeluaran terverifikasi pada periode ini.', '0', '0%', formatRupiah(0)]],
+  });
+
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 30) + 6.5;
+
+  // 4. Log Rincian Pengeluaran Bulanan (Expense Logs)
+  if (y > 235) {
+    doc.addPage();
+    y = PAGE_MARGIN + 4;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text('4. Log Rincian Pengeluaran Bulanan (Expense Log)', PAGE_MARGIN, y);
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    head: [['Tgl', 'No. Bukti', 'Pos Anggaran', 'Penerima & Keterangan', 'Status', 'Nominal']],
+    headStyles: { fillColor: [185, 28, 28], textColor: 255, fontSize: 7.4, fontStyle: 'bold' },
+    styles: {
+      fontSize: 7.3,
+      cellPadding: 2.1,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      overflow: 'linebreak',
+    },
+    columnStyles: {
+      0: { cellWidth: 19 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 29 },
+      3: { cellWidth: 55 },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [185, 28, 28] },
+    },
+    body:
+      report.expenseLogs.length > 0
+        ? [
+            ...report.expenseLogs.map((exp) => [
+              formatTanggalSingkat(exp.tanggal),
+              exp.noBukti,
+              exp.kategori,
+              `${exp.penerima}${exp.termin ? ` [${exp.termin}]` : ''}${exp.keterangan && exp.keterangan !== '-' ? ` — ${exp.keterangan}` : ''}`,
+              exp.statusVerifikasi === 'Terverifikasi' ? 'Sah' : exp.statusVerifikasi,
+              formatRupiah(exp.nominal),
+            ]),
+            [
+              {
+                content: `TOTAL LOG PENGELUARAN (${report.expenseLogs.length} item · Terverifikasi: ${formatRupiah(report.totalExpenseVerified)})`,
+                colSpan: 5,
+                styles: { fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [153, 27, 27] },
+              },
+              {
+                content: formatRupiah(report.totalExpenseAll),
+                styles: { fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [153, 27, 27], halign: 'right' },
+              },
+            ],
+          ]
+        : [
+            [
+              {
+                content: 'Tidak ada catatan pengeluaran kas pada periode ini.',
+                colSpan: 5,
+                styles: { textColor: [100, 116, 139] },
+              },
+              { content: formatRupiah(0), styles: { halign: 'right', fontStyle: 'bold' } },
+            ],
+          ],
+  });
+
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 35) + 6.5;
+
+  // 5. Mutasi Kas Kronologis Terverifikasi (Buku Kas Umum)
+  if (y > 235) {
+    doc.addPage();
+    y = PAGE_MARGIN + 4;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text('5. Mutasi Kas Kronologis Terverifikasi (Buku Kas Umum)', PAGE_MARGIN, y);
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    head: [['Tgl', 'No. Bukti', 'Uraian Transaksi', 'Masuk', 'Keluar', 'Saldo']],
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.4, fontStyle: 'bold' },
+    styles: {
+      fontSize: 7.3,
+      cellPadding: 2.1,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      overflow: 'linebreak',
+    },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 27 },
+      2: { cellWidth: 55 },
+      3: { cellWidth: 25, halign: 'right', textColor: [4, 120, 87] },
+      4: { cellWidth: 25, halign: 'right', textColor: [185, 28, 28] },
+      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+    },
+    body:
+      mc.mutasiKronologis.length > 0
+        ? mc.mutasiKronologis.map((row) => [
+            formatTanggalSingkat(row.tanggal),
+            row.noBukti,
+            row.uraian,
+            row.masuk > 0 ? formatRupiah(row.masuk) : '-',
+            row.keluar > 0 ? formatRupiah(row.keluar) : '-',
+            formatRupiah(row.saldoBerjalan),
+          ])
+        : [['-', '-', 'Belum ada mutasi kas terverifikasi pada bulan ini.', '-', '-', formatRupiah(mc.saldoAkhir)]],
+  });
+
+  const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40;
+  await drawSignatureBlock(doc, finalY + 10, brand, {
+    tanggalLabel: formatTanggal(report.generatedAt),
+  });
+
+  addPageNumbers(doc);
+  doc.save(`Laporan_Ringkasan_Ketua_${report.namaBulan}_${report.tahun}_Saung_Kebun.pdf`);
 }

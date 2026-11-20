@@ -116,6 +116,20 @@
     page-break-inside: avoid !important;
   }
 
+  #printable-kwitansi .signature-center-stamp,
+  #printable-report .signature-center-stamp {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    translate: none !important;
+    rotate: none !important;
+    transform: translate(-50%, -50%) rotate(-8deg) !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+    opacity: 0.35 !important;
+    mix-blend-mode: multiply !important;
+  }
+
   .no-print {
     display: none !important;
   }

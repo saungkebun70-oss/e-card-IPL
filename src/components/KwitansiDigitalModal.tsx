@@ -295,7 +295,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
 
               <div className="relative grid grid-cols-2 gap-4 sm:gap-6 items-end text-center">
                 {/* Stempel Bulat Resmi — Overlay Tepat di Tengah Area TTD */}
-                <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
+                <div className="signature-center-stamp pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
                   <OfficialStamp
                     size="md"
                     unstyledTransform

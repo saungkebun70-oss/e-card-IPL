@@ -54,6 +54,7 @@ import {
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
+import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -531,6 +532,19 @@ export function AdminDashboardSlide({
           </p>
         </div>
       </section>
+
+      {/* GENERATOR LAPORAN BULANAN OTOMATIS KHUSUS KETUA */}
+      {isKetua && (
+        <ChairmanMonthlyReportPanel
+          session={session}
+          wargaList={wargaList}
+          statusList={statusList}
+          transaksiList={transaksiList}
+          transaksiKasList={transaksiKasList}
+          onToast={onToast}
+          mode="compact"
+        />
+      )}
 
       {/* PANEL KHUSUS KETUA (TAHAP 2): Antrean Verifikasi Final Transaksi ACC Bendahara */}
       {isKetua && (
