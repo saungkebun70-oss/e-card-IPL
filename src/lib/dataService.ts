@@ -2103,6 +2103,196 @@ export async function verifyTransaksiKetuaAdmin(
   return { data: updatedItem };
 }
 
+/**
+ * Verifikasi PIN 6 digit milik akun pengurus yang sedang aktif sebelum menjalankan aksi sensitif.
+ */
+async function verifyActiveAdminPin(
+  session: SessionUser,
+  pinInput: string
+): Promise<ServiceResult<boolean>> {
+  const cleanPin = pinInput.trim();
+  if (!/^\d{6}$/.test(cleanPin)) {
+    return { error: 'PIN keamanan harus terdiri dari tepat 6 digit angka.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data: verifyData, error: verifyErr } = await supabase.rpc('login_ecard', {
+        p_blok: session.blok_rumah,
+        p_pin: cleanPin,
+      });
+      if (verifyErr) {
+        return { error: parseFriendlyError(verifyErr, 'Gagal memverifikasi PIN ke server.') };
+      }
+      const row = (Array.isArray(verifyData) ? verifyData[0] : verifyData) as
+        | Record<string, unknown>
+        | undefined;
+      if (!row || typeof row.blok_rumah !== 'string' || row.role !== 'admin') {
+        await recordAuditLog({
+          session,
+          action: 'DELETE_TRANSAKSI_IPL_PIN_FAILED',
+          entity: 'transaksi_ipl',
+          summary: `Percobaan hapus setoran IPL gagal: PIN 6 digit tidak sesuai (${session.nama_warga} — ${session.jabatan || 'Admin'}).`,
+        });
+        return { error: 'PIN 6 digit yang Anda masukkan tidak sesuai.' };
+      }
+      return { data: true };
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Gagal memverifikasi PIN pengurus.') };
+    }
+  }
+
+  // Fallback mode lokal
+  const pinOverrides = (() => {
+    try {
+      const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const localAcc = LOCAL_ADMIN_ACCOUNTS.find(
+    (a) => a.username.toLowerCase() === session.blok_rumah.toLowerCase()
+  );
+  const effectivePin = pinOverrides[session.blok_rumah.toLowerCase()] || localAcc?.pin || '';
+  if (!effectivePin || effectivePin !== cleanPin) {
+    await recordAuditLog({
+      session,
+      action: 'DELETE_TRANSAKSI_IPL_PIN_FAILED',
+      entity: 'transaksi_ipl',
+      summary: `Percobaan hapus setoran IPL gagal: PIN 6 digit tidak sesuai (${session.nama_warga} — ${session.jabatan || 'Admin'}).`,
+    });
+    return { error: 'PIN 6 digit yang Anda masukkan tidak sesuai.' };
+  }
+
+  return { data: true };
+}
+
+/**
+ * Menghapus data setoran IPL warga (wajib verifikasi PIN 6 digit pengurus aktif)
+ * sekaligus menyinkronkan ulang status_ecard_bulanan agar saldo & e-Card tetap akurat.
+ */
+export async function deleteTransaksiIplAdmin(
+  session: SessionUser,
+  trx: TransaksiIPL,
+  pinInput: string
+): Promise<ServiceResult<boolean>> {
+  if (session.role !== 'admin' || (!isBendaharaFullAccess(session) && !isKetuaRole(session))) {
+    return {
+      error: 'Akses ditolak: hanya Bendahara atau Ketua yang dapat menghapus setoran IPL.',
+    };
+  }
+
+  const pinCheck = await verifyActiveAdminPin(session, pinInput);
+  if (pinCheck.error) {
+    return { error: pinCheck.error };
+  }
+
+  const nowIso = new Date().toISOString();
+  const supabase = getSupabaseClient(session);
+
+  if (supabase && isSupabaseConfigured() && !trx.id.startsWith('trx-')) {
+    try {
+      const { data: deletedRows, error: delErr } = await supabase
+        .from('transaksi_ipl')
+        .delete()
+        .eq('id', trx.id)
+        .select('id');
+      if (delErr) {
+        return {
+          error: parseFriendlyError(
+            delErr,
+            'Gagal menghapus setoran IPL di Supabase. Pastikan policy DELETE aktif.'
+          ),
+        };
+      }
+      if (!deletedRows || deletedRows.length === 0) {
+        return {
+          error:
+            'Penghapusan ditolak oleh kebijakan RLS Supabase pada tabel transaksi_ipl. Jalankan ulang migration_v3_two_step_and_patrol_map.sql di Supabase SQL Editor agar policy DELETE aktif.',
+        };
+      }
+
+      // Ambil sisa transaksi untuk rumah & tahun yang sama agar status e-Card dihitung ulang secara akurat
+      const { data: remainingRows } = await supabase
+        .from('transaksi_ipl')
+        .select('*')
+        .eq('blok_rumah', trx.blok_rumah)
+        .eq('tahun', trx.tahun);
+
+      const remainingTrx = (remainingRows || []).map((r) =>
+        normalizeTransaksiRow(r as Record<string, unknown>)
+      );
+
+      for (const bulan of trx.bulan_dibayar) {
+        const coveringVerified = remainingTrx.find(
+          (item) =>
+            item.id !== trx.id &&
+            item.status_verifikasi === 'Terverifikasi' &&
+            item.bulan_dibayar.includes(bulan)
+        );
+        const coveringPending = !coveringVerified
+          ? remainingTrx.find(
+              (item) =>
+                item.id !== trx.id &&
+                (item.status_verifikasi === 'Pending' ||
+                  item.status_verifikasi === 'ACC Bendahara') &&
+                item.bulan_dibayar.includes(bulan)
+            )
+          : undefined;
+
+        const nextStatus = coveringVerified
+          ? 'Lunas'
+          : coveringPending
+            ? 'Menunggu Verifikasi'
+            : getDefaultUnpaidStatusForMonth(bulan);
+        const nextTrxId = coveringVerified?.id || coveringPending?.id || null;
+
+        await supabase.from('status_ecard_bulanan').upsert(
+          {
+            blok_rumah: trx.blok_rumah,
+            tahun: trx.tahun,
+            bulan,
+            status: nextStatus,
+            transaksi_id: nextTrxId,
+            updated_at: nowIso,
+          },
+          { onConflict: 'blok_rumah,tahun,bulan' }
+        );
+      }
+    } catch (err) {
+      return { error: parseFriendlyError(err, 'Terjadi kesalahan saat menghapus setoran IPL.') };
+    }
+  }
+
+  // Bersihkan cache lokal & overlay approval
+  writeApprovalOverlayEntry(`ipl::${trx.id}`, null);
+  const allLocal = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI);
+  const nextLocal = allLocal.filter((item) => item.id !== trx.id);
+  writeLocal(STORAGE_KEYS.TRANSAKSI, nextLocal);
+  syncLocalStatusForHouse(trx.blok_rumah);
+
+  await recordAuditLog({
+    session,
+    action: 'DELETE_TRANSAKSI_IPL',
+    entity: 'transaksi_ipl',
+    entity_id: trx.id,
+    summary: `${session.jabatan || 'Pengurus'} ${session.nama_warga} menghapus setoran IPL ${trx.blok_rumah} (${trx.nama_warga}) sebesar ${formatRupiah(trx.nominal)} untuk ${formatDaftarBulan(trx.bulan_dibayar, true)} ${trx.tahun} [${trx.no_kwitansi}].`,
+    metadata: {
+      blok_rumah: trx.blok_rumah,
+      no_kwitansi: trx.no_kwitansi,
+      nominal: trx.nominal,
+      status_sebelumnya: trx.status_verifikasi,
+      bulan_dibayar: trx.bulan_dibayar,
+      tahun: trx.tahun,
+    },
+  });
+
+  return { data: true };
+}
+
 function isMissingBotColumnError(err: unknown): boolean {
   const msg =
     err instanceof Error

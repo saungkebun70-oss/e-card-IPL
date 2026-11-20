@@ -19,6 +19,9 @@ import {
   Undo2,
   ArrowUpRight,
   ArrowDownLeft,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   BULK_NOTIFICATION_TEMPLATES,
@@ -47,6 +50,7 @@ import {
 } from '../../lib/format';
 import {
   deleteSystemNotificationAdmin,
+  deleteTransaksiIplAdmin,
   sendBulkSystemNotificationAdmin,
   verifyTransaksiAdmin,
   verifyTransaksiKasKetuaAdmin,
@@ -91,12 +95,18 @@ export function AdminDashboardSlide({
   const canManageFull = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
   const isKetua = isKetuaRole(session);
+  const canDeleteIpl = canManageFull || isKetua;
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewTrx, setPreviewTrx] = useState<TransaksiIPL | null>(null);
   const [previewProofUrl, setPreviewProofUrl] = useState<{ title: string; url: string } | null>(null);
   const [receiptTrx, setReceiptTrx] = useState<TransaksiIPL | null>(null);
   const [rejectTarget, setRejectTarget] = useState<TransaksiIPL | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<TransaksiIPL | null>(null);
+  const [deletePin, setDeletePin] = useState('');
+  const [showDeletePin, setShowDeletePin] = useState(false);
+  const [deletePinError, setDeletePinError] = useState<string | null>(null);
+  const [deletingIpl, setDeletingIpl] = useState(false);
   const [ketuaReturnTarget, setKetuaReturnTarget] = useState<
     | { kind: 'ipl'; trx: TransaksiIPL }
     | { kind: 'kas'; kas: TransaksiKas }
@@ -214,6 +224,53 @@ export function AdminDashboardSlide({
     rejectedList,
     transaksiList,
   ]);
+
+  const handleOpenDeleteIplModal = (trx: TransaksiIPL) => {
+    setDeleteTarget(trx);
+    setDeletePin('');
+    setShowDeletePin(false);
+    setDeletePinError(null);
+  };
+
+  const handleCloseDeleteIplModal = () => {
+    if (deletingIpl) return;
+    setDeleteTarget(null);
+    setDeletePin('');
+    setShowDeletePin(false);
+    setDeletePinError(null);
+  };
+
+  const handleConfirmDeleteIpl = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!deleteTarget || deletingIpl) return;
+
+    const cleanPin = deletePin.trim();
+    if (!/^\d{6}$/.test(cleanPin)) {
+      setDeletePinError('Masukkan tepat 6 digit PIN keamanan akun Anda untuk melanjutkan.');
+      return;
+    }
+
+    setDeletingIpl(true);
+    setDeletePinError(null);
+    try {
+      const res = await deleteTransaksiIplAdmin(session, deleteTarget, cleanPin);
+      if (res.error) {
+        setDeletePinError(res.error);
+        return;
+      }
+      onToast(
+        'success',
+        `Setoran IPL ${deleteTarget.blok_rumah} (${deleteTarget.no_kwitansi}) berhasil dihapus dan status e-Card telah diperbarui.`
+      );
+      setDeleteTarget(null);
+      setDeletePin('');
+      setShowDeletePin(false);
+      setDeletePinError(null);
+      await onRefresh();
+    } finally {
+      setDeletingIpl(false);
+    }
+  };
 
   const handleBendaharaAcc = async (trx: TransaksiIPL) => {
     setProcessingId(trx.id);
@@ -1025,6 +1082,19 @@ export function AdminDashboardSlide({
                             Menunggu Pengesahan Ketua
                           </span>
                         ))}
+
+                      {canDeleteIpl && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleOpenDeleteIplModal(trx)}
+                          className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          title="Hapus riwayat setoran IPL (wajib PIN 6 digit)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Hapus</span>
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
@@ -1594,6 +1664,150 @@ export function AdminDashboardSlide({
                   <>
                     <Send className="w-4 h-4 shrink-0" />
                     <span>Kirim ke {targetRecipientCount} Akun Warga</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Hapus Setoran IPL dengan Verifikasi PIN 6 Digit */}
+      {deleteTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-ipl-pin-title"
+          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={handleCloseDeleteIplModal}
+        >
+          <form
+            onSubmit={(e) => void handleConfirmDeleteIpl(e)}
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-red-100 bg-red-50/70 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="delete-ipl-pin-title" className="text-sm font-bold text-[#0F172A] truncate">
+                    Hapus Setoran IPL Warga
+                  </h3>
+                  <p className="text-[11px] text-red-700 font-medium">
+                    Verifikasi PIN 6 digit diperlukan untuk lanjut hapus
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={deletingIpl}
+                onClick={handleCloseDeleteIplModal}
+                aria-label="Tutup modal hapus"
+                className="min-h-[36px] min-w-[36px] rounded-lg flex items-center justify-center text-slate-500 hover:bg-red-100 hover:text-slate-800 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Ringkasan Transaksi yang Akan Dihapus */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-[#0F172A]">
+                    {deleteTarget.blok_rumah} · {deleteTarget.nama_warga}
+                  </span>
+                  <span className="font-mono font-bold text-red-700 tabular-nums">
+                    {formatRupiah(deleteTarget.nominal)}
+                  </span>
+                </div>
+                <p className="text-slate-600">
+                  Periode: <span className="font-semibold text-[#0F172A]">{formatDaftarBulan(deleteTarget.bulan_dibayar)} ({deleteTarget.tahun})</span>
+                </p>
+                <p className="text-[11px] font-mono text-slate-500">
+                  {deleteTarget.no_kwitansi} · Status: {deleteTarget.status_verifikasi}
+                </p>
+              </div>
+
+              {deleteTarget.status_verifikasi === 'Terverifikasi' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 flex items-start gap-2 text-xs text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="leading-snug">
+                    Setoran ini sudah berstatus <strong>Sah Lunas</strong>. Menghapusnya akan otomatis
+                    mengembalikan status e-Card bulan terkait dan menyesuaikan Saldo Kas Real-Time.
+                  </p>
+                </div>
+              )}
+
+              {/* Input PIN 6 Digit Pengurus */}
+              <div>
+                <label
+                  htmlFor="delete-ipl-pin-input"
+                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                >
+                  Masukkan PIN 6 Digit ({session.nama_warga} — {session.jabatan || 'Pengurus'})
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="delete-ipl-pin-input"
+                    type={showDeletePin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    autoFocus
+                    disabled={deletingIpl}
+                    value={deletePin}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setDeletePin(digits);
+                      if (deletePinError) setDeletePinError(null);
+                    }}
+                    placeholder="••••••"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-10 pr-11 text-base font-mono tracking-[0.35em] text-[#0F172A] placeholder:tracking-widest placeholder:text-slate-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 disabled:bg-slate-100"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowDeletePin((v) => !v)}
+                    aria-label={showDeletePin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    {showDeletePin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {deletePinError && (
+                  <p role="alert" className="text-xs font-semibold text-red-700 mt-2">
+                    {deletePinError}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={deletingIpl}
+                onClick={handleCloseDeleteIplModal}
+                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={deletingIpl || deletePin.length !== 6}
+                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                {deletingIpl ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span>Memverifikasi &amp; Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    <span>Lanjut Hapus</span>
                   </>
                 )}
               </button>

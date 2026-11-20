@@ -352,6 +352,16 @@ create policy "admin_verifikasi_transaksi" on public.transaksi_ipl
     and public.req_header('x-admin-permission') = 'full'
   );
 
+drop policy if exists "transaksi_ipl_delete_policy" on public.transaksi_ipl;
+create policy "transaksi_ipl_delete_policy" on public.transaksi_ipl
+  for delete using (
+    public.req_header('x-user-role') = 'admin'
+    and (
+      public.req_header('x-admin-permission') = 'full'
+      or lower(public.req_header('x-admin-jabatan')) = 'ketua'
+    )
+  );
+
 -- Kebijakan RLS status_ecard_bulanan
 drop policy if exists "status_isolasi_rumah" on public.status_ecard_bulanan;
 create policy "status_isolasi_rumah" on public.status_ecard_bulanan

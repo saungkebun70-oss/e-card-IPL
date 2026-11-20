@@ -121,6 +121,18 @@ create policy "transaksi_ipl_update_policy"
     )
   );
 
+drop policy if exists "transaksi_ipl_delete_policy" on public.transaksi_ipl;
+create policy "transaksi_ipl_delete_policy"
+  on public.transaksi_ipl
+  for delete
+  using (
+    public.req_header('x-user-role') = 'admin'
+    and (
+      public.req_header('x-admin-permission') = 'full'
+      or lower(public.req_header('x-admin-jabatan')) = 'ketua'
+    )
+  );
+
 drop policy if exists "status_ecard_update_policy" on public.status_ecard_bulanan;
 create policy "status_ecard_update_policy"
   on public.status_ecard_bulanan
