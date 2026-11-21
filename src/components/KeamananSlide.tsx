@@ -44,6 +44,7 @@ import {
   type CheckpointStatusItem,
 } from './SecurityPatrolMapSvg';
 import { PatrolInteractiveMap } from './PatrolInteractiveMap';
+import { PatrolLiveLeafletMap } from './PatrolLiveLeafletMap';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -92,6 +93,7 @@ export function KeamananSlide({
   const [checkpointFilter, setCheckpointFilter] = useState<
     'semua' | CheckpointKondisiState | 'belum_hari_ini'
   >('semua');
+  const [mapViewMode, setMapViewMode] = useState<'live_gps' | 'denah'>('live_gps');
   const [resettingCycle, setResettingCycle] = useState(false);
 
   // State Panel Scan Checkpoint Patroli NFC (Admin)
@@ -405,7 +407,7 @@ export function KeamananSlide({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-24">
       {/* Header Aksi Halaman Keamanan */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -751,16 +753,53 @@ export function KeamananSlide({
         </section>
       )}
 
-      {/* Peta Mapping Rute Patroli Interaktif Real-Time (Pin Merah Belum Scan -> Hijau Terverifikasi NFC) */}
-      <PatrolInteractiveMap
-        mode={role === 'admin' ? 'admin' : 'warga'}
-        titikList={titikPatroliList}
-        patroliLogs={patroliFeed}
-        patrolMapConfig={patrolMapConfig}
-        canResetCycle={role === 'admin' && Boolean(session)}
-        onResetCycle={role === 'admin' && session ? handleResetPatrolCycle : undefined}
-        resettingCycle={resettingCycle}
-      />
+      {/* Peta Patroli: Live Tracking GPS Satelit (Gojek-style) + Toggle Denah Vektor */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 border border-slate-200 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setMapViewMode('live_gps')}
+              className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
+                mapViewMode === 'live_gps'
+                  ? 'bg-white text-[#0F172A] shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              Live Tracking GPS &amp; Satelit
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapViewMode('denah')}
+              className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
+                mapViewMode === 'denah'
+                  ? 'bg-white text-[#0F172A] shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              Denah Vektor Perumahan
+            </button>
+          </div>
+        </div>
+
+        {mapViewMode === 'live_gps' ? (
+          <PatrolLiveLeafletMap
+            session={session || null}
+            canCalibrate={role === 'admin'}
+            onToast={onToast}
+          />
+        ) : (
+          <PatrolInteractiveMap
+            mode={role === 'admin' ? 'admin' : 'warga'}
+            titikList={titikPatroliList}
+            patroliLogs={patroliFeed}
+            patrolMapConfig={patrolMapConfig}
+            canResetCycle={role === 'admin' && Boolean(session)}
+            onResetCycle={role === 'admin' && session ? handleResetPatrolCycle : undefined}
+            resettingCycle={resettingCycle}
+          />
+        )}
+      </div>
 
       {/* Visualisasi Status Kondisi & Progres Harian Titik Checkpoint Patroli */}
       {role === 'admin' && (

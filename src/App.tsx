@@ -612,6 +612,7 @@ export default function App() {
           return (
             <KeamananSlide
               role="warga"
+              session={session}
               senderName={wargaData.profil.nama_warga}
               senderBlok={wargaData.profil.blok_rumah}
               petugasKontak={wargaData.petugasKontak}

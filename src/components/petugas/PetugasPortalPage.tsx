@@ -4,22 +4,32 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  Crosshair,
   FileText,
   Loader2,
   LogOut,
   Map as MapIcon,
   MapPin,
   MessageCircle,
+  Navigation,
   PhoneCall,
+  Play,
   Radio,
   RefreshCw,
   Shield,
   ShieldAlert,
+  Smartphone,
+  Square,
   Wallet,
 } from 'lucide-react';
 import {
+  DEFAULT_PATROL_CHECKPOINTS,
   SUSUNAN_PENGURUS,
   type LogPatroli,
+  type PatrolCheckpoint,
+  type PatrolScan,
+  type PatrolSession,
+  type RoutePathPoint,
   type SessionUser,
   type StatusKondisiPatroli,
   type TitikPatroli,
@@ -40,16 +50,28 @@ import {
   type PetugasOwnData,
 } from '../../lib/dataService';
 import {
+  calculateDistanceMeters,
+  completeLivePatrolSession,
+  describeGeolocationError,
+  fetchLivePatrolSnapshot,
+  findNearestCheckpoint,
+  pingLivePatrolLocation,
+  playScanSuccessFeedback,
+  recordLivePatrolScan,
+  startLivePatrolSession,
+  subscribeLivePatrolRealtime,
+} from '../../lib/livePatrolService';
+import {
   describeWebNfcError,
   extractNfcReadingData,
   getNdefReaderConstructor,
   isWebNfcSupported,
   normalizeNfcUid,
-  triggerNfcVibrate,
 } from '../../lib/webNfc';
 import { BrandLogo } from '../BrandLogo';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
+import { PatrolLiveLeafletMap } from '../PatrolLiveLeafletMap';
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -117,6 +139,40 @@ export function PetugasPortalPage({
   const [showManualForm, setShowManualForm] = useState(!nfcSupported);
   const nfcAbortRef = useRef<AbortController | null>(null);
 
+  // State Live Tracking Patroli GPS Real-Time (patrol_sessions, patrol_checkpoints, patrol_scans)
+  const [liveCheckpoints, setLiveCheckpoints] = useState<PatrolCheckpoint[]>(
+    DEFAULT_PATROL_CHECKPOINTS
+  );
+  const [activeLiveSession, setActiveLiveSession] = useState<PatrolSession | null>(null);
+  const [activeLiveScans, setActiveLiveScans] = useState<PatrolScan[]>([]);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [gpsErrorInfo, setGpsErrorInfo] = useState<{
+    title: string;
+    message: string;
+    guide: string;
+  } | null>(null);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [startingLivePatrol, setStartingLivePatrol] = useState(false);
+  const [completingLivePatrol, setCompletingLivePatrol] = useState(false);
+  const [confirmFinishOpen, setConfirmFinishOpen] = useState(false);
+  const [fallbackCheckpointId, setFallbackCheckpointId] = useState<string>('');
+  const [fallbackPosCode, setFallbackPosCode] = useState<string>('');
+  const [liveRefreshSignal, setLiveRefreshSignal] = useState(0);
+  const [petaViewMode, setPetaViewMode] = useState<'live_gps' | 'denah'>('live_gps');
+
+  const watchIdRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const lastPingSentAtRef = useRef<number>(0);
+  const routePathRef = useRef<RoutePathPoint[]>([]);
+  const activeSessionRef = useRef<PatrolSession | null>(null);
+  const liveCheckpointsRef = useRef<PatrolCheckpoint[]>(DEFAULT_PATROL_CHECKPOINTS);
+  const gpsCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  activeSessionRef.current = activeLiveSession;
+  liveCheckpointsRef.current = liveCheckpoints;
+  gpsCoordsRef.current = gpsCoords;
+
   // Ref terbaru agar kondisi & catatan yang diubah saat scan aktif tetap ikut tersimpan
   const statusKondisiRef = useRef<StatusKondisiPatroli>(statusKondisi);
   const catatanPatroliRef = useRef<string>(catatanPatroli);
@@ -128,6 +184,222 @@ export function PetugasPortalPage({
 
   // State Kwitansi Honor Pribadi
   const [selectedHonorTrx, setSelectedHonorTrx] = useState<TransaksiKas | null>(null);
+
+  const loadLivePatrolState = useCallback(async () => {
+    const snap = await fetchLivePatrolSnapshot(session);
+    setLiveCheckpoints(snap.checkpoints);
+    if (snap.checkpoints.length > 0) {
+      setFallbackCheckpointId((prev) => prev || snap.checkpoints[0].id);
+    }
+    const officerId = session.petugas_id || session.blok_rumah || 'petugas';
+    const ownActive =
+      snap.activeSession &&
+      (snap.activeSession.officer_id === officerId ||
+        snap.activeSession.officer_name === session.nama_warga)
+        ? snap.activeSession
+        : snap.activeSession;
+    setActiveLiveSession(ownActive);
+    setActiveLiveScans(snap.activeScans);
+    if (ownActive && ownActive.route_path.length > routePathRef.current.length) {
+      routePathRef.current = ownActive.route_path;
+    }
+  }, [session]);
+
+  const acquireWakeLock = useCallback(async () => {
+    try {
+      const navWithWake = navigator as Navigator & {
+        wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+      };
+      if (navWithWake.wakeLock && typeof navWithWake.wakeLock.request === 'function') {
+        const sentinel = await navWithWake.wakeLock.request('screen');
+        wakeLockRef.current = sentinel;
+        setWakeLockActive(true);
+        sentinel.addEventListener('release', () => {
+          setWakeLockActive(false);
+        });
+      } else {
+        setWakeLockActive(false);
+      }
+    } catch {
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch {
+      // Abaikan error pelepasan Wake Lock
+    } finally {
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  const stopGpsWatcher = useCallback(() => {
+    if (
+      watchIdRef.current !== null &&
+      typeof navigator !== 'undefined' &&
+      'geolocation' in navigator
+    ) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  const startGpsWatcherForSession = useCallback(
+    (patrolSession: PatrolSession) => {
+      stopGpsWatcher();
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
+
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = Math.round(pos.coords.accuracy || 0);
+          setGpsCoords({ lat, lng });
+          setGpsAccuracy(accuracy);
+          setGpsErrorInfo(null);
+
+          const nowMs = Date.now();
+          // Throttle minimal 4 detik agar hemat kuota & tidak spam database Supabase
+          if (nowMs - lastPingSentAtRef.current < 4000) return;
+          lastPingSentAtRef.current = nowMs;
+
+          const activeSess = activeSessionRef.current || patrolSession;
+          if (!activeSess || activeSess.status !== 'active') return;
+
+          const nextPoint: RoutePathPoint = {
+            lat,
+            lng,
+            time: new Date(nowMs).toISOString(),
+          };
+          const nextPath = [...routePathRef.current, nextPoint].slice(-400);
+          routePathRef.current = nextPath;
+
+          setActiveLiveSession((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  current_lat: lat,
+                  current_lng: lng,
+                  route_path: nextPath,
+                  last_ping_at: nextPoint.time,
+                }
+              : prev
+          );
+
+          void pingLivePatrolLocation(session, activeSess.id, { lat, lng }, nextPath).then(() => {
+            setLiveRefreshSignal((n) => n + 1);
+          });
+        },
+        (err) => {
+          const info = describeGeolocationError(err);
+          setGpsErrorInfo(info);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 3000,
+          timeout: 15000,
+        }
+      );
+    },
+    [session, stopGpsWatcher]
+  );
+
+  const handleStartLivePatrol = useCallback(async () => {
+    if (startingLivePatrol) return;
+    setGpsErrorInfo(null);
+
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      const info = describeGeolocationError(
+        new Error('Perangkat atau browser ini tidak mendukung pelacakan GPS.')
+      );
+      setGpsErrorInfo(info);
+      onToast('error', info.title);
+      return;
+    }
+
+    setStartingLivePatrol(true);
+    try {
+      const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 3000,
+        });
+      });
+
+      const lat = initialPosition.coords.latitude;
+      const lng = initialPosition.coords.longitude;
+      const acc = Math.round(initialPosition.coords.accuracy || 0);
+
+      setGpsCoords({ lat, lng });
+      setGpsAccuracy(acc);
+
+      await acquireWakeLock();
+
+      const res = await startLivePatrolSession(session, { lat, lng });
+      if (res.error || !res.data) {
+        await releaseWakeLock();
+        onToast('error', res.error || 'Gagal memulai sesi Patroli Live.');
+        return;
+      }
+
+      routePathRef.current = res.data.route_path;
+      lastPingSentAtRef.current = Date.now();
+      setActiveLiveSession(res.data);
+      setActiveLiveScans([]);
+      startGpsWatcherForSession(res.data);
+      setLiveRefreshSignal((n) => n + 1);
+      onToast(
+        'success',
+        `Patroli Live dimulai! Posisi GPS (±${acc}m) kini dipantau real-time di peta warga & pengurus.`
+      );
+    } catch (err) {
+      const info = describeGeolocationError(err);
+      setGpsErrorInfo(info);
+      onToast('error', `${info.title}: ${info.message}`);
+    } finally {
+      setStartingLivePatrol(false);
+    }
+  }, [
+    startingLivePatrol,
+    acquireWakeLock,
+    releaseWakeLock,
+    session,
+    startGpsWatcherForSession,
+    onToast,
+  ]);
+
+  const handleConfirmFinishLivePatrol = useCallback(async () => {
+    const active = activeSessionRef.current;
+    if (!active || completingLivePatrol) {
+      setConfirmFinishOpen(false);
+      return;
+    }
+    setCompletingLivePatrol(true);
+    try {
+      stopGpsWatcher();
+      await releaseWakeLock();
+      const res = await completeLivePatrolSession(session, active.id);
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        setActiveLiveSession(null);
+        setActiveLiveScans([]);
+        routePathRef.current = [];
+        setConfirmFinishOpen(false);
+        setLiveRefreshSignal((n) => n + 1);
+        await loadLivePatrolState();
+        onToast('success', 'Patroli Live selesai dan tersimpan ke Riwayat Patroli!');
+      }
+    } finally {
+      setCompletingLivePatrol(false);
+    }
+  }, [completingLivePatrol, stopGpsWatcher, releaseWakeLock, session, onToast, loadLivePatrolState]);
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -151,14 +423,34 @@ export function PetugasPortalPage({
     [session, onToast]
   );
 
+  // Re-acquire Wake Lock otomatis saat layar/tab kembali aktif selama patroli berlangsung
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && activeSessionRef.current?.status === 'active') {
+        void acquireWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [acquireWakeLock]);
+
   useEffect(() => {
     void loadData(false);
-    const unsubscribe = subscribePatroliRealtime(session, () => loadData(true));
+    void loadLivePatrolState();
+    const unsubscribeLegacy = subscribePatroliRealtime(session, () => loadData(true));
+    const unsubscribeLive = subscribeLivePatrolRealtime(session, () => {
+      void loadLivePatrolState();
+    });
     return () => {
-      unsubscribe();
+      unsubscribeLegacy();
+      unsubscribeLive();
+      stopGpsWatcher();
+      void releaseWakeLock();
       nfcAbortRef.current?.abort();
     };
-  }, [loadData, session]);
+  }, [loadData, loadLivePatrolState, session, stopGpsWatcher, releaseWakeLock]);
 
   // Kontak Darurat Pengurus (Erlangga — Ketua & Andriansyah — Bendahara)
   const emergencyPengurus = useMemo(() => {
@@ -193,23 +485,57 @@ export function PetugasPortalPage({
     async (
       titik: TitikPatroli | null,
       fallbackLabel: string,
-      metode: 'NFC Tap' | 'Input Manual'
+      metode: 'NFC Tap' | 'Input Manual',
+      liveOptions?: { checkpoint?: PatrolCheckpoint | null; nfcSerial?: string | null }
     ) => {
       setSubmittingPatroli(true);
       try {
+        // 1. Jika ada sesi Patroli Live aktif (atau auto-cocokkan checkpoint), simpan ke patrol_scans real-time
+        let matchedLiveCp: PatrolCheckpoint | null = liveOptions?.checkpoint || null;
+        if (!matchedLiveCp && titik) {
+          const normTitikUid = normalizeNfcUid(titik.rfid_uid || '');
+          const lowerTitikName = titik.nama_lokasi.trim().toLowerCase();
+          matchedLiveCp =
+            liveCheckpointsRef.current.find(
+              (cp) =>
+                (normTitikUid && normalizeNfcUid(cp.nfc_tag_id) === normTitikUid) ||
+                cp.name.toLowerCase().includes(lowerTitikName) ||
+                lowerTitikName.includes(`pos ${cp.order_index}`) ||
+                lowerTitikName.includes(`checkpoint ${cp.order_index}`)
+            ) || null;
+        }
+
+        const currentSess = activeSessionRef.current;
+        if (currentSess && currentSess.status === 'active' && matchedLiveCp) {
+          await recordLivePatrolScan(session, {
+            sessionId: currentSess.id,
+            checkpoint: matchedLiveCp,
+            nfcSerial: liveOptions?.nfcSerial || matchedLiveCp.nfc_tag_id,
+            lat: gpsCoordsRef.current?.lat ?? matchedLiveCp.lat,
+            lng: gpsCoordsRef.current?.lng ?? matchedLiveCp.lng,
+          });
+          setLiveRefreshSignal((n) => n + 1);
+          await loadLivePatrolState();
+        }
+
+        // 2. Simpan juga ke log_patroli agar Riwayat Pribadi & laporan lama tetap sinkron 100%
         const res = await submitLogPatroliPetugas(session, {
           titik_id: titik?.id || null,
-          nama_lokasi: titik?.nama_lokasi || fallbackLabel,
+          nama_lokasi: matchedLiveCp?.name || titik?.nama_lokasi || fallbackLabel,
           metode_scan: metode,
           status_kondisi: statusKondisiRef.current,
           catatan: catatanPatroliRef.current,
         });
-        if (res.error || !res.data) {
+
+        playScanSuccessFeedback();
+
+        if (res.error && !matchedLiveCp) {
           onToast('error', res.error || 'Gagal mencatat patroli.');
         } else {
+          const displayLokasi = matchedLiveCp?.name || res.data?.nama_lokasi || fallbackLabel;
           onToast(
             'success',
-            `Patroli "${res.data.nama_lokasi}" (${res.data.status_kondisi}) berhasil tercatat! Pin peta kini hijau.`
+            `Checkpoint "${displayLokasi}" terverifikasi! Pin peta langsung berubah HIJAU secara real-time.`
           );
           setCatatanPatroli('');
           setStatusKondisi('Aman');
@@ -219,7 +545,7 @@ export function PetugasPortalPage({
         setSubmittingPatroli(false);
       }
     },
-    [session, onToast, loadData]
+    [session, onToast, loadData, loadLivePatrolState]
   );
 
   const handleStartNfcScan = async () => {
@@ -232,18 +558,19 @@ export function PetugasPortalPage({
       return;
     }
 
-    const NDEFReaderCtor = getNdefReaderConstructor();
-    if (!NDEFReaderCtor) {
-      const msg =
-        'Web NFC hanya tersedia di browser Chrome Android (HTTPS). Gunakan pilihan Input Manual di bawah.';
-      setShowManualForm(true);
-      setNfcStatusError(true);
-      setNfcStatusText(msg);
-      onToast('error', msg);
-      return;
-    }
-
     try {
+      const hasNdef = typeof window !== 'undefined' && 'NDEFReader' in window;
+      const NDEFReaderCtor = hasNdef ? getNdefReaderConstructor() : null;
+      if (!NDEFReaderCtor) {
+        const msg =
+          'Perangkat/browser ini tidak mendukung Web NFC (misal iOS atau laptop). Gunakan tombol "Verifikasi GPS + Kode Pos" di bawah agar tetap bisa patroli.';
+        setShowManualForm(true);
+        setNfcStatusError(true);
+        setNfcStatusText(msg);
+        onToast('info', msg);
+        return;
+      }
+
       const controller = new AbortController();
       nfcAbortRef.current = controller;
       const ndef = new NDEFReaderCtor();
@@ -254,7 +581,7 @@ export function PetugasPortalPage({
         () => {
           setNfcStatusError(true);
           setNfcStatusText(
-            'Tag terdeteksi tetapi tidak berformat NDEF (misal kartu e-Money/MIFARE Classic) atau stiker belum diformat. Gunakan stiker NTAG213/215/216 atau Input Manual.'
+            'Tag terdeteksi tetapi tidak berformat NDEF atau stiker belum diformat. Gunakan stiker NTAG213/215/216 atau tombol "Verifikasi GPS + Kode Pos".'
           );
         },
         { signal: controller.signal }
@@ -263,30 +590,58 @@ export function PetugasPortalPage({
       ndef.addEventListener(
         'reading',
         (event) => {
-          const { uid, allNormalizedTokens } = extractNfcReadingData(event);
-          const checkpoints = titikPatroliRef.current;
-          const matched = checkpoints.find((t) => {
-            const normTarget = normalizeNfcUid(t.rfid_uid);
-            return normTarget && allNormalizedTokens.includes(normTarget);
-          });
+          const { uid, rawSerialNumber, allNormalizedTokens } = extractNfcReadingData(event);
+          const serialToken = normalizeNfcUid(rawSerialNumber || uid || '');
 
+          // Cocokkan dengan tabel patrol_checkpoints (5 Pos) terlebih dahulu
+          const matchedLiveCp =
+            liveCheckpointsRef.current.find((cp) => {
+              const normTag = normalizeNfcUid(cp.nfc_tag_id);
+              return normTag && (allNormalizedTokens.includes(normTag) || normTag === serialToken);
+            }) || null;
+
+          // Cocokkan juga dengan titik_patroli lama
+          const checkpoints = titikPatroliRef.current;
+          const matchedLegacy =
+            checkpoints.find((t) => {
+              const normTarget = normalizeNfcUid(t.rfid_uid);
+              return normTarget && allNormalizedTokens.includes(normTarget);
+            }) || null;
+
+          // Fallback radius 25m jika serial belum dikalibrasi tapi petugas berdiri tepat di Pos
+          let nearestFallback: PatrolCheckpoint | null = null;
+          if (!matchedLiveCp && gpsCoordsRef.current) {
+            const near = findNearestCheckpoint(
+              gpsCoordsRef.current.lat,
+              gpsCoordsRef.current.lng,
+              liveCheckpointsRef.current
+            );
+            if (near && near.distanceMeters <= 25) {
+              nearestFallback = near.checkpoint;
+            }
+          }
+
+          const finalLiveCp = matchedLiveCp || nearestFallback;
           stopNfcScan();
 
-          if (matched) {
-            triggerNfcVibrate(100);
+          if (finalLiveCp || matchedLegacy) {
+            const targetName = finalLiveCp?.name || matchedLegacy?.nama_lokasi || 'Pos Patroli';
             setNfcStatusError(false);
             setNfcStatusText(
-              `Stiker NFC terbaca: ${matched.nama_lokasi} (UID: ${uid || normalizeNfcUid(matched.rfid_uid)})`
+              `Stiker NFC terbaca: ${targetName} (Serial: ${serialToken || finalLiveCp?.nfc_tag_id || '-'})`
             );
-            void recordPatrolEntry(matched, matched.nama_lokasi, 'NFC Tap');
+            void recordPatrolEntry(matchedLegacy, targetName, 'NFC Tap', {
+              checkpoint: finalLiveCp,
+              nfcSerial: serialToken || finalLiveCp?.nfc_tag_id || null,
+            });
           } else {
-            const displayUid = uid || 'TIDAK-DIKENAL';
-            triggerNfcVibrate(60);
+            const displayUid = serialToken || uid || 'TIDAK-DIKENAL';
             setNfcStatusError(true);
             setNfcStatusText(
-              `UID "${displayUid}" belum terdaftar di master titik checkpoint. Minta Bendahara mendaftarkannya atau catat manual.`
+              `ID NFC "${displayUid}" belum dikalibrasi di 5 Pos Patroli. Minta Ketua merekam ID stiker ini di menu Kalibrasi Pos, atau gunakan "Verifikasi GPS + Kode Pos".`
             );
-            onToast('error', `Tag NFC (${displayUid}) belum terdaftar pada titik patroli.`);
+            setShowManualForm(true);
+            onToast('error', `Tag NFC (${displayUid}) belum terdaftar pada 5 pos patroli.`);
           }
         },
         { signal: controller.signal }
@@ -328,13 +683,64 @@ export function PetugasPortalPage({
     void handleStartNfcScan();
   };
 
-  const handleManualSubmit = async () => {
-    const titik = data?.titikPatroli.find((t) => t.id === selectedTitikId) || null;
-    if (!titik) {
-      onToast('error', 'Pilih titik lokasi patroli terlebih dahulu.');
+  /**
+   * Fallback "Verifikasi GPS + Kode Pos" untuk perangkat non-NFC (iOS / Laptop / Pengujian):
+   * - Mencocokkan pos terdekat dalam radius 25m dari GPS saat ini, ATAU pos yang dipilih + kode pos.
+   * - Jika sesi patroli belum aktif, otomatis memulai sesi agar pin langsung berubah hijau di peta!
+   */
+  const handleGpsCodeFallbackVerify = async () => {
+    if (submittingPatroli) return;
+
+    let targetCp: PatrolCheckpoint | null = null;
+    const cleanCode = normalizeNfcUid(fallbackPosCode);
+
+    if (cleanCode) {
+      targetCp =
+        liveCheckpoints.find((cp) => normalizeNfcUid(cp.nfc_tag_id) === cleanCode) || null;
+    }
+
+    if (!targetCp && gpsCoords) {
+      const nearest = findNearestCheckpoint(gpsCoords.lat, gpsCoords.lng, liveCheckpoints);
+      if (nearest && nearest.distanceMeters <= 25) {
+        targetCp = nearest.checkpoint;
+      }
+    }
+
+    if (!targetCp) {
+      targetCp =
+        liveCheckpoints.find((cp) => cp.id === fallbackCheckpointId) || liveCheckpoints[0] || null;
+    }
+
+    if (!targetCp) {
+      onToast('error', 'Pilih Pos Checkpoint terlebih dahulu.');
       return;
     }
-    await recordPatrolEntry(titik, titik.nama_lokasi, 'Input Manual');
+
+    // Jika sesi patroli live belum aktif, buat sesi aktif singkat otomatis agar pin langsung menyala hijau di peta
+    if (!activeSessionRef.current || activeSessionRef.current.status !== 'active') {
+      const startCoords = gpsCoords || { lat: targetCp.lat, lng: targetCp.lng };
+      const started = await startLivePatrolSession(session, startCoords);
+      if (started.data) {
+        activeSessionRef.current = started.data;
+        routePathRef.current = started.data.route_path;
+        setActiveLiveSession(started.data);
+      }
+    }
+
+    const matchingLegacy =
+      data?.titikPatroli.find(
+        (t) =>
+          normalizeNfcUid(t.rfid_uid) === normalizeNfcUid(targetCp!.nfc_tag_id) ||
+          t.nama_lokasi.toLowerCase().includes(`pos ${targetCp!.order_index}`)
+      ) ||
+      data?.titikPatroli[targetCp.order_index - 1] ||
+      null;
+
+    setFallbackPosCode('');
+    await recordPatrolEntry(matchingLegacy, targetCp.name, 'Input Manual', {
+      checkpoint: targetCp,
+      nfcSerial: cleanCode || `GPS-${targetCp.nfc_tag_id || `POS${targetCp.order_index}`}`,
+    });
   };
 
   const handleResetCycle = async () => {
@@ -450,7 +856,7 @@ export function PetugasPortalPage({
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 pt-4 space-y-4">
+      <main className="max-w-3xl mx-auto px-4 pt-4 pb-24 space-y-4">
         {/* Banner Judul Halaman Aktif */}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -461,19 +867,135 @@ export function PetugasPortalPage({
               {TAB_TITLES[activeTab].subtitle}
             </p>
           </div>
-          {activeTab !== 'peta' && activeCycleProgress.total > 0 && (
+          {activeTab !== 'peta' && (
             <button
               type="button"
               onClick={() => handleSelectTab('peta')}
               className="shrink-0 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-right cursor-pointer hover:bg-emerald-100 transition"
             >
-              <p className="text-[10px] font-semibold text-emerald-700 leading-none">Siklus Aktif</p>
+              <p className="text-[10px] font-semibold text-emerald-700 leading-none">
+                {activeLiveSession ? 'LIVE Pos' : 'Siklus Aktif'}
+              </p>
               <p className="text-xs font-mono font-bold text-[#059669] tabular-nums mt-0.5">
-                {activeCycleProgress.scanned}/{activeCycleProgress.total} Titik
+                {activeLiveSession
+                  ? `${new Set(activeLiveScans.map((s) => s.checkpoint_id)).size}/${liveCheckpoints.length} Pos`
+                  : `${activeCycleProgress.scanned}/${activeCycleProgress.total} Titik`}
               </p>
             </button>
           )}
         </div>
+
+        {/* PANEL KONTROL LIVE TRACKING PATROLI (Tampil di Info, Scan, & Peta) */}
+        {(activeTab === 'info' || activeTab === 'scan' || activeTab === 'peta') && (
+          <section
+            aria-label="Kontrol Patroli Live GPS"
+            className={`rounded-2xl border p-4 space-y-3 ${
+              activeLiveSession
+                ? 'bg-emerald-950 text-white border-emerald-800'
+                : 'bg-white text-[#0F172A] border-slate-200'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeLiveSession ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                      </span>
+                      PATROLI LIVE AKTIF
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F172A]">
+                      <Navigation className="w-4 h-4 text-[#059669]" />
+                      Mode Live Tracking GPS (Real-Time)
+                    </span>
+                  )}
+                </div>
+
+                {activeLiveSession ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-emerald-100/90 font-mono tabular-nums">
+                    <span className="inline-flex items-center gap-1">
+                      <Crosshair className="w-3.5 h-3.5 text-emerald-400" />
+                      {gpsAccuracy !== null
+                        ? `Akurasi GPS: ±${gpsAccuracy}m`
+                        : 'Menunggu sinyal GPS...'}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                      {wakeLockActive ? 'Layar Terjaga Aktif' : 'Layar Normal'}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Aktifkan GPS live agar lokasi &amp; rute Anda terpantau real-time saat men-scan 5
+                    pos NFC.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {activeLiveSession ? (
+                  <>
+                    {watchIdRef.current === null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void acquireWakeLock();
+                          startGpsWatcherForSession(activeLiveSession);
+                          onToast('info', 'Pelacakan GPS live dilanjutkan.');
+                        }}
+                        className="min-h-[42px] px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Crosshair className="w-4 h-4" />
+                        <span>Lanjutkan GPS</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={completingLivePatrol}
+                      onClick={() => setConfirmFinishOpen(true)}
+                      className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      <span>Selesai Patroli</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={startingLivePatrol}
+                    onClick={() => void handleStartLivePatrol()}
+                    className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shadow-sm"
+                  >
+                    {startingLivePatrol ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4 fill-current" />
+                    )}
+                    <span>
+                      {startingLivePatrol ? 'Mengaktifkan GPS...' : 'Mulai Patroli Live'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {gpsErrorInfo && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{gpsErrorInfo.title}</span>
+                </p>
+                <p>{gpsErrorInfo.message}</p>
+                <p className="text-[11px] bg-white/90 border border-red-100 rounded-lg px-2.5 py-1.5 text-red-800 leading-relaxed">
+                  {gpsErrorInfo.guide}
+                </p>
+              </div>
+            )}
+          </section>
+        )}
 
         {loading && !data ? (
           <div className="space-y-4">
@@ -844,43 +1366,81 @@ export function PetugasPortalPage({
                     <span>
                       {nfcSupported
                         ? 'Web NFC foreground siap (Chrome Android).'
-                        : 'Web NFC belum didukung browser ini — gunakan Input Manual.'}
+                        : 'Web NFC tidak tersedia di browser ini — gunakan Verifikasi GPS + Kode Pos.'}
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowManualForm((v) => !v)}
                       className="font-semibold text-[#059669] hover:underline cursor-pointer shrink-0"
                     >
-                      {showManualForm ? 'Sembunyikan Manual' : 'Input Manual'}
+                      {showManualForm ? 'Tutup Fallback' : 'Verifikasi GPS + Kode Pos'}
                     </button>
                   </div>
 
-                  {/* Fallback Input Manual bila HP tanpa NFC / iOS Safari */}
+                  {/* Fallback Verifikasi GPS + Kode Pos (iOS / Laptop / Pengujian Tanpa Crash) */}
                   {showManualForm && (
                     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
-                      <p className="text-xs font-bold text-[#0F172A]">
-                        Catat Titik Patroli Manual (Fallback Non-NFC)
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-[#0F172A]">
+                          Verifikasi GPS + Kode Pos (Fallback Non-NFC)
+                        </p>
+                        {gpsCoords &&
+                          (() => {
+                            const near = findNearestCheckpoint(
+                              gpsCoords.lat,
+                              gpsCoords.lng,
+                              liveCheckpoints
+                            );
+                            if (!near) return null;
+                            const within25m = near.distanceMeters <= 25;
+                            return (
+                              <span
+                                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border tabular-nums ${
+                                  within25m
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}
+                              >
+                                Terdekat: Pos {near.checkpoint.order_index} (
+                                {Math.round(near.distanceMeters)}m)
+                              </span>
+                            );
+                          })()}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <select
-                          value={selectedTitikId}
-                          onChange={(e) => setSelectedTitikId(e.target.value)}
-                          className="flex-1 min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                          value={fallbackCheckpointId}
+                          onChange={(e) => setFallbackCheckpointId(e.target.value)}
+                          className="sm:col-span-5 min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-[#0F172A]"
                         >
-                          {(data?.titikPatroli || []).map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.nama_lokasi} ({t.rfid_uid})
-                            </option>
-                          ))}
+                          {liveCheckpoints.map((cp) => {
+                            const distLabel = gpsCoords
+                              ? ` · ${Math.round(calculateDistanceMeters(gpsCoords.lat, gpsCoords.lng, cp.lat, cp.lng))}m`
+                              : '';
+                            return (
+                              <option key={cp.id} value={cp.id}>
+                                {cp.name}
+                                {distLabel}
+                              </option>
+                            );
+                          })}
                         </select>
+                        <input
+                          type="text"
+                          value={fallbackPosCode}
+                          onChange={(e) => setFallbackPosCode(e.target.value.toUpperCase())}
+                          placeholder="Kode Pos / NFC (opsional)"
+                          className="sm:col-span-3 min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-xs font-mono text-[#0F172A] placeholder:font-sans placeholder:text-slate-400"
+                        />
                         <button
                           type="button"
-                          disabled={submittingPatroli || !selectedTitikId}
-                          onClick={() => void handleManualSubmit()}
-                          className="min-h-[44px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                          disabled={submittingPatroli || !fallbackCheckpointId}
+                          onClick={() => void handleGpsCodeFallbackVerify()}
+                          className="sm:col-span-4 min-h-[44px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                         >
-                          <MapPin className="w-4 h-4 shrink-0" />
-                          <span>Catat Lokasi Ini</span>
+                          <MapPin className="w-4 h-4 shrink-0 text-emerald-400" />
+                          <span>Verifikasi GPS + Kode Pos</span>
                         </button>
                       </div>
                     </div>
@@ -1002,18 +1562,52 @@ export function PetugasPortalPage({
               </section>
             )}
 
-            {/* TAB 5: PETA PATROLI INTERAKTIF REAL-TIME */}
+            {/* TAB 5: PETA PATROLI LIVE TRACKING REAL-TIME */}
             {activeTab === 'peta' && data && (
               <div className="space-y-3">
-                <PatrolInteractiveMap
-                  mode="petugas"
-                  titikList={data.titikPatroli}
-                  patroliLogs={data.patroliCycleLogs}
-                  patrolMapConfig={data.patrolMapConfig}
-                  canResetCycle={true}
-                  onResetCycle={handleResetCycle}
-                  resettingCycle={resettingCycle}
-                />
+                <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 border border-slate-200 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPetaViewMode('live_gps')}
+                    className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
+                      petaViewMode === 'live_gps'
+                        ? 'bg-white text-[#0F172A] shadow-xs'
+                        : 'text-slate-600 hover:text-[#0F172A]'
+                    }`}
+                  >
+                    Live Tracking GPS &amp; Satelit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPetaViewMode('denah')}
+                    className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
+                      petaViewMode === 'denah'
+                        ? 'bg-white text-[#0F172A] shadow-xs'
+                        : 'text-slate-600 hover:text-[#0F172A]'
+                    }`}
+                  >
+                    Denah Vektor
+                  </button>
+                </div>
+
+                {petaViewMode === 'live_gps' ? (
+                  <PatrolLiveLeafletMap
+                    session={session}
+                    canCalibrate={false}
+                    onToast={onToast}
+                    refreshSignal={liveRefreshSignal}
+                  />
+                ) : (
+                  <PatrolInteractiveMap
+                    mode="petugas"
+                    titikList={data.titikPatroli}
+                    patroliLogs={data.patroliCycleLogs}
+                    patrolMapConfig={data.patrolMapConfig}
+                    canResetCycle={true}
+                    onResetCycle={handleResetCycle}
+                    resettingCycle={resettingCycle}
+                  />
+                )}
 
                 <button
                   type="button"
@@ -1146,6 +1740,49 @@ export function PetugasPortalPage({
           trxKas={selectedHonorTrx}
           onClose={() => setSelectedHonorTrx(null)}
         />
+      )}
+
+      {/* Modal Konfirmasi Selesai Patroli Live */}
+      {confirmFinishOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Konfirmasi Selesai Patroli"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+          <div className="bg-white w-full max-w-sm rounded-2xl border border-slate-200 p-5 space-y-4 shadow-xl">
+            <div className="space-y-1.5">
+              <h2 className="text-base font-bold text-[#0F172A]">Selesaikan Patroli Live?</h2>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Pelacakan GPS dan penguncian layar akan dihentikan, lalu sesi patroli Anda (
+                <strong className="font-mono text-[#0F172A]">
+                  {new Set(activeLiveScans.map((s) => s.checkpoint_id)).size}/
+                  {liveCheckpoints.length} Pos
+                </strong>
+                ) akan disimpan ke Riwayat Patroli.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={completingLivePatrol}
+                onClick={() => setConfirmFinishOpen(false)}
+                className="min-h-[40px] px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={completingLivePatrol}
+                onClick={() => void handleConfirmFinishLivePatrol()}
+                className="min-h-[40px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                {completingLivePatrol && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Ya, Selesai Patroli</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -369,6 +369,94 @@ export interface LogPatroli {
   catatan?: string | null;
 }
 
+export interface RoutePathPoint {
+  lat: number;
+  lng: number;
+  time: string;
+}
+
+export interface PatrolCheckpoint {
+  id: string;
+  name: string;
+  nfc_tag_id: string;
+  lat: number;
+  lng: number;
+  order_index: number;
+}
+
+export type PatrolSessionStatus = 'active' | 'completed';
+
+export interface PatrolSession {
+  id: string;
+  officer_id: string;
+  officer_name: string;
+  status: PatrolSessionStatus;
+  current_lat: number | null;
+  current_lng: number | null;
+  route_path: RoutePathPoint[];
+  started_at: string;
+  ended_at: string | null;
+  last_ping_at: string | null;
+}
+
+export interface PatrolScan {
+  id: string;
+  session_id: string;
+  checkpoint_id: string;
+  officer_name: string;
+  nfc_serial: string | null;
+  lat: number | null;
+  lng: number | null;
+  scanned_at: string;
+}
+
+/**
+ * 5 Pos Checkpoint default Perumahan Saung Kebun (Desa Bengle, Kec. Majalaya, Kab. Karawang).
+ * Ketua/Admin dapat langsung mengkalibrasi koordinat GPS & ID Stiker NFC di lapangan.
+ */
+export const DEFAULT_PATROL_CHECKPOINTS: PatrolCheckpoint[] = [
+  {
+    id: 'cp-pos-1',
+    name: 'Pos 1 — Gerbang Utama & Pos Jaga',
+    nfc_tag_id: 'NFC-POS-01',
+    lat: -6.32745,
+    lng: 107.33965,
+    order_index: 1,
+  },
+  {
+    id: 'cp-pos-2',
+    name: 'Pos 2 — Sudut Blok A',
+    nfc_tag_id: 'NFC-POS-02',
+    lat: -6.32712,
+    lng: 107.34025,
+    order_index: 2,
+  },
+  {
+    id: 'cp-pos-3',
+    name: 'Pos 3 — Blok B Tengah & Sekretariat',
+    nfc_tag_id: 'NFC-POS-03',
+    lat: -6.32668,
+    lng: 107.34018,
+    order_index: 3,
+  },
+  {
+    id: 'cp-pos-4',
+    name: 'Pos 4 — Fasum & Taman Warga',
+    nfc_tag_id: 'NFC-POS-04',
+    lat: -6.32642,
+    lng: 107.33978,
+    order_index: 4,
+  },
+  {
+    id: 'cp-pos-5',
+    name: 'Pos 5 — Pagar Utara & Blok Belakang',
+    nfc_tag_id: 'NFC-POS-05',
+    lat: -6.32625,
+    lng: 107.34052,
+    order_index: 5,
+  },
+];
+
 export const SHIFT_PETUGAS_OPTIONS = [
   'Shift Pagi (07.00 – 19.00)',
   'Shift Malam (19.00 – 07.00)',
