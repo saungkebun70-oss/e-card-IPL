@@ -49,6 +49,12 @@ import {
   type CheckpointStatusItem,
 } from './SecurityPatrolMapSvg';
 import { PatrolInteractiveMap } from './PatrolInteractiveMap';
+import { WargaActiveGuardCard } from './warga/WargaActiveGuardCard';
+import { AdminAttendanceMonitorPanel } from './admin/AdminAttendanceMonitorPanel';
+import {
+  fetchSecurityAttendance,
+  subscribeSecurityAttendance,
+} from '../lib/securityAttendanceService';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -99,11 +105,30 @@ export function KeamananSlide({
   >('semua');
   const [activeLiveSession, setActiveLiveSession] = useState<PatrolLiveSession | null>(null);
   const [resettingCycle, setResettingCycle] = useState(false);
+  const [adminSubTab, setAdminSubTab] = useState<'patroli' | 'absensi'>('patroli');
+  const [adminOnDutyCount, setAdminOnDutyCount] = useState<number>(0);
 
   const loadActiveLiveSession = useCallback(async () => {
     const live = await fetchActiveLiveSession(session || null);
     setActiveLiveSession(live);
   }, [session]);
+
+  const loadAdminOnDutyCount = useCallback(async () => {
+    if (role !== 'admin') return;
+    const rows = await fetchSecurityAttendance(session || null, { limit: 60 });
+    setAdminOnDutyCount(rows.filter((r) => r.status === 'on_duty').length);
+  }, [role, session]);
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+    void loadAdminOnDutyCount();
+    const unsubAtt = subscribeSecurityAttendance(session || null, () => {
+      void loadAdminOnDutyCount();
+    });
+    return () => {
+      unsubAtt();
+    };
+  }, [role, session, loadAdminOnDutyCount]);
 
   useEffect(() => {
     void loadActiveLiveSession();
@@ -461,8 +486,66 @@ export function KeamananSlide({
         </div>
       </div>
 
-      {/* Ringkasan KPI Keamanan & Status Petugas Bertugas */}
-      <section className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+      {/* Tab Navigasi Khusus Admin: Patroli & Peta Live vs Monitoring Absensi Keamanan */}
+      {role === 'admin' && session && (
+        <div
+          role="tablist"
+          aria-label="Menu Keamanan Admin"
+          className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-200/75 rounded-2xl w-full sm:w-fit"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminSubTab === 'patroli'}
+            onClick={() => setAdminSubTab('patroli')}
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              adminSubTab === 'patroli'
+                ? 'bg-white text-[#0F172A] shadow-sm'
+                : 'text-slate-600 hover:text-[#0F172A]'
+            }`}
+          >
+            <Radio className="w-4 h-4 text-[#059669] shrink-0" />
+            <span>Patroli &amp; Peta Live</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminSubTab === 'absensi'}
+            onClick={() => setAdminSubTab('absensi')}
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              adminSubTab === 'absensi'
+                ? 'bg-white text-[#0F172A] shadow-sm'
+                : 'text-slate-600 hover:text-[#0F172A]'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+            <span>Monitoring Absensi Keamanan</span>
+            {adminOnDutyCount > 0 && (
+              <span className="text-[11px] font-mono font-bold text-emerald-700 tabular-nums">
+                ({adminOnDutyCount} aktif)
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* TAB MONITORING ABSENSI KEAMANAN (ADMIN FULL CONTROL) */}
+      {role === 'admin' && session && adminSubTab === 'absensi' ? (
+        <AdminAttendanceMonitorPanel
+          session={session}
+          petugasList={petugasKontak}
+          patroliFeed={patroliFeed}
+          titikPatroliList={titikPatroliList}
+          patrolMapConfig={patrolMapConfig}
+          onToast={onToast}
+        />
+      ) : (
+        <>
+          {/* MONITORING REAL-TIME PETUGAS JAGA AKTIF (AKUN WARGA READ-ONLY) */}
+          {role === 'warga' && <WargaActiveGuardCard session={session} />}
+
+          {/* Ringkasan KPI Keamanan & Status Petugas Bertugas */}
+          <section className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
         <div className="bg-[#0F172A] text-white rounded-2xl p-4 sm:p-5 border border-slate-800">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-slate-300">Petugas Siaga Aktif</p>
@@ -1121,6 +1204,8 @@ export function KeamananSlide({
 
         <SecurityPatrolFeedCard patroliFeed={filteredPatroli} maxItems={25} />
       </div>
+        </>
+      )}
     </div>
   );
 }

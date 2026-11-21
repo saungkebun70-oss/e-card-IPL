@@ -73,6 +73,7 @@ import {
 import { BrandLogo } from '../BrandLogo';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
+import { PetugasAttendanceCard } from './PetugasAttendanceCard';
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -906,6 +907,16 @@ export function PetugasPortalPage({
             </button>
           )}
         </div>
+
+        {/* KARTU ABSENSI JAGA & RIWAYAT PRIBADI — BAGIAN PALING ATAS TAB INFO & SHIFT */}
+        {activeTab === 'info' && (
+          <PetugasAttendanceCard
+            session={session}
+            officerName={profil.nama}
+            assignedShift={profil.shift}
+            onToast={onToast}
+          />
+        )}
 
         {/* PANEL KONTROL LIVE TRACKING PATROLI RINGKAS (Pada Tab Info & Scan; pada Tab Peta ditempatkan tepat di bawah Peta 3D) */}
         {(activeTab === 'info' || activeTab === 'scan') && (

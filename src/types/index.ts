@@ -410,12 +410,41 @@ export interface CalibratedCheckpointPoint {
   lng: number;
 }
 
+export type SecurityAttendanceStatus = 'on_duty' | 'completed';
+
+export interface SecurityAttendanceRecord {
+  id: string;
+  officer_name: string;
+  shift_date: string; // YYYY-MM-DD (tanggal mulai shift WIB)
+  shift_name: string;
+  clock_in_at: string;
+  clock_out_at: string | null;
+  status: SecurityAttendanceStatus;
+  clock_in_photo_url: string | null;
+  handover_notes: string | null;
+  created_at: string;
+}
+
+export const STANDARD_SECURITY_SHIFTS = [
+  'Shift 1 (07:00-15:00)',
+  'Shift 2 (15:00-23:00)',
+  'Shift 3 (23:00-07:00)',
+  'Lembur Minggu (19:00-07:00)',
+] as const;
+
+export const DEFAULT_SECURITY_OFFICER_NAMES = [
+  'Pak Nurdenih',
+  'Pak Warta',
+  'Pak Sishantoyo',
+] as const;
+
 export const SHIFT_PETUGAS_OPTIONS = [
+  'Shift 1 (07:00-15:00)',
+  'Shift 2 (15:00-23:00)',
+  'Shift 3 (23:00-07:00)',
+  'Lembur Minggu (19:00-07:00)',
   'Shift Pagi (07.00 – 19.00)',
   'Shift Malam (19.00 – 07.00)',
-  'Shift Pagi (06.00 – 14.00)',
-  'Shift Siang (14.00 – 22.00)',
-  'Shift Malam (22.00 – 06.00)',
   'Siaga 24 Jam / Cadangan',
 ] as const;
 
