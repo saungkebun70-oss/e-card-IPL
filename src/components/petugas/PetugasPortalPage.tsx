@@ -5,7 +5,6 @@ import {
   ClipboardList,
   Clock,
   Crosshair,
-  FileText,
   Loader2,
   LogOut,
   Map as MapIcon,
@@ -27,6 +26,7 @@ import {
   type LogPatroli,
   type PatrolGpsCalibration,
   type PatrolLiveSession,
+  type SecurityShiftOverride,
   type SessionUser,
   type StatusKondisiPatroli,
   type TitikPatroli,
@@ -35,7 +35,6 @@ import {
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
 import {
-  formatRupiah,
   formatTanggal,
   formatTanggalWaktu,
   normalizePhoneNumber,
@@ -74,6 +73,12 @@ import { BrandLogo } from '../BrandLogo';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 import { PetugasAttendanceCard } from './PetugasAttendanceCard';
+import { PetugasHonorTab } from './PetugasHonorTab';
+import {
+  fetchShiftOverrides,
+  findActiveOverrideForOfficer,
+  subscribeShiftOverrides,
+} from '../../lib/securityShiftOvertimeService';
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -822,10 +827,6 @@ export function PetugasPortalPage({
     return { scanned: scannedCount, total: activePoints.length };
   }, [data]);
 
-  const totalHonorDiterima = useMemo(() => {
-    return (data?.riwayatHonor || []).reduce((sum, item) => sum + item.nominal, 0);
-  }, [data?.riwayatHonor]);
-
   const profil = data?.profil || {
     id: session.petugas_id || '',
     nama: session.nama_warga,
@@ -833,6 +834,33 @@ export function PetugasPortalPage({
     no_hp: session.no_wa || '',
     shift: session.shift || 'Shift Keamanan',
   };
+
+  const [officerShiftOverrides, setOfficerShiftOverrides] = useState<SecurityShiftOverride[]>([]);
+
+  const loadOfficerShiftOverrides = useCallback(async () => {
+    const list = await fetchShiftOverrides(session, {
+      officerName: profil.nama,
+      limit: 40,
+    });
+    setOfficerShiftOverrides(list);
+  }, [session, profil.nama]);
+
+  useEffect(() => {
+    void loadOfficerShiftOverrides();
+    const unsub = subscribeShiftOverrides(session, () => {
+      void loadOfficerShiftOverrides();
+    });
+    return () => {
+      unsub();
+    };
+  }, [session, loadOfficerShiftOverrides]);
+
+  const activeShiftOverride = useMemo(
+    () => findActiveOverrideForOfficer(officerShiftOverrides, profil.nama),
+    [officerShiftOverrides, profil.nama]
+  );
+
+  const effectiveShiftLabel = activeShiftOverride?.shift_name || profil.shift;
 
   const handleSelectTab = (nextTab: PetugasTab) => {
     if (activeTab === 'scan' && nextTab !== 'scan' && scanningNfc) {
@@ -854,7 +882,7 @@ export function PetugasPortalPage({
                 {profil.nama}
               </p>
               <p className="text-[11px] text-emerald-400 font-medium truncate">
-                Petugas Keamanan · {profil.shift}
+                Petugas Keamanan · {effectiveShiftLabel}
               </p>
             </div>
           </div>
@@ -1045,7 +1073,7 @@ export function PetugasPortalPage({
                           Shift Bertugas Aktif
                         </p>
                         <p className="text-base font-bold text-white truncate mt-0.5">
-                          {profil.shift}
+                          {effectiveShiftLabel}
                         </p>
                         <p className="text-xs text-slate-400 font-mono mt-0.5">
                           @{profil.username} · Perumahan Saung Kebun
@@ -1137,7 +1165,7 @@ export function PetugasPortalPage({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {emergencyPengurus.map((contact) => {
                         const waText = encodeURIComponent(
-                          `[LAPORAN KEAMANAN] Halo ${contact.label}, saya ${profil.nama} (${profil.shift}) melaporkan situasi di Perumahan Saung Kebun:`
+                          `[LAPORAN KEAMANAN] Halo ${contact.label}, saya ${profil.nama} (${effectiveShiftLabel}) melaporkan situasi di Perumahan Saung Kebun:`
                         );
                         return (
                           <div
@@ -1471,100 +1499,14 @@ export function PetugasPortalPage({
               </section>
             )}
 
-            {/* TAB 4: HONOR & LEMBUR PRIBADI (TERISOLASI KETAT) */}
+            {/* TAB 4: HONOR & LEMBUR PRIBADI (TERISOLASI KETAT, READ-ONLY) */}
             {activeTab === 'honor' && (
-              <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center shrink-0">
-                      <Wallet className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
-                        Total Honor &amp; Lembur Tercatat
-                      </p>
-                      <p className="text-lg font-mono font-extrabold text-[#0F172A] tabular-nums">
-                        {formatRupiah(totalHonorDiterima)}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-medium text-emerald-800 bg-white/90 border border-emerald-200 rounded-lg px-2.5 py-1">
-                    Privasi Pribadi Terisolasi
-                  </span>
-                </div>
-
-                {!data || data.riwayatHonor.length === 0 ? (
-                  <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 p-7 text-center space-y-1.5">
-                    <ShieldAlert className="w-7 h-7 text-slate-400 mx-auto" />
-                    <p className="text-xs font-bold text-slate-700">
-                      Belum Ada Catatan Honorarium / Lembur
-                    </p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-                      Setiap pencairan honor rutin (Termin Tgl 7 &amp; Tgl 18) maupun uang lembur
-                      yang dicatat Bendahara atas nama Anda akan langsung tampil beserta
-                      e-Kwitansinya di sini.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-                    {data.riwayatHonor.map((trx) => {
-                      const isLembur =
-                        trx.jenis_honor === 'lembur' ||
-                        trx.kategori.toLowerCase().includes('lembur');
-                      return (
-                        <div
-                          key={trx.id}
-                          className="p-3.5 sm:p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                        >
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                              <span
-                                className={`font-bold ${
-                                  isLembur ? 'text-sky-700' : 'text-emerald-700'
-                                }`}
-                              >
-                                {isLembur ? 'Uang Lembur' : 'Honor Rutin'}
-                              </span>
-                              {trx.termin && (
-                                <>
-                                  <span aria-hidden="true" className="text-slate-300">
-                                    ·
-                                  </span>
-                                  <span className="text-slate-700 font-semibold">{trx.termin}</span>
-                                </>
-                              )}
-                              <span aria-hidden="true" className="text-slate-300">
-                                ·
-                              </span>
-                              <span className="font-mono text-slate-500 tabular-nums">
-                                {formatTanggal(trx.tanggal)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 line-clamp-2">
-                              {trx.keterangan || trx.kategori}
-                            </p>
-                            <p className="text-[11px] font-mono text-slate-400">{trx.no_bukti}</p>
-                          </div>
-
-                          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                            <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
-                              {formatRupiah(trx.nominal)}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedHonorTrx(trx)}
-                              className="min-h-[40px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                            >
-                              <FileText className="w-3.5 h-3.5 shrink-0" />
-                              <span>e-Kwitansi</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+              <PetugasHonorTab
+                session={session}
+                officerName={profil.nama}
+                riwayatHonor={data?.riwayatHonor || []}
+                onOpenKwitansi={setSelectedHonorTrx}
+              />
             )}
 
             {/* TAB 5: PETA 3D PATROLI LIVE TRACKING REAL-TIME */}

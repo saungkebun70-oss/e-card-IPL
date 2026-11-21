@@ -188,6 +188,7 @@ export interface TransaksiIPL {
 export type JenisTransaksiKas = 'pengeluaran' | 'pemasukan_lain';
 
 export type KategoriPengeluaran =
+  | 'Honor & Lembur Keamanan'
   | 'Honorarium Keamanan / Satpam'
   | 'Lembur Petugas Keamanan'
   | 'Kebersihan & Pengangkutan Sampah'
@@ -224,6 +225,7 @@ export interface TransaksiKas {
   bukti_url?: string | null;
   petugas_id?: string | null;
   jenis_honor?: JenisHonorPetugas | null;
+  shift_override_id?: string | null;
   created_by: string;
   created_by_name: string;
   created_at: string;
@@ -238,6 +240,7 @@ export interface TransaksiKas {
 }
 
 export const KATEGORI_PENGELUARAN_LIST: KategoriPengeluaran[] = [
+  'Honor & Lembur Keamanan',
   'Honorarium Keamanan / Satpam',
   'Lembur Petugas Keamanan',
   'Kebersihan & Pengangkutan Sampah',
@@ -423,6 +426,23 @@ export interface SecurityAttendanceRecord {
   clock_in_photo_url: string | null;
   handover_notes: string | null;
   created_at: string;
+}
+
+export type OvertimePaymentStatus = 'unpaid' | 'paid';
+
+export interface SecurityShiftOverride {
+  id: string;
+  shift_date: string; // YYYY-MM-DD (WIB)
+  officer_name: string;
+  shift_name: string;
+  notes: string | null;
+  overtime_amount: number;
+  payment_status: OvertimePaymentStatus;
+  paid_at: string | null;
+  cash_transaction_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const STANDARD_SECURITY_SHIFTS = [

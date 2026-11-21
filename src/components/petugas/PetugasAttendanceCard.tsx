@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
+  Calendar,
   Camera,
   CheckCircle2,
   Clock,
@@ -17,8 +18,10 @@ import {
   SHIFT_PETUGAS_OPTIONS,
   STANDARD_SECURITY_SHIFTS,
   type SecurityAttendanceRecord,
+  type SecurityShiftOverride,
   type SessionUser,
 } from '../../types';
+import { formatRupiah } from '../../lib/format';
 import {
   clockInSecurityOfficer,
   clockOutSecurityOfficer,
@@ -31,9 +34,16 @@ import {
   formatWibTime,
   getWibParts,
   isSafeAttendanceImageUrl,
+  parseShiftWindow,
   shiftWibDateStr,
   subscribeSecurityAttendance,
 } from '../../lib/securityAttendanceService';
+import {
+  fetchShiftOverrides,
+  findActiveOverrideForOfficer,
+  isSundayOvertimeShift,
+  subscribeShiftOverrides,
+} from '../../lib/securityShiftOvertimeService';
 
 interface PetugasAttendanceCardProps {
   session: SessionUser;
@@ -49,6 +59,7 @@ export function PetugasAttendanceCard({
   onToast,
 }: PetugasAttendanceCardProps) {
   const [records, setRecords] = useState<SecurityAttendanceRecord[]>([]);
+  const [shiftOverrides, setShiftOverrides] = useState<SecurityShiftOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
@@ -88,11 +99,18 @@ export function PetugasAttendanceCard({
 
   const loadAttendance = useCallback(async () => {
     try {
-      const list = await fetchSecurityAttendance(session, {
-        officerName,
-        limit: 40,
-      });
+      const [list, ovList] = await Promise.all([
+        fetchSecurityAttendance(session, {
+          officerName,
+          limit: 40,
+        }),
+        fetchShiftOverrides(session, {
+          officerName,
+          limit: 60,
+        }),
+      ]);
       setRecords(list);
+      setShiftOverrides(ovList);
     } finally {
       setLoading(false);
     }
@@ -100,19 +118,50 @@ export function PetugasAttendanceCard({
 
   useEffect(() => {
     void loadAttendance();
-    const unsub = subscribeSecurityAttendance(session, () => {
+    const unsubAtt = subscribeSecurityAttendance(session, () => {
+      void loadAttendance();
+    });
+    const unsubOv = subscribeShiftOverrides(session, () => {
       void loadAttendance();
     });
     return () => {
-      unsub();
+      unsubAtt();
+      unsubOv();
     };
   }, [session, loadAttendance]);
 
   const wibNow = useMemo(() => getWibParts(new Date(nowMs)), [nowMs]);
-  const detectedShift = useMemo(
-    () => detectActiveShift(assignedShift, new Date(nowMs)),
-    [assignedShift, nowMs]
+
+  const activeOverride = useMemo(
+    () => findActiveOverrideForOfficer(shiftOverrides, officerName, new Date(nowMs)),
+    [shiftOverrides, officerName, nowMs]
   );
+
+  // Jadwal Lembur Minggu yang dijadwalkan Admin (terbaru / terdekat >= hari ini - 1 hari)
+  const upcomingOrActiveLembur = useMemo(() => {
+    const yesterdayStr = shiftWibDateStr(wibNow.dateStr, -1);
+    const list = shiftOverrides
+      .filter((o) => isSundayOvertimeShift(o.shift_name) && o.shift_date >= yesterdayStr)
+      .sort((a, b) => a.shift_date.localeCompare(b.shift_date));
+    return list[0] || null;
+  }, [shiftOverrides, wibNow.dateStr]);
+
+  const isSundayOrEarlyMonday =
+    wibNow.weekdayIndex === 0 || (wibNow.weekdayIndex === 1 && wibNow.hour < 8);
+
+  const detectedShift = useMemo(() => {
+    if (activeOverride) {
+      const parsed = parseShiftWindow(activeOverride.shift_name);
+      return {
+        shiftName: activeOverride.shift_name,
+        shiftDate: activeOverride.shift_date,
+        isOvernight: parsed.isOvernight,
+        isLemburMinggu: isSundayOvertimeShift(activeOverride.shift_name),
+        source: 'assigned' as const,
+      };
+    }
+    return detectActiveShift(assignedShift, new Date(nowMs));
+  }, [activeOverride, assignedShift, nowMs]);
 
   // Daftar opsi shift (Shift 1-3, Lembur Minggu + shift aktif dari Admin bila custom)
   const shiftChoices = useMemo(() => {
@@ -123,8 +172,11 @@ export function PetugasAttendanceCard({
     if (assignedShift.trim()) {
       base.add(assignedShift.trim());
     }
+    if (activeOverride?.shift_name?.trim()) {
+      base.add(activeOverride.shift_name.trim());
+    }
     return Array.from(base);
-  }, [assignedShift]);
+  }, [assignedShift, activeOverride]);
 
   // Sesi ON DUTY aktif (lintas hari Shift 3 & Lembur Minggu tetap terhubung melewati 00:00 WIB)
   const activeSession = useMemo(
@@ -201,7 +253,11 @@ export function PetugasAttendanceCard({
   const handleConfirmClockIn = async () => {
     if (submittingClockIn) return;
     const chosenShift = selectedShiftName.trim() || detectedShift.shiftName;
-    const shiftDate = computeShiftDateForSelection(chosenShift, new Date());
+    const shiftDate =
+      activeOverride &&
+      activeOverride.shift_name.trim().toLowerCase() === chosenShift.toLowerCase()
+        ? activeOverride.shift_date
+        : computeShiftDateForSelection(chosenShift, new Date());
 
     setSubmittingClockIn(true);
     try {
@@ -420,6 +476,108 @@ export function PetugasAttendanceCard({
               </button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* JADWAL SHIFT JAGA REGULER & KARTU OTOMATIS LEMBUR MINGGU (19:00 – 07:00 WIB) */}
+      <section
+        aria-label="Jadwal Shift Jaga dan Lembur Minggu"
+        className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+      >
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar className="w-4 h-4 text-[#059669] shrink-0" />
+            <h3 className="text-sm font-bold text-[#0F172A] truncate">
+              Jadwal Shift Jaga &amp; Lembur Minggu
+            </h3>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500 shrink-0">WIB</span>
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-3">
+          {/* Kartu Sorotan Otomatis LEMBUR MINGGU (muncul tiap Hari Minggu atau saat dijadwalkan Admin) */}
+          {(isSundayOrEarlyMonday || upcomingOrActiveLembur) && (
+            <div className="rounded-xl bg-[#0F172A] text-white border border-indigo-500/40 p-3.5 sm:p-4 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-amber-300">
+                  <Moon className="w-4 h-4 shrink-0" />
+                  <span>LEMBUR MINGGU (19:00 – 07:00 WIB)</span>
+                </div>
+                {upcomingOrActiveLembur && (
+                  <span
+                    className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md border ${
+                      upcomingOrActiveLembur.payment_status === 'paid' ||
+                      upcomingOrActiveLembur.cash_transaction_id
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                        : 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+                    }`}
+                  >
+                    {upcomingOrActiveLembur.payment_status === 'paid' ||
+                    upcomingOrActiveLembur.cash_transaction_id
+                      ? 'LUNAS'
+                      : 'TERJADWAL'}
+                  </span>
+                )}
+              </div>
+
+              {upcomingOrActiveLembur ? (
+                <div className="text-xs text-slate-200 space-y-1">
+                  <p className="tabular-nums">
+                    Jadwal Anda:{' '}
+                    <strong className="text-white">
+                      {formatWibDateStr(upcomingOrActiveLembur.shift_date)}
+                    </strong>{' '}
+                    · Uang Lembur:{' '}
+                    <strong className="font-mono text-emerald-300">
+                      {formatRupiah(upcomingOrActiveLembur.overtime_amount)}
+                    </strong>
+                  </p>
+                  <p className="text-[11px] text-slate-300">
+                    Shift Lembur Minggu otomatis terpilih saat Anda menekan Absen Masuk &amp; Scan
+                    Patroli pada jam 19:00 – 07:00 WIB.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Hari Minggu malam (19:00 – 07:00 WIB) berlaku jadwal Lembur Minggu. Petugas yang
+                  bertugas dapat langsung memilih shift ini saat Absen Masuk.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Daftar Shift Reguler */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {(
+              [
+                { label: 'Shift 1', jam: '07:00 – 15:00 WIB', key: 'shift 1' },
+                { label: 'Shift 2', jam: '15:00 – 23:00 WIB', key: 'shift 2' },
+                { label: 'Shift 3', jam: '23:00 – 07:00 WIB', key: 'shift 3' },
+              ] as const
+            ).map((item) => {
+              const isCurrent = detectedShift.shiftName.toLowerCase().includes(item.key);
+              return (
+                <div
+                  key={item.label}
+                  className={`rounded-xl border px-3 py-2.5 ${
+                    isCurrent
+                      ? 'bg-emerald-50/80 border-emerald-300'
+                      : 'bg-slate-50 border-slate-200/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-xs font-bold text-[#0F172A]">{item.label}</p>
+                    {isCurrent && (
+                      <span className="text-[10px] font-extrabold text-emerald-700">Aktif</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-mono text-slate-600 tabular-nums mt-0.5">
+                    {item.jam}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

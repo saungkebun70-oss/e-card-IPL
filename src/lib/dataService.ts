@@ -1652,6 +1652,11 @@ export function subscribeAdminRealtime(
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'security_shift_overrides' },
+        scheduler.schedule
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'app_settings' },
         scheduler.schedule
       )
@@ -1697,6 +1702,16 @@ export function subscribePatroliRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'titik_patroli' },
+        scheduler.schedule
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'security_shift_overrides' },
+        scheduler.schedule
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transaksi_kas' },
         scheduler.schedule
       )
       .on(
@@ -4304,6 +4319,10 @@ function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
     bukti_url: typeof row.bukti_url === 'string' ? row.bukti_url : null,
     petugas_id: typeof row.petugas_id === 'string' && row.petugas_id.trim() ? row.petugas_id.trim() : null,
     jenis_honor: jenisHonor,
+    shift_override_id:
+      typeof row.shift_override_id === 'string' && row.shift_override_id.trim()
+        ? row.shift_override_id.trim()
+        : null,
     status_verifikasi: statusVerifikasi,
     bendahara_approved_at: bendaharaApprovedAt,
     bendahara_approved_by: bendaharaApprovedBy,
@@ -4857,6 +4876,249 @@ export async function deleteTransaksiKasAdmin(
   return { data: true };
 }
 
+/**
+ * Pencatatan otomatis Pengeluaran Kas untuk Pembayaran Lembur Minggu Petugas Keamanan.
+ * Langsung berstatus Terverifikasi agar Saldo Kas utama, Rekap Bulanan, dan LPJ
+ * langsung terpotong secara real-time, lengkap dengan referensi shift_override_id.
+ */
+export async function createVerifiedOvertimeCashExpenseAdmin(
+  session: SessionUser,
+  payload: {
+    shift_override_id: string;
+    officer_name: string;
+    petugas_id?: string | null;
+    tanggal: string; // YYYY-MM-DD (tanggal pembayaran)
+    nominal: number;
+    keterangan: string;
+  }
+): Promise<ServiceResult<TransaksiKas>> {
+  if (session.role !== 'admin') {
+    return { error: 'Akses ditolak: pembayaran lembur ke Buku Kas hanya untuk Admin.' };
+  }
+  const cleanNominal = Math.round(Number(payload.nominal) || 0);
+  if (!Number.isFinite(cleanNominal) || cleanNominal <= 0 || cleanNominal > 50_000_000) {
+    return { error: 'Nominal lembur harus berupa angka positif yang valid.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  const cleanDate = (payload.tanggal || nowIso.slice(0, 10)).slice(0, 10);
+  const noBukti = generateBuktiKasNumber('pengeluaran', cleanDate);
+  const cleanOfficer = payload.officer_name.trim();
+  const cleanPetugasId = payload.petugas_id?.trim() || null;
+  const cleanShiftOverrideId = payload.shift_override_id.trim();
+
+  // Validasi anti-double-entry pada cache lokal terlebih dahulu
+  const existingLocal = readLocalTransaksiKas().find(
+    (k) => k.shift_override_id && k.shift_override_id === cleanShiftOverrideId
+  );
+  if (existingLocal) {
+    return { error: 'Lembur ini sudah pernah dicatat ke Buku Kas (anti-ganda).' };
+  }
+
+  const localEntry: TransaksiKas = {
+    id: `kas-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    no_bukti: noBukti,
+    jenis: 'pengeluaran',
+    kategori: 'Honor & Lembur Keamanan',
+    termin: 'Insidental',
+    tanggal: cleanDate,
+    nominal: cleanNominal,
+    penerima_atau_sumber: cleanOfficer,
+    keterangan: payload.keterangan.trim(),
+    bukti_url: null,
+    petugas_id: cleanPetugasId,
+    jenis_honor: 'lembur',
+    shift_override_id: cleanShiftOverrideId,
+    status_verifikasi: 'Terverifikasi',
+    bendahara_approved_at: nowIso,
+    bendahara_approved_by: session.nama_warga,
+    ketua_approved_at: nowIso,
+    ketua_approved_by: `${session.nama_warga} (${session.jabatan || 'Admin'})`,
+    ketua_catatan: 'Pembayaran otomatis Lembur Minggu dari Kelola Shift & Lembur.',
+    created_by: session.blok_rumah,
+    created_by_name: `${session.nama_warga} (${session.jabatan || 'Pengurus'})`,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const uuidPetugasId =
+        cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null;
+      const uuidShiftOverrideId =
+        cleanShiftOverrideId && !cleanShiftOverrideId.startsWith('shift-')
+          ? cleanShiftOverrideId
+          : null;
+
+      const baseInsert = {
+        no_bukti: localEntry.no_bukti,
+        jenis: localEntry.jenis,
+        kategori: localEntry.kategori,
+        termin: localEntry.termin,
+        tanggal: localEntry.tanggal,
+        nominal: localEntry.nominal,
+        penerima_atau_sumber: localEntry.penerima_atau_sumber,
+        keterangan: localEntry.keterangan,
+        bukti_url: null,
+        created_by: localEntry.created_by,
+        created_by_name: localEntry.created_by_name,
+        created_at: localEntry.created_at,
+        updated_at: localEntry.updated_at,
+      };
+
+      const fullInsert = {
+        ...baseInsert,
+        petugas_id: uuidPetugasId,
+        jenis_honor: 'lembur',
+        shift_override_id: uuidShiftOverrideId,
+        status_verifikasi: 'Terverifikasi',
+        bendahara_approved_at: nowIso,
+        bendahara_approved_by: session.nama_warga,
+        ketua_approved_at: nowIso,
+        ketua_approved_by: `${session.nama_warga} (${session.jabatan || 'Admin'})`,
+        ketua_catatan: localEntry.ketua_catatan,
+      };
+
+      let { data, error } = await supabase
+        .from('transaksi_kas')
+        .insert(fullInsert)
+        .select()
+        .single();
+
+      // Tangkap error unique constraint anti-ganda secara eksplisit
+      if (error && String((error as { code?: string }).code || '') === '23505') {
+        return { error: 'Transaksi kas untuk jadwal lembur ini sudah tercatat (anti-ganda).' };
+      }
+
+      const firstErrMsg = String((error as { message?: string })?.message || '').toLowerCase();
+      if (
+        error &&
+        (firstErrMsg.includes('shift_override_id') ||
+          firstErrMsg.includes('petugas_id') ||
+          firstErrMsg.includes('jenis_honor') ||
+          firstErrMsg.includes('status_verifikasi') ||
+          firstErrMsg.includes('column'))
+      ) {
+        const retryWithoutOptional = await supabase
+          .from('transaksi_kas')
+          .insert({
+            ...baseInsert,
+            petugas_id: uuidPetugasId,
+            jenis_honor: 'lembur',
+          })
+          .select()
+          .single();
+
+        if (!retryWithoutOptional.error && retryWithoutOptional.data) {
+          data = retryWithoutOptional.data;
+          error = null;
+        } else {
+          const retryBase = await supabase
+            .from('transaksi_kas')
+            .insert(baseInsert)
+            .select()
+            .single();
+          data = retryBase.data;
+          error = retryBase.error;
+        }
+      }
+
+      if (!error && data) {
+        const rawId = String((data as Record<string, unknown>).id || localEntry.id);
+        writeApprovalOverlayEntry(`kas::${rawId}`, {
+          status_verifikasi: 'Terverifikasi',
+          bendahara_approved_at: nowIso,
+          bendahara_approved_by: session.nama_warga,
+          ketua_approved_at: nowIso,
+          ketua_approved_by: `${session.nama_warga} (${session.jabatan || 'Admin'})`,
+          ketua_catatan: localEntry.ketua_catatan || null,
+        });
+        const persisted: TransaksiKas = {
+          ...normalizeTransaksiKasRow(data as Record<string, unknown>),
+          petugas_id: cleanPetugasId || normalizeTransaksiKasRow(data as Record<string, unknown>).petugas_id,
+          jenis_honor: 'lembur',
+          shift_override_id: cleanShiftOverrideId,
+          status_verifikasi: 'Terverifikasi',
+        };
+        const current = readLocalTransaksiKas().filter((k) => k.id !== persisted.id);
+        writeLocalTransaksiKas([persisted, ...current]);
+        await recordAuditLog({
+          session,
+          action: 'PAY_OVERTIME_TO_KAS',
+          entity: 'transaksi_kas',
+          entity_id: persisted.id,
+          summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`,
+        });
+        return { data: persisted };
+      }
+    } catch {
+      // Lanjut fallback lokal bila offline/tabel belum migrasi
+    }
+  }
+
+  writeApprovalOverlayEntry(`kas::${localEntry.id}`, {
+    status_verifikasi: 'Terverifikasi',
+    bendahara_approved_at: nowIso,
+    bendahara_approved_by: session.nama_warga,
+    ketua_approved_at: nowIso,
+    ketua_approved_by: `${session.nama_warga} (${session.jabatan || 'Admin'})`,
+    ketua_catatan: localEntry.ketua_catatan || null,
+  });
+  writeLocalTransaksiKas([localEntry, ...readLocalTransaksiKas()]);
+  await recordAuditLog({
+    session,
+    action: 'PAY_OVERTIME_TO_KAS',
+    entity: 'transaksi_kas',
+    entity_id: localEntry.id,
+    summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`,
+  });
+  return { data: localEntry };
+}
+
+/**
+ * Hapus otomatis transaksi kas pengeluaran yang terhubung ke jadwal lembur yang dibatalkan/dihapus
+ * agar Saldo Kas utama, Rekap Bulanan, dan LPJ kembali akurat.
+ */
+export async function deleteLinkedOvertimeCashExpenseAdmin(
+  session: SessionUser,
+  cashTransactionId: string | null,
+  shiftOverrideId?: string | null
+): Promise<ServiceResult<boolean>> {
+  if (session.role !== 'admin') {
+    return { error: 'Akses ditolak: penghapusan transaksi kas lembur khusus Admin.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      if (cashTransactionId && !cashTransactionId.startsWith('kas-')) {
+        await supabase.from('transaksi_kas').delete().eq('id', cashTransactionId);
+      } else if (shiftOverrideId && !shiftOverrideId.startsWith('shift-')) {
+        await supabase.from('transaksi_kas').delete().eq('shift_override_id', shiftOverrideId);
+      }
+    } catch {
+      // Tetap bersihkan cache lokal
+    }
+  }
+
+  const nextLocal = readLocalTransaksiKas().filter((item) => {
+    if (cashTransactionId && item.id === cashTransactionId) return false;
+    if (shiftOverrideId && item.shift_override_id === shiftOverrideId) return false;
+    return true;
+  });
+  writeLocalTransaksiKas(nextLocal);
+
+  await recordAuditLog({
+    session,
+    action: 'DELETE_LINKED_OVERTIME_KAS',
+    entity: 'transaksi_kas',
+    entity_id: cashTransactionId || shiftOverrideId || undefined,
+    summary: `${session.nama_warga} membatalkan & menghapus otomatis transaksi kas lembur terkait agar saldo kas kembali akurat.`,
+  });
+  return { data: true };
+}
+
 // =========================================================================
 // Keamanan Akun Pengurus: Ganti PIN 6 Digit Sendiri
 // =========================================================================
@@ -5297,13 +5559,24 @@ export async function fetchPetugasOwnData(
           ? (cycleLogsRes.data as Record<string, unknown>[]).map(normalizeLogPatroliRow)
           : readLocalLogPatroli().slice(0, 40);
 
+      const ownNameLower = profil.nama.trim().toLowerCase();
       const riwayatHonor =
         !honorRes.error && Array.isArray(honorRes.data)
           ? (honorRes.data as Record<string, unknown>[])
               .map(normalizeTransaksiKasRow)
-              .filter((h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId)
+              .filter(
+                (h) =>
+                  h.jenis === 'pengeluaran' &&
+                  (h.petugas_id === ownId ||
+                    (h.jenis_honor === 'lembur' &&
+                      h.penerima_atau_sumber.trim().toLowerCase() === ownNameLower))
+              )
           : readLocalTransaksiKas().filter(
-              (h) => h.jenis === 'pengeluaran' && h.petugas_id === ownId
+              (h) =>
+                h.jenis === 'pengeluaran' &&
+                (h.petugas_id === ownId ||
+                  (h.jenis_honor === 'lembur' &&
+                    h.penerima_atau_sumber.trim().toLowerCase() === ownNameLower))
             );
 
       const instruksiKeamanan = allNotifs

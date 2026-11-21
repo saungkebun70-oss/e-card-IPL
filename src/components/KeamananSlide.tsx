@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPin,
   Megaphone,
+  Moon,
   Radio,
   RefreshCw,
   Settings,
@@ -51,10 +52,16 @@ import {
 import { PatrolInteractiveMap } from './PatrolInteractiveMap';
 import { WargaActiveGuardCard } from './warga/WargaActiveGuardCard';
 import { AdminAttendanceMonitorPanel } from './admin/AdminAttendanceMonitorPanel';
+import { AdminShiftOvertimePanel } from './admin/AdminShiftOvertimePanel';
 import {
   fetchSecurityAttendance,
   subscribeSecurityAttendance,
 } from '../lib/securityAttendanceService';
+import {
+  fetchShiftOverrides,
+  isSundayOvertimeShift,
+  subscribeShiftOverrides,
+} from '../lib/securityShiftOvertimeService';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -105,8 +112,9 @@ export function KeamananSlide({
   >('semua');
   const [activeLiveSession, setActiveLiveSession] = useState<PatrolLiveSession | null>(null);
   const [resettingCycle, setResettingCycle] = useState(false);
-  const [adminSubTab, setAdminSubTab] = useState<'patroli' | 'absensi'>('patroli');
+  const [adminSubTab, setAdminSubTab] = useState<'patroli' | 'absensi' | 'shift_lembur'>('patroli');
   const [adminOnDutyCount, setAdminOnDutyCount] = useState<number>(0);
+  const [unpaidOvertimeCount, setUnpaidOvertimeCount] = useState<number>(0);
 
   const loadActiveLiveSession = useCallback(async () => {
     const live = await fetchActiveLiveSession(session || null);
@@ -119,16 +127,34 @@ export function KeamananSlide({
     setAdminOnDutyCount(rows.filter((r) => r.status === 'on_duty').length);
   }, [role, session]);
 
+  const loadUnpaidOvertimeCount = useCallback(async () => {
+    if (role !== 'admin') return;
+    const rows = await fetchShiftOverrides(session || null, { limit: 150 });
+    setUnpaidOvertimeCount(
+      rows.filter(
+        (o) =>
+          isSundayOvertimeShift(o.shift_name) &&
+          o.payment_status !== 'paid' &&
+          !o.cash_transaction_id
+      ).length
+    );
+  }, [role, session]);
+
   useEffect(() => {
     if (role !== 'admin') return;
     void loadAdminOnDutyCount();
+    void loadUnpaidOvertimeCount();
     const unsubAtt = subscribeSecurityAttendance(session || null, () => {
       void loadAdminOnDutyCount();
     });
+    const unsubOv = subscribeShiftOverrides(session || null, () => {
+      void loadUnpaidOvertimeCount();
+    });
     return () => {
       unsubAtt();
+      unsubOv();
     };
-  }, [role, session, loadAdminOnDutyCount]);
+  }, [role, session, loadAdminOnDutyCount, loadUnpaidOvertimeCount]);
 
   useEffect(() => {
     void loadActiveLiveSession();
@@ -526,6 +552,25 @@ export function KeamananSlide({
               </span>
             )}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminSubTab === 'shift_lembur'}
+            onClick={() => setAdminSubTab('shift_lembur')}
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              adminSubTab === 'shift_lembur'
+                ? 'bg-white text-[#0F172A] shadow-sm'
+                : 'text-slate-600 hover:text-[#0F172A]'
+            }`}
+          >
+            <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
+            <span>Kelola Shift &amp; Lembur</span>
+            {unpaidOvertimeCount > 0 && (
+              <span className="text-[11px] font-mono font-bold text-amber-700 tabular-nums">
+                ({unpaidOvertimeCount} blm bayar)
+              </span>
+            )}
+          </button>
         </div>
       )}
 
@@ -537,6 +582,13 @@ export function KeamananSlide({
           patroliFeed={patroliFeed}
           titikPatroliList={titikPatroliList}
           patrolMapConfig={patrolMapConfig}
+          onToast={onToast}
+        />
+      ) : role === 'admin' && session && adminSubTab === 'shift_lembur' ? (
+        <AdminShiftOvertimePanel
+          session={session}
+          petugasList={petugasKontak}
+          onCashChanged={onRefresh}
           onToast={onToast}
         />
       ) : (
