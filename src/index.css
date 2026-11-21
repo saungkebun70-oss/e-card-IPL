@@ -47,12 +47,6 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.skb-leaflet-officer-icon,
-.skb-leaflet-cp-icon {
-  background: transparent;
-  border: none;
-}
-
 @page {
   size: A4 portrait;
   margin: 12mm 14mm;

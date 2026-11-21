@@ -18,6 +18,7 @@ import {
 import {
   APP_PETUGAS_PORTAL_URL,
   type LogPatroli,
+  type PatrolLiveSession,
   type PatrolMapConfig,
   type PetugasKontakDarurat,
   type SessionUser,
@@ -27,6 +28,10 @@ import {
 } from '../types';
 import { formatTanggalWaktu } from '../lib/format';
 import { resetPatrolCycle, submitLogPatroliAdmin } from '../lib/dataService';
+import {
+  fetchActiveLiveSession,
+  subscribeLivePatrolSessions,
+} from '../lib/livePatrolService';
 import {
   describeWebNfcError,
   extractNfcReadingData,
@@ -44,7 +49,6 @@ import {
   type CheckpointStatusItem,
 } from './SecurityPatrolMapSvg';
 import { PatrolInteractiveMap } from './PatrolInteractiveMap';
-import { PatrolLiveLeafletMap } from './PatrolLiveLeafletMap';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -93,8 +97,23 @@ export function KeamananSlide({
   const [checkpointFilter, setCheckpointFilter] = useState<
     'semua' | CheckpointKondisiState | 'belum_hari_ini'
   >('semua');
-  const [mapViewMode, setMapViewMode] = useState<'live_gps' | 'denah'>('live_gps');
+  const [activeLiveSession, setActiveLiveSession] = useState<PatrolLiveSession | null>(null);
   const [resettingCycle, setResettingCycle] = useState(false);
+
+  const loadActiveLiveSession = useCallback(async () => {
+    const live = await fetchActiveLiveSession(session || null);
+    setActiveLiveSession(live);
+  }, [session]);
+
+  useEffect(() => {
+    void loadActiveLiveSession();
+    const unsub = subscribeLivePatrolSessions(session || null, () => {
+      void loadActiveLiveSession();
+    });
+    return () => {
+      unsub();
+    };
+  }, [session, loadActiveLiveSession]);
 
   // State Panel Scan Checkpoint Patroli NFC (Admin)
   const nfcSupported = isWebNfcSupported();
@@ -753,53 +772,17 @@ export function KeamananSlide({
         </section>
       )}
 
-      {/* Peta Patroli: Live Tracking GPS Satelit (Gojek-style) + Toggle Denah Vektor */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 border border-slate-200 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setMapViewMode('live_gps')}
-              className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
-                mapViewMode === 'live_gps'
-                  ? 'bg-white text-[#0F172A] shadow-xs'
-                  : 'text-slate-600 hover:text-[#0F172A]'
-              }`}
-            >
-              Live Tracking GPS &amp; Satelit
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapViewMode('denah')}
-              className={`min-h-[34px] px-3 rounded-lg transition cursor-pointer ${
-                mapViewMode === 'denah'
-                  ? 'bg-white text-[#0F172A] shadow-xs'
-                  : 'text-slate-600 hover:text-[#0F172A]'
-              }`}
-            >
-              Denah Vektor Perumahan
-            </button>
-          </div>
-        </div>
-
-        {mapViewMode === 'live_gps' ? (
-          <PatrolLiveLeafletMap
-            session={session || null}
-            canCalibrate={role === 'admin'}
-            onToast={onToast}
-          />
-        ) : (
-          <PatrolInteractiveMap
-            mode={role === 'admin' ? 'admin' : 'warga'}
-            titikList={titikPatroliList}
-            patroliLogs={patroliFeed}
-            patrolMapConfig={patrolMapConfig}
-            canResetCycle={role === 'admin' && Boolean(session)}
-            onResetCycle={role === 'admin' && session ? handleResetPatrolCycle : undefined}
-            resettingCycle={resettingCycle}
-          />
-        )}
-      </div>
+      {/* Peta 3D Patroli Real-Time + Overlay Live Tracking Petugas (Tanpa Library Peta Eksternal) */}
+      <PatrolInteractiveMap
+        mode={role === 'admin' ? 'admin' : 'warga'}
+        titikList={titikPatroliList}
+        patroliLogs={patroliFeed}
+        patrolMapConfig={patrolMapConfig}
+        liveSession={activeLiveSession}
+        canResetCycle={role === 'admin' && Boolean(session)}
+        onResetCycle={role === 'admin' && session ? handleResetPatrolCycle : undefined}
+        resettingCycle={resettingCycle}
+      />
 
       {/* Visualisasi Status Kondisi & Progres Harian Titik Checkpoint Patroli */}
       {role === 'admin' && (

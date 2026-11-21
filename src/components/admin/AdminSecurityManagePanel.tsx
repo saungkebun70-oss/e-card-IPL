@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  CheckCircle2,
   Copy,
   Edit3,
   ImagePlus,
   Loader2,
+  LocateFixed,
   MapPin,
   MessageCircle,
   Plus,
@@ -21,7 +23,9 @@ import {
 import {
   APP_PETUGAS_PORTAL_URL,
   isBendaharaFullAccess,
+  isKetuaRole,
   SHIFT_PETUGAS_OPTIONS,
+  type PatrolGpsCalibration,
   type PatrolMapConfig,
   type PetugasKeamanan,
   type SessionUser,
@@ -45,6 +49,13 @@ import {
   saveTitikPinPositionAdmin,
   uploadPatrolMapImageAdmin,
 } from '../../lib/dataService';
+import {
+  fetchGpsCalibrations,
+  playScanSuccessFeedback,
+  saveGpsCalibration,
+  subscribeLivePatrolSessions,
+} from '../../lib/livePatrolService';
+import { describeGeolocationError } from '../../lib/patrolGpsUtils';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 
 interface AdminSecurityManagePanelProps {
@@ -65,6 +76,7 @@ export function AdminSecurityManagePanel({
   onToast,
 }: AdminSecurityManagePanelProps) {
   const canEdit = isBendaharaFullAccess(session);
+  const canCalibrateGps = isBendaharaFullAccess(session) || isKetuaRole(session);
 
   // State Peta Mapping Rute Patroli & Editor Pin
   const activeTitikList = useMemo(
@@ -85,6 +97,88 @@ export function AdminSecurityManagePanel({
   const [uploadingMap, setUploadingMap] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const mapFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // State Kalibrasi GPS Asli per Pos (patrol_gps_calibration)
+  const [gpsCalibrations, setGpsCalibrations] = useState<Record<string, PatrolGpsCalibration>>({});
+  const [lockingGpsPosId, setLockingGpsPosId] = useState<string | null>(null);
+
+  const calibratedPosIds = useMemo(
+    () => new Set(Object.keys(gpsCalibrations)),
+    [gpsCalibrations]
+  );
+
+  const loadGpsCalibrations = useCallback(async () => {
+    const data = await fetchGpsCalibrations(session);
+    setGpsCalibrations(data);
+  }, [session]);
+
+  useEffect(() => {
+    void loadGpsCalibrations();
+    const unsub = subscribeLivePatrolSessions(session, () => {
+      void loadGpsCalibrations();
+    });
+    return () => {
+      unsub();
+    };
+  }, [session, loadGpsCalibrations]);
+
+  const handleLockGpsForPos = useCallback(
+    (titik: TitikPatroli) => {
+      if (!canCalibrateGps) {
+        onToast('error', 'Hanya Bendahara atau Ketua yang dapat mengunci kalibrasi GPS pos.');
+        return;
+      }
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+        onToast('error', describeGeolocationError(null));
+        return;
+      }
+
+      setLockingGpsPosId(titik.id);
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const { latitude, longitude, accuracy } = pos.coords;
+            const res = await saveGpsCalibration(session, {
+              pos_id: titik.id,
+              lat: latitude,
+              lng: longitude,
+            });
+            if (res.ok && res.data) {
+              setGpsCalibrations((prev) => ({
+                ...prev,
+                [titik.id]: res.data!,
+              }));
+              playScanSuccessFeedback();
+              const accText = Number.isFinite(accuracy) ? ` (±${Math.round(accuracy)}m)` : '';
+              onToast(
+                'success',
+                `GPS Asli "${titik.nama_lokasi}" terkunci${accText}: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+              );
+            } else {
+              onToast('error', res.message || 'Gagal menyimpan kalibrasi GPS.');
+            }
+          } catch (err) {
+            onToast(
+              'error',
+              err instanceof Error ? err.message : 'Gagal menyimpan kalibrasi GPS pos.'
+            );
+          } finally {
+            setLockingGpsPosId(null);
+          }
+        },
+        (err) => {
+          setLockingGpsPosId(null);
+          onToast('error', describeGeolocationError(err));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
+    },
+    [canCalibrateGps, onToast, session]
+  );
 
   useEffect(() => {
     if (patrolMapConfig) {
@@ -1000,13 +1094,24 @@ export function AdminSecurityManagePanel({
         </div>
 
         <div className="p-4 sm:p-5 space-y-4">
-          {/* Pemilih Titik Checkpoint untuk Penempatan Pin */}
+          {/* Pemilih Titik Checkpoint untuk Penempatan Pin & Kalibrasi GPS Asli */}
           {activeTitikList.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                1. Pilih Checkpoint yang Akan Ditempatkan di Peta:
-              </p>
-              <div className="flex flex-wrap gap-2">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  1. Pilih Checkpoint (Atur Pin X%, Y%) &amp; Kunci GPS Asli di Lapangan:
+                </p>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 tabular-nums">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                  <span>
+                    GPS Terkalibrasi:{' '}
+                    {activeTitikList.filter((t) => Boolean(gpsCalibrations[t.id])).length} /{' '}
+                    {activeTitikList.length} Pos
+                  </span>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                 {activeTitikList.map((titik, idx) => {
                   const savedPos = localMapConfig.pin_positions?.[titik.id];
                   const posX =
@@ -1018,41 +1123,93 @@ export function AdminSecurityManagePanel({
                       ? savedPos.y_percent
                       : titik.y_percent;
                   const isSelected = selectedPinTitikId === titik.id;
+                  const cal = gpsCalibrations[titik.id];
+                  const isLockingThis = lockingGpsPosId === titik.id;
 
                   return (
-                    <button
+                    <div
                       key={titik.id}
-                      type="button"
-                      onClick={() => setSelectedPinTitikId(titik.id)}
-                      className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer ${
+                      className={`rounded-xl border p-2 transition flex flex-wrap items-center justify-between gap-2 ${
                         isSelected
-                          ? 'bg-[#059669] border-[#059669] text-white shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          ? 'bg-emerald-50/70 border-[#059669] shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <span
-                        className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                          isSelected
-                            ? 'bg-white text-[#059669]'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPinTitikId(titik.id)}
+                        className="flex-1 min-w-[160px] text-left flex items-center gap-2 cursor-pointer"
                       >
-                        {idx + 1}
-                      </span>
-                      <span>{titik.nama_lokasi}</span>
-                      {typeof posX === 'number' && typeof posY === 'number' && (
                         <span
-                          className={`text-[10px] font-mono tabular-nums ${
-                            isSelected ? 'text-emerald-100' : 'text-slate-400'
+                          className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? 'bg-[#059669] text-white'
+                              : 'bg-slate-100 text-slate-700'
                           }`}
                         >
-                          ({Math.round(posX)}%,{Math.round(posY)}%)
+                          {idx + 1}
                         </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-slate-900 truncate">
+                              {titik.nama_lokasi}
+                            </span>
+                            {typeof posX === 'number' && typeof posY === 'number' && (
+                              <span className="text-[10px] font-mono tabular-nums text-slate-400">
+                                ({Math.round(posX)}%,{Math.round(posY)}%)
+                              </span>
+                            )}
+                          </div>
+                          {cal ? (
+                            <span
+                              title={`Koordinat GPS tersimpan: ${cal.lat.toFixed(6)}, ${cal.lng.toFixed(6)}`}
+                              className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>GPS Terkalibrasi</span>
+                              <span className="font-mono text-slate-400 hidden sm:inline tabular-nums">
+                                · {cal.lat.toFixed(5)}, {cal.lng.toFixed(5)}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="mt-0.5 block text-[10px] text-slate-400">
+                              Belum kunci GPS asli
+                            </span>
+                          )}
+                        </div>
+                      </button>
+
+                      {canCalibrateGps && (
+                        <button
+                          type="button"
+                          disabled={lockingGpsPosId !== null}
+                          onClick={() => handleLockGpsForPos(titik)}
+                          className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition shrink-0 cursor-pointer disabled:opacity-60 ${
+                            cal
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                              : 'bg-sky-50 border-sky-200 text-sky-800 hover:bg-sky-100'
+                          }`}
+                          title="Berdiri di lokasi Pos ini lalu klik untuk mengambil koordinat GPS asli HP Anda"
+                        >
+                          {isLockingThis ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <LocateFixed className="w-3.5 h-3.5" />
+                          )}
+                          <span>{isLockingThis ? 'Mengunci...' : 'Kunci GPS Asli'}</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
+
+              <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2">
+                <strong>Tips Kalibrasi GPS 3D:</strong> Berdirilah di lokasi Pos 1 s/d Pos 5 sambil
+                membuka halaman ini, lalu klik <strong>Kunci GPS Asli</strong>. Kunci minimal{' '}
+                <strong>2 pos</strong> (ideal <strong>≥ 3 pos</strong>) agar pergerakan Live
+                Tracking Petugas meluncur presisi di atas gambar Peta 3D.
+              </p>
             </div>
           ) : (
             <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">
@@ -1067,6 +1224,7 @@ export function AdminSecurityManagePanel({
             titikList={titikPatroliList}
             patroliLogs={[]}
             patrolMapConfig={localMapConfig}
+            calibratedPosIds={calibratedPosIds}
             selectedEditorTitikId={canEdit ? selectedPinTitikId : null}
             onSelectEditorTitik={canEdit ? setSelectedPinTitikId : undefined}
             onPlacePin={canEdit ? handlePlacePin : undefined}

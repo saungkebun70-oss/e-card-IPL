@@ -8,17 +8,28 @@ import {
   MapPin,
   Move,
   RotateCcw,
+  Shield,
   ShieldCheck,
   UserCheck,
   X,
 } from 'lucide-react';
-import type { LogPatroli, PatrolMapConfig, TitikPatroli } from '../types';
+import type {
+  LogPatroli,
+  PatrolLiveSession,
+  PatrolMapConfig,
+  TitikPatroli,
+} from '../types';
+import { clampMapPercent, formatElapsedIndonesian } from '../lib/patrolGpsUtils';
 
 export interface PatrolMapViewerProps {
   titikList: TitikPatroli[];
   patroliLogs: LogPatroli[];
   patrolMapConfig?: PatrolMapConfig | null;
   mode: 'admin' | 'petugas' | 'warga' | 'editor';
+  /** Sesi live tracking patroli aktif (jika ada) untuk ditampilkan langsung di atas peta 3D */
+  liveSession?: PatrolLiveSession | null;
+  /** Daftar ID Pos yang sudah memiliki kalibrasi GPS asli (untuk indikator di mode editor) */
+  calibratedPosIds?: Set<string>;
   canResetCycle?: boolean;
   onResetCycle?: () => Promise<void> | void;
   resettingCycle?: boolean;
@@ -87,6 +98,8 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
   patroliLogs,
   patrolMapConfig,
   mode,
+  liveSession = null,
+  calibratedPosIds,
   canResetCycle = false,
   onResetCycle,
   resettingCycle = false,
@@ -100,6 +113,19 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
   const [confirmReset, setConfirmReset] = useState(false);
   const [newlyScannedIds, setNewlyScannedIds] = useState<Record<string, boolean>>({});
   const prevScannedRef = useRef<Set<string>>(new Set());
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  const isLiveActive = mode !== 'editor' && liveSession?.status === 'active';
+
+  // Perbarui teks "Update X detik lalu" setiap 1 detik hanya saat patroli live aktif
+  useEffect(() => {
+    if (!isLiveActive) return;
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isLiveActive]);
 
   // Ref langsung pada kontainer pembungkus gambar peta (tanpa padding dalam)
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -266,6 +292,16 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     ? { x: draggingPin.x, y: draggingPin.y }
     : hoverGuide;
 
+  const officerX = isLiveActive && liveSession ? clampMapPercent(liveSession.current_x, 3, 97) : null;
+  const officerY = isLiveActive && liveSession ? clampMapPercent(liveSession.current_y, 3, 97) : null;
+  const trailPolylinePoints = useMemo(() => {
+    if (!isLiveActive || !liveSession || !Array.isArray(liveSession.trail_points)) return '';
+    if (liveSession.trail_points.length < 2) return '';
+    return liveSession.trail_points
+      .map((pt) => `${clampMapPercent(pt.x, 2, 98)},${clampMapPercent(pt.y, 2, 98)}`)
+      .join(' ');
+  }, [isLiveActive, liveSession]);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       {/* Header Progres Patroli & Mode */}
@@ -279,6 +315,24 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   ? 'Editor Koordinat Pin Peta Patroli'
                   : 'Peta Mapping Rute Patroli Real-Time'}
               </h3>
+              {mode !== 'editor' &&
+                (isLiveActive && liveSession ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 tabular-nums">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span>
+                      LIVE: {liveSession.officer_name} Sedang Patroli • Update{' '}
+                      {formatElapsedIndonesian(liveSession.last_ping_at, nowMs)}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                    <span>Standby</span>
+                  </span>
+                ))}
               {mode === 'warga' && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-md px-2 py-0.5">
                   <Eye className="w-3 h-3 text-slate-400" />
@@ -533,6 +587,45 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             </div>
           )}
 
+          {/* OVERLAY JEJAK RUTE SVG REAL-TIME (Garis Cyan/Biru Cerah Putus-Putus Bercahaya) */}
+          {isLiveActive && trailPolylinePoints && (
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 w-full h-full z-15"
+            >
+              <defs>
+                <filter id="patrol-live-trail-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="0.55" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <polyline
+                points={trailPolylinePoints}
+                fill="none"
+                stroke="#06B6D4"
+                strokeWidth="1.35"
+                strokeOpacity="0.45"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                filter="url(#patrol-live-trail-glow)"
+              />
+              <polyline
+                points={trailPolylinePoints}
+                fill="none"
+                stroke="#0EA5E9"
+                strokeWidth="0.7"
+                strokeDasharray="1.8 1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+
           {/* PIN CHECKPOINT PRESISI (ujung bawah menancap tepat di x_percent%, y_percent%) */}
           {pinItems.map((item) => {
             const isSelected =
@@ -650,13 +743,22 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                     </span>
                   )}
 
-                  {/* Indikator Drag di Editor Mode */}
+                  {/* Indikator Drag / GPS Terkalibrasi di Editor Mode */}
                   {mode === 'editor' && isSelected && (
                     <span
                       aria-hidden="true"
                       className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-white text-[#059669] ring-1 ring-emerald-500 shadow-xs flex items-center justify-center"
                     >
                       <Move className="w-2 h-2" />
+                    </span>
+                  )}
+                  {mode === 'editor' && !isSelected && calibratedPosIds?.has(item.titik.id) && (
+                    <span
+                      aria-hidden="true"
+                      title="GPS Terkalibrasi"
+                      className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-white ring-1 ring-white shadow-xs flex items-center justify-center"
+                    >
+                      <Check className="w-2 h-2 stroke-[3.5]" />
                     </span>
                   )}
                 </button>
@@ -720,6 +822,41 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               </div>
             );
           })}
+
+          {/* MARKER PETUGAS BERGERAK MULUS (ALA GOJEK/SHOPEEFOOD) */}
+          {isLiveActive && liveSession && officerX !== null && officerY !== null && (
+            <div
+              style={{
+                left: `${officerX}%`,
+                top: `${officerY}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="pointer-events-none absolute z-25 transition-all duration-1000 ease-linear"
+            >
+              {/* Label Nama Petugas Ringkas di Atas Ikon */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md ring-1 ring-cyan-400/60 backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span>{liveSession.officer_name}</span>
+                </span>
+              </div>
+
+              {/* Efek Radar Berdenyut */}
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 -m-2.5 rounded-full bg-cyan-400/50 animate-ping"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 -m-1 rounded-full bg-sky-500/30"
+              />
+
+              {/* Ikon Perisai Petugas Keamanan */}
+              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 text-white ring-2 ring-white shadow-lg flex items-center justify-center">
+                <Shield className="w-4 h-4 sm:w-[18px] sm:h-[18px] stroke-[2.4]" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Legenda Status Kompak */}
@@ -737,6 +874,12 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
               Ada Catatan (!)
             </span>
+            {mode !== 'editor' && (
+              <span className="inline-flex items-center gap-1.5 font-medium text-sky-700">
+                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 ring-1 ring-cyan-300 inline-block" />
+                Petugas Live &amp; Jejak Rute
+              </span>
+            )}
           </div>
           {mode !== 'editor' && (
             <span className="text-slate-400">Ketuk pin untuk melihat detail scan</span>
