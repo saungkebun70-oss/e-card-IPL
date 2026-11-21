@@ -118,14 +118,41 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
   const [officerMoving, setOfficerMoving] = useState(false);
   const prevOfficerPosRef = useRef<{ x: number; y: number } | null>(null);
   const moveStopTimerRef = useRef<number | null>(null);
+  const returnTimersRef = useRef<number[]>([]);
   const [confirmReset, setConfirmReset] = useState(false);
   const [newlyScannedIds, setNewlyScannedIds] = useState<Record<string, boolean>>({});
   const prevScannedRef = useRef<Set<string>>(new Set());
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
+  // State perjalanan pulang otomatis (Pos 5 -> Pos 4 -> Pos 3 -> Pos 2 -> Pos 1)
+  const [returnJourney, setReturnJourney] = useState<{
+    phase: 'none' | 'paused_at_pos5' | 'returning' | 'arrived_standby';
+    x: number;
+    y: number;
+    facing: 'right' | 'left';
+    transitionMs: number;
+    headingDeg: number | null;
+    trailPoints: Array<{ x: number; y: number }>;
+  }>({
+    phase: 'none',
+    x: DEFAULT_FALLBACK_COORDS[0].x,
+    y: DEFAULT_FALLBACK_COORDS[0].y,
+    facing: 'right',
+    transitionMs: 0,
+    headingDeg: null,
+    trailPoints: [],
+  });
+
+  const clearReturnTimers = () => {
+    for (const tid of returnTimersRef.current) {
+      window.clearTimeout(tid);
+    }
+    returnTimersRef.current = [];
+  };
+
   const isLiveActive = mode !== 'editor' && liveSession?.status === 'active';
 
-  // Perbarui teks "Update X detik lalu" setiap 1 detik hanya saat patroli live aktif
+  // Perbarui teks "Update X detik lalu" setiap 1 detik saat patroli live aktif
   useEffect(() => {
     if (!isLiveActive) return;
     setNowMs(Date.now());
@@ -292,6 +319,16 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
 
   const handleConfirmReset = async () => {
     if (!onResetCycle) return;
+    // Batalkan segera animasi/timer perjalanan pulang saat siklus direset
+    clearReturnTimers();
+    setReturnJourney((prev) => ({
+      ...prev,
+      phase: 'none',
+      facing: 'right',
+      transitionMs: 0,
+      headingDeg: null,
+      trailPoints: [],
+    }));
     await onResetCycle();
     setConfirmReset(false);
   };
@@ -301,7 +338,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     ? { x: draggingPin.x, y: draggingPin.y }
     : hoverGuide;
 
-  // Tentukan posisi & metadata marker petugas (Prioritas: Live Session aktif -> officerCoords -> Pos scan terakhir pada siklus aktif)
+  // Tentukan posisi & metadata marker petugas + logika perjalanan pulang otomatis dari Pos 5 ke Pos 1
   const latestScannedPin = useMemo(() => {
     if (mode === 'editor') return null;
     const scannedPins = pinItems.filter((p) => p.scanned && p.latestLog);
@@ -313,9 +350,210 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     });
   }, [mode, pinItems]);
 
+  // Daftar waypoints jalur pulang mengikuti rute jalan biru: Pos 5 -> Pos 4 -> Pos 3 -> Pos 2 -> Pos 1
+  const returnWaypoints = useMemo(() => {
+    return [...pinItems].reverse().map((p) => ({
+      id: p.titik.id,
+      index: p.index,
+      x: clampMapPercent(p.x, 3, 97),
+      y: clampMapPercent(p.y, 3, 97),
+      label: p.titik.nama_lokasi,
+    }));
+  }, [pinItems]);
+
+  // Pemicu otomatis: Pos 5 (titik terakhir) terverifikasi ATAU seluruh 5/5 titik selesai di-scan dalam siklus aktif
+  const completionTrigger = useMemo(() => {
+    if (mode === 'editor' || pinItems.length < 2) return null;
+    const lastPin = pinItems[pinItems.length - 1];
+    const allCompleted = totalCount > 0 && scannedCount === totalCount;
+    const lastPinScanned = Boolean(lastPin?.scanned && lastPin.latestLog);
+
+    if (!allCompleted && !lastPinScanned) return null;
+
+    // Utamakan timestamp scan Pos 5 (atau scan terakhir jika 5/5 selesai di urutan lain)
+    const anchorLog =
+      (lastPinScanned ? lastPin.latestLog : null) || latestScannedPin?.latestLog || null;
+    if (!anchorLog) return null;
+
+    const scanMs = new Date(anchorLog.waktu_scan).getTime();
+    if (Number.isNaN(scanMs)) return null;
+
+    return {
+      key: `${cycleStartMs}::${anchorLog.id}::${anchorLog.waktu_scan}::${scannedCount}/${totalCount}`,
+      scanMs,
+      scanIso: anchorLog.waktu_scan,
+      officerName: liveSession?.officer_name || anchorLog.nama_petugas || 'Petugas Keamanan',
+      pos5Label: lastPin.titik.nama_lokasi,
+      pos1Label: pinItems[0].titik.nama_lokasi,
+    };
+  }, [mode, pinItems, totalCount, scannedCount, latestScannedPin, cycleStartMs, liveSession?.officer_name]);
+
+  // Orkestrasi perjalanan pulang otomatis sinkron real-time (Petugas, Admin, & Warga) berbasis timestamp scan Pos 5
+  const returnWaypointsRef = useRef(returnWaypoints);
+  returnWaypointsRef.current = returnWaypoints;
+
+  useEffect(() => {
+    clearReturnTimers();
+
+    if (!completionTrigger || returnWaypointsRef.current.length < 2) {
+      setReturnJourney((prev) =>
+        prev.phase === 'none'
+          ? prev
+          : {
+              ...prev,
+              phase: 'none',
+              facing: 'right',
+              transitionMs: 0,
+              headingDeg: null,
+              trailPoints: [],
+            }
+      );
+      return;
+    }
+
+    const waypoints = returnWaypointsRef.current; // [Pos 5, Pos 4, Pos 3, Pos 2, Pos 1]
+    const pos5 = waypoints[0];
+    const pos1 = waypoints[waypoints.length - 1];
+    const segmentCount = waypoints.length - 1;
+    const PAUSE_AT_POS5_MS = 1300; // 1,3 detik jeda singkat agar Pos 5 terlihat berubah hijau
+    const SEGMENT_MS = 1800; // 1,8 detik per segmen (~7,2 detik total untuk 4 segmen)
+    const MAX_REALTIME_WINDOW_MS = Math.max(10000, PAUSE_AT_POS5_MS + segmentCount * SEGMENT_MS);
+
+    const rawElapsed = Date.now() - completionTrigger.scanMs;
+    const safeElapsed = Math.max(0, rawElapsed);
+
+    // Jika Admin/Warga membuka halaman SETELAH durasi perjalanan pulang lewat (> 10 detik sejak Pos 5 di-scan),
+    // langsung tampilkan petugas dalam kondisi idle/standby di Pos 1 tanpa mengulang animasi pulang.
+    if (safeElapsed >= MAX_REALTIME_WINDOW_MS) {
+      setReturnJourney({
+        phase: 'arrived_standby',
+        x: pos1.x,
+        y: pos1.y,
+        facing: 'right',
+        transitionMs: 0,
+        headingDeg: null,
+        trailPoints: [],
+      });
+      return;
+    }
+
+    const scheduleSegmentsFrom = (startWaypointIdx: number, initialDelayMs: number) => {
+      let currentIdx = Math.max(0, Math.min(startWaypointIdx, segmentCount - 1));
+      let runningDelay = initialDelayMs;
+
+      for (let nextIdx = currentIdx + 1; nextIdx < waypoints.length; nextIdx++) {
+        const fromPt = waypoints[nextIdx - 1];
+        const toPt = waypoints[nextIdx];
+        const dx = toPt.x - fromPt.x;
+        const dy = toPt.y - fromPt.y;
+        const segHeading =
+          Math.hypot(dx, dy) >= 0.35 ? (Math.atan2(dy, dx) * 180) / Math.PI + 90 : null;
+        const segTrail = waypoints.slice(0, nextIdx + 1).map((w) => ({ x: w.x, y: w.y }));
+
+        const stepTimer = window.setTimeout(() => {
+          setReturnJourney((prev) => {
+            const nextFacing: 'right' | 'left' =
+              dx < -0.5 ? 'left' : dx > 0.5 ? 'right' : prev.facing;
+            return {
+              phase: 'returning',
+              x: toPt.x,
+              y: toPt.y,
+              facing: nextFacing,
+              transitionMs: SEGMENT_MS,
+              headingDeg: segHeading,
+              trailPoints: segTrail,
+            };
+          });
+        }, runningDelay);
+
+        returnTimersRef.current.push(stepTimer);
+        runningDelay += SEGMENT_MS;
+      }
+
+      // Saat tiba di Pos 1 (Gerbang): hentikan animasi berjalan & kembali ke hadap standar
+      const finishTimer = window.setTimeout(() => {
+        setReturnJourney({
+          phase: 'arrived_standby',
+          x: pos1.x,
+          y: pos1.y,
+          facing: 'right',
+          transitionMs: 300,
+          headingDeg: null,
+          trailPoints: [],
+        });
+      }, runningDelay);
+      returnTimersRef.current.push(finishTimer);
+    };
+
+    if (safeElapsed < PAUSE_AT_POS5_MS) {
+      // Masih dalam fase jeda 1,3 detik di Pos 5
+      setReturnJourney({
+        phase: 'paused_at_pos5',
+        x: pos5.x,
+        y: pos5.y,
+        facing: 'right',
+        transitionMs: 600,
+        headingDeg: null,
+        trailPoints: [{ x: pos5.x, y: pos5.y }],
+      });
+      scheduleSegmentsFrom(0, Math.max(120, PAUSE_AT_POS5_MS - safeElapsed));
+    } else {
+      // Admin/Warga bergabung di tengah perjalanan pulang: mulai tepat dari segmen aktif saat ini
+      const travelElapsed = safeElapsed - PAUSE_AT_POS5_MS;
+      const startSegIdx = Math.min(segmentCount - 1, Math.floor(travelElapsed / SEGMENT_MS));
+      const startPt = waypoints[startSegIdx];
+      const nextPt = waypoints[startSegIdx + 1];
+      const initFacing: 'right' | 'left' = nextPt.x - startPt.x < -0.5 ? 'left' : 'right';
+
+      setReturnJourney({
+        phase: 'returning',
+        x: startPt.x,
+        y: startPt.y,
+        facing: initFacing,
+        transitionMs: 0,
+        headingDeg: null,
+        trailPoints: waypoints.slice(0, startSegIdx + 1).map((w) => ({ x: w.x, y: w.y })),
+      });
+      scheduleSegmentsFrom(startSegIdx, 60);
+    }
+
+    return () => {
+      clearReturnTimers();
+    };
+  }, [completionTrigger?.key]);
+
+  const pos1Pin = pinItems[0] || null;
+  const latestAnyLog = patroliLogs[0] || null;
+
   const officerMarker = useMemo(() => {
     if (mode === 'editor') return null;
 
+    // Prioritas 1: Fase perjalanan pulang otomatis / selesai di Pos 1 setelah Pos 5 terverifikasi
+    if (completionTrigger && returnJourney.phase !== 'none') {
+      const isReturning = returnJourney.phase === 'returning';
+      const isPausedAt5 = returnJourney.phase === 'paused_at_pos5';
+      return {
+        x: returnJourney.x,
+        y: returnJourney.y,
+        name: completionTrigger.officerName,
+        isLive: isReturning || isPausedAt5,
+        isReturning,
+        isArrivedStandby: returnJourney.phase === 'arrived_standby',
+        lastUpdateIso: completionTrigger.scanIso,
+        accuracy: liveSession?.accuracy ?? null,
+        lokasiLabel:
+          returnJourney.phase === 'arrived_standby'
+            ? completionTrigger.pos1Label
+            : isPausedAt5
+              ? completionTrigger.pos5Label
+              : 'Menuju Pos Security (Gerbang)',
+        headingDeg: returnJourney.headingDeg,
+        transitionMs: returnJourney.transitionMs,
+        forcedFacing: returnJourney.facing,
+      };
+    }
+
+    // Prioritas 2: Sesi Live Tracking GPS aktif (menuju Pos 1-5)
     if (isLiveActive && liveSession) {
       const x = clampMapPercent(liveSession.current_x, 3, 97);
       const y = clampMapPercent(liveSession.current_y, 3, 97);
@@ -335,55 +573,112 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
         y,
         name: liveSession.officer_name,
         isLive: true,
+        isReturning: false,
+        isArrivedStandby: false,
         lastUpdateIso: liveSession.last_ping_at,
         accuracy: liveSession.accuracy ?? null,
         lokasiLabel: null as string | null,
         headingDeg,
+        transitionMs: 1000,
+        forcedFacing: null as 'right' | 'left' | null,
       };
     }
 
+    // Prioritas 3: Koordinat manual opsional
     if (officerCoords && Number.isFinite(officerCoords.x) && Number.isFinite(officerCoords.y)) {
       return {
         x: clampMapPercent(officerCoords.x, 3, 97),
         y: clampMapPercent(officerCoords.y, 3, 97),
         name: officerCoords.name || 'Petugas Keamanan',
         isLive: true,
+        isReturning: false,
+        isArrivedStandby: false,
         lastUpdateIso: new Date().toISOString(),
         accuracy: null as number | null,
         lokasiLabel: null as string | null,
         headingDeg: null as number | null,
+        transitionMs: 1000,
+        forcedFacing: null as 'right' | 'left' | null,
       };
     }
 
+    // Prioritas 4: Posisi Pos scan terakhir pada siklus aktif (Pos 1-4)
     if (latestScannedPin && latestScannedPin.latestLog) {
       return {
         x: clampMapPercent(latestScannedPin.x, 3, 97),
         y: clampMapPercent(latestScannedPin.y, 3, 97),
         name: latestScannedPin.latestLog.nama_petugas,
         isLive: false,
+        isReturning: false,
+        isArrivedStandby: false,
         lastUpdateIso: latestScannedPin.latestLog.waktu_scan,
         accuracy: null as number | null,
         lokasiLabel: latestScannedPin.titik.nama_lokasi,
         headingDeg: null as number | null,
+        transitionMs: 1000,
+        forcedFacing: null as 'right' | 'left' | null,
+      };
+    }
+
+    // Prioritas 5 (Setelah Reset Siklus Patroli / 0 dari 5): Standby siap tugas di Pos 1 (Gerbang)
+    if (pos1Pin) {
+      return {
+        x: clampMapPercent(pos1Pin.x, 3, 97),
+        y: clampMapPercent(pos1Pin.y, 3, 97),
+        name: latestAnyLog?.nama_petugas || 'Petugas Keamanan',
+        isLive: false,
+        isReturning: false,
+        isArrivedStandby: false,
+        lastUpdateIso: patrolMapConfig?.cycle_reset_at || latestAnyLog?.waktu_scan || '',
+        accuracy: null as number | null,
+        lokasiLabel: pos1Pin.titik.nama_lokasi,
+        headingDeg: null as number | null,
+        transitionMs: 400,
+        forcedFacing: 'right' as 'right' | 'left',
       };
     }
 
     return null;
-  }, [mode, isLiveActive, liveSession, officerCoords, latestScannedPin]);
+  }, [
+    mode,
+    completionTrigger,
+    returnJourney,
+    isLiveActive,
+    liveSession,
+    officerCoords,
+    latestScannedPin,
+    pos1Pin,
+    latestAnyLog,
+    patrolMapConfig?.cycle_reset_at,
+  ]);
 
   const trailPolylinePoints = useMemo(() => {
+    // Tampilkan jalur pulang SVG saat sedang berjalan kembali dari Pos 5 ke Pos 1
+    if (returnJourney.phase === 'returning' && returnJourney.trailPoints.length >= 2) {
+      return returnJourney.trailPoints
+        .map((pt) => `${clampMapPercent(pt.x, 2, 98)},${clampMapPercent(pt.y, 2, 98)}`)
+        .join(' ');
+    }
     if (!isLiveActive || !liveSession || !Array.isArray(liveSession.trail_points)) return '';
     if (liveSession.trail_points.length < 2) return '';
     return liveSession.trail_points
       .map((pt) => `${clampMapPercent(pt.x, 2, 98)},${clampMapPercent(pt.y, 2, 98)}`)
       .join(' ');
-  }, [isLiveActive, liveSession]);
+  }, [returnJourney.phase, returnJourney.trailPoints, isLiveActive, liveSession]);
 
   // Deteksi arah hadap horizontal (kiri/kanan) & status bergerak untuk animasi berjalan Satpam
   useEffect(() => {
     if (!officerMarker) {
       prevOfficerPosRef.current = null;
       setOfficerMoving(false);
+      return;
+    }
+
+    // Jika sedang dalam fase perjalanan pulang otomatis / selesai di Pos 1, gunakan state perjalanan pulang secara langsung
+    if (returnJourney.phase !== 'none') {
+      setOfficerFacing(returnJourney.facing);
+      setOfficerMoving(returnJourney.phase === 'returning');
+      prevOfficerPosRef.current = { x: officerMarker.x, y: officerMarker.y };
       return;
     }
 
@@ -395,9 +690,10 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
         const dxTrail = pts[pts.length - 1].x - pts[pts.length - 2].x;
         if (dxTrail < -0.15) setOfficerFacing('left');
         else if (dxTrail > 0.15) setOfficerFacing('right');
+      } else if (officerMarker.forcedFacing) {
+        setOfficerFacing(officerMarker.forcedFacing);
       }
       prevOfficerPosRef.current = { x: officerMarker.x, y: officerMarker.y };
-      // Jika langsung memuat sesi patroli live yang baru ping (< 12 detik), jalankan animasi berjalan
       if (officerMarker.isLive) {
         const pingMs = new Date(officerMarker.lastUpdateIso).getTime();
         const freshPing = !Number.isNaN(pingMs) && Date.now() - pingMs < 12000;
@@ -422,8 +718,6 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
 
       setOfficerMoving(true);
       if (moveStopTimerRef.current) window.clearTimeout(moveStopTimerRef.current);
-      // Saat patroli live aktif, pertahankan langkah berjalan antar interval ping (4s + buffer);
-      // saat Standby / lompat pos NFC, berjalan mulus sepanjang durasi transisi (1.1s) lalu berdiri tegap.
       moveStopTimerRef.current = window.setTimeout(
         () => {
           setOfficerMoving(false);
@@ -433,19 +727,39 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     }
 
     prevOfficerPosRef.current = { x: officerMarker.x, y: officerMarker.y };
-  }, [officerMarker?.x, officerMarker?.y, officerMarker?.isLive, officerMarker?.lastUpdateIso, liveSession?.trail_points]);
+  }, [
+    officerMarker?.x,
+    officerMarker?.y,
+    officerMarker?.isLive,
+    officerMarker?.lastUpdateIso,
+    officerMarker?.forcedFacing,
+    liveSession?.trail_points,
+    returnJourney.phase,
+    returnJourney.facing,
+  ]);
 
   useEffect(() => {
     return () => {
       if (moveStopTimerRef.current) {
         window.clearTimeout(moveStopTimerRef.current);
       }
+      clearReturnTimers();
     };
   }, []);
 
   const isWalkerAnimating = Boolean(
-    officerMarker && (officerMoving || (officerMarker.isLive && nowMs - new Date(officerMarker.lastUpdateIso).getTime() < 9000))
+    officerMarker &&
+      (returnJourney.phase === 'returning'
+        ? true
+        : returnJourney.phase === 'arrived_standby' || returnJourney.phase === 'paused_at_pos5'
+          ? false
+          : officerMoving ||
+            (officerMarker.isLive &&
+              nowMs - new Date(officerMarker.lastUpdateIso).getTime() < 9000))
   );
+
+  const effectiveFacing: 'right' | 'left' =
+    officerMarker?.forcedFacing ?? officerFacing;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -461,7 +775,24 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   : 'Peta Mapping Rute Patroli Real-Time'}
               </h3>
               {mode !== 'editor' &&
-                (isLiveActive && liveSession ? (
+                (returnJourney.phase === 'returning' && completionTrigger ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-2 py-0.5">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-85" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500" />
+                    </span>
+                    <span>
+                      LIVE: {completionTrigger.officerName} Kembali ke Pos Security...
+                    </span>
+                  </span>
+                ) : returnJourney.phase === 'arrived_standby' ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 tabular-nums">
+                    <span className="w-2 h-2 rounded-full bg-[#059669] shrink-0" />
+                    <span>
+                      Standby di Pos Security • Patroli Selesai ({scannedCount}/{totalCount})
+                    </span>
+                  </span>
+                ) : isLiveActive && liveSession ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 tabular-nums">
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
@@ -475,7 +806,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5">
                     <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
-                    <span>Standby</span>
+                    <span>{scannedCount === 0 ? 'Standby di Pos Security' : 'Standby'}</span>
                   </span>
                 ))}
               {mode === 'warga' && (
@@ -733,7 +1064,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
           )}
 
           {/* OVERLAY JEJAK RUTE SVG REAL-TIME (Garis Cyan/Biru Cerah Putus-Putus Bercahaya) */}
-          {isLiveActive && trailPolylinePoints && (
+          {(isLiveActive || returnJourney.phase === 'returning') && trailPolylinePoints && (
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
@@ -975,8 +1306,12 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 left: `${officerMarker.x}%`,
                 top: `${officerMarker.y}%`,
                 transform: 'translate(-50%, -100%)',
+                transition:
+                  officerMarker.transitionMs > 0
+                    ? `left ${officerMarker.transitionMs}ms linear, top ${officerMarker.transitionMs}ms linear`
+                    : 'none',
               }}
-              className={`pointer-events-none absolute transition-[left,top] duration-1000 ease-linear will-change-[left,top] ${
+              className={`pointer-events-none absolute will-change-[left,top] ${
                 officerPopoverOpen ? 'z-[35]' : 'z-[28]'
               }`}
             >
@@ -984,16 +1319,22 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap">
                 <span
                   className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md backdrop-blur-sm ${
-                    officerMarker.isLive
-                      ? 'ring-1 ring-cyan-400/75'
-                      : 'ring-1 ring-emerald-400/55'
+                    officerMarker.isReturning
+                      ? 'ring-1 ring-sky-400/80'
+                      : officerMarker.isLive
+                        ? 'ring-1 ring-cyan-400/75'
+                        : 'ring-1 ring-emerald-400/55'
                   }`}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      officerMarker.isLive
-                        ? 'bg-emerald-400 animate-pulse'
-                        : 'bg-sky-400'
+                      officerMarker.isReturning
+                        ? 'bg-sky-400 animate-pulse'
+                        : officerMarker.isLive
+                          ? 'bg-emerald-400 animate-pulse'
+                          : officerMarker.isArrivedStandby
+                            ? 'bg-emerald-400'
+                            : 'bg-sky-400'
                     }`}
                   />
                   <span>
@@ -1047,14 +1388,18 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   setOfficerPopoverOpen((prev) => !prev);
                 }}
                 aria-label={`Posisi Petugas ${officerMarker.name} (${
-                  isWalkerAnimating ? 'Sedang Berjalan' : 'Standby'
+                  officerMarker.isReturning
+                    ? 'Kembali ke Pos Security'
+                    : isWalkerAnimating
+                      ? 'Sedang Berjalan'
+                      : 'Standby'
                 }) pada koordinat ${officerMarker.x.toFixed(1)}%, ${officerMarker.y.toFixed(1)}%`}
                 className="pointer-events-auto relative block pb-[2px] cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95 focus:outline-none"
               >
                 <SecurityWalkerIcon
                   size={42}
                   isWalking={isWalkerAnimating}
-                  isFlipped={officerFacing === 'left'}
+                  isFlipped={effectiveFacing === 'left'}
                   isLive={officerMarker.isLive}
                   className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px]"
                 />
@@ -1081,12 +1426,22 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       </p>
                       <p
                         className={`text-[10px] font-semibold mt-0.5 ${
-                          officerMarker.isLive ? 'text-emerald-300' : 'text-sky-300'
+                          officerMarker.isReturning
+                            ? 'text-sky-300'
+                            : officerMarker.isLive || officerMarker.isArrivedStandby
+                              ? 'text-emerald-300'
+                              : 'text-sky-300'
                         }`}
                       >
-                        {officerMarker.isLive
-                          ? `${isWalkerAnimating ? 'Berjalan' : 'Berhenti'} • Update ${formatElapsedIndonesian(officerMarker.lastUpdateIso, nowMs)}`
-                          : `Standby • Scan ${formatJamWib(officerMarker.lastUpdateIso)}`}
+                        {officerMarker.isReturning
+                          ? 'Kembali ke Pos Security...'
+                          : officerMarker.isArrivedStandby
+                            ? `Standby di Pos Security (${scannedCount}/${totalCount})`
+                            : officerMarker.isLive
+                              ? `${isWalkerAnimating ? 'Berjalan' : 'Berhenti'} • Update ${formatElapsedIndonesian(officerMarker.lastUpdateIso, nowMs)}`
+                              : officerMarker.lastUpdateIso
+                                ? `Standby • ${formatJamWib(officerMarker.lastUpdateIso)}`
+                                : 'Standby di Pos Security'}
                       </p>
                     </div>
                     <button
