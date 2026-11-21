@@ -47,6 +47,138 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Animasi berjalan 60fps untuk karakter Satpam pada Peta Patroli Real-Time */
+@keyframes sec-walker-leg-right {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(24deg);
+  }
+  75% {
+    transform: rotate(-22deg);
+  }
+}
+
+@keyframes sec-walker-leg-left {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-22deg);
+  }
+  75% {
+    transform: rotate(24deg);
+  }
+}
+
+@keyframes sec-walker-arm-right {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-18deg);
+  }
+  75% {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes sec-walker-arm-left {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(20deg);
+  }
+  75% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes sec-walker-bob {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0px);
+  }
+  25%,
+  75% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes sec-walker-shadow {
+  0%,
+  50%,
+  100% {
+    transform: scaleX(1) scaleY(1);
+    opacity: 1;
+  }
+  25%,
+  75% {
+    transform: scaleX(0.8) scaleY(0.86);
+    opacity: 0.65;
+  }
+}
+
+.sec-walker--walking .sec-walker-leg-right {
+  animation: sec-walker-leg-right 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform;
+}
+
+.sec-walker--walking .sec-walker-leg-left {
+  animation: sec-walker-leg-left 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform;
+}
+
+.sec-walker--walking .sec-walker-arm-right {
+  animation: sec-walker-arm-right 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform;
+}
+
+.sec-walker--walking .sec-walker-arm-left {
+  animation: sec-walker-arm-left 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform;
+}
+
+.sec-walker--walking .sec-walker-bob {
+  animation: sec-walker-bob 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform;
+}
+
+.sec-walker--walking .sec-walker-shadow {
+  animation: sec-walker-shadow 0.68s ease-in-out infinite;
+  animation-play-state: running;
+  will-change: transform, opacity;
+}
+
+/* Pose berdiri tegap (idle) saat Standby / berhenti bergerak */
+.sec-walker--idle .sec-walker-leg-right,
+.sec-walker--idle .sec-walker-leg-left,
+.sec-walker--idle .sec-walker-arm-right,
+.sec-walker--idle .sec-walker-arm-left,
+.sec-walker--idle .sec-walker-bob,
+.sec-walker--idle .sec-walker-shadow {
+  animation: none;
+  animation-play-state: paused;
+  transform: none;
+  transition: transform 220ms ease-out;
+}
+
 @page {
   size: A4 portrait;
   margin: 12mm 14mm;

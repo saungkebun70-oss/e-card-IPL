@@ -8,7 +8,6 @@ import {
   MapPin,
   Move,
   RotateCcw,
-  Shield,
   ShieldCheck,
   UserCheck,
   X,
@@ -20,6 +19,7 @@ import type {
   TitikPatroli,
 } from '../types';
 import { clampMapPercent, formatElapsedIndonesian } from '../lib/patrolGpsUtils';
+import { SecurityWalkerIcon } from './SecurityWalkerIcon';
 
 export interface PatrolMapViewerProps {
   titikList: TitikPatroli[];
@@ -114,6 +114,10 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
   const activeTitik = useMemo(() => titikList.filter((t) => t.aktif !== false), [titikList]);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [officerPopoverOpen, setOfficerPopoverOpen] = useState(false);
+  const [officerFacing, setOfficerFacing] = useState<'right' | 'left'>('right');
+  const [officerMoving, setOfficerMoving] = useState(false);
+  const prevOfficerPosRef = useRef<{ x: number; y: number } | null>(null);
+  const moveStopTimerRef = useRef<number | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [newlyScannedIds, setNewlyScannedIds] = useState<Record<string, boolean>>({});
   const prevScannedRef = useRef<Set<string>>(new Set());
@@ -374,6 +378,74 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
       .map((pt) => `${clampMapPercent(pt.x, 2, 98)},${clampMapPercent(pt.y, 2, 98)}`)
       .join(' ');
   }, [isLiveActive, liveSession]);
+
+  // Deteksi arah hadap horizontal (kiri/kanan) & status bergerak untuk animasi berjalan Satpam
+  useEffect(() => {
+    if (!officerMarker) {
+      prevOfficerPosRef.current = null;
+      setOfficerMoving(false);
+      return;
+    }
+
+    const prev = prevOfficerPosRef.current;
+    if (!prev) {
+      // Inisialisasi arah hadap dari 2 titik terakhir trail jika tersedia
+      const pts = liveSession?.trail_points || [];
+      if (pts.length >= 2) {
+        const dxTrail = pts[pts.length - 1].x - pts[pts.length - 2].x;
+        if (dxTrail < -0.15) setOfficerFacing('left');
+        else if (dxTrail > 0.15) setOfficerFacing('right');
+      }
+      prevOfficerPosRef.current = { x: officerMarker.x, y: officerMarker.y };
+      // Jika langsung memuat sesi patroli live yang baru ping (< 12 detik), jalankan animasi berjalan
+      if (officerMarker.isLive) {
+        const pingMs = new Date(officerMarker.lastUpdateIso).getTime();
+        const freshPing = !Number.isNaN(pingMs) && Date.now() - pingMs < 12000;
+        setOfficerMoving(freshPing);
+        if (freshPing) {
+          if (moveStopTimerRef.current) window.clearTimeout(moveStopTimerRef.current);
+          moveStopTimerRef.current = window.setTimeout(() => {
+            setOfficerMoving(false);
+          }, 10000);
+        }
+      }
+      return;
+    }
+
+    const dx = officerMarker.x - prev.x;
+    const dy = officerMarker.y - prev.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist >= 0.15) {
+      if (dx < -0.15) setOfficerFacing('left');
+      else if (dx > 0.15) setOfficerFacing('right');
+
+      setOfficerMoving(true);
+      if (moveStopTimerRef.current) window.clearTimeout(moveStopTimerRef.current);
+      // Saat patroli live aktif, pertahankan langkah berjalan antar interval ping (4s + buffer);
+      // saat Standby / lompat pos NFC, berjalan mulus sepanjang durasi transisi (1.1s) lalu berdiri tegap.
+      moveStopTimerRef.current = window.setTimeout(
+        () => {
+          setOfficerMoving(false);
+        },
+        officerMarker.isLive ? 9000 : 1150
+      );
+    }
+
+    prevOfficerPosRef.current = { x: officerMarker.x, y: officerMarker.y };
+  }, [officerMarker?.x, officerMarker?.y, officerMarker?.isLive, officerMarker?.lastUpdateIso, liveSession?.trail_points]);
+
+  useEffect(() => {
+    return () => {
+      if (moveStopTimerRef.current) {
+        window.clearTimeout(moveStopTimerRef.current);
+      }
+    };
+  }, []);
+
+  const isWalkerAnimating = Boolean(
+    officerMarker && (officerMoving || (officerMarker.isLive && nowMs - new Date(officerMarker.lastUpdateIso).getTime() < 9000))
+  );
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -896,25 +968,25 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             );
           })}
 
-          {/* MARKER PETUGAS BERGERAK MULUS (SMOOTH CSS TRANSITION X%, Y% + RADAR ANIMATE-PING) */}
+          {/* MARKER KARAKTER SATPAM BERGERAK MULUS (JANGKAR BAWAH KAKI + RADAR ANIMATE-PING) */}
           {officerMarker && (
             <div
               style={{
                 left: `${officerMarker.x}%`,
                 top: `${officerMarker.y}%`,
-                transform: 'translate(-50%, -50%)',
+                transform: 'translate(-50%, -100%)',
               }}
-              className={`absolute transition-[left,top] duration-1000 ease-linear will-change-[left,top] ${
+              className={`pointer-events-none absolute transition-[left,top] duration-1000 ease-linear will-change-[left,top] ${
                 officerPopoverOpen ? 'z-[35]' : 'z-[28]'
               }`}
             >
-              {/* Label Nama Petugas Ringkas di Atas Ikon */}
-              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap">
+              {/* Label Nama Petugas di Atas Kepala (TIDAK ikut terbalik saat karakter menghadap kiri) */}
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap">
                 <span
                   className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md backdrop-blur-sm ${
                     officerMarker.isLive
-                      ? 'ring-1 ring-cyan-400/70'
-                      : 'ring-1 ring-emerald-400/50'
+                      ? 'ring-1 ring-cyan-400/75'
+                      : 'ring-1 ring-emerald-400/55'
                   }`}
                 >
                   <span
@@ -926,46 +998,47 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   />
                   <span>
                     {officerMarker.isLive
-                      ? officerMarker.name
+                      ? `Petugas · ${officerMarker.name}`
                       : `Petugas · ${officerMarker.name.split(' ')[0]}`}
                   </span>
                 </span>
               </div>
 
-              {/* Kerucut Arah Gerak Radar (Berputar mulus mengikuti vektor gerak petugas) */}
-              {officerMarker.isLive && officerMarker.headingDeg !== null && (
-                <span
-                  aria-hidden="true"
-                  style={{ transform: `translate(-50%, -50%) rotate(${officerMarker.headingDeg}deg)` }}
-                  className="pointer-events-none absolute left-1/2 top-1/2 w-14 h-14 transition-transform duration-700 ease-out"
-                >
+              {/* Radar Pulse Perspektif 3D tepat di Dasar / Bawah Kaki (Anchor Point X%, Y%) */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 flex items-center justify-center"
+              >
+                {/* Kerucut arah gerak radar (berputar mulus mengikuti vektor rute) */}
+                {officerMarker.isLive && officerMarker.headingDeg !== null && (
                   <span
-                    className="block mx-auto w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-cyan-400/45 blur-[1px]"
-                  />
-                </span>
-              )}
+                    style={{ transform: `rotate(${officerMarker.headingDeg}deg)` }}
+                    className="absolute w-14 h-14 transition-transform duration-700 ease-out"
+                  >
+                    <span className="block mx-auto w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-b-[18px] border-b-cyan-400/45 blur-[1px]" />
+                  </span>
+                )}
+                {/* Gelombang radar 1 (luar, animate-ping) */}
+                <span
+                  className={`absolute w-9 h-5 rounded-full animate-ping ${
+                    officerMarker.isLive ? 'bg-cyan-400/60' : 'bg-emerald-400/50'
+                  }`}
+                />
+                {/* Gelombang radar 2 (dalam, staggered animate-ping) */}
+                <span
+                  className={`absolute w-6 h-3.5 rounded-full animate-ping [animation-delay:450ms] ${
+                    officerMarker.isLive ? 'bg-emerald-400/55' : 'bg-sky-400/45'
+                  }`}
+                />
+                {/* Cincin pijak dasar di permukaan jalan peta */}
+                <span
+                  className={`relative block w-5 h-2.5 rounded-full border-2 border-white/90 shadow-xs ${
+                    officerMarker.isLive ? 'bg-cyan-500/75' : 'bg-emerald-500/70'
+                  }`}
+                />
+              </div>
 
-              {/* Efek Radar Berdenyut 2 Gelombang (animate-ping berlapis) */}
-              <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 -m-3 rounded-full animate-ping ${
-                  officerMarker.isLive ? 'bg-cyan-400/55' : 'bg-emerald-400/40'
-                }`}
-              />
-              <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 -m-1.5 rounded-full animate-ping [animation-delay:450ms] ${
-                  officerMarker.isLive ? 'bg-emerald-400/45' : 'bg-sky-400/30'
-                }`}
-              />
-              <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 -m-1 rounded-full ${
-                  officerMarker.isLive ? 'bg-sky-500/30' : 'bg-emerald-500/20'
-                }`}
-              />
-
-              {/* Tombol Ikon Perisai Petugas Keamanan (Interaktif saat diketuk) */}
+              {/* Tombol Interaktif Karakter Satpam Berseragam + Animasi Berjalan */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -973,22 +1046,26 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   setSelectedPinId(null);
                   setOfficerPopoverOpen((prev) => !prev);
                 }}
-                aria-label={`Posisi Petugas ${officerMarker.name} pada koordinat ${officerMarker.x.toFixed(1)}%, ${officerMarker.y.toFixed(1)}%`}
-                className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white ring-2 ring-white shadow-lg flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95 focus:outline-none ${
-                  officerMarker.isLive
-                    ? 'bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-500 shadow-cyan-500/40'
-                    : 'bg-gradient-to-br from-slate-700 to-emerald-600 shadow-slate-900/30'
-                }`}
+                aria-label={`Posisi Petugas ${officerMarker.name} (${
+                  isWalkerAnimating ? 'Sedang Berjalan' : 'Standby'
+                }) pada koordinat ${officerMarker.x.toFixed(1)}%, ${officerMarker.y.toFixed(1)}%`}
+                className="pointer-events-auto relative block pb-[2px] cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95 focus:outline-none"
               >
-                <Shield className="w-4 h-4 sm:w-[18px] sm:h-[18px] stroke-[2.4]" />
+                <SecurityWalkerIcon
+                  size={42}
+                  isWalking={isWalkerAnimating}
+                  facing={officerFacing}
+                  isLive={officerMarker.isLive}
+                  className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px]"
+                />
               </button>
 
-              {/* Popover Info Petugas saat Marker Diketuk */}
+              {/* Popover Info Petugas saat Karakter Diketuk */}
               {officerPopoverOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className={`absolute ${
-                    officerMarker.y < 34 ? 'top-full mt-3' : 'bottom-full mb-8'
+                  className={`pointer-events-auto absolute ${
+                    officerMarker.y < 36 ? 'top-full mt-3' : 'bottom-full mb-7'
                   } ${
                     officerMarker.x < 24
                       ? 'left-0 translate-x-0'
@@ -1008,8 +1085,8 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                         }`}
                       >
                         {officerMarker.isLive
-                          ? `LIVE Patroli • Update ${formatElapsedIndonesian(officerMarker.lastUpdateIso, nowMs)}`
-                          : `Scan Terakhir • ${formatJamWib(officerMarker.lastUpdateIso)}`}
+                          ? `${isWalkerAnimating ? 'Berjalan' : 'Berhenti'} • Update ${formatElapsedIndonesian(officerMarker.lastUpdateIso, nowMs)}`
+                          : `Standby • Scan ${formatJamWib(officerMarker.lastUpdateIso)}`}
                       </p>
                     </div>
                     <button
