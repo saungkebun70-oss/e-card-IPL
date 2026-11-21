@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -10,6 +10,7 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  Moon,
   Plus,
   Search,
   ShieldCheck,
@@ -49,7 +50,13 @@ import {
   terbilangRupiah,
 } from '../../lib/format';
 import { compressProofImage } from '../../lib/imageCompressor';
+import {
+  fetchShiftOverrides,
+  isSundayOvertimeShift,
+  subscribeShiftOverrides,
+} from '../../lib/securityShiftOvertimeService';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
+import { AdminShiftOvertimePanel } from './AdminShiftOvertimePanel';
 
 interface AdminKeuanganSlideProps {
   session: SessionUser;
@@ -88,9 +95,36 @@ export function AdminKeuanganSlide({
   const [jenisHonor, setJenisHonor] = useState<JenisHonorPetugas>('honor_rutin');
   const [saving, setSaving] = useState(false);
 
+  const [keuanganSubTab, setKeuanganSubTab] = useState<'buku_kas' | 'shift_lembur'>('buku_kas');
+  const [unpaidOvertimeCount, setUnpaidOvertimeCount] = useState<number>(0);
+
+  const loadUnpaidOvertimeCount = useCallback(async () => {
+    const rows = await fetchShiftOverrides(session, { limit: 150 });
+    setUnpaidOvertimeCount(
+      rows.filter(
+        (o) =>
+          isSundayOvertimeShift(o.shift_name) &&
+          o.payment_status !== 'paid' &&
+          !o.cash_transaction_id
+      ).length
+    );
+  }, [session]);
+
+  useEffect(() => {
+    void loadUnpaidOvertimeCount();
+    const unsub = subscribeShiftOverrides(session, () => {
+      void loadUnpaidOvertimeCount();
+    });
+    return () => {
+      unsub();
+    };
+  }, [session, loadUnpaidOvertimeCount]);
+
   const isHonorKeamananCategory =
     formJenis === 'pengeluaran' &&
-    (kategori === 'Honorarium Keamanan / Satpam' || kategori === 'Lembur Petugas Keamanan');
+    (kategori === 'Honor & Lembur Keamanan' ||
+      kategori === 'Honorarium Keamanan / Satpam' ||
+      kategori === 'Lembur Petugas Keamanan');
 
   // Filter & Search Daftar Transaksi Kas
   const [filterJenis, setFilterJenis] = useState<'semua' | JenisTransaksiKas>('semua');
@@ -162,8 +196,12 @@ export function AdminKeuanganSlide({
     setSelectedPetugasId(item.petugas_id || '');
     setJenisHonor(
       item.jenis_honor ||
-        (item.kategori === 'Lembur Petugas Keamanan' ? 'lembur' : 'honor_rutin')
+        (item.kategori === 'Lembur Petugas Keamanan' ||
+        item.kategori === 'Honor & Lembur Keamanan'
+          ? 'lembur'
+          : 'honor_rutin')
     );
+    setKeuanganSubTab('buku_kas');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -396,8 +434,61 @@ export function AdminKeuanganSlide({
         </div>
       </section>
 
-      {/* Grid Utama: Form Input Cepat (Kiri) + Daftar Riwayat Kas (Kanan) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Sub-Navigasi Keuangan: Buku Kas vs Kelola Shift & Lembur Keamanan */}
+      <div
+        role="tablist"
+        aria-label="Submenu Keuangan Admin"
+        className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-200/75 rounded-2xl w-full sm:w-fit"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={keuanganSubTab === 'buku_kas'}
+          onClick={() => setKeuanganSubTab('buku_kas')}
+          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            keuanganSubTab === 'buku_kas'
+              ? 'bg-white text-[#0F172A] shadow-sm'
+              : 'text-slate-600 hover:text-[#0F172A]'
+          }`}
+        >
+          <Wallet className="w-4 h-4 text-[#059669] shrink-0" />
+          <span>Buku Kas &amp; Arus Dana</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={keuanganSubTab === 'shift_lembur'}
+          onClick={() => setKeuanganSubTab('shift_lembur')}
+          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            keuanganSubTab === 'shift_lembur'
+              ? 'bg-white text-[#0F172A] shadow-sm'
+              : 'text-slate-600 hover:text-[#0F172A]'
+          }`}
+        >
+          <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span>Kelola Shift &amp; Lembur Keamanan</span>
+          {unpaidOvertimeCount > 0 && (
+            <span className="text-[11px] font-mono font-bold text-amber-700 tabular-nums">
+              ({unpaidOvertimeCount} blm bayar)
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* PANEL KELOLA SHIFT & LEMBUR KEAMANAN (TERINTEGRASI LANGSUNG KE KAS PENGELUARAN) */}
+      {keuanganSubTab === 'shift_lembur' ? (
+        <AdminShiftOvertimePanel
+          session={session}
+          petugasList={petugasList}
+          onCashChanged={async () => {
+            await loadUnpaidOvertimeCount();
+            await onRefresh();
+          }}
+          onToast={onToast}
+        />
+      ) : (
+        /* Grid Utama: Form Input Cepat (Kiri) + Daftar Riwayat Kas (Kanan) */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Pencatatan Pengeluaran Anggaran / Pemasukan Lain */}
         <section className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-200 space-y-3">
@@ -461,7 +552,10 @@ export function AdminKeuanganSlide({
                 onChange={(e) => {
                   const nextKat = e.target.value;
                   setKategori(nextKat);
-                  if (nextKat === 'Lembur Petugas Keamanan') {
+                  if (
+                    nextKat === 'Lembur Petugas Keamanan' ||
+                    nextKat === 'Honor & Lembur Keamanan'
+                  ) {
                     setJenisHonor('lembur');
                   } else if (nextKat === 'Honorarium Keamanan / Satpam') {
                     setJenisHonor('honor_rutin');
@@ -988,6 +1082,7 @@ export function AdminKeuanganSlide({
           </div>
         </section>
       </div>
+      )}
 
       {/* Modal Kwitansi Kas Resmi + Stempel + PDF A4 */}
       {selectedKwitansi && (
