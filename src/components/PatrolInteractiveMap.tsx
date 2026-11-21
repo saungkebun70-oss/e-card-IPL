@@ -28,6 +28,8 @@ export interface PatrolMapViewerProps {
   mode: 'admin' | 'petugas' | 'warga' | 'editor';
   /** Sesi live tracking patroli aktif (jika ada) untuk ditampilkan langsung di atas peta 3D */
   liveSession?: PatrolLiveSession | null;
+  /** Opsional: koordinat manual X% Y% petugas apabila tidak menggunakan objek liveSession penuh */
+  officerCoords?: { x: number; y: number; name?: string } | null;
   /** Daftar ID Pos yang sudah memiliki kalibrasi GPS asli (untuk indikator di mode editor) */
   calibratedPosIds?: Set<string>;
   canResetCycle?: boolean;
@@ -99,6 +101,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
   patrolMapConfig,
   mode,
   liveSession = null,
+  officerCoords = null,
   calibratedPosIds,
   canResetCycle = false,
   onResetCycle,
@@ -110,6 +113,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
 }) => {
   const activeTitik = useMemo(() => titikList.filter((t) => t.aktif !== false), [titikList]);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const [officerPopoverOpen, setOfficerPopoverOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [newlyScannedIds, setNewlyScannedIds] = useState<Record<string, boolean>>({});
   const prevScannedRef = useRef<Set<string>>(new Set());
@@ -243,6 +247,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     if (mode !== 'editor') {
       // Tutup popover bila klik area kosong peta
       setSelectedPinId(null);
+      setOfficerPopoverOpen(false);
       return;
     }
     if (draggingPin?.moved || !selectedEditorTitikId || !onPlacePin || savingPin) return;
@@ -292,8 +297,76 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     ? { x: draggingPin.x, y: draggingPin.y }
     : hoverGuide;
 
-  const officerX = isLiveActive && liveSession ? clampMapPercent(liveSession.current_x, 3, 97) : null;
-  const officerY = isLiveActive && liveSession ? clampMapPercent(liveSession.current_y, 3, 97) : null;
+  // Tentukan posisi & metadata marker petugas (Prioritas: Live Session aktif -> officerCoords -> Pos scan terakhir pada siklus aktif)
+  const latestScannedPin = useMemo(() => {
+    if (mode === 'editor') return null;
+    const scannedPins = pinItems.filter((p) => p.scanned && p.latestLog);
+    if (scannedPins.length === 0) return null;
+    return scannedPins.reduce((latest, curr) => {
+      const latestMs = new Date(latest.latestLog!.waktu_scan).getTime();
+      const currMs = new Date(curr.latestLog!.waktu_scan).getTime();
+      return currMs > latestMs ? curr : latest;
+    });
+  }, [mode, pinItems]);
+
+  const officerMarker = useMemo(() => {
+    if (mode === 'editor') return null;
+
+    if (isLiveActive && liveSession) {
+      const x = clampMapPercent(liveSession.current_x, 3, 97);
+      const y = clampMapPercent(liveSession.current_y, 3, 97);
+      let headingDeg: number | null = null;
+      const pts = liveSession.trail_points || [];
+      if (pts.length >= 2) {
+        const prev = pts[pts.length - 2];
+        const curr = pts[pts.length - 1];
+        const dx = curr.x - prev.x;
+        const dy = curr.y - prev.y;
+        if (Math.hypot(dx, dy) >= 0.35) {
+          headingDeg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+        }
+      }
+      return {
+        x,
+        y,
+        name: liveSession.officer_name,
+        isLive: true,
+        lastUpdateIso: liveSession.last_ping_at,
+        accuracy: liveSession.accuracy ?? null,
+        lokasiLabel: null as string | null,
+        headingDeg,
+      };
+    }
+
+    if (officerCoords && Number.isFinite(officerCoords.x) && Number.isFinite(officerCoords.y)) {
+      return {
+        x: clampMapPercent(officerCoords.x, 3, 97),
+        y: clampMapPercent(officerCoords.y, 3, 97),
+        name: officerCoords.name || 'Petugas Keamanan',
+        isLive: true,
+        lastUpdateIso: new Date().toISOString(),
+        accuracy: null as number | null,
+        lokasiLabel: null as string | null,
+        headingDeg: null as number | null,
+      };
+    }
+
+    if (latestScannedPin && latestScannedPin.latestLog) {
+      return {
+        x: clampMapPercent(latestScannedPin.x, 3, 97),
+        y: clampMapPercent(latestScannedPin.y, 3, 97),
+        name: latestScannedPin.latestLog.nama_petugas,
+        isLive: false,
+        lastUpdateIso: latestScannedPin.latestLog.waktu_scan,
+        accuracy: null as number | null,
+        lokasiLabel: latestScannedPin.titik.nama_lokasi,
+        headingDeg: null as number | null,
+      };
+    }
+
+    return null;
+  }, [mode, isLiveActive, liveSession, officerCoords, latestScannedPin]);
+
   const trailPolylinePoints = useMemo(() => {
     if (!isLiveActive || !liveSession || !Array.isArray(liveSession.trail_points)) return '';
     if (liveSession.trail_points.length < 2) return '';
@@ -593,7 +666,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 w-full h-full z-15"
+              className="pointer-events-none absolute inset-0 w-full h-full z-[15]"
             >
               <defs>
                 <filter id="patrol-live-trail-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -823,38 +896,146 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             );
           })}
 
-          {/* MARKER PETUGAS BERGERAK MULUS (ALA GOJEK/SHOPEEFOOD) */}
-          {isLiveActive && liveSession && officerX !== null && officerY !== null && (
+          {/* MARKER PETUGAS BERGERAK MULUS (SMOOTH CSS TRANSITION X%, Y% + RADAR ANIMATE-PING) */}
+          {officerMarker && (
             <div
               style={{
-                left: `${officerX}%`,
-                top: `${officerY}%`,
+                left: `${officerMarker.x}%`,
+                top: `${officerMarker.y}%`,
                 transform: 'translate(-50%, -50%)',
               }}
-              className="pointer-events-none absolute z-25 transition-all duration-1000 ease-linear"
+              className={`absolute transition-[left,top] duration-1000 ease-linear will-change-[left,top] ${
+                officerPopoverOpen ? 'z-[35]' : 'z-[28]'
+              }`}
             >
               {/* Label Nama Petugas Ringkas di Atas Ikon */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md ring-1 ring-cyan-400/60 backdrop-blur-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                  <span>{liveSession.officer_name}</span>
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md backdrop-blur-sm ${
+                    officerMarker.isLive
+                      ? 'ring-1 ring-cyan-400/70'
+                      : 'ring-1 ring-emerald-400/50'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      officerMarker.isLive
+                        ? 'bg-emerald-400 animate-pulse'
+                        : 'bg-sky-400'
+                    }`}
+                  />
+                  <span>
+                    {officerMarker.isLive
+                      ? officerMarker.name
+                      : `Petugas · ${officerMarker.name.split(' ')[0]}`}
+                  </span>
                 </span>
               </div>
 
-              {/* Efek Radar Berdenyut */}
+              {/* Kerucut Arah Gerak Radar (Berputar mulus mengikuti vektor gerak petugas) */}
+              {officerMarker.isLive && officerMarker.headingDeg !== null && (
+                <span
+                  aria-hidden="true"
+                  style={{ transform: `translate(-50%, -50%) rotate(${officerMarker.headingDeg}deg)` }}
+                  className="pointer-events-none absolute left-1/2 top-1/2 w-14 h-14 transition-transform duration-700 ease-out"
+                >
+                  <span
+                    className="block mx-auto w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-cyan-400/45 blur-[1px]"
+                  />
+                </span>
+              )}
+
+              {/* Efek Radar Berdenyut 2 Gelombang (animate-ping berlapis) */}
               <span
                 aria-hidden="true"
-                className="absolute inset-0 -m-2.5 rounded-full bg-cyan-400/50 animate-ping"
+                className={`pointer-events-none absolute inset-0 -m-3 rounded-full animate-ping ${
+                  officerMarker.isLive ? 'bg-cyan-400/55' : 'bg-emerald-400/40'
+                }`}
               />
               <span
                 aria-hidden="true"
-                className="absolute inset-0 -m-1 rounded-full bg-sky-500/30"
+                className={`pointer-events-none absolute inset-0 -m-1.5 rounded-full animate-ping [animation-delay:450ms] ${
+                  officerMarker.isLive ? 'bg-emerald-400/45' : 'bg-sky-400/30'
+                }`}
+              />
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 -m-1 rounded-full ${
+                  officerMarker.isLive ? 'bg-sky-500/30' : 'bg-emerald-500/20'
+                }`}
               />
 
-              {/* Ikon Perisai Petugas Keamanan */}
-              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 text-white ring-2 ring-white shadow-lg flex items-center justify-center">
+              {/* Tombol Ikon Perisai Petugas Keamanan (Interaktif saat diketuk) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPinId(null);
+                  setOfficerPopoverOpen((prev) => !prev);
+                }}
+                aria-label={`Posisi Petugas ${officerMarker.name} pada koordinat ${officerMarker.x.toFixed(1)}%, ${officerMarker.y.toFixed(1)}%`}
+                className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white ring-2 ring-white shadow-lg flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95 focus:outline-none ${
+                  officerMarker.isLive
+                    ? 'bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-500 shadow-cyan-500/40'
+                    : 'bg-gradient-to-br from-slate-700 to-emerald-600 shadow-slate-900/30'
+                }`}
+              >
                 <Shield className="w-4 h-4 sm:w-[18px] sm:h-[18px] stroke-[2.4]" />
-              </div>
+              </button>
+
+              {/* Popover Info Petugas saat Marker Diketuk */}
+              {officerPopoverOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className={`absolute ${
+                    officerMarker.y < 34 ? 'top-full mt-3' : 'bottom-full mb-8'
+                  } ${
+                    officerMarker.x < 24
+                      ? 'left-0 translate-x-0'
+                      : officerMarker.x > 76
+                        ? 'right-0 translate-x-0'
+                        : 'left-1/2 -translate-x-1/2'
+                  } z-40 w-52 sm:w-56 rounded-xl bg-slate-900/95 text-white backdrop-blur-md border border-cyan-400/30 shadow-xl p-2.5 text-left`}
+                >
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div>
+                      <p className="text-[11px] font-bold leading-snug text-white">
+                        {officerMarker.name}
+                      </p>
+                      <p
+                        className={`text-[10px] font-semibold mt-0.5 ${
+                          officerMarker.isLive ? 'text-emerald-300' : 'text-sky-300'
+                        }`}
+                      >
+                        {officerMarker.isLive
+                          ? `LIVE Patroli • Update ${formatElapsedIndonesian(officerMarker.lastUpdateIso, nowMs)}`
+                          : `Scan Terakhir • ${formatJamWib(officerMarker.lastUpdateIso)}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOfficerPopoverOpen(false)}
+                      aria-label="Tutup detail petugas"
+                      className="p-0.5 rounded text-slate-400 hover:text-white cursor-pointer shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-1 text-[10px] font-mono text-slate-300 tabular-nums">
+                    <span>
+                      Peta: X {officerMarker.x.toFixed(1)}% · Y {officerMarker.y.toFixed(1)}%
+                    </span>
+                    {officerMarker.accuracy !== null && (
+                      <span className="text-cyan-300">GPS ±{Math.round(officerMarker.accuracy)}m</span>
+                    )}
+                  </div>
+                  {officerMarker.lokasiLabel && (
+                    <p className="mt-1 text-[10px] text-slate-300">
+                      Titik: {officerMarker.lokasiLabel}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
