@@ -1,9 +1,11 @@
 import React, { useId } from 'react';
 
 export interface SecurityWalkerIconProps {
-  /** Jalankan animasi berjalan saat patroli aktif/bergerak; berhenti (pose tegap idle) saat standby */
+  /** Jalankan animasi berjalan (sec-walker--walking) saat aktif/bergerak; pose tegap (sec-walker--idle) saat standby */
   isWalking?: boolean;
-  /** Arah hadap karakter ('right' default, 'left' membalikkan karakter secara horizontal via scaleX(-1)) */
+  /** Membalikkan karakter secara horizontal via transform: scaleX(-1) saat petugas bergerak ke arah kiri/berlawanan */
+  isFlipped?: boolean;
+  /** Opsional: alternatif deklaratif arah hadap ('right' | 'left') */
   facing?: 'right' | 'left';
   /** Ukuran ikon dalam piksel (rekomendasi 36–44px) */
   size?: number;
@@ -14,12 +16,13 @@ export interface SecurityWalkerIconProps {
 
 /**
  * Ikon karakter Petugas Keamanan (Satpam) berseragam tampak 3/4 samping dengan animasi berjalan CSS 60fps.
- * - Tanpa library eksternal (100% inline SVG + CSS keyframes).
+ * - Tanpa library eksternal (100% inline SVG + CSS keyframes di index.css).
  * - Dilengkapi outline putih tipis + drop-shadow halus agar kontras tinggi di atas peta 3D/satelit.
  * - Bagian tubuh dipisah ke grup <g> (left-arm, left-leg, right-leg, body, head, right-arm) untuk walking cycle natural.
  */
 export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
   isWalking = false,
+  isFlipped,
   facing = 'right',
   size = 42,
   isLive = true,
@@ -27,6 +30,7 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
 }) => {
   const uid = useId().replace(/:/g, '');
   const outlineFilterId = `sec-walker-outline-${uid}`;
+  const flipped = typeof isFlipped === 'boolean' ? isFlipped : facing === 'left';
 
   return (
     <svg
@@ -40,7 +44,7 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
         isWalking ? 'sec-walker--walking' : 'sec-walker--idle'
       } ${className}`}
       style={{
-        transform: facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
+        transform: flipped ? 'scaleX(-1)' : 'scaleX(1)',
         transition: 'transform 220ms ease-out',
       }}
     >

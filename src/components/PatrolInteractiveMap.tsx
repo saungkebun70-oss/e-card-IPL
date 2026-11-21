@@ -1054,7 +1054,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 <SecurityWalkerIcon
                   size={42}
                   isWalking={isWalkerAnimating}
-                  facing={officerFacing}
+                  isFlipped={officerFacing === 'left'}
                   isLive={officerMarker.isLive}
                   className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px]"
                 />
