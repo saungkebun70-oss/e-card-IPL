@@ -31,6 +31,7 @@ import {
   type JenisHonorPetugas,
   type JenisTransaksiKas,
   type PetugasKeamanan,
+  type SecurityShiftOverride,
   type SessionUser,
   type StatusVerifikasi,
   type TransaksiIPL,
@@ -39,6 +40,8 @@ import {
 import {
   createTransaksiKasAdmin,
   deleteTransaksiKasAdmin,
+  fetchPetugasListAdmin,
+  subscribePetugasKeamananRealtime,
   updateTransaksiKasAdmin,
   verifyTransaksiKasBendaharaAdmin,
   verifyTransaksiKasKetuaAdmin,
@@ -51,8 +54,15 @@ import {
 } from '../../lib/format';
 import { compressProofImage } from '../../lib/imageCompressor';
 import {
+  formatWibDateStr,
+  isSameOfficerName,
+} from '../../lib/securityAttendanceService';
+import {
+  buildMultiOvertimeCashDescription,
   fetchShiftOverrides,
   isSundayOvertimeShift,
+  markShiftOverridesPaidByCashTransactionAdmin,
+  revertShiftOverridesByCashTransactionAdmin,
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
@@ -92,39 +102,171 @@ export function AdminKeuanganSlide({
   const [buktiFile, setBuktiFile] = useState<File | null>(null);
   const [buktiPreview, setBuktiPreview] = useState<string | null>(null);
   const [selectedPetugasId, setSelectedPetugasId] = useState<string>('');
+  const [selectedOfficerKey, setSelectedOfficerKey] = useState<string>('');
+  const [selectedOverrideIds, setSelectedOverrideIds] = useState<string[]>([]);
   const [jenisHonor, setJenisHonor] = useState<JenisHonorPetugas>('honor_rutin');
   const [saving, setSaving] = useState(false);
 
   const [keuanganSubTab, setKeuanganSubTab] = useState<'buku_kas' | 'shift_lembur'>('buku_kas');
-  const [unpaidOvertimeCount, setUnpaidOvertimeCount] = useState<number>(0);
+  const [shiftOverrides, setShiftOverrides] = useState<SecurityShiftOverride[]>([]);
+  const [livePetugasList, setLivePetugasList] = useState<PetugasKeamanan[]>(petugasList);
 
-  const loadUnpaidOvertimeCount = useCallback(async () => {
-    const rows = await fetchShiftOverrides(session, { limit: 150 });
-    setUnpaidOvertimeCount(
-      rows.filter(
+  useEffect(() => {
+    setLivePetugasList(petugasList);
+  }, [petugasList]);
+
+  const loadSyncedShiftAndOfficers = useCallback(async () => {
+    const [ovRows, freshPetugas] = await Promise.all([
+      fetchShiftOverrides(session, { limit: 250 }),
+      fetchPetugasListAdmin(session),
+    ]);
+    setShiftOverrides(ovRows);
+    if (freshPetugas.length > 0) {
+      setLivePetugasList(freshPetugas);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    void loadSyncedShiftAndOfficers();
+    const unsubOv = subscribeShiftOverrides(session, () => {
+      void loadSyncedShiftAndOfficers();
+    });
+    const unsubPetugas = subscribePetugasKeamananRealtime(session, () => {
+      void loadSyncedShiftAndOfficers();
+    });
+    return () => {
+      unsubOv();
+      unsubPetugas();
+    };
+  }, [session, loadSyncedShiftAndOfficers]);
+
+  const unpaidOvertimeCount = useMemo(
+    () =>
+      shiftOverrides.filter(
         (o) =>
           isSundayOvertimeShift(o.shift_name) &&
           o.payment_status !== 'paid' &&
           !o.cash_transaction_id
-      ).length
-    );
-  }, [session]);
+      ).length,
+    [shiftOverrides]
+  );
 
-  useEffect(() => {
-    void loadUnpaidOvertimeCount();
-    const unsub = subscribeShiftOverrides(session, () => {
-      void loadUnpaidOvertimeCount();
+  // Sumber Data Tunggal Real-Time: gabungkan petugas_keamanan + seluruh petugas & shift terbaru di Kelola Shift & Lembur
+  const syncedOfficerDirectory = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        nama: string;
+        petugasId: string | null;
+        latestShift: string;
+        unpaidOvertimes: SecurityShiftOverride[];
+      }
+    >();
+
+    livePetugasList
+      .filter((p) => p.aktif !== false)
+      .forEach((p) => {
+        const cleanNama = p.nama.trim();
+        const key = cleanNama.toLowerCase();
+        if (!key) return;
+        map.set(key, {
+          key,
+          nama: cleanNama,
+          petugasId: p.id,
+          latestShift: p.shift || 'Shift Keamanan',
+          unpaidOvertimes: [],
+        });
+      });
+
+    // Terapkan jadwal shift terbaru & tagihan lembur belum dibayar dari security_shift_overrides
+    const sortedOverrides = [...shiftOverrides].sort(
+      (a, b) =>
+        b.shift_date.localeCompare(a.shift_date) ||
+        new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+    );
+
+    const latestShiftAssigned = new Set<string>();
+    sortedOverrides.forEach((ov) => {
+      const cleanNama = ov.officer_name.trim();
+      const key = cleanNama.toLowerCase();
+      if (!key) return;
+      let entry = map.get(key);
+      if (!entry) {
+        entry = {
+          key,
+          nama: cleanNama,
+          petugasId: null,
+          latestShift: ov.shift_name,
+          unpaidOvertimes: [],
+        };
+        map.set(key, entry);
+      }
+      if (!latestShiftAssigned.has(key)) {
+        entry.latestShift = ov.shift_name;
+        latestShiftAssigned.add(key);
+      }
+      if (
+        isSundayOvertimeShift(ov.shift_name) &&
+        ov.payment_status !== 'paid' &&
+        !ov.cash_transaction_id
+      ) {
+        entry.unpaidOvertimes.push(ov);
+      }
     });
-    return () => {
-      unsub();
-    };
-  }, [session, loadUnpaidOvertimeCount]);
+
+    return Array.from(map.values()).sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+  }, [livePetugasList, shiftOverrides]);
+
+  const selectedOfficerEntry = useMemo(
+    () => syncedOfficerDirectory.find((o) => o.key === selectedOfficerKey) || null,
+    [syncedOfficerDirectory, selectedOfficerKey]
+  );
+
+  const pendingOvertimesForOfficer = useMemo(
+    () => selectedOfficerEntry?.unpaidOvertimes || [],
+    [selectedOfficerEntry]
+  );
 
   const isHonorKeamananCategory =
     formJenis === 'pengeluaran' &&
     (kategori === 'Honor & Lembur Keamanan' ||
       kategori === 'Honorarium Keamanan / Satpam' ||
       kategori === 'Lembur Petugas Keamanan');
+
+  // Helper tarik otomatis nominal & keterangan dari daftar lembur belum dibayar
+  const applyOvertimeAutoFill = useCallback(
+    (officerName: string, chosenOvertimes: SecurityShiftOverride[]) => {
+      if (chosenOvertimes.length === 0) {
+        setSelectedOverrideIds([]);
+        return;
+      }
+      setSelectedOverrideIds(chosenOvertimes.map((o) => o.id));
+      const totalAmt = chosenOvertimes.reduce((sum, o) => sum + o.overtime_amount, 0);
+      if (totalAmt > 0) {
+        setNominalStr(String(totalAmt));
+      }
+      setKeterangan(buildMultiOvertimeCashDescription(officerName, chosenOvertimes));
+    },
+    []
+  );
+
+  // Jaga agar selectedOverrideIds selalu sinkron real-time bila ada jadwal baru atau sudah dibayar dari tab lain
+  useEffect(() => {
+    if (editingItem) return;
+    if (!isHonorKeamananCategory || jenisHonor !== 'lembur' || !selectedOfficerEntry) {
+      setSelectedOverrideIds([]);
+      return;
+    }
+    const validPending = selectedOfficerEntry.unpaidOvertimes;
+    setSelectedOverrideIds((prev) => {
+      const validIds = new Set(validPending.map((o) => o.id));
+      const stillValid = prev.filter((id) => validIds.has(id));
+      if (stillValid.length > 0) return stillValid;
+      return validPending.map((o) => o.id);
+    });
+  }, [editingItem, isHonorKeamananCategory, jenisHonor, selectedOfficerEntry]);
 
   // Filter & Search Daftar Transaksi Kas
   const [filterJenis, setFilterJenis] = useState<'semua' | JenisTransaksiKas>('semua');
@@ -160,6 +302,8 @@ export function AdminKeuanganSlide({
     );
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
     setSelectedPetugasId('');
+    setSelectedOfficerKey('');
+    setSelectedOverrideIds([]);
     setJenisHonor('honor_rutin');
   };
 
@@ -177,6 +321,8 @@ export function AdminKeuanganSlide({
     setBuktiFile(null);
     setBuktiPreview(null);
     setSelectedPetugasId('');
+    setSelectedOfficerKey('');
+    setSelectedOverrideIds([]);
     setJenisHonor('honor_rutin');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -194,6 +340,13 @@ export function AdminKeuanganSlide({
     setBuktiFile(null);
     setBuktiPreview(item.bukti_url || null);
     setSelectedPetugasId(item.petugas_id || '');
+    const matchedOfficer = syncedOfficerDirectory.find(
+      (o) =>
+        (item.petugas_id && o.petugasId === item.petugas_id) ||
+        isSameOfficerName(o.nama, item.penerima_atau_sumber.replace(/\s*\(Petugas Keamanan\)$/i, ''))
+    );
+    setSelectedOfficerKey(matchedOfficer?.key || '');
+    setSelectedOverrideIds(item.shift_override_id ? [item.shift_override_id] : []);
     setJenisHonor(
       item.jenis_honor ||
         (item.kategori === 'Lembur Petugas Keamanan' ||
@@ -222,6 +375,23 @@ export function AdminKeuanganSlide({
     }
   };
 
+  const handleToggleOvertimeItem = (overrideId: string) => {
+    if (!selectedOfficerEntry) return;
+    const nextIds = selectedOverrideIds.includes(overrideId)
+      ? selectedOverrideIds.filter((id) => id !== overrideId)
+      : [...selectedOverrideIds, overrideId];
+    const chosen = selectedOfficerEntry.unpaidOvertimes.filter((o) => nextIds.includes(o.id));
+    setSelectedOverrideIds(nextIds);
+    if (chosen.length > 0) {
+      const totalAmt = chosen.reduce((sum, o) => sum + o.overtime_amount, 0);
+      if (totalAmt > 0) setNominalStr(String(totalAmt));
+      setKeterangan(buildMultiOvertimeCashDescription(selectedOfficerEntry.nama, chosen));
+    } else {
+      setNominalStr('');
+      setKeterangan('');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -233,8 +403,24 @@ export function AdminKeuanganSlide({
 
     setSaving(true);
     try {
-      const linkedPetugasId = isHonorKeamananCategory && selectedPetugasId ? selectedPetugasId : null;
-      const linkedJenisHonor = linkedPetugasId ? jenisHonor : null;
+      const resolvedPetugasId =
+        isHonorKeamananCategory && (selectedOfficerEntry?.petugasId || selectedPetugasId)
+          ? selectedOfficerEntry?.petugasId || selectedPetugasId
+          : null;
+      const linkedJenisHonor =
+        isHonorKeamananCategory && (selectedOfficerEntry || resolvedPetugasId) ? jenisHonor : null;
+      const linkedOverrideIds =
+        !editingItem &&
+        isHonorKeamananCategory &&
+        jenisHonor === 'lembur' &&
+        selectedOverrideIds.length > 0
+          ? selectedOverrideIds
+          : [];
+      const shouldAutoVerifyLinkedHonor =
+        !editingItem &&
+        formJenis === 'pengeluaran' &&
+        isHonorKeamananCategory &&
+        (linkedOverrideIds.length > 0 || Boolean(selectedOfficerEntry));
 
       if (editingItem) {
         const res = await updateTransaksiKasAdmin(session, editingItem.id, {
@@ -246,7 +432,7 @@ export function AdminKeuanganSlide({
           keterangan,
           buktiFile,
           bukti_url: buktiPreview,
-          petugas_id: linkedPetugasId,
+          petugas_id: resolvedPetugasId,
           jenis_honor: linkedJenisHonor,
         });
         if (res.error) {
@@ -266,19 +452,35 @@ export function AdminKeuanganSlide({
           penerima_atau_sumber: penerimaAtauSumber,
           keterangan,
           buktiFile,
-          petugas_id: linkedPetugasId,
+          petugas_id: resolvedPetugasId,
           jenis_honor: linkedJenisHonor,
+          shift_override_id: linkedOverrideIds[0] || null,
+          autoVerify: shouldAutoVerifyLinkedHonor,
         });
         if (res.error || !res.data) {
           onToast('error', res.error || 'Gagal menyimpan transaksi kas.');
         } else {
+          // Sinkronisasi 2-Arah: Buku Kas -> Kelola Shift & Lembur Keamanan (Ubah status menjadi Sudah Dibayar / Cair)
+          if (linkedOverrideIds.length > 0) {
+            await markShiftOverridesPaidByCashTransactionAdmin(
+              session,
+              linkedOverrideIds,
+              res.data.id
+            );
+          }
+
           onToast(
             'success',
-            `${
-              formJenis === 'pengeluaran' ? 'Pengeluaran anggaran' : 'Pemasukan lain'
-            } ${formatRupiah(res.data.nominal)} dicatat (${res.data.no_bukti}) — berstatus Menunggu Verifikasi Bendahara.`
+            linkedOverrideIds.length > 0
+              ? `Pengeluaran ${formatRupiah(res.data.nominal)} (${res.data.no_bukti}) dicatat, Saldo Kas terpotong & ${linkedOverrideIds.length} jadwal lembur otomatis berstatus Sudah Dibayar / Cair.`
+              : shouldAutoVerifyLinkedHonor
+                ? `Pengeluaran honor ${formatRupiah(res.data.nominal)} (${res.data.no_bukti}) terverifikasi, memotong Saldo Kas & e-Kwitansi tampil di Portal Petugas.`
+                : `${
+                    formJenis === 'pengeluaran' ? 'Pengeluaran anggaran' : 'Pemasukan lain'
+                  } ${formatRupiah(res.data.nominal)} dicatat (${res.data.no_bukti}) — berstatus Menunggu Verifikasi Bendahara.`
           );
           resetForm(formJenis);
+          await loadSyncedShiftAndOfficers();
           await onRefresh();
         }
       }
@@ -365,7 +567,20 @@ export function AdminKeuanganSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
-        onToast('info', `Transaksi ${item.no_bukti} telah dihapus dari buku kas.`);
+        // Sinkronisasi Hapus 2-Arah: kembalikan status lembur terkait di Kelola Shift & Lembur menjadi Belum Dibayar
+        const revertRes = await revertShiftOverridesByCashTransactionAdmin(
+          session,
+          item.id,
+          item.shift_override_id
+        );
+        const revertedCount = revertRes.data || 0;
+        onToast(
+          'info',
+          revertedCount > 0
+            ? `Transaksi ${item.no_bukti} dihapus & ${revertedCount} jadwal lembur terkait di Kelola Shift & Lembur dikembalikan menjadi Belum Dibayar.`
+            : `Transaksi ${item.no_bukti} telah dihapus dari buku kas.`
+        );
+        await loadSyncedShiftAndOfficers();
         await onRefresh();
       }
     } finally {
@@ -479,9 +694,9 @@ export function AdminKeuanganSlide({
       {keuanganSubTab === 'shift_lembur' ? (
         <AdminShiftOvertimePanel
           session={session}
-          petugasList={petugasList}
+          petugasList={livePetugasList}
           onCashChanged={async () => {
-            await loadUnpaidOvertimeCount();
+            await loadSyncedShiftAndOfficers();
             await onRefresh();
           }}
           onToast={onToast}
@@ -557,8 +772,15 @@ export function AdminKeuanganSlide({
                     nextKat === 'Honor & Lembur Keamanan'
                   ) {
                     setJenisHonor('lembur');
+                    if (selectedOfficerEntry && !editingItem) {
+                      applyOvertimeAutoFill(
+                        selectedOfficerEntry.nama,
+                        selectedOfficerEntry.unpaidOvertimes
+                      );
+                    }
                   } else if (nextKat === 'Honorarium Keamanan / Satpam') {
                     setJenisHonor('honor_rutin');
+                    setSelectedOverrideIds([]);
                   }
                 }}
                 className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
@@ -571,33 +793,48 @@ export function AdminKeuanganSlide({
               </select>
             </div>
 
-            {/* Integrasi 2-Arah: Hubungkan Honorarium / Lembur ke Akun Petugas Keamanan */}
+            {/* Integrasi 2-Arah: Sumber Data Tunggal Petugas/Shift & Tarik Otomatis Tagihan Lembur */}
             {isHonorKeamananCategory && (
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3.5 space-y-2.5">
-                <p className="text-xs font-bold text-emerald-900">
-                  Sinkronisasi Otomatis ke Portal Petugas Keamanan
-                </p>
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3.5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-emerald-900">
+                    Sinkronisasi Otomatis ke Portal Petugas Keamanan
+                  </p>
+                  <span className="text-[10px] font-semibold text-emerald-800 bg-white/80 border border-emerald-200 rounded-md px-2 py-0.5">
+                    Real-Time dari Kelola Shift &amp; Lembur
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
                       Pilih Petugas Penerima
                     </label>
                     <select
-                      value={selectedPetugasId}
+                      value={selectedOfficerKey}
                       onChange={(e) => {
-                        const nextId = e.target.value;
-                        setSelectedPetugasId(nextId);
-                        const found = petugasList.find((p) => p.id === nextId);
+                        const nextKey = e.target.value;
+                        setSelectedOfficerKey(nextKey);
+                        const found = syncedOfficerDirectory.find((o) => o.key === nextKey) || null;
+                        setSelectedPetugasId(found?.petugasId || '');
                         if (found) {
-                          setPenerimaAtauSumber(`${found.nama} (Petugas Keamanan)`);
+                          setPenerimaAtauSumber(found.nama);
+                          if (jenisHonor === 'lembur' && !editingItem) {
+                            applyOvertimeAutoFill(found.nama, found.unpaidOvertimes);
+                          }
+                        } else {
+                          setSelectedOverrideIds([]);
                         }
                       }}
                       className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
                     >
                       <option value="">-- Tidak ditautkan (Manual) --</option>
-                      {petugasList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nama} ({p.shift})
+                      {syncedOfficerDirectory.map((officer) => (
+                        <option key={officer.key} value={officer.key}>
+                          {officer.nama} ({officer.latestShift})
+                          {officer.unpaidOvertimes.length > 0
+                            ? ` · ${officer.unpaidOvertimes.length} lembur blm bayar`
+                            : ''}
                         </option>
                       ))}
                     </select>
@@ -608,7 +845,18 @@ export function AdminKeuanganSlide({
                     </label>
                     <select
                       value={jenisHonor}
-                      onChange={(e) => setJenisHonor(e.target.value as JenisHonorPetugas)}
+                      onChange={(e) => {
+                        const nextJenis = e.target.value as JenisHonorPetugas;
+                        setJenisHonor(nextJenis);
+                        if (nextJenis === 'lembur' && selectedOfficerEntry && !editingItem) {
+                          applyOvertimeAutoFill(
+                            selectedOfficerEntry.nama,
+                            selectedOfficerEntry.unpaidOvertimes
+                          );
+                        } else {
+                          setSelectedOverrideIds([]);
+                        }
+                      }}
                       className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
                     >
                       <option value="honor_rutin">Honor Rutin (Termin / Bulanan)</option>
@@ -616,6 +864,71 @@ export function AdminKeuanganSlide({
                     </select>
                   </div>
                 </div>
+
+                {/* Panel Tarik Otomatis Lembur Belum Dibayar (Anti-Input Ganda) */}
+                {!editingItem && jenisHonor === 'lembur' && selectedOfficerEntry && (
+                  pendingOvertimesForOfficer.length > 0 ? (
+                    <div className="rounded-xl bg-white border border-emerald-200 p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <p className="text-[11px] font-bold text-[#0F172A]">
+                          Tagihan Lembur Belum Dibayar ({pendingOvertimesForOfficer.length} jadwal)
+                        </p>
+                        <p className="text-xs font-mono font-extrabold text-[#059669] tabular-nums">
+                          Terpilih:{' '}
+                          {formatRupiah(
+                            pendingOvertimesForOfficer
+                              .filter((o) => selectedOverrideIds.includes(o.id))
+                              .reduce((sum, o) => sum + o.overtime_amount, 0)
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
+                        {pendingOvertimesForOfficer.map((ov) => {
+                          const checked = selectedOverrideIds.includes(ov.id);
+                          return (
+                            <label
+                              key={ov.id}
+                              className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-xs cursor-pointer transition ${
+                                checked
+                                  ? 'bg-emerald-50/70 border-emerald-300 text-[#0F172A]'
+                                  : 'bg-slate-50 border-slate-200 text-slate-500'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => handleToggleOvertimeItem(ov.id)}
+                                  className="h-3.5 w-3.5 rounded accent-[#059669] cursor-pointer shrink-0"
+                                />
+                                <span className="truncate font-medium">
+                                  {formatWibDateStr(ov.shift_date)} · {ov.shift_name}
+                                </span>
+                              </span>
+                              <span className="font-mono font-bold tabular-nums shrink-0">
+                                {formatRupiah(ov.overtime_amount)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-[11px] text-emerald-800 leading-snug">
+                        Nominal &amp; Keterangan terisi otomatis (tetap bisa diedit manual). Saat
+                        disimpan, status jadwal terpilih di <strong>Kelola Shift &amp; Lembur</strong>{' '}
+                        otomatis menjadi <strong>Sudah Dibayar / Cair</strong>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-3 py-2 text-[11px] text-amber-900">
+                      Tidak ada tagihan lembur tertunda untuk{' '}
+                      <strong>{selectedOfficerEntry.nama}</strong> di Kelola Shift &amp; Lembur.
+                      Anda tetap dapat mengisi nominal &amp; keterangan secara manual.
+                    </div>
+                  )
+                )}
+
                 <p className="text-[11px] text-emerald-800 leading-snug">
                   Bila petugas dipilih, nominal &amp; e-Kwitansi langsung tampil di akun petugas
                   terkait sekaligus memotong Saldo Kas &amp; masuk LPJ Triwulanan.

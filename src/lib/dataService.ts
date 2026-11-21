@@ -4408,6 +4408,8 @@ export async function createTransaksiKasAdmin(
     bukti_url?: string | null;
     petugas_id?: string | null;
     jenis_honor?: JenisHonorPetugas | null;
+    shift_override_id?: string | null;
+    autoVerify?: boolean;
   }
 ): Promise<ServiceResult<TransaksiKas>> {
   if (session.role !== 'admin') {
@@ -4440,9 +4442,17 @@ export async function createTransaksiKasAdmin(
   const cleanPetugasId =
     payload.jenis === 'pengeluaran' && payload.petugas_id?.trim() ? payload.petugas_id.trim() : null;
   const cleanJenisHonor: JenisHonorPetugas | null =
-    cleanPetugasId && (payload.jenis_honor === 'honor_rutin' || payload.jenis_honor === 'lembur')
+    payload.jenis === 'pengeluaran' &&
+    (payload.jenis_honor === 'honor_rutin' || payload.jenis_honor === 'lembur')
       ? payload.jenis_honor
       : null;
+  const cleanShiftOverrideId =
+    payload.jenis === 'pengeluaran' && payload.shift_override_id?.trim()
+      ? payload.shift_override_id.trim()
+      : null;
+  const shouldAutoVerify = Boolean(payload.autoVerify);
+  const approverLabel = `${session.nama_warga} (${session.jabatan || 'Pengurus'})`;
+  const initialStatus: StatusVerifikasi = shouldAutoVerify ? 'Terverifikasi' : 'Pending';
 
   const newEntry: TransaksiKas = {
     id: `kas-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -4457,14 +4467,15 @@ export async function createTransaksiKasAdmin(
     bukti_url: resolvedBuktiUrl,
     petugas_id: cleanPetugasId,
     jenis_honor: cleanJenisHonor,
-    status_verifikasi: 'Pending',
-    bendahara_approved_at: null,
-    bendahara_approved_by: null,
-    ketua_approved_at: null,
-    ketua_approved_by: null,
+    shift_override_id: cleanShiftOverrideId,
+    status_verifikasi: initialStatus,
+    bendahara_approved_at: shouldAutoVerify ? nowIso : null,
+    bendahara_approved_by: shouldAutoVerify ? approverLabel : null,
+    ketua_approved_at: shouldAutoVerify ? nowIso : null,
+    ketua_approved_by: shouldAutoVerify ? approverLabel : null,
     ketua_catatan: null,
     created_by: session.blok_rumah,
-    created_by_name: `${session.nama_warga} (${session.jabatan || 'Pengurus'})`,
+    created_by_name: approverLabel,
     created_at: nowIso,
     updated_at: nowIso,
   };
@@ -4472,6 +4483,13 @@ export async function createTransaksiKasAdmin(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
+      const uuidPetugasId =
+        cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null;
+      const uuidShiftOverrideId =
+        cleanShiftOverrideId && !cleanShiftOverrideId.startsWith('shift-')
+          ? cleanShiftOverrideId
+          : null;
+
       const baseInsert = {
         no_bukti: newEntry.no_bukti,
         jenis: newEntry.jenis,
@@ -4487,11 +4505,19 @@ export async function createTransaksiKasAdmin(
         created_at: newEntry.created_at,
         updated_at: newEntry.updated_at,
       };
-      const fullInsert = {
+      const midInsert = {
         ...baseInsert,
-        petugas_id: cleanPetugasId && !cleanPetugasId.startsWith('petugas-') ? cleanPetugasId : null,
+        petugas_id: uuidPetugasId,
         jenis_honor: cleanJenisHonor,
-        status_verifikasi: 'Pending',
+        status_verifikasi: initialStatus,
+        bendahara_approved_at: newEntry.bendahara_approved_at,
+        bendahara_approved_by: newEntry.bendahara_approved_by,
+        ketua_approved_at: newEntry.ketua_approved_at,
+        ketua_approved_by: newEntry.ketua_approved_by,
+      };
+      const fullInsert = {
+        ...midInsert,
+        shift_override_id: uuidShiftOverrideId,
       };
 
       let { data, error } = await supabase
@@ -4503,31 +4529,48 @@ export async function createTransaksiKasAdmin(
       const firstErrMsg = String((error as { message?: string })?.message || '').toLowerCase();
       if (
         error &&
-        (firstErrMsg.includes('petugas_id') ||
+        (firstErrMsg.includes('shift_override_id') ||
+          firstErrMsg.includes('petugas_id') ||
           firstErrMsg.includes('jenis_honor') ||
           firstErrMsg.includes('status_verifikasi') ||
           firstErrMsg.includes('column'))
       ) {
-        const retry = await supabase
+        const retryMid = await supabase
           .from('transaksi_kas')
-          .insert(baseInsert)
+          .insert(midInsert)
           .select()
           .single();
-        data = retry.data;
-        error = retry.error;
+        if (!retryMid.error && retryMid.data) {
+          data = retryMid.data;
+          error = null;
+        } else {
+          const retry = await supabase
+            .from('transaksi_kas')
+            .insert(baseInsert)
+            .select()
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
       }
 
       if (!error && data) {
         const rawId = String((data as Record<string, unknown>).id || newEntry.id);
         writeApprovalOverlayEntry(`kas::${rawId}`, {
-          status_verifikasi: 'Pending',
-          bendahara_approved_at: null,
-          bendahara_approved_by: null,
-          ketua_approved_at: null,
-          ketua_approved_by: null,
+          status_verifikasi: initialStatus,
+          bendahara_approved_at: newEntry.bendahara_approved_at,
+          bendahara_approved_by: newEntry.bendahara_approved_by,
+          ketua_approved_at: newEntry.ketua_approved_at,
+          ketua_approved_by: newEntry.ketua_approved_by,
           ketua_catatan: null,
         });
-        const persisted = normalizeTransaksiKasRow(data as Record<string, unknown>);
+        const persistedRaw = normalizeTransaksiKasRow(data as Record<string, unknown>);
+        const persisted: TransaksiKas = {
+          ...persistedRaw,
+          shift_override_id: persistedRaw.shift_override_id || cleanShiftOverrideId,
+          jenis_honor: persistedRaw.jenis_honor || cleanJenisHonor,
+          status_verifikasi: shouldAutoVerify ? 'Terverifikasi' : persistedRaw.status_verifikasi,
+        };
         const current = readLocalTransaksiKas().filter((k) => k.id !== persisted.id);
         writeLocalTransaksiKas([persisted, ...current]);
         await recordAuditLog({
@@ -4535,7 +4578,7 @@ export async function createTransaksiKasAdmin(
           action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
           entity: 'transaksi_kas',
           entity_id: persisted.id,
-          summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}) [Menunggu Verifikasi Bendahara].`,
+          summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
         });
         return { data: persisted };
       }
@@ -4554,14 +4597,18 @@ export async function createTransaksiKasAdmin(
 
   writeLocalTransaksiKas([newEntry, ...readLocalTransaksiKas()]);
   writeApprovalOverlayEntry(`kas::${newEntry.id}`, {
-    status_verifikasi: 'Pending',
+    status_verifikasi: initialStatus,
+    bendahara_approved_at: newEntry.bendahara_approved_at,
+    bendahara_approved_by: newEntry.bendahara_approved_by,
+    ketua_approved_at: newEntry.ketua_approved_at,
+    ketua_approved_by: newEntry.ketua_approved_by,
   });
   await recordAuditLog({
     session,
     action: payload.jenis === 'pengeluaran' ? 'CREATE_PENGELUARAN' : 'CREATE_PEMASUKAN_LAIN',
     entity: 'transaksi_kas',
     entity_id: newEntry.id,
-    summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}) [Menunggu Verifikasi Bendahara].`,
+    summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
   });
   return { data: newEntry };
 }
@@ -5524,9 +5571,8 @@ export async function fetchPetugasOwnData(
             .from('transaksi_kas')
             .select('*')
             .eq('jenis', 'pengeluaran')
-            .eq('petugas_id', ownId)
             .order('tanggal', { ascending: false })
-            .limit(60),
+            .limit(80),
           fetchSystemNotifications(session),
           fetchPatrolMapConfig(session),
         ]);
@@ -5560,6 +5606,10 @@ export async function fetchPetugasOwnData(
           : readLocalLogPatroli().slice(0, 40);
 
       const ownNameLower = profil.nama.trim().toLowerCase();
+      const matchesOwnOfficerName = (rawName: string) => {
+        const clean = rawName.trim().toLowerCase();
+        return clean === ownNameLower || clean.startsWith(`${ownNameLower} (`);
+      };
       const riwayatHonor =
         !honorRes.error && Array.isArray(honorRes.data)
           ? (honorRes.data as Record<string, unknown>[])
@@ -5567,16 +5617,12 @@ export async function fetchPetugasOwnData(
               .filter(
                 (h) =>
                   h.jenis === 'pengeluaran' &&
-                  (h.petugas_id === ownId ||
-                    (h.jenis_honor === 'lembur' &&
-                      h.penerima_atau_sumber.trim().toLowerCase() === ownNameLower))
+                  (h.petugas_id === ownId || matchesOwnOfficerName(h.penerima_atau_sumber))
               )
           : readLocalTransaksiKas().filter(
               (h) =>
                 h.jenis === 'pengeluaran' &&
-                (h.petugas_id === ownId ||
-                  (h.jenis_honor === 'lembur' &&
-                    h.penerima_atau_sumber.trim().toLowerCase() === ownNameLower))
+                (h.petugas_id === ownId || matchesOwnOfficerName(h.penerima_atau_sumber))
             );
 
       const instruksiKeamanan = allNotifs
@@ -5862,6 +5908,58 @@ export async function fetchPetugasListAdmin(session: SessionUser): Promise<Petug
   }));
 }
 
+const PETUGAS_CHANGE_EVENT = 'skb-petugas-keamanan-changed';
+
+export function emitPetugasKeamananChanged(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(PETUGAS_CHANGE_EVENT));
+  } catch {
+    // Abaikan bila di luar browser
+  }
+}
+
+export function subscribePetugasKeamananRealtime(
+  session: SessionUser | null,
+  onChange: () => void
+): () => void {
+  const onLocal = () => onChange();
+  window.addEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+
+  if (!isSupabaseConfigured()) {
+    return () => {
+      window.removeEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+    };
+  }
+
+  const supabase = getSupabaseClient(session || null);
+  if (!supabase) {
+    return () => {
+      window.removeEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+    };
+  }
+
+  const channelName = `petugas-keamanan-rt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const channel = supabase
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'petugas_keamanan' },
+      () => {
+        onChange();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    window.removeEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+    try {
+      void supabase.removeChannel(channel);
+    } catch {
+      // Abaikan
+    }
+  };
+}
+
 export async function savePetugasAdmin(
   session: SessionUser,
   payload: {
@@ -5922,6 +6020,7 @@ export async function savePetugasAdmin(
             entity_id: saved.id,
             summary: `Memperbarui akun Petugas Keamanan ${saved.nama} (@${saved.username} · ${saved.shift}).`,
           });
+          emitPetugasKeamananChanged();
           return { data: saved };
         }
         const errCode = String((error as { code?: string })?.code || '');
@@ -5951,6 +6050,7 @@ export async function savePetugasAdmin(
             entity_id: saved.id,
             summary: `Menambahkan akun Petugas Keamanan baru ${saved.nama} (@${saved.username}).`,
           });
+          emitPetugasKeamananChanged();
           return { data: saved };
         }
         const errCode = String((error as { code?: string })?.code || '');
@@ -5988,6 +6088,7 @@ export async function savePetugasAdmin(
     });
     if (!updated) return { error: 'Akun petugas tidak ditemukan.' };
     writeLocalPetugasList(next);
+    emitPetugasKeamananChanged();
     return { data: updated };
   }
 
@@ -6002,6 +6103,7 @@ export async function savePetugasAdmin(
     created_at: new Date().toISOString(),
   };
   writeLocalPetugasList([created, ...list]);
+  emitPetugasKeamananChanged();
   return { data: created };
 }
 
@@ -6033,6 +6135,7 @@ export async function deletePetugasAdmin(
     entity_id: petugas.id,
     summary: `Menghapus akun Petugas Keamanan ${petugas.nama} (@${petugas.username}).`,
   });
+  emitPetugasKeamananChanged();
   return { data: true };
 }
 

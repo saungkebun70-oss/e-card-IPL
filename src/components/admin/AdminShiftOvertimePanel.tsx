@@ -5,6 +5,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Edit3,
   Loader2,
   Moon,
   Plus,
@@ -34,6 +35,10 @@ import {
   subscribeSecurityAttendance,
 } from '../../lib/securityAttendanceService';
 import {
+  fetchPetugasListAdmin,
+  subscribePetugasKeamananRealtime,
+} from '../../lib/dataService';
+import {
   buildOvertimeCashDescription,
   createShiftOverrideAdmin,
   deleteShiftOverrideWithCashSyncAdmin,
@@ -44,6 +49,7 @@ import {
   payOvertimeForShiftOverrideAdmin,
   setDefaultOvertimeAmount,
   subscribeShiftOverrides,
+  updateShiftOverrideAdmin,
 } from '../../lib/securityShiftOvertimeService';
 
 interface AdminShiftOvertimePanelProps {
@@ -61,8 +67,13 @@ export function AdminShiftOvertimePanel({
 }: AdminShiftOvertimePanelProps) {
   const [overrides, setOverrides] = useState<SecurityShiftOverride[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<SecurityAttendanceRecord[]>([]);
+  const [livePetugas, setLivePetugas] = useState<PetugasKontakDarurat[]>(petugasList);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    setLivePetugas(petugasList);
+  }, [petugasList]);
 
   // Pengaturan Nominal Default Lembur Minggu
   const [defaultNominal, setDefaultNominal] = useState<number>(() => getDefaultOvertimeAmount());
@@ -70,24 +81,34 @@ export function AdminShiftOvertimePanel({
     String(getDefaultOvertimeAmount())
   );
 
-  // Form Tambah Jadwal Shift / Lembur Minggu
+  // Sumber data tunggal daftar petugas (Petugas Keamanan live + semua nama di Kelola Shift & Lembur)
   const officerOptions = useMemo(() => {
     const map = new Map<string, { nama: string; id: string | null }>();
-    DEFAULT_SECURITY_OFFICER_NAMES.forEach((name) => {
-      map.set(name.trim().toLowerCase(), { nama: name, id: null });
-    });
-    petugasList.forEach((p) => {
+    livePetugas.forEach((p) => {
       const key = p.nama.trim().toLowerCase();
       if (key) {
         map.set(key, { nama: p.nama.trim(), id: p.id });
       }
     });
-    return Array.from(map.values());
-  }, [petugasList]);
+    overrides.forEach((ov) => {
+      const key = ov.officer_name.trim().toLowerCase();
+      if (key && !map.has(key)) {
+        map.set(key, { nama: ov.officer_name.trim(), id: null });
+      }
+    });
+    if (map.size === 0) {
+      DEFAULT_SECURITY_OFFICER_NAMES.forEach((name) => {
+        map.set(name.trim().toLowerCase(), { nama: name, id: null });
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+  }, [livePetugas, overrides]);
 
   const [formOfficer, setFormOfficer] = useState<string>(
     () => officerOptions[0]?.nama || DEFAULT_SECURITY_OFFICER_NAMES[0]
   );
+  const [customOfficerMode, setCustomOfficerMode] = useState<boolean>(false);
+  const [customOfficerName, setCustomOfficerName] = useState<string>('');
   const [formShiftName, setFormShiftName] = useState<string>(STANDARD_SECURITY_SHIFTS[3]); // Lembur Minggu (19:00-07:00)
   const [formShiftDate, setFormShiftDate] = useState<string>(() => getNearestSundayWibDateStr());
   const [formNominalInput, setFormNominalInput] = useState<string>(() =>
@@ -107,6 +128,15 @@ export function AdminShiftOvertimePanel({
   const [payModalAmountInput, setPayModalAmountInput] = useState<string>('');
   const [payingOverride, setPayingOverride] = useState<boolean>(false);
 
+  // Modal Edit Jadwal Shift / Nama Petugas / Nominal
+  const [editTarget, setEditTarget] = useState<SecurityShiftOverride | null>(null);
+  const [editOfficerName, setEditOfficerName] = useState<string>('');
+  const [editShiftName, setEditShiftName] = useState<string>('');
+  const [editShiftDate, setEditShiftDate] = useState<string>('');
+  const [editNominalInput, setEditNominalInput] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [savingEdit, setSavingEdit] = useState<boolean>(false);
+
   // Modal Konfirmasi Hapus / Batalkan
   const [deleteTarget, setDeleteTarget] = useState<SecurityShiftOverride | null>(null);
   const [deletingOverride, setDeletingOverride] = useState<boolean>(false);
@@ -122,12 +152,20 @@ export function AdminShiftOvertimePanel({
       if (silent) setRefreshing(true);
       else setLoading(true);
       try {
-        const [ovRows, attRows] = await Promise.all([
+        const [ovRows, attRows, freshPetugas] = await Promise.all([
           fetchShiftOverrides(session, { limit: 250 }),
           fetchSecurityAttendance(session, { limit: 300 }),
+          fetchPetugasListAdmin(session),
         ]);
         setOverrides(ovRows);
         setAttendanceRecords(attRows);
+        if (freshPetugas.length > 0) {
+          setLivePetugas(
+            freshPetugas
+              .filter((p) => p.aktif !== false)
+              .map((p) => ({ id: p.id, nama: p.nama, no_hp: p.no_hp, shift: p.shift }))
+          );
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -144,12 +182,17 @@ export function AdminShiftOvertimePanel({
     const unsubAtt = subscribeSecurityAttendance(session, () => {
       void loadAll(true);
     });
+    const unsubPetugas = subscribePetugasKeamananRealtime(session, () => {
+      void loadAll(true);
+    });
     return () => {
       unsubOv();
       unsubAtt();
+      unsubPetugas();
     };
   }, [session, loadAll]);
 
+  const effectiveFormOfficer = customOfficerMode ? customOfficerName.trim() : formOfficer.trim();
   const isFormLembur = isSundayOvertimeShift(formShiftName);
   const parsedFormNominal = Math.max(0, Math.round(Number(formNominalInput) || 0));
 
@@ -183,10 +226,10 @@ export function AdminShiftOvertimePanel({
 
   const resolveOfficerPetugasId = useCallback(
     (officerName: string): string | null => {
-      const matched = petugasList.find((p) => isSameOfficerName(p.nama, officerName));
+      const matched = livePetugas.find((p) => isSameOfficerName(p.nama, officerName));
       return matched?.id || null;
     },
-    [petugasList]
+    [livePetugas]
   );
 
   const findMatchedAttendance = useCallback(
@@ -208,8 +251,8 @@ export function AdminShiftOvertimePanel({
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingForm) return;
-    if (!formOfficer.trim() || !formShiftDate.trim()) {
-      onToast('error', 'Pilih petugas dan tanggal shift terlebih dahulu.');
+    if (!effectiveFormOfficer || !formShiftDate.trim()) {
+      onToast('error', 'Pilih atau ketik nama petugas serta tanggal shift terlebih dahulu.');
       return;
     }
     if (isFormLembur && formPayImmediately && parsedFormNominal <= 0) {
@@ -221,8 +264,8 @@ export function AdminShiftOvertimePanel({
     try {
       const res = await createShiftOverrideAdmin(session, {
         shift_date: formShiftDate,
-        officer_name: formOfficer,
-        petugas_id: resolveOfficerPetugasId(formOfficer),
+        officer_name: effectiveFormOfficer,
+        petugas_id: resolveOfficerPetugasId(effectiveFormOfficer),
         shift_name: formShiftName,
         overtime_amount: isFormLembur ? parsedFormNominal : 0,
         notes: formNotes,
@@ -235,6 +278,11 @@ export function AdminShiftOvertimePanel({
       }
 
       onToast('success', res.message);
+      if (customOfficerMode) {
+        setFormOfficer(effectiveFormOfficer);
+        setCustomOfficerMode(false);
+        setCustomOfficerName('');
+      }
       setFormNotes('');
       setFormPayImmediately(false);
       await loadAll(true);
@@ -243,6 +291,40 @@ export function AdminShiftOvertimePanel({
       }
     } finally {
       setSubmittingForm(false);
+    }
+  };
+
+  const openEditModal = (ov: SecurityShiftOverride) => {
+    setEditTarget(ov);
+    setEditOfficerName(ov.officer_name);
+    setEditShiftName(ov.shift_name);
+    setEditShiftDate(ov.shift_date);
+    setEditNominalInput(String(ov.overtime_amount || 0));
+    setEditNotes(ov.notes || '');
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!editTarget || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      const res = await updateShiftOverrideAdmin(session, editTarget.id, {
+        officer_name: editOfficerName,
+        shift_date: editShiftDate,
+        shift_name: editShiftName,
+        overtime_amount: isSundayOvertimeShift(editShiftName)
+          ? Math.max(0, Math.round(Number(editNominalInput) || 0))
+          : 0,
+        notes: editNotes,
+      });
+      if (!res.ok) {
+        onToast('error', res.message);
+        return;
+      }
+      setEditTarget(null);
+      onToast('success', res.message);
+      await loadAll(true);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -444,8 +526,15 @@ export function AdminShiftOvertimePanel({
               </label>
               <select
                 id="shift-ov-officer"
-                value={formOfficer}
-                onChange={(e) => setFormOfficer(e.target.value)}
+                value={customOfficerMode ? '__custom__' : formOfficer}
+                onChange={(e) => {
+                  if (e.target.value === '__custom__') {
+                    setCustomOfficerMode(true);
+                  } else {
+                    setCustomOfficerMode(false);
+                    setFormOfficer(e.target.value);
+                  }
+                }}
                 className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
               >
                 {officerOptions.map((opt) => (
@@ -453,7 +542,17 @@ export function AdminShiftOvertimePanel({
                     {opt.nama}
                   </option>
                 ))}
+                <option value="__custom__">+ Tambah Nama Petugas Baru...</option>
               </select>
+              {customOfficerMode && (
+                <input
+                  type="text"
+                  value={customOfficerName}
+                  onChange={(e) => setCustomOfficerName(e.target.value)}
+                  placeholder="Ketik nama petugas baru..."
+                  className="mt-2 w-full min-h-[40px] rounded-xl border border-emerald-400 bg-emerald-50/40 px-3 text-xs sm:text-sm text-[#0F172A] focus:bg-white focus:border-[#059669] focus:outline-none"
+                />
+              )}
             </div>
 
             <div>
@@ -572,7 +671,10 @@ export function AdminShiftOvertimePanel({
                   <p className="break-words">
                     <span className="text-slate-400">Keterangan:</span>{' '}
                     <span className="font-mono text-white">
-                      {buildOvertimeCashDescription(formOfficer, formShiftDate)}
+                      {buildOvertimeCashDescription(
+                        effectiveFormOfficer || 'Petugas',
+                        formShiftDate
+                      )}
                     </span>
                   </p>
                   <p className="font-mono tabular-nums">
@@ -775,7 +877,7 @@ export function AdminShiftOvertimePanel({
                             isPaid ? 'text-emerald-700' : 'text-amber-700'
                           }`}
                         >
-                          {isPaid ? 'LUNAS · TERCATAT DI KAS' : 'BELUM DIBAYAR'}
+                          {isPaid ? 'SUDAH DIBAYAR / CAIR' : 'BELUM DIBAYAR'}
                         </p>
                       </div>
                     )}
@@ -790,7 +892,7 @@ export function AdminShiftOvertimePanel({
                             className="min-h-[40px] px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 opacity-80 cursor-not-allowed whitespace-nowrap"
                           >
                             <ShieldCheck className="w-4 h-4 shrink-0" />
-                            <span>LUNAS</span>
+                            <span>Sudah Cair</span>
                           </button>
                         ) : (
                           <button
@@ -802,6 +904,17 @@ export function AdminShiftOvertimePanel({
                             <span>Bayar Lembur Sekarang</span>
                           </button>
                         ))}
+
+                      {!isPaid && (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(ov)}
+                          aria-label={`Edit jadwal ${ov.officer_name}`}
+                          className="min-h-[40px] min-w-[40px] rounded-xl border border-slate-200 bg-white hover:bg-slate-100 hover:text-[#0F172A] text-slate-500 flex items-center justify-center cursor-pointer transition"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -1009,6 +1122,108 @@ export function AdminShiftOvertimePanel({
                   <Trash2 className="w-4 h-4" />
                 )}
                 <span>{deletingOverride ? 'Menghapus...' : 'Ya, Hapus'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL EDIT JADWAL SHIFT / PETUGAS (SINKRON REAL-TIME KE BUKU KAS) */}
+      {editTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit Jadwal Shift atau Lembur"
+        >
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#0F172A]">Edit Jadwal Shift / Lembur</h3>
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                aria-label="Tutup modal edit jadwal"
+                className="min-h-[40px] min-w-[40px] rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Petugas</label>
+                <input
+                  type="text"
+                  value={editOfficerName}
+                  onChange={(e) => setEditOfficerName(e.target.value)}
+                  className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm text-[#0F172A]"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Shift</label>
+                  <select
+                    value={editShiftName}
+                    onChange={(e) => setEditShiftName(e.target.value)}
+                    className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-[#0F172A]"
+                  >
+                    <option value={STANDARD_SECURITY_SHIFTS[3]}>Lembur Minggu (19:00-07:00)</option>
+                    <option value={STANDARD_SECURITY_SHIFTS[0]}>Shift 1 (07:00-15:00)</option>
+                    <option value={STANDARD_SECURITY_SHIFTS[1]}>Shift 2 (15:00-23:00)</option>
+                    <option value={STANDARD_SECURITY_SHIFTS[2]}>Shift 3 (23:00-07:00)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal</label>
+                  <input
+                    type="date"
+                    value={editShiftDate}
+                    onChange={(e) => setEditShiftDate(e.target.value)}
+                    className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm font-mono text-[#0F172A]"
+                  />
+                </div>
+              </div>
+              {isSundayOvertimeShift(editShiftName) && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nominal Lembur (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50000000}
+                    step={5000}
+                    value={editNominalInput}
+                    onChange={(e) => setEditNominalInput(e.target.value)}
+                    className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm font-mono font-bold text-[#0F172A]"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Catatan</label>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm text-[#0F172A]"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={() => setEditTarget(null)}
+                className="min-h-[44px] rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={() => void handleConfirmEdit()}
+                className="min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
               </button>
             </div>
           </div>

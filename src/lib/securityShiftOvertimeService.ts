@@ -69,6 +69,21 @@ export function buildOvertimeCashDescription(officerName: string, shiftDate: str
   return `Lembur Minggu (19:00-07:00 WIB) - ${officerName.trim()} - Tgl ${formatDateDmySlash(shiftDate)}`;
 }
 
+export function buildMultiOvertimeCashDescription(
+  officerName: string,
+  overrides: Pick<SecurityShiftOverride, 'shift_date'>[]
+): string {
+  if (overrides.length === 0) {
+    return `Lembur Minggu (19:00-07:00 WIB) - ${officerName.trim()}`;
+  }
+  const sortedDates = [...overrides]
+    .map((o) => o.shift_date)
+    .sort((a, b) => a.localeCompare(b))
+    .map((d) => formatDateDmySlash(d));
+  const uniqueDates = Array.from(new Set(sortedDates));
+  return `Lembur Minggu (19:00-07:00 WIB) - ${officerName.trim()} - Tgl ${uniqueDates.join(', ')}`;
+}
+
 /**
  * Mengembalikan tanggal hari Minggu terdekat (hari ini jika Minggu, atau Minggu mendatang dalam WIB).
  */
@@ -586,6 +601,261 @@ export async function deleteShiftOverrideWithCashSyncAdmin(
       ? 'Jadwal lembur dihapus & transaksi pengeluaran kas terkait dibatalkan otomatis. Saldo Kas kembali akurat.'
       : 'Jadwal shift/lembur berhasil dihapus.',
     data: true,
+  };
+}
+
+/**
+ * Sinkronisasi Buku Kas -> Kelola Shift & Lembur:
+ * Menandai 1 atau beberapa jadwal lembur milik petugas sebagai Sudah Dibayar / LUNAS
+ * setelah transaksi pengeluaran "Honor & Lembur Keamanan" disimpan di Buku Kas.
+ */
+export async function markShiftOverridesPaidByCashTransactionAdmin(
+  session: SessionUser,
+  overrideIds: string[],
+  cashTransactionId: string,
+  paidAtIso: string = new Date().toISOString()
+): Promise<ShiftOverrideResult<number>> {
+  if (session.role !== 'admin') {
+    return { ok: false, message: 'Hanya Admin yang dapat memperbarui status pembayaran lembur.' };
+  }
+  const uniqueIds = Array.from(new Set(overrideIds.map((id) => id.trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return { ok: true, message: 'Tidak ada jadwal lembur tertaut.', data: 0 };
+  }
+
+  const uuidCashId = !cashTransactionId.startsWith('kas-') ? cashTransactionId : null;
+  const serverIds = uniqueIds.filter((id) => !id.startsWith('shift-'));
+
+  if (isSupabaseConfigured() && serverIds.length > 0) {
+    try {
+      const supabase = getSupabaseClient(session);
+      if (supabase) {
+        await supabase
+          .from('security_shift_overrides')
+          .update({
+            payment_status: 'paid',
+            paid_at: paidAtIso,
+            cash_transaction_id: uuidCashId,
+            updated_at: paidAtIso,
+          })
+          .in('id', serverIds);
+      }
+    } catch {
+      // Tetap sinkronkan cache lokal
+    }
+  }
+
+  const idSet = new Set(uniqueIds);
+  const current = readLocalOverrides();
+  const updated = current.map((ov) =>
+    idSet.has(ov.id)
+      ? {
+          ...ov,
+          payment_status: 'paid' as const,
+          paid_at: paidAtIso,
+          cash_transaction_id: cashTransactionId,
+          updated_at: paidAtIso,
+        }
+      : ov
+  );
+  writeLocalOverrides(updated);
+  emitOverridesChanged();
+
+  return {
+    ok: true,
+    message: `${uniqueIds.length} jadwal lembur otomatis diperbarui menjadi Sudah Dibayar / LUNAS.`,
+    data: uniqueIds.length,
+  };
+}
+
+/**
+ * Sinkronisasi Penghapusan Buku Kas -> Kelola Shift & Lembur:
+ * Saat transaksi pengeluaran honor/lembur dihapus dari Buku Kas, kembalikan status
+ * jadwal terkait di security_shift_overrides menjadi "Belum Dibayar" (unpaid).
+ */
+export async function revertShiftOverridesByCashTransactionAdmin(
+  session: SessionUser,
+  cashTransactionId: string,
+  shiftOverrideId?: string | null
+): Promise<ShiftOverrideResult<number>> {
+  if (session.role !== 'admin') {
+    return { ok: false, message: 'Hanya Admin yang dapat mengubah status pembayaran lembur.' };
+  }
+
+  const cleanCashId = cashTransactionId.trim();
+  const cleanOverrideId = shiftOverrideId?.trim() || null;
+  const nowIso = new Date().toISOString();
+  let revertedCount = 0;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = getSupabaseClient(session);
+      if (supabase) {
+        if (cleanCashId && !cleanCashId.startsWith('kas-')) {
+          const { data } = await supabase
+            .from('security_shift_overrides')
+            .update({
+              payment_status: 'unpaid',
+              paid_at: null,
+              cash_transaction_id: null,
+              updated_at: nowIso,
+            })
+            .eq('cash_transaction_id', cleanCashId)
+            .select('id');
+          if (Array.isArray(data)) {
+            revertedCount += data.length;
+          }
+        }
+        if (cleanOverrideId && !cleanOverrideId.startsWith('shift-')) {
+          const { data } = await supabase
+            .from('security_shift_overrides')
+            .update({
+              payment_status: 'unpaid',
+              paid_at: null,
+              cash_transaction_id: null,
+              updated_at: nowIso,
+            })
+            .eq('id', cleanOverrideId)
+            .select('id');
+          if (Array.isArray(data) && revertedCount === 0) {
+            revertedCount += data.length;
+          }
+        }
+      }
+    } catch {
+      // Tetap kembalikan status pada cache lokal
+    }
+  }
+
+  let localReverted = 0;
+  const nextLocal = readLocalOverrides().map((ov) => {
+    const matchesCash = Boolean(cleanCashId && ov.cash_transaction_id === cleanCashId);
+    const matchesOverride = Boolean(cleanOverrideId && ov.id === cleanOverrideId);
+    if (!matchesCash && !matchesOverride) return ov;
+    localReverted += 1;
+    return {
+      ...ov,
+      payment_status: 'unpaid' as const,
+      paid_at: null,
+      cash_transaction_id: null,
+      updated_at: nowIso,
+    };
+  });
+
+  if (localReverted > 0 || revertedCount > 0) {
+    writeLocalOverrides(nextLocal);
+    emitOverridesChanged();
+  }
+
+  return {
+    ok: true,
+    message:
+      Math.max(revertedCount, localReverted) > 0
+        ? 'Status lembur terkait dikembalikan menjadi Belum Dibayar.'
+        : 'Tidak ada jadwal lembur terkait.',
+    data: Math.max(revertedCount, localReverted),
+  };
+}
+
+/**
+ * Memperbarui data jadwal shift / nama petugas / nominal lembur secara real-time oleh Admin.
+ */
+export async function updateShiftOverrideAdmin(
+  session: SessionUser,
+  overrideId: string,
+  patch: {
+    officer_name: string;
+    shift_date: string;
+    shift_name: string;
+    overtime_amount?: number;
+    notes?: string | null;
+  }
+): Promise<ShiftOverrideResult<SecurityShiftOverride>> {
+  if (session.role !== 'admin') {
+    return { ok: false, message: 'Hanya Admin yang dapat mengubah jadwal shift & lembur.' };
+  }
+
+  const officerName = patch.officer_name.trim();
+  const shiftDate = patch.shift_date.trim().slice(0, 10);
+  const shiftName = patch.shift_name.trim();
+  const isLembur = isSundayOvertimeShift(shiftName);
+  const cleanAmount = isLembur
+    ? Math.max(0, Math.min(50_000_000, Math.round(Number(patch.overtime_amount) || 0)))
+    : 0;
+  const cleanNotes = patch.notes?.trim().slice(0, 400) || null;
+  const nowIso = new Date().toISOString();
+
+  if (!officerName || !shiftDate || !shiftName) {
+    return { ok: false, message: 'Nama petugas, tanggal, dan jenis shift wajib diisi.' };
+  }
+
+  if (isSupabaseConfigured() && !overrideId.startsWith('shift-')) {
+    try {
+      const supabase = getSupabaseClient(session);
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('security_shift_overrides')
+          .update({
+            officer_name: officerName,
+            shift_date: shiftDate,
+            shift_name: shiftName,
+            overtime_amount: cleanAmount,
+            notes: cleanNotes,
+            updated_at: nowIso,
+          })
+          .eq('id', overrideId)
+          .select(OVERRIDE_COLUMNS)
+          .maybeSingle();
+
+        if (!error && data) {
+          const synced = normalizeOverrideRow(data as Record<string, unknown>);
+          if (synced) {
+            const current = readLocalOverrides();
+            writeLocalOverrides(
+              current.some((r) => r.id === synced.id)
+                ? current.map((r) => (r.id === synced.id ? synced : r))
+                : [synced, ...current]
+            );
+            emitOverridesChanged();
+            return {
+              ok: true,
+              message: `Jadwal ${synced.officer_name} diperbarui & tersinkron ke Buku Kas.`,
+              data: synced,
+            };
+          }
+        }
+      }
+    } catch {
+      // Fallback lokal
+    }
+  }
+
+  let updatedLocal: SecurityShiftOverride | undefined;
+  const nextLocal = readLocalOverrides().map((ov) => {
+    if (ov.id !== overrideId) return ov;
+    updatedLocal = {
+      ...ov,
+      officer_name: officerName,
+      shift_date: shiftDate,
+      shift_name: shiftName,
+      overtime_amount: cleanAmount,
+      notes: cleanNotes,
+      updated_at: nowIso,
+    };
+    return updatedLocal;
+  });
+
+  if (!updatedLocal) {
+    return { ok: false, message: 'Jadwal tidak ditemukan.' };
+  }
+
+  writeLocalOverrides(nextLocal);
+  emitOverridesChanged();
+  return {
+    ok: true,
+    message: `Jadwal ${updatedLocal.officer_name} diperbarui.`,
+    data: updatedLocal,
+    usedFallback: true,
   };
 }
 

@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION V6: INTEGRASI JADWAL SHIFT, LEMBUR MINGGU & KAS PENGELUARAN
+-- MIGRATION V6: INTEGRASI 2-ARAH JADWAL SHIFT, LEMBUR MINGGU & BUKU KAS
 -- Perumahan Saung Kebun — security_shift_overrides <-> transaksi_kas + RLS Ketat
 -- Idempotent & aman dijalankan ulang di Supabase SQL Editor.
 -- ============================================================================
@@ -42,7 +42,10 @@ as $$
       from public.petugas_keamanan p
       where p.id::text = public.req_header('x-petugas-id')
         and p.aktif = true
-        and lower(trim(p.nama)) = lower(trim(coalesce(row_officer_name, '')))
+        and (
+          lower(trim(p.nama)) = lower(trim(coalesce(row_officer_name, '')))
+          or lower(trim(coalesce(row_officer_name, ''))) like lower(trim(p.nama)) || ' (%'
+        )
     );
 $$;
 
@@ -51,11 +54,12 @@ grant execute on function public.is_admin_request() to anon, authenticated;
 grant execute on function public.is_own_security_attendance(text) to anon, authenticated;
 
 -- ----------------------------------------------------------------------------
--- 1. TABEL security_shift_overrides + KOLOM PEMBAYARAN LEMBUR
+-- 1. TABEL security_shift_overrides + RELASI petugas_id & cash_transaction_id
 -- ----------------------------------------------------------------------------
 create table if not exists public.security_shift_overrides (
   id uuid primary key default gen_random_uuid(),
   shift_date date not null,
+  petugas_id uuid references public.petugas_keamanan(id) on delete set null,
   officer_name text not null,
   shift_name text not null default 'Lembur Minggu (19:00-07:00)',
   notes text,
@@ -69,6 +73,9 @@ create table if not exists public.security_shift_overrides (
 );
 
 -- Tambah kolom secara idempotent apabila tabel security_shift_overrides sudah ada
+alter table public.security_shift_overrides
+  add column if not exists petugas_id uuid references public.petugas_keamanan(id) on delete set null;
+
 alter table public.security_shift_overrides
   add column if not exists overtime_amount numeric not null default 0;
 
@@ -115,15 +122,23 @@ begin
 exception when duplicate_object then null;
 end $$;
 
--- Indeks performa query jadwal & filter pembayaran
+-- Indeks performa query jadwal, relasi kas & filter pembayaran
 create index if not exists idx_security_shift_overrides_date
   on public.security_shift_overrides (shift_date desc, created_at desc);
 
 create index if not exists idx_security_shift_overrides_officer
   on public.security_shift_overrides (officer_name, shift_date desc);
 
+create index if not exists idx_security_shift_overrides_petugas_id
+  on public.security_shift_overrides (petugas_id)
+  where petugas_id is not null;
+
 create index if not exists idx_security_shift_overrides_payment_status
   on public.security_shift_overrides (payment_status, shift_date desc);
+
+create index if not exists idx_security_shift_overrides_cash_trx_id
+  on public.security_shift_overrides (cash_transaction_id)
+  where cash_transaction_id is not null;
 
 -- ----------------------------------------------------------------------------
 -- 2. REFERENSI BALIK DI transaksi_kas + PROTEKSI ANTI DOUBLE-ENTRY
@@ -136,7 +151,35 @@ create unique index if not exists idx_transaksi_kas_shift_override_unique
   where shift_override_id is not null;
 
 -- ----------------------------------------------------------------------------
--- 3. KEBIJAKAN RLS KETAT: security_shift_overrides
+-- 3. TRIGGER OTOMATIS: SAAT TRANSAKSI KAS DIHAPUS -> LEMBUR KEMBALI 'unpaid'
+-- ----------------------------------------------------------------------------
+create or replace function public.revert_shift_overrides_on_cash_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.security_shift_overrides
+  set
+    payment_status = 'unpaid',
+    paid_at = null,
+    cash_transaction_id = null,
+    updated_at = now()
+  where cash_transaction_id = old.id
+     or (old.shift_override_id is not null and id = old.shift_override_id);
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_transaksi_kas_revert_shift_overrides on public.transaksi_kas;
+create trigger trg_transaksi_kas_revert_shift_overrides
+  after delete on public.transaksi_kas
+  for each row
+  execute function public.revert_shift_overrides_on_cash_delete();
+
+-- ----------------------------------------------------------------------------
+-- 4. KEBIJAKAN RLS KETAT: security_shift_overrides
 --    - Admin: Akses penuh (SELECT, INSERT, UPDATE, DELETE)
 --    - Petugas Keamanan: HANYA SELECT data lembur/shift miliknya sendiri
 --    - Warga / lainnya: Tidak memiliki akses
@@ -155,6 +198,11 @@ create policy "security_shift_overrides_select_policy"
   using (
     public.is_admin_request()
     or public.is_own_security_attendance(officer_name)
+    or (
+      public.req_header('x-user-role') = 'petugas'
+      and petugas_id is not null
+      and petugas_id::text = public.req_header('x-petugas-id')
+    )
   );
 
 create policy "security_shift_overrides_insert_policy"
@@ -185,7 +233,7 @@ create policy "security_shift_overrides_delete_policy"
   );
 
 -- ----------------------------------------------------------------------------
--- 4. KEBIJAKAN RLS KETAT: transaksi_kas (KAS PENGELUARAN & HONOR PETUGAS)
+-- 5. KEBIJAKAN RLS KETAT: transaksi_kas (KAS PENGELUARAN & HONOR PETUGAS)
 --    - Admin: Akses penuh (SELECT, INSERT, UPDATE, DELETE)
 --    - Petugas Keamanan: HANYA SELECT data honor/lembur milik dirinya sendiri
 -- ----------------------------------------------------------------------------
@@ -240,7 +288,7 @@ create policy "transaksi_kas_delete_policy"
   );
 
 -- ----------------------------------------------------------------------------
--- 5. AKTIFKAN SUPABASE REALTIME UNTUK SINKRONISASI LANGSUNG
+-- 6. AKTIFKAN SUPABASE REALTIME (SHIFT OVERRIDES, TRANSAKSI KAS & PETUGAS)
 -- ----------------------------------------------------------------------------
 do $$
 begin
@@ -262,6 +310,16 @@ begin
       and tablename = 'transaksi_kas'
   ) then
     alter publication supabase_realtime add table public.transaksi_kas;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'petugas_keamanan'
+  ) then
+    alter publication supabase_realtime add table public.petugas_keamanan;
   end if;
 end
 $$;
