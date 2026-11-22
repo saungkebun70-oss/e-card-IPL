@@ -6,16 +6,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
     />
-    <meta name="theme-color" content="#0F172A" />
+    <meta name="theme-color" content="#FFFFFF" />
     <title>e-Card IPL Saung Kebun</title>
     <style>
       :root {
         --bg: #f8fafc;
         --card: #ffffff;
+        --cream: #f5f3e7;
         --ink: #0f172a;
         --muted: #475569;
         --line: #e2e8f0;
         --emerald: #059669;
+        --forest: #2e6f40;
         --emerald-dark: #047857;
         --amber-bg: #fffbeb;
         --amber-border: #fde68a;
@@ -33,6 +35,7 @@
       body {
         height: 100%;
         width: 100%;
+        overflow-x: hidden;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         background-color: var(--bg);
         color: var(--ink);
@@ -64,16 +67,17 @@
       }
 
       .brand-mark {
-        width: 68px;
-        height: 68px;
+        width: 74px;
+        height: 74px;
         margin: 0 auto 18px;
-        border-radius: 20px;
-        background: var(--ink);
-        color: #34d399;
+        border-radius: 22px;
+        background: var(--cream);
+        border: 1.5px solid rgba(46, 111, 64, 0.2);
+        color: var(--forest);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.35);
+        box-shadow: 0 10px 24px -10px rgba(46, 111, 64, 0.28);
       }
 
       .eyebrow {
@@ -181,20 +185,19 @@
       <section class="card" aria-live="polite">
         <div class="brand-mark" aria-hidden="true">
           <svg
-            width="34"
-            height="34"
+            width="40"
+            height="40"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="1.9"
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path d="M2 8.82a15 15 0 0 1 20 0" />
-            <path d="M5 12.859a10 10 0 0 1 14 0" />
-            <path d="M8.5 16.429a5 5 0 0 1 7 0" />
-            <line x1="12" y1="20" x2="12.01" y2="20" />
-            <line x1="2" y1="2" x2="22" y2="22" />
+            <path d="M3 10.5 12 3l9 7.5" />
+            <path d="M5.5 9.5V20h13V9.5" />
+            <path d="M12 20v-5.5c0-2 1.6-3.5 3.8-3.5 0 2.2-1.5 3.8-3.8 3.8" />
+            <path d="M12 16.5c-1.8 0-3-1.2-3-3 1.8 0 3 1.2 3 3Z" />
           </svg>
         </div>
 

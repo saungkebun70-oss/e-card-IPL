@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { clampMapPercent } from './patrolGpsUtils';
+import { dispatchActivityNotifications, getAllAdminUserIds } from './notificationService';
 
 const LOCAL_KEYS = {
   CALIBRATION: 'skb_patrol_gps_calibration_v1',
@@ -542,6 +543,16 @@ export async function completeLivePatrolSession(
 
         if (!error) {
           emitLivePatrolEvent();
+          void dispatchActivityNotifications(
+            session,
+            getAllAdminUserIds().map((uid) => ({
+              user_id: uid,
+              category: 'patrol' as const,
+              title: 'Sesi Patroli Live Selesai',
+              message: `${session.nama_warga} (${session.shift || 'Petugas Keamanan'}) telah menyelesaikan sesi patroli lingkungan.`,
+              target_url: 'tab:keamanan',
+            }))
+          );
           return {
             ok: true,
             message: 'Sesi Patroli Live selesai. Terima kasih telah menjaga keamanan lingkungan!',
@@ -554,6 +565,16 @@ export async function completeLivePatrolSession(
   }
 
   emitLivePatrolEvent();
+  void dispatchActivityNotifications(
+    session,
+    getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'patrol' as const,
+      title: 'Sesi Patroli Live Selesai',
+      message: `${session.nama_warga} (${session.shift || 'Petugas Keamanan'}) telah menyelesaikan sesi patroli lingkungan.`,
+      target_url: 'tab:keamanan',
+    }))
+  );
   return {
     ok: true,
     message: 'Sesi Patroli Live selesai.',

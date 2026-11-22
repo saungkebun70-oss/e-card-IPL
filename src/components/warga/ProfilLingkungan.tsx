@@ -23,6 +23,8 @@ import {
 } from '../../types';
 import { buildWhatsAppLink, copyToClipboard } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
+import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
+import { UserAvatar } from '../UserAvatar';
 
 interface PengurusProfileDetail extends PengurusItem {
   inisial: string;
@@ -176,6 +178,7 @@ export function ProfilLingkungan({
   onToast,
 }: ProfilLingkunganProps) {
   const { brand } = useAppBrand();
+  const avatarMap = useAvatarMap();
   const [viewMode, setViewMode] = useState<'daftar' | 'struktur'>('daftar');
   const [jabatanFilter, setJabatanFilter] = useState<'Semua' | AdminJabatan>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
@@ -413,16 +416,13 @@ export function ProfilLingkungan({
                         isSelected ? 'bg-emerald-50/70' : 'bg-white hover:bg-slate-50'
                       }`}
                     >
-                      {/* Monogram Inisial */}
-                      <div
-                        className={`w-11 h-11 rounded-xl flex items-center justify-center font-mono text-sm font-bold shrink-0 transition-colors ${
-                          isSelected
-                            ? 'bg-[#059669] text-white'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {p.inisial}
-                      </div>
+                      {/* Foto Profil / Inisial Pengurus */}
+                      <UserAvatar
+                        name={p.nama}
+                        src={avatarMap[buildAvatarKey('admin', p.username)] || null}
+                        size="md"
+                        ringClassName={isSelected ? 'ring-2 ring-[#059669]' : 'ring-1 ring-slate-200'}
+                      />
 
                       {/* Identitas Utama (Zero-Pill Metadata) */}
                       <div className="min-w-0 flex-1">
@@ -493,6 +493,7 @@ export function ProfilLingkungan({
                 {pembina && (
                   <OrgNodeButton
                     pengurus={pembina}
+                    avatarUrl={avatarMap[buildAvatarKey('admin', pembina.username)] || null}
                     selected={selectedPengurus.username === pembina.username}
                     onSelect={handleSelectPengurus}
                     className="w-full max-w-xs"
@@ -506,6 +507,7 @@ export function ProfilLingkungan({
                 {ketua && (
                   <OrgNodeButton
                     pengurus={ketua}
+                    avatarUrl={avatarMap[buildAvatarKey('admin', ketua.username)] || null}
                     selected={selectedPengurus.username === ketua.username}
                     onSelect={handleSelectPengurus}
                     className="w-full max-w-xs"
@@ -529,6 +531,7 @@ export function ProfilLingkungan({
                     {bendahara && (
                       <OrgNodeButton
                         pengurus={bendahara}
+                        avatarUrl={avatarMap[buildAvatarKey('admin', bendahara.username)] || null}
                         selected={selectedPengurus.username === bendahara.username}
                         onSelect={handleSelectPengurus}
                       />
@@ -545,6 +548,7 @@ export function ProfilLingkungan({
                         <OrgNodeButton
                           key={h.username}
                           pengurus={h}
+                          avatarUrl={avatarMap[buildAvatarKey('admin', h.username)] || null}
                           selected={selectedPengurus.username === h.username}
                           onSelect={handleSelectPengurus}
                         />
@@ -560,6 +564,7 @@ export function ProfilLingkungan({
                     {olahraga && (
                       <OrgNodeButton
                         pengurus={olahraga}
+                        avatarUrl={avatarMap[buildAvatarKey('admin', olahraga.username)] || null}
                         selected={selectedPengurus.username === olahraga.username}
                         onSelect={handleSelectPengurus}
                       />
@@ -586,9 +591,11 @@ export function ProfilLingkungan({
               {/* Header Detail */}
               <div className="p-5 sm:p-6 border-b border-slate-100">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#0F172A] text-white font-mono text-base font-bold flex items-center justify-center shrink-0">
-                    {selectedPengurus.inisial}
-                  </div>
+                  <UserAvatar
+                    name={selectedPengurus.nama}
+                    src={avatarMap[buildAvatarKey('admin', selectedPengurus.username)] || null}
+                    size="lg"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-emerald-700">
                       {selectedPengurus.jabatan} · Perumahan Saung Kebun
@@ -719,12 +726,19 @@ export function ProfilLingkungan({
 
 interface OrgNodeButtonProps {
   pengurus: PengurusProfileDetail;
+  avatarUrl?: string | null;
   selected: boolean;
   onSelect: (username: string) => void;
   className?: string;
 }
 
-function OrgNodeButton({ pengurus, selected, onSelect, className = '' }: OrgNodeButtonProps) {
+function OrgNodeButton({
+  pengurus,
+  avatarUrl,
+  selected,
+  onSelect,
+  className = '',
+}: OrgNodeButtonProps) {
   return (
     <button
       type="button"
@@ -737,13 +751,12 @@ function OrgNodeButton({ pengurus, selected, onSelect, className = '' }: OrgNode
       } ${className}`}
     >
       <div className="flex items-center gap-3">
-        <div
-          className={`w-9 h-9 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 ${
-            selected ? 'bg-[#059669] text-white' : 'bg-slate-100 text-slate-700'
-          }`}
-        >
-          {pengurus.inisial}
-        </div>
+        <UserAvatar
+          name={pengurus.nama}
+          src={avatarUrl || null}
+          size="sm"
+          ringClassName={selected ? 'ring-2 ring-[#059669]' : 'ring-1 ring-slate-200'}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold text-emerald-700 truncate">
             {pengurus.jabatan}

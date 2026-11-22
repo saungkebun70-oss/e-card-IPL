@@ -4,6 +4,8 @@ import {
   FileCheck2,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   X,
   type LucideIcon,
@@ -13,6 +15,8 @@ import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
+import { NotificationBell } from './NotificationBell';
+import { UserAvatar } from './UserAvatar';
 
 export interface NavItem {
   id: string;
@@ -30,6 +34,9 @@ interface AppShellProps {
   onTabChange: (id: string) => void;
   onLogout: () => void;
   onOpenSettings?: () => void;
+  onOpenProfile?: () => void;
+  onNavigateTarget?: (targetUrl: string) => void;
+  avatarUrl?: string | null;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -41,16 +48,21 @@ export function AppShell({
   onTabChange,
   onLogout,
   onOpenSettings,
+  onOpenProfile,
+  onNavigateTarget,
+  avatarUrl,
   headerAction,
   children,
 }: AppShellProps) {
   const { brand } = useAppBrand();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isAdmin = session.role === 'admin';
   const canAccessBotWa = isBendaharaOnly(session);
   const adminIdentityLabel = `${session.nama_warga} — ${session.jabatan || 'Pengurus'}`;
   const isLpjActive = activeTab === 'lpj';
+  const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
   const activePageTitle = isLpjActive
     ? 'Laporan Pertanggungjawaban (LPJ)'
@@ -75,46 +87,110 @@ export function AppShell({
     onOpenSettings?.();
   };
 
+  const handleOpenProfileFromSidebar = () => {
+    setDrawerOpen(false);
+    onOpenProfile?.();
+  };
+
   const handleLogoutFromSidebar = () => {
     setDrawerOpen(false);
     onLogout();
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row overflow-x-hidden">
-      {/* Desktop Sidebar Tetap (>= 1024px) */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30 no-print">
-        <div className="px-5 py-5 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="sm" variant="dark" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold tracking-tight text-white truncate">{brand.app_name}</p>
-              <p className="text-xs text-slate-400 truncate">{brand.app_subtitle}</p>
-            </div>
+    <div className="min-h-[100dvh] w-full max-w-full bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row overflow-x-hidden">
+      {/* Desktop Sidebar Tetap (>= 1024px) — Mendukung mode Collapsed tanpa menggeser Header */}
+      <aside
+        className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30 transition-[width] duration-200 ease-out no-print ${
+          sidebarCollapsed ? 'lg:w-20' : 'lg:w-72'
+        }`}
+      >
+        <div
+          className={`h-16 border-b border-slate-800 flex items-center shrink-0 ${
+            sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4 gap-2'
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandLogo size="sm" variant="dark" className="shrink-0" />
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <p className="text-sm font-bold tracking-tight text-white truncate">
+                  {brand.app_name}
+                </p>
+                <p className="text-[11px] text-slate-400 truncate">{brand.app_subtitle}</p>
+              </div>
+            )}
           </div>
+          {!sidebarCollapsed && (
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Perkecil sidebar"
+              title="Perkecil sidebar"
+              className="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Info Akun Aktif */}
-        <div className="px-5 py-4 border-b border-slate-800/80 bg-slate-900/50">
-          <p className="text-[11px] font-medium text-slate-400">
-            {isAdmin ? 'Pengurus Aktif' : 'Unit Rumah Terverifikasi'}
-          </p>
-          <p className="text-sm font-bold text-white mt-0.5 leading-snug">
-            {isAdmin ? adminIdentityLabel : session.nama_warga}
-          </p>
-          <p className="text-xs font-mono text-emerald-400 mt-0.5">
-            {isAdmin
-              ? session.admin_permission === 'full'
-                ? 'Bendahara · Akses Penuh'
-                : `${session.jabatan || 'Pengurus'} · Akses Tambah Data`
-              : `Blok ${session.blok_rumah}`}
-          </p>
-        </div>
+        {/* Info Akun Aktif (Klik untuk buka Profil & Foto Akun) */}
+        <button
+          type="button"
+          onClick={handleOpenProfileFromSidebar}
+          title="Buka Profil & Foto Akun"
+          className={`w-full text-left border-b border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 transition-colors cursor-pointer shrink-0 ${
+            sidebarCollapsed
+              ? 'py-3.5 px-2 flex flex-col items-center gap-2'
+              : 'px-4 py-3.5 flex items-center gap-3'
+          }`}
+        >
+          <UserAvatar
+            name={session.nama_warga}
+            src={effectiveAvatarUrl}
+            size="md"
+            ringClassName="ring-2 ring-emerald-500/35"
+          />
+          {!sidebarCollapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-slate-400 truncate">
+                {isAdmin ? 'Pengurus Aktif' : 'Unit Rumah Terverifikasi'}
+              </p>
+              <p className="text-sm font-bold text-white mt-0.5 leading-snug truncate">
+                {isAdmin ? adminIdentityLabel : session.nama_warga}
+              </p>
+              <p className="text-xs font-mono text-emerald-400 mt-0.5 truncate">
+                {isAdmin
+                  ? session.admin_permission === 'full'
+                    ? 'Bendahara · Akses Penuh'
+                    : `${session.jabatan || 'Pengurus'} · Akses Tambah Data`
+                  : `Blok ${session.blok_rumah}`}
+              </p>
+            </div>
+          )}
+        </button>
+
+        {/* Tombol Perluas saat Sidebar Collapsed */}
+        {sidebarCollapsed && (
+          <div className="px-2 pt-3 flex justify-center shrink-0">
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(false)}
+              aria-label="Perluas sidebar"
+              title="Perluas sidebar"
+              className="w-10 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <PanelLeftOpen className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Menu Navigasi Desktop */}
         <nav aria-label="Navigasi Utama" className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
           <div className="space-y-1">
-            <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Utama</p>
+            {!sidebarCollapsed && (
+              <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Utama</p>
+            )}
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
@@ -122,8 +198,11 @@ export function AppShell({
                 <button
                   key={item.id}
                   type="button"
+                  title={sidebarCollapsed ? item.label : undefined}
                   onClick={() => onTabChange(item.id)}
-                  className={`w-full min-h-[44px] flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`relative w-full min-h-[44px] flex items-center ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'justify-between gap-3 px-3.5'
+                  } py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                     isActive
                       ? 'bg-[#059669] text-white'
                       : item.isCenterFab
@@ -133,17 +212,21 @@ export function AppShell({
                 >
                   <span className="flex items-center gap-3 min-w-0">
                     <Icon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                   </span>
-                  {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                    <span
-                      className={`font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-md ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-300'
-                      }`}
-                    >
-                      {item.badgeCount}
-                    </span>
-                  )}
+                  {typeof item.badgeCount === 'number' &&
+                    item.badgeCount > 0 &&
+                    (sidebarCollapsed ? (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400" />
+                    ) : (
+                      <span
+                        className={`font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-md ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        {item.badgeCount}
+                      </span>
+                    ))}
                 </button>
               );
             })}
@@ -153,56 +236,78 @@ export function AppShell({
             <>
               {/* Kelompok Menu Laporan (LPJ) */}
               <div className="space-y-1 pt-2 border-t border-slate-800/80">
-                <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Laporan</p>
+                {!sidebarCollapsed && (
+                  <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Laporan</p>
+                )}
                 <button
                   type="button"
+                  title={sidebarCollapsed ? 'Laporan Pertanggungjawaban (LPJ)' : undefined}
                   onClick={handleOpenLpj}
-                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-start gap-3 transition-colors cursor-pointer ${
+                  className={`w-full text-left rounded-xl flex ${
+                    sidebarCollapsed
+                      ? 'items-center justify-center min-h-[44px] px-2'
+                      : 'items-start gap-3 px-3.5 py-2.5'
+                  } transition-colors cursor-pointer ${
                     isLpjActive
                       ? 'bg-[#059669] text-white'
                       : 'text-slate-200 hover:bg-slate-800/80'
                   }`}
                 >
                   <FileCheck2
-                    className={`w-4 h-4 shrink-0 mt-0.5 ${
+                    className={`w-4 h-4 shrink-0 ${!sidebarCollapsed ? 'mt-0.5' : ''} ${
                       isLpjActive ? 'text-white' : 'text-emerald-400'
                     }`}
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold leading-snug">
-                      Laporan Pertanggungjawaban (LPJ)
-                    </p>
-                    <p
-                      className={`text-[11px] mt-0.5 leading-snug ${
-                        isLpjActive ? 'text-emerald-100' : 'text-slate-400'
-                      }`}
-                    >
-                      Rekapitulasi &amp; Cetak PDF A4
-                    </p>
-                  </div>
+                  {!sidebarCollapsed && (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-snug">
+                        Laporan Pertanggungjawaban (LPJ)
+                      </p>
+                      <p
+                        className={`text-[11px] mt-0.5 leading-snug ${
+                          isLpjActive ? 'text-emerald-100' : 'text-slate-400'
+                        }`}
+                      >
+                        Rekapitulasi &amp; Cetak PDF A4
+                      </p>
+                    </div>
+                  )}
                 </button>
               </div>
 
               {/* Kelompok Menu Sistem (Pengaturan Terpusat) */}
               {onOpenSettings && (
                 <div className="space-y-1 pt-2 border-t border-slate-800/80">
-                  <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Sistem</p>
+                  {!sidebarCollapsed && (
+                    <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">
+                      Menu Sistem
+                    </p>
+                  )}
                   <button
                     type="button"
+                    title={sidebarCollapsed ? 'Pengaturan Sistem Terpusat' : undefined}
                     onClick={handleOpenSettingsFromSidebar}
-                    className="w-full text-left px-3.5 py-2.5 rounded-xl flex items-start gap-3 text-slate-200 hover:bg-slate-800/80 transition-colors cursor-pointer"
+                    className={`w-full text-left rounded-xl flex ${
+                      sidebarCollapsed
+                        ? 'items-center justify-center min-h-[44px] px-2'
+                        : 'items-start gap-3 px-3.5 py-2.5'
+                    } text-slate-200 hover:bg-slate-800/80 transition-colors cursor-pointer`}
                   >
-                    <Settings className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold leading-snug">
-                        Pengaturan Sistem Terpusat
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                        {canAccessBotWa
-                          ? 'Identitas & Stempel, Bayar/QRIS, Bot WA, Petugas & Peta RFID, PIN & Log'
-                          : 'Identitas & Stempel, Bayar/QRIS, Petugas & Peta RFID, PIN & Log'}
-                      </p>
-                    </div>
+                    <Settings
+                      className={`w-4 h-4 shrink-0 text-emerald-400 ${!sidebarCollapsed ? 'mt-0.5' : ''}`}
+                    />
+                    {!sidebarCollapsed && (
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-snug">
+                          Pengaturan Sistem Terpusat
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                          {canAccessBotWa
+                            ? 'Profil, Identitas, QRIS, Bot WA, Petugas, PIN & Log'
+                            : 'Profil, Identitas, QRIS, Petugas, PIN & Log'}
+                        </p>
+                      </div>
+                    )}
                   </button>
                 </div>
               )}
@@ -211,20 +316,23 @@ export function AppShell({
         </nav>
 
         {/* Footer Sidebar Desktop */}
-        <div className="p-4 border-t border-slate-800 space-y-2.5">
-          <p className="text-[11px] text-slate-400 leading-relaxed px-2">{brand.kop_resmi}</p>
+        <div className="p-3 border-t border-slate-800 space-y-2.5 shrink-0">
+          {!sidebarCollapsed && (
+            <p className="text-[11px] text-slate-400 leading-relaxed px-2">{brand.kop_resmi}</p>
+          )}
           <button
             type="button"
+            title={sidebarCollapsed ? 'Keluar / Logout' : undefined}
             onClick={onLogout}
             className="w-full min-h-[42px] flex items-center justify-center gap-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-200 hover:text-white text-sm font-semibold transition-colors cursor-pointer"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Keluar / Logout</span>
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!sidebarCollapsed && <span>Keluar / Logout</span>}
           </button>
         </div>
       </aside>
 
-      {/* Slide-Over Sidebar Drawer (Mobile & Tablet < 1024px) */}
+      {/* Slide-Over Sidebar Drawer (Mobile & Tablet < 1024px) — Overlay Penuh Tanpa Menggeser Header */}
       <AnimatePresence>
         {drawerOpen && isAdmin && (
           <div
@@ -275,19 +383,18 @@ export function AppShell({
                   </button>
                 </div>
 
-                {/* Kartu Profil Elegan — Avatar Inisial + Nama + 1 Badge Status Aktif */}
-                <div className="mt-4 p-3 rounded-2xl bg-white/[0.07] border border-white/10 flex items-center gap-3">
-                  <div
-                    aria-hidden="true"
-                    className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-emerald-100 font-bold text-sm flex items-center justify-center shrink-0 uppercase"
-                  >
-                    {(session?.nama_warga || 'P')
-                      .split(/\s+/)
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((part) => part[0])
-                      .join('') || 'P'}
-                  </div>
+                {/* Kartu Profil Elegan — Avatar Foto / Inisial + Nama + Status */}
+                <button
+                  type="button"
+                  onClick={handleOpenProfileFromSidebar}
+                  className="mt-4 w-full text-left p-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/10 flex items-center gap-3 transition-colors cursor-pointer"
+                >
+                  <UserAvatar
+                    name={session?.nama_warga || 'Pengurus'}
+                    src={effectiveAvatarUrl}
+                    size="md"
+                    ringClassName="ring-2 ring-emerald-400/40"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-white leading-tight truncate">
                       {session?.nama_warga || 'Pengurus'}
@@ -303,10 +410,11 @@ export function AppShell({
                       </span>
                     </span>
                   </div>
-                </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                </button>
               </div>
 
-              {/* Isi Kelompok Menu Sidebar (Kompak & Rapi) */}
+              {/* Isi Kelompok Menu Sidebar */}
               <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
                 {/* Kelompok 1: Menu Laporan */}
                 <div className="space-y-2">
@@ -363,8 +471,8 @@ export function AppShell({
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
                           {canAccessBotWa
-                            ? 'Identitas, QRIS, Bot WA, Petugas & Peta RFID'
-                            : 'Identitas, QRIS, Petugas & Peta RFID, PIN'}
+                            ? 'Profil, Identitas, QRIS, Bot WA, Petugas & PIN'
+                            : 'Profil, Identitas, QRIS, Petugas & PIN'}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
@@ -373,7 +481,7 @@ export function AppShell({
                 )}
               </div>
 
-              {/* Footer Dasar Sidebar (mt-auto): Info Versi, Alamat Sekretariat & Tombol Logout */}
+              {/* Footer Dasar Sidebar */}
               <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-100 bg-slate-50/70 space-y-3 shrink-0">
                 <AppVersionFooter compact className="px-1" />
                 <p className="text-[11px] text-slate-400 leading-relaxed px-1">
@@ -394,24 +502,33 @@ export function AppShell({
       </AnimatePresence>
 
       {/* Area Kerja Utama */}
-      <div className="flex-1 lg:pl-72 flex flex-col min-w-0 overflow-x-hidden">
-        {/* Header Kontekstual Bersih — Tanpa Ikon Gerigi, Hamburger Menu di Kiri Atas */}
-        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 lg:px-8 pb-2.5 sm:pb-3 pt-safe-header no-print">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+      <div
+        className={`flex-1 flex flex-col min-w-0 overflow-x-hidden transition-[padding] duration-200 ease-out ${
+          sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'
+        }`}
+      >
+        {/* Header Tetap & Anti-Geser (Fixed Top-0, Tinggi Konstan h-16, Flex-Nowrap) */}
+        <header
+          className={`fixed top-0 left-0 right-0 z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] lg:h-16 pt-[env(safe-area-inset-top,0px)] lg:pt-0 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 sm:px-6 lg:px-8 flex items-center transition-[left] duration-200 ease-out no-print ${
+            sidebarCollapsed ? 'lg:left-20' : 'lg:left-72'
+          }`}
+        >
+          <div className="max-w-7xl w-full mx-auto flex flex-nowrap items-center justify-between gap-2 sm:gap-3 min-w-0">
+            {/* Kiri: Hamburger (Mobile Admin) + Logo Saung Kebun + Judul Halaman */}
+            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {isAdmin && (
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(true)}
                   aria-label="Buka Menu Sidebar"
                   title="Buka Menu Sidebar"
-                  className="lg:hidden min-h-[42px] min-w-[42px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  className="lg:hidden h-10 w-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] flex items-center justify-center transition-colors cursor-pointer shrink-0"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
               )}
 
-              <BrandLogo size="sm" className="lg:hidden shrink-0" />
+              <BrandLogo size="xs" className="lg:hidden shrink-0" />
 
               <div className="min-w-0 flex-1">
                 {isAdmin ? (
@@ -419,20 +536,22 @@ export function AppShell({
                     <p className="text-[11px] sm:text-xs font-semibold text-emerald-700 leading-tight truncate">
                       {adminIdentityLabel}
                     </p>
-                    <h1 className="text-sm sm:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
+                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
                       {activePageTitle}
                     </h1>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight">
+                    <div className="flex flex-nowrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight min-w-0">
                       <span className="truncate">{brand.app_name}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono font-semibold text-emerald-700 shrink-0">
+                      <span aria-hidden="true" className="shrink-0">
+                        ·
+                      </span>
+                      <span className="font-mono font-semibold text-emerald-700 shrink-0 whitespace-nowrap">
                         Blok {session.blok_rumah}
                       </span>
                     </div>
-                    <h1 className="text-sm sm:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
+                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
                       {activePageTitle}
                     </h1>
                   </>
@@ -440,28 +559,52 @@ export function AppShell({
               </div>
             </div>
 
-            {headerAction ? (
-              <div className="shrink-0">{headerAction}</div>
-            ) : isAdmin ? (
+            {/* Kanan: Lonceng Semua Aktivitas (Real-Time) + Foto Profil Akun + Aksi Tambahan */}
+            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
+              {headerAction && <div className="shrink-0">{headerAction}</div>}
+
+              <NotificationBell
+                session={session}
+                variant="light"
+                onNavigateTarget={onNavigateTarget}
+              />
+
               <button
                 type="button"
-                onClick={onLogout}
-                aria-label="Keluar dari Portal Admin"
-                className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                onClick={() => onOpenProfile?.()}
+                aria-label={`Profil ${session.nama_warga}`}
+                title="Profil & Foto Akun"
+                className="flex flex-nowrap items-center gap-2 p-0.5 sm:pr-2.5 rounded-full sm:rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition-colors cursor-pointer shrink-0"
               >
-                <LogOut className="w-3.5 h-3.5 shrink-0" />
-                <span>Keluar</span>
+                <UserAvatar
+                  name={session.nama_warga}
+                  src={effectiveAvatarUrl}
+                  size="sm"
+                  className="shrink-0"
+                />
+                <span className="hidden md:inline text-xs font-semibold text-[#0F172A] max-w-[112px] truncate">
+                  {session.nama_warga}
+                </span>
               </button>
-            ) : (
-              <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 shrink-0">
-                <span>Sekretariat Blok B3/7</span>
-              </div>
-            )}
+
+              {isAdmin && !headerAction && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  aria-label="Keluar dari Portal Admin"
+                  title="Keluar"
+                  className="hidden sm:inline-flex h-10 px-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-semibold text-slate-700 items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
+                  <span>Keluar</span>
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Single-View Slide Content per Tab */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 lg:pb-10 min-w-0 overflow-x-hidden">
+        {/* Single-View Slide Content per Tab — Padding Atas Menyesuaikan Header Fixed h-16 */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:pt-[5.25rem] pb-28 lg:pb-10 min-w-0 overflow-x-hidden">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div

@@ -10,14 +10,17 @@ import {
   Bot,
   BookOpen,
 } from 'lucide-react';
-import { type Warga } from '../../types';
+import { type SessionUser, type Warga } from '../../types';
 import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 import { PanduanAplikasiModal } from './PanduanAplikasiModal';
+import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 
 interface WargaProfilSlideProps {
+  session: SessionUser;
   profil: Warga;
+  onAvatarUpdated: (nextUrl: string | null) => void;
   onGoToBeranda?: () => void;
   onOpenLingkungan?: () => void;
   onGoToSetor?: () => void;
@@ -27,7 +30,9 @@ interface WargaProfilSlideProps {
 }
 
 export function WargaProfilSlide({
+  session,
   profil,
+  onAvatarUpdated,
   onGoToBeranda,
   onOpenLingkungan,
   onGoToSetor,
@@ -45,16 +50,14 @@ export function WargaProfilSlide({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Data Profil Rumah */}
       <section className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="p-5 sm:p-6 border-b border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-            <User className="w-6 h-6 text-[#059669]" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-[#0F172A] truncate">{profil.nama_warga}</h2>
-            <p className="text-xs text-slate-500">
-              Blok <span className="font-mono font-semibold text-slate-700">{profil.blok_rumah}</span> · Status {profil.status_hunian}
-            </p>
-          </div>
+        <div className="p-5 sm:p-6 border-b border-slate-200 bg-gradient-to-br from-emerald-50/40 via-white to-white">
+          <ProfileAvatarEditor
+            session={session}
+            avatarUrl={profil.avatar_url ?? session.avatar_url ?? null}
+            subtitle={`Blok ${profil.blok_rumah} · Status ${profil.status_hunian}`}
+            onAvatarUpdated={onAvatarUpdated}
+            onToast={onToast}
+          />
         </div>
 
         <dl className="divide-y divide-slate-100 px-5 sm:px-6 text-sm">

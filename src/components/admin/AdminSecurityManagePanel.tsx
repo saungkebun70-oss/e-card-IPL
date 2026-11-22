@@ -57,6 +57,8 @@ import {
 } from '../../lib/livePatrolService';
 import { describeGeolocationError } from '../../lib/patrolGpsUtils';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
+import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
+import { UserAvatar } from '../UserAvatar';
 
 interface AdminSecurityManagePanelProps {
   session: SessionUser;
@@ -77,6 +79,7 @@ export function AdminSecurityManagePanel({
 }: AdminSecurityManagePanelProps) {
   const canEdit = isBendaharaFullAccess(session);
   const canCalibrateGps = isBendaharaFullAccess(session) || isKetuaRole(session);
+  const avatarMap = useAvatarMap();
 
   // State Peta Mapping Rute Patroli & Editor Pin
   const activeTitikList = useMemo(
@@ -735,31 +738,43 @@ export function AdminSecurityManagePanel({
                   key={p.id}
                   className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-x-2">
-                      <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
-                      <span className="text-xs font-mono text-slate-500">@{p.username}</span>
-                      <span
-                        className={`text-[11px] font-semibold ${
-                          p.aktif ? 'text-emerald-700' : 'text-slate-400'
-                        }`}
-                      >
-                        · {p.aktif ? 'Aktif' : 'Nonaktif'}
-                      </span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <UserAvatar
+                      name={p.nama}
+                      src={
+                        p.avatar_url ||
+                        avatarMap[buildAvatarKey('petugas', p.id)] ||
+                        avatarMap[buildAvatarKey('petugas', p.username)] ||
+                        null
+                      }
+                      size="md"
+                    />
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-x-2">
+                        <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
+                        <span className="text-xs font-mono text-slate-500">@{p.username}</span>
+                        <span
+                          className={`text-[11px] font-semibold ${
+                            p.aktif ? 'text-emerald-700' : 'text-slate-400'
+                          }`}
+                        >
+                          · {p.aktif ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2">
+                        <span>{p.shift}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono text-slate-600">+{cleanWa}</span>
+                        {canEdit && p.pin && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-mono text-emerald-700 font-semibold">
+                              PIN: {p.pin}
+                            </span>
+                          </>
+                        )}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2">
-                      <span>{p.shift}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono text-slate-600">+{cleanWa}</span>
-                      {canEdit && p.pin && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="font-mono text-emerald-700 font-semibold">
-                            PIN: {p.pin}
-                          </span>
-                        </>
-                      )}
-                    </p>
                   </div>
 
                   {canEdit && (

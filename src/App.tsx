@@ -31,6 +31,7 @@ import {
   fetchAdminSnapshot,
   fetchWargaOwnData,
   loadStoredSession,
+  saveStoredSession,
   subscribeAdminRealtime,
   subscribePatroliRealtime,
   type AdminSnapshot,
@@ -81,7 +82,7 @@ const REALTIME_MAX_WAIT_MS = 5000;
  */
 function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
   const wargaSig = `${data.wargaList.length}:${data.wargaList
-    .map((w) => `${w.id}|${w.blok_rumah}|${w.aktif ? 1 : 0}|${w.nominal_iuran}|${w.status_hunian}`)
+    .map((w) => `${w.id}|${w.blok_rumah}|${w.aktif ? 1 : 0}|${w.nominal_iuran}|${w.status_hunian}|${w.avatar_url || ''}`)
     .join(',')}`;
   const trxSig = `${data.transaksiList.length}:${data.transaksiList
     .map((t) => `${t.id}|${t.status_verifikasi}|${t.nominal}|${t.verified_at || ''}`)
@@ -100,7 +101,7 @@ function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
     .map((t) => `${t.id}|${t.aktif ? 1 : 0}|${t.x_percent ?? ''}|${t.y_percent ?? ''}|${t.nama_lokasi}`)
     .join(',')}`;
   const petugasSig = `${data.petugasList.length}:${data.petugasList
-    .map((p) => `${p.id}|${p.aktif ? 1 : 0}|${p.shift}|${p.nama}`)
+    .map((p) => `${p.id}|${p.aktif ? 1 : 0}|${p.shift}|${p.nama}|${p.avatar_url || ''}`)
     .join(',')}`;
   const notifSig = `${data.notifications.length}:${data.notifications
     .slice(0, 20)
@@ -132,7 +133,7 @@ function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
  * diperbarui ulang apabila tidak ada perubahan signifikan pada data rumah/patroli.
  */
 function computeWargaDataFingerprint(data: WargaPortalData): string {
-  const profilSig = `${data.profil.id}|${data.profil.nama_warga}|${data.profil.blok_rumah}|${data.profil.aktif ? 1 : 0}|${data.profil.nominal_iuran}|${data.profil.status_hunian}`;
+  const profilSig = `${data.profil.id}|${data.profil.nama_warga}|${data.profil.blok_rumah}|${data.profil.aktif ? 1 : 0}|${data.profil.nominal_iuran}|${data.profil.status_hunian}|${data.profil.avatar_url || ''}`;
   const statusSig = `${data.statusBulanan.length}:${data.statusBulanan
     .map((s) => `${s.tahun}|${s.bulan}|${s.status}`)
     .join(',')}`;
@@ -433,6 +434,70 @@ export default function App() {
     [session, portalRoute, loadPortalData]
   );
 
+  const handleAvatarUpdated = useCallback(
+    (nextAvatarUrl: string | null) => {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const updated: SessionUser = { ...prev, avatar_url: nextAvatarUrl };
+        saveStoredSession(updated);
+        return updated;
+      });
+      setWargaData((prev) =>
+        prev
+          ? {
+              ...prev,
+              profil: { ...prev.profil, avatar_url: nextAvatarUrl },
+            }
+          : prev
+      );
+      setAdminData((prev) =>
+        prev && session?.role === 'admin'
+          ? {
+              ...prev,
+              pengurusAccounts: prev.pengurusAccounts.map((acc) =>
+                acc.username.toLowerCase() === session.blok_rumah.toLowerCase()
+                  ? { ...acc, avatar_url: nextAvatarUrl }
+                  : acc
+              ),
+            }
+          : prev
+      );
+    },
+    [session?.role, session?.blok_rumah]
+  );
+
+  const handleNavigateNotificationTarget = useCallback(
+    (targetUrl: string) => {
+      if (!targetUrl || !session) return;
+      if (targetUrl.startsWith('settings:') && session.role === 'admin') {
+        const sub = targetUrl.replace('settings:', '') as SettingsDrawerTab;
+        const validSettingsTabs: SettingsDrawerTab[] = [
+          'profil',
+          'identitas',
+          'pembayaran',
+          'bot_wa',
+          'petugas_nfc',
+          'keamanan',
+        ];
+        setSettingsTab(validSettingsTabs.includes(sub) ? sub : 'profil');
+        setSettingsOpen(true);
+        return;
+      }
+      if (targetUrl.startsWith('tab:')) {
+        const tabId = targetUrl.replace('tab:', '');
+        setSettingsOpen(false);
+        const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil'];
+        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj'];
+        if (session.role === 'warga' && wargaValid.includes(tabId)) {
+          handleTabChange(tabId);
+        } else if (session.role === 'admin' && adminValid.includes(tabId)) {
+          handleTabChange(tabId);
+        }
+      }
+    },
+    [session, handleTabChange]
+  );
+
   const handleLoginSuccess = (newSession: SessionUser) => {
     if (newSession.role !== portalRoute) return;
     setSession(newSession);
@@ -510,6 +575,7 @@ export default function App() {
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         <PetugasPortalPage
           session={session}
+          onAvatarUpdated={handleAvatarUpdated}
           onLogout={handleLogout}
           onToast={pushToast}
         />
@@ -668,7 +734,9 @@ export default function App() {
         case 'profil':
           return (
             <WargaProfilSlide
+              session={session}
               profil={wargaData.profil}
+              onAvatarUpdated={handleAvatarUpdated}
               onGoToBeranda={() => setActiveTab('beranda')}
               onOpenLingkungan={() => setActiveTab('lingkungan')}
               onGoToSetor={() => setActiveTab('setor')}
@@ -750,7 +818,13 @@ export default function App() {
               senderJabatan={session.jabatan || 'Pengurus'}
               petugasKontak={adminData.petugasList
                 .filter((p) => p.aktif)
-                .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }))}
+                .map(({ id, nama, no_hp, shift, avatar_url }) => ({
+                  id,
+                  nama,
+                  no_hp,
+                  shift,
+                  avatar_url,
+                }))}
               patroliFeed={adminData.patroliFeed}
               titikPatroliList={adminData.titikPatroliList}
               patrolMapConfig={adminData.patrolMapConfig}
@@ -780,6 +854,20 @@ export default function App() {
         navItems={navItems}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        avatarUrl={
+          session.role === 'warga'
+            ? wargaData?.profil.avatar_url ?? session.avatar_url ?? null
+            : session.avatar_url ?? null
+        }
+        onOpenProfile={() => {
+          if (session.role === 'warga') {
+            handleTabChange('profil');
+          } else {
+            setSettingsTab('profil');
+            setSettingsOpen(true);
+          }
+        }}
+        onNavigateTarget={handleNavigateNotificationTarget}
         onOpenSettings={
           session.role === 'admin'
             ? () => {
@@ -808,7 +896,7 @@ export default function App() {
         {renderContent()}
       </AppShell>
 
-      {/* Drawer Pengaturan Terpusat Admin (Ikon Gear) */}
+      {/* Drawer Pengaturan Terpusat Admin (Profil Saya, Identitas, Pembayaran, Bot WA, Petugas, Keamanan) */}
       {session.role === 'admin' && adminData && (
         <AdminSettingsDrawer
           open={settingsOpen}
@@ -823,6 +911,7 @@ export default function App() {
           petugasList={adminData.petugasList}
           titikPatroliList={adminData.titikPatroliList}
           patrolMapConfig={adminData.patrolMapConfig}
+          onAvatarUpdated={handleAvatarUpdated}
           onClose={() => setSettingsOpen(false)}
           onRefresh={() => loadPortalData(session, { silent: true })}
           onToast={pushToast}

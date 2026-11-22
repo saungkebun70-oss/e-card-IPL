@@ -22,6 +22,7 @@ import {
   Smartphone,
   Square,
   Wallet,
+  X,
 } from 'lucide-react';
 import {
   SUSUNAN_PENGURUS,
@@ -86,6 +87,9 @@ import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 import { PetugasAttendanceCard } from './PetugasAttendanceCard';
 import { PetugasHonorTab } from './PetugasHonorTab';
+import { NotificationBell } from '../NotificationBell';
+import { UserAvatar } from '../UserAvatar';
+import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import {
   fetchShiftOverrides,
   findActiveOverrideForOfficer,
@@ -94,6 +98,7 @@ import {
 
 interface PetugasPortalPageProps {
   session: SessionUser;
+  onAvatarUpdated?: (nextUrl: string | null) => void;
   onLogout: () => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -135,6 +140,7 @@ const TAB_TITLES: Record<PetugasTab, { title: string; subtitle: string }> = {
 
 export function PetugasPortalPage({
   session,
+  onAvatarUpdated,
   onLogout,
   onToast,
 }: PetugasPortalPageProps) {
@@ -143,6 +149,7 @@ export function PetugasPortalPage({
   const [data, setData] = useState<PetugasOwnData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [riwayatFilter, setRiwayatFilter] = useState<'hari_ini' | 'semua'>('hari_ini');
   const [resettingCycle, setResettingCycle] = useState(false);
   const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
@@ -919,6 +926,38 @@ export function PetugasPortalPage({
     username: session.blok_rumah,
     no_hp: session.no_wa || '',
     shift: session.shift || 'Shift Keamanan',
+    avatar_url: session.avatar_url || null,
+  };
+  const effectiveAvatarUrl = profil.avatar_url ?? session.avatar_url ?? null;
+
+  const handlePetugasAvatarUpdated = (nextUrl: string | null) => {
+    onAvatarUpdated?.(nextUrl);
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            profil: { ...prev.profil, avatar_url: nextUrl },
+          }
+        : prev
+    );
+  };
+
+  const handleNotificationNavigate = (targetUrl: string) => {
+    if (!targetUrl) return;
+    if (targetUrl.startsWith('tab:')) {
+      const targetTab = targetUrl.replace('tab:', '');
+      if (targetTab === 'keamanan') {
+        handleSelectTab('peta');
+      } else if (
+        targetTab === 'info' ||
+        targetTab === 'riwayat' ||
+        targetTab === 'scan' ||
+        targetTab === 'honor' ||
+        targetTab === 'peta'
+      ) {
+        handleSelectTab(targetTab);
+      }
+    }
   };
 
   const [officerShiftOverrides, setOfficerShiftOverrides] = useState<SecurityShiftOverride[]>([]);
@@ -958,44 +997,62 @@ export function PetugasPortalPage({
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] pb-28 overflow-x-hidden">
-      {/* Header Terisolasi Khusus Petugas (Tanpa Tautan ke Portal Admin / Warga) */}
-      <header className="sticky top-0 z-30 bg-[#0F172A] text-white border-b border-slate-800 pt-safe">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandLogo size="sm" variant="dark" className="shrink-0" />
+      {/* Header Tetap & Anti-Geser Khusus Petugas (Fixed top-0, Tinggi Konstan h-16) */}
+      <header className="fixed top-0 left-0 right-0 z-40 w-full h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#0F172A]/95 backdrop-blur-md text-white border-b border-slate-800 flex items-center">
+        <div className="max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
+          <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
+            <BrandLogo size="xs" variant="dark" className="shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-white leading-tight truncate">
                 {profil.nama}
               </p>
               <p className="text-[11px] text-emerald-400 font-medium truncate">
-                Petugas Keamanan · {effectiveShiftLabel}
+                Keamanan · {effectiveShiftLabel}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-nowrap items-center gap-1.5 shrink-0">
             <button
               type="button"
               disabled={refreshing}
               onClick={() => void loadData(true)}
               aria-label="Muat ulang data petugas"
-              className="min-h-[40px] min-w-[40px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center cursor-pointer"
+              className="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center cursor-pointer shrink-0"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
+
+            <NotificationBell
+              session={session}
+              variant="dark"
+              onNavigateTarget={handleNotificationNavigate}
+            />
+
+            <button
+              type="button"
+              onClick={() => setProfileModalOpen(true)}
+              aria-label="Foto Profil Petugas"
+              title="Foto Profil Petugas"
+              className="p-0.5 rounded-full border border-slate-700 bg-slate-800 hover:border-emerald-400 transition-colors cursor-pointer shrink-0"
+            >
+              <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" />
+            </button>
+
             <button
               type="button"
               onClick={onLogout}
-              className="min-h-[40px] px-3 rounded-xl bg-slate-800 hover:bg-red-900/60 text-slate-100 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+              aria-label="Keluar dari Portal Keamanan"
+              className="h-10 px-2.5 sm:px-3 rounded-xl bg-slate-800 hover:bg-red-900/60 text-slate-100 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
             >
               <LogOut className="w-4 h-4 shrink-0" />
-              <span>Keluar</span>
+              <span className="hidden sm:inline">Keluar</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 pt-4 pb-24 space-y-4">
+      <main className="max-w-3xl mx-auto px-4 pt-[calc(4rem+env(safe-area-inset-top,0px)+1rem)] pb-24 space-y-4">
         {/* Banner Judul Halaman Aktif */}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -1022,7 +1079,7 @@ export function PetugasPortalPage({
           )}
         </div>
 
-        {/* KARTU ABSENSI JAGA & RIWAYAT PRIBADI — BAGIAN PALING ATAS TAB INFO & SHIFT */}
+        {/* KARTU ABSENSI JAGA & FOTO PROFIL — TAB INFO & SHIFT */}
         {activeTab === 'info' && (
           <>
             <PetugasAttendanceCard
@@ -1031,6 +1088,21 @@ export function PetugasPortalPage({
               assignedShift={profil.shift}
               onToast={onToast}
             />
+
+            {/* KARTU FOTO PROFIL PETUGAS KEAMANAN */}
+            <section
+              aria-label="Foto Profil Petugas Keamanan"
+              className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+            >
+              <ProfileAvatarEditor
+                session={session}
+                avatarUrl={effectiveAvatarUrl}
+                subtitle={`Petugas Keamanan · ${effectiveShiftLabel} · @${profil.username}`}
+                onAvatarUpdated={handlePetugasAvatarUpdated}
+                onToast={onToast}
+                compact
+              />
+            </section>
 
             {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
             <section
@@ -1921,6 +1993,48 @@ export function PetugasPortalPage({
           trxKas={selectedHonorTrx}
           onClose={() => setSelectedHonorTrx(null)}
         />
+      )}
+
+      {/* Modal Foto Profil Petugas (Dibuka saat ketuk Avatar di Header) */}
+      {profileModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pengaturan Foto Profil Petugas"
+          onClick={() => setProfileModalOpen(false)}
+          className="fixed inset-0 z-[65] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-md rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-bold text-[#0F172A]">Foto Profil Petugas</h2>
+                <p className="text-xs text-slate-500">
+                  Foto tampil pada header, kontak darurat warga, dan log patroli.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                aria-label="Tutup modal foto profil"
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <ProfileAvatarEditor
+              session={session}
+              avatarUrl={effectiveAvatarUrl}
+              subtitle={`${effectiveShiftLabel} · @${profil.username}`}
+              onAvatarUpdated={handlePetugasAvatarUpdated}
+              onToast={onToast}
+              compact
+            />
+          </div>
+        </div>
       )}
 
       {/* Modal Konfirmasi Selesai Patroli Live */}

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { type LogPatroli, type PetugasKontakDarurat } from '../types';
 import { formatTanggalWaktu, normalizePhoneNumber } from '../lib/format';
+import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
+import { UserAvatar } from './UserAvatar';
 
 interface EmergencySecurityContactCardProps {
   petugasList: PetugasKontakDarurat[];
@@ -32,6 +34,7 @@ export function EmergencySecurityContactCard({
   petugasList,
   senderContext,
 }: EmergencySecurityContactCardProps) {
+  const avatarMap = useAvatarMap();
   const safePetugasList = Array.isArray(petugasList) ? petugasList : [];
   const validContacts = safePetugasList.filter(
     (p) => Boolean(p) && normalizePhoneNumber(p?.no_hp || '').length >= 10
@@ -82,13 +85,24 @@ export function EmergencySecurityContactCard({
                 key={petugas?.id || `petugas-${idx}`}
                 className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#0F172A] truncate">{namaPetugas}</p>
-                  <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
-                    <span>{petugas?.shift || 'Shift Jaga'}</span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="font-mono tabular-nums text-slate-600">+{cleanWa}</span>
-                  </p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <UserAvatar
+                    name={namaPetugas}
+                    src={
+                      petugas?.avatar_url ||
+                      avatarMap[buildAvatarKey('petugas', petugas?.id)] ||
+                      null
+                    }
+                    size="md"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0F172A] truncate">{namaPetugas}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
+                      <span>{petugas?.shift || 'Shift Jaga'}</span>
+                      <span aria-hidden="true" className="text-slate-300">·</span>
+                      <span className="font-mono tabular-nums text-slate-600">+{cleanWa}</span>
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
@@ -152,6 +166,7 @@ export function SecurityPatrolFeedCard({
   patroliFeed,
   initialLimit = 5,
 }: SecurityPatrolFeedCardProps) {
+  const avatarMap = useAvatarMap();
   const [expanded, setExpanded] = useState(false);
   const safeFeed = Array.isArray(patroliFeed) ? patroliFeed : [];
   const limit = initialLimit > 0 ? initialLimit : 5;
@@ -232,10 +247,18 @@ export function SecurityPatrolFeedCard({
                     </span>
                   </div>
 
-                  {/* Baris 2: Nama Petugas + keterangan metode */}
-                  <p className="text-xs text-gray-500 truncate mt-0.5 pl-5">
-                    {log?.nama_petugas || 'Petugas'} · {methodLabel}
-                  </p>
+                  {/* Baris 2: Avatar mini + Nama Petugas + keterangan metode */}
+                  <div className="flex items-center gap-1.5 mt-0.5 pl-5 min-w-0">
+                    <UserAvatar
+                      name={log?.nama_petugas || 'Petugas'}
+                      src={avatarMap[buildAvatarKey('petugas', log?.petugas_id)] || null}
+                      size="xs"
+                      className="w-4 h-4 text-[8px]"
+                    />
+                    <p className="text-xs text-gray-500 truncate">
+                      {log?.nama_petugas || 'Petugas'} · {methodLabel}
+                    </p>
+                  </div>
 
                   {log?.catatan && (
                     <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200/70 rounded-md px-2 py-1 mt-1.5 ml-5 leading-snug">

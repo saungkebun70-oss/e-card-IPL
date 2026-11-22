@@ -49,6 +49,8 @@ import {
   sendWargaBotActivationWaAdmin,
 } from '../../lib/dataService';
 import { SEED_WARGA } from '../../lib/seedData';
+import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
+import { UserAvatar } from '../UserAvatar';
 
 interface AdminWargaSlideProps {
   session: SessionUser;
@@ -94,6 +96,7 @@ export function AdminWargaSlide({
   const canManageFull = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
   const hasGatewayToken = Boolean(botConfig?.api_token?.trim());
+  const avatarMap = useAvatarMap();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | StatusHunian>('Semua');
   const [page, setPage] = useState(1);
@@ -476,18 +479,31 @@ export function AdminWargaSlide({
                         {w.blok_rumah}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-semibold text-[#0F172A]">{w.nama_warga}</p>
-                          {isPrivilegedBot && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-semibold">
-                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                              {w.bot_role === 'bendahara' ? 'Bendahara Bot' : 'Pengurus Bot'}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2.5">
+                          <UserAvatar
+                            name={w.nama_warga}
+                            src={
+                              w.avatar_url ||
+                              avatarMap[buildAvatarKey('warga', w.blok_rumah)] ||
+                              null
+                            }
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-semibold text-[#0F172A]">{w.nama_warga}</p>
+                              {isPrivilegedBot && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-semibold">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                  {w.bot_role === 'bendahara' ? 'Bendahara Bot' : 'Pengurus Bot'}
+                                </span>
+                              )}
+                            </div>
+                            {!w.aktif && (
+                              <span className="text-[11px] font-semibold text-red-600">Nonaktif</span>
+                            )}
+                          </div>
                         </div>
-                        {!w.aktif && (
-                          <span className="text-[11px] font-semibold text-red-600">Nonaktif</span>
-                        )}
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {hasAnyRealWa ? (

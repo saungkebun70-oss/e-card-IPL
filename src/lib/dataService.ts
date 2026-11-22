@@ -69,6 +69,17 @@ import {
   SEED_WARGA,
 } from './seedData';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import {
+  buildPetugasUserId,
+  buildWargaUserId,
+  dispatchActivityNotifications,
+  getAllAdminUserIds,
+  getBendaharaAndKetuaUserIds,
+  getBendaharaUserIds,
+  getCanonicalUserId,
+  getKetuaUserIds,
+} from './notificationService';
+import { buildAvatarKey, cacheAccountAvatars, getCachedAvatarUrl } from './avatarService';
 
 const STORAGE_KEYS = {
   SESSION_LEGACY: 'saungkebun_session_v1',
@@ -473,6 +484,13 @@ export async function loginWargaAccount(
         };
       }
 
+      const resolvedAvatar =
+        (typeof matchedRow.avatar_url === 'string' && matchedRow.avatar_url.trim()) ||
+        getCachedAvatarUrl('warga', matchedRow.blok_rumah) ||
+        null;
+      if (resolvedAvatar) {
+        cacheAccountAvatars([{ key: buildAvatarKey('warga', matchedRow.blok_rumah), url: resolvedAvatar }]);
+      }
       const session: SessionUser = {
         role: 'warga',
         blok_rumah: matchedRow.blok_rumah,
@@ -485,6 +503,7 @@ export async function loginWargaAccount(
           typeof matchedRow.nominal_iuran === 'number'
             ? matchedRow.nominal_iuran
             : NOMINAL_IPL_STANDAR,
+        avatar_url: resolvedAvatar,
         login_at: new Date().toISOString(),
       };
       saveStoredSession(session);
@@ -541,6 +560,7 @@ export async function loginWargaAccount(
     status_hunian: matched.status_hunian,
     no_wa: matched.no_wa,
     nominal_iuran: matched.nominal_iuran,
+    avatar_url: matched.avatar_url || getCachedAvatarUrl('warga', matched.blok_rumah) || null,
     login_at: new Date().toISOString(),
   };
 
@@ -611,6 +631,13 @@ export async function loginAdminAccount(
         pengurusMeta?.permission ||
         (resolvedJabatan === 'Bendahara' ? 'full' : 'add_only');
 
+      const resolvedAdminAvatar =
+        (typeof row.avatar_url === 'string' && row.avatar_url.trim()) ||
+        getCachedAvatarUrl('admin', row.blok_rumah) ||
+        null;
+      if (resolvedAdminAvatar) {
+        cacheAccountAvatars([{ key: buildAvatarKey('admin', row.blok_rumah), url: resolvedAdminAvatar }]);
+      }
       const session: SessionUser = {
         role: 'admin',
         blok_rumah: row.blok_rumah,
@@ -623,6 +650,7 @@ export async function loginAdminAccount(
         status_hunian: row.status_hunian as StatusHunian | undefined,
         no_wa: typeof row.no_wa === 'string' ? row.no_wa : undefined,
         nominal_iuran: 0,
+        avatar_url: resolvedAdminAvatar,
         login_at: new Date().toISOString(),
       };
       saveStoredSession(session);
@@ -680,6 +708,7 @@ export async function loginAdminAccount(
     nama_warga: matchedAdmin.nama,
     jabatan: matchedAdmin.jabatan,
     admin_permission: matchedAdmin.permission,
+    avatar_url: getCachedAvatarUrl('admin', matchedAdmin.username) || null,
     login_at: new Date().toISOString(),
   };
   saveStoredSession(session);
@@ -794,7 +823,15 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
         );
       });
 
-      const profil = profilRes.data as Warga;
+      const rawProfil = profilRes.data as Warga;
+      const profil: Warga = {
+        ...rawProfil,
+        avatar_url:
+          rawProfil.avatar_url || getCachedAvatarUrl('warga', rawProfil.blok_rumah) || null,
+      };
+      if (profil.avatar_url) {
+        cacheAccountAvatars([{ key: buildAvatarKey('warga', profil.blok_rumah), url: profil.avatar_url }]);
+      }
       const relevantNotifications = notifications
         .filter((n) => n.target_scope === 'all_units' || profil.status_hunian !== 'Kosong')
         .map(({ recipient_blocks: _omit, ...safeNotif }) => safeNotif);
@@ -850,7 +887,10 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
 
   return {
     data: {
-      profil,
+      profil: {
+        ...profil,
+        avatar_url: profil.avatar_url || getCachedAvatarUrl('warga', profil.blok_rumah) || null,
+      },
       statusBulanan,
       riwayat,
       notifications: safeNotifications,
@@ -1172,6 +1212,17 @@ export async function submitSetoranWarga(
         metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
       });
 
+      void dispatchActivityNotifications(
+        effectiveSession,
+        getBendaharaAndKetuaUserIds().map((uid) => ({
+          user_id: uid,
+          category: 'ipl' as const,
+          title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
+          message: `${effectiveNama} mengirim setoran ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+          target_url: 'tab:dashboard',
+        }))
+      );
+
       return { data: normalizeTransaksiRow(inserted as Record<string, unknown>) };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Gagal mengirim setoran ke server Supabase.') };
@@ -1219,6 +1270,17 @@ export async function submitSetoranWarga(
       metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
     });
 
+    void dispatchActivityNotifications(
+      effectiveSession,
+      getBendaharaAndKetuaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'ipl' as const,
+        title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
+        message: `${effectiveNama} mengirim setoran ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+        target_url: 'tab:dashboard',
+      }))
+    );
+
     return { data: newTrx };
   } catch (err) {
     return { error: parseFriendlyError(err, 'Gagal memproses bukti transaksi.') };
@@ -1254,6 +1316,7 @@ function buildPengurusAccountsList(
     pin_akses?: string;
     jabatan?: string | null;
     admin_permission?: string | null;
+    avatar_url?: string | null;
   }>
 ): PengurusAccountInfo[] {
   const canRevealPin = isBendaharaFullAccess(session);
@@ -1269,10 +1332,15 @@ function buildPengurusAccountsList(
     const localMatch = LOCAL_ADMIN_ACCOUNTS.find(
       (a) => a.username.toLowerCase() === p.username.toLowerCase()
     );
+    const resolvedAvatar =
+      (typeof dbMatch?.avatar_url === 'string' && dbMatch.avatar_url.trim()) ||
+      getCachedAvatarUrl('admin', p.username) ||
+      null;
     return {
       ...p,
       no_wa: dbMatch?.no_wa || undefined,
       pin_akses: canRevealPin ? dbMatch?.pin_akses || localMatch?.pin : undefined,
+      avatar_url: resolvedAvatar,
     };
   });
 }
@@ -1323,7 +1391,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
           .order('blok_rumah', { ascending: true }),
         supabase
           .from('users_warga')
-          .select('blok_rumah,nama_warga,no_wa,pin_akses,jabatan,admin_permission')
+          .select('*')
           .eq('role', 'admin'),
         supabase
           .from('transaksi_ipl')
@@ -1363,13 +1431,45 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       })();
       const remoteBotLogs = !botLogRes.error ? ((botLogRes.data || []) as BotWaLog[]) : [];
 
+      const wargaList = ((wargaRes.data || []) as Warga[]).map((w) => ({
+        ...w,
+        avatar_url: w.avatar_url || getCachedAvatarUrl('warga', w.blok_rumah) || null,
+      }));
+      const pengurusAccounts = buildPengurusAccountsList(
+        session,
+        !adminAccRes.error
+          ? (adminAccRes.data as Array<{
+              blok_rumah?: string;
+              nama_warga?: string;
+              no_wa?: string;
+              pin_akses?: string;
+              jabatan?: string | null;
+              admin_permission?: string | null;
+              avatar_url?: string | null;
+            }>)
+          : undefined
+      );
+
+      // Sinkronkan cache avatar seluruh akun untuk tampilan cepat di Header, Daftar & Log
+      cacheAccountAvatars([
+        ...wargaList
+          .filter((w) => Boolean(w.avatar_url))
+          .map((w) => ({ key: buildAvatarKey('warga', w.blok_rumah), url: w.avatar_url })),
+        ...pengurusAccounts
+          .filter((p) => Boolean(p.avatar_url))
+          .map((p) => ({ key: buildAvatarKey('admin', p.username), url: p.avatar_url })),
+        ...petugasList
+          .filter((pt) => Boolean(pt.avatar_url))
+          .flatMap((pt) => [
+            { key: buildAvatarKey('petugas', pt.id), url: pt.avatar_url },
+            { key: buildAvatarKey('petugas', pt.username), url: pt.avatar_url },
+          ]),
+      ]);
+
       return {
         data: {
-          wargaList: (wargaRes.data || []) as Warga[],
-          pengurusAccounts: buildPengurusAccountsList(
-            session,
-            !adminAccRes.error ? (adminAccRes.data as Array<Record<string, string>>) : undefined
-          ),
+          wargaList,
+          pengurusAccounts,
           transaksiList,
           transaksiKasList,
           statusList: reconciledStatus,
@@ -1870,6 +1970,35 @@ export async function verifyTransaksiAdmin(
         metadata: { catatan: cleanNote, blok: trx.blok_rumah },
       });
 
+      void dispatchActivityNotifications(session, [
+        {
+          user_id: buildWargaUserId(trx.blok_rumah),
+          category: 'ipl',
+          title:
+            effectiveStatus === 'ACC Bendahara'
+              ? 'IPL Di-ACC Bendahara'
+              : 'Setoran IPL Ditolak Bendahara',
+          message:
+            effectiveStatus === 'ACC Bendahara'
+              ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah ACC Bendahara dan diteruskan ke Ketua.`
+              : `Setoran ${formatRupiah(trx.nominal)} ditolak. Alasan: ${cleanNote || 'Periksa kembali bukti transaksi.'}`,
+          target_url: 'tab:riwayat',
+        },
+        ...getKetuaUserIds().map((uid) => ({
+          user_id: uid,
+          category: 'ipl' as const,
+          title:
+            effectiveStatus === 'ACC Bendahara'
+              ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
+              : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`,
+          message:
+            effectiveStatus === 'ACC Bendahara'
+              ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}). Menunggu verifikasi final Anda.`
+              : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`,
+          target_url: 'tab:dashboard',
+        })),
+      ]);
+
       return { data: normalizeTransaksiRow((data || trx) as Record<string, unknown>) };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Gagal memperbarui status verifikasi Bendahara.') };
@@ -1920,6 +2049,35 @@ export async function verifyTransaksiAdmin(
     } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`,
     metadata: { catatan: cleanNote, blok: trx.blok_rumah },
   });
+
+  void dispatchActivityNotifications(session, [
+    {
+      user_id: buildWargaUserId(trx.blok_rumah),
+      category: 'ipl',
+      title:
+        effectiveStatus === 'ACC Bendahara'
+          ? 'IPL Di-ACC Bendahara'
+          : 'Setoran IPL Ditolak Bendahara',
+      message:
+        effectiveStatus === 'ACC Bendahara'
+          ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah ACC Bendahara dan diteruskan ke Ketua.`
+          : `Setoran ${formatRupiah(trx.nominal)} ditolak. Alasan: ${cleanNote || 'Periksa kembali bukti transaksi.'}`,
+      target_url: 'tab:riwayat',
+    },
+    ...getKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'ipl' as const,
+      title:
+        effectiveStatus === 'ACC Bendahara'
+          ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
+          : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`,
+      message:
+        effectiveStatus === 'ACC Bendahara'
+          ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`
+          : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`,
+      target_url: 'tab:dashboard',
+    })),
+  ]);
 
   return { data: updatedItem };
 }
@@ -2055,6 +2213,35 @@ export async function verifyTransaksiKetuaAdmin(
         metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
       });
 
+      void dispatchActivityNotifications(session, [
+        {
+          user_id: buildWargaUserId(trx.blok_rumah),
+          category: 'ipl',
+          title:
+            decision === 'Terverifikasi'
+              ? 'Pembayaran IPL Lunas & Sah'
+              : 'Setoran IPL Perlu Pengecekan Ulang',
+          message:
+            decision === 'Terverifikasi'
+              ? `Pembayaran IPL ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah disahkan Ketua ${ketuaName}. Kwitansi resmi sudah tersedia.`
+              : `Ketua ${ketuaName} mengembalikan setoran ${formatRupiah(trx.nominal)} ke Bendahara untuk pengecekan: ${cleanKetuaNote}`,
+          target_url: 'tab:riwayat',
+        },
+        ...getBendaharaUserIds().map((uid) => ({
+          user_id: uid,
+          category: 'ipl' as const,
+          title:
+            decision === 'Terverifikasi'
+              ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
+              : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`,
+          message:
+            decision === 'Terverifikasi'
+              ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) resmi Lunas dan masuk saldo kas.`
+              : `Catatan Ketua: ${cleanKetuaNote}`,
+          target_url: 'tab:dashboard',
+        })),
+      ]);
+
       return {
         data: normalizeTransaksiRow(((data as Record<string, unknown>) || trx) as Record<string, unknown>),
       };
@@ -2114,6 +2301,35 @@ export async function verifyTransaksiKetuaAdmin(
     } setoran ${trx.blok_rumah} sebesar ${formatRupiah(trx.nominal)}.`,
     metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
   });
+
+  void dispatchActivityNotifications(session, [
+    {
+      user_id: buildWargaUserId(trx.blok_rumah),
+      category: 'ipl',
+      title:
+        decision === 'Terverifikasi'
+          ? 'Pembayaran IPL Lunas & Sah'
+          : 'Setoran IPL Perlu Pengecekan Ulang',
+      message:
+        decision === 'Terverifikasi'
+          ? `Pembayaran IPL ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah disahkan Ketua ${ketuaName}. Kwitansi resmi sudah tersedia.`
+          : `Ketua ${ketuaName} mengembalikan setoran ${formatRupiah(trx.nominal)} ke Bendahara: ${cleanKetuaNote}`,
+      target_url: 'tab:riwayat',
+    },
+    ...getBendaharaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'ipl' as const,
+      title:
+        decision === 'Terverifikasi'
+          ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
+          : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`,
+      message:
+        decision === 'Terverifikasi'
+          ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) resmi Lunas.`
+          : `Catatan Ketua: ${cleanKetuaNote}`,
+      target_url: 'tab:dashboard',
+    })),
+  ]);
 
   return { data: updatedItem };
 }
@@ -2656,6 +2872,22 @@ export async function resetPinWargaAdmin(
       entity_id: warga.id,
       summary: `PIN akses 6 digit untuk ${warga.blok_rumah} (${warga.nama_warga}) diacak ulang oleh ${session.nama_warga}.`,
     });
+    void dispatchActivityNotifications(session, [
+      {
+        user_id: buildWargaUserId(warga.blok_rumah),
+        category: 'system',
+        title: 'PIN Akses Unit Diperbarui',
+        message: `PIN 6 digit akun Blok ${warga.blok_rumah} telah direset oleh Pengurus (${session.nama_warga}).`,
+        target_url: 'tab:profil',
+      },
+      ...getKetuaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'system' as const,
+        title: `Reset PIN Warga Blok ${warga.blok_rumah}`,
+        message: `${session.nama_warga} mereset PIN akses unit ${warga.blok_rumah} (${warga.nama_warga}).`,
+        target_url: 'tab:warga',
+      })),
+    ]);
   }
   return res;
 }
@@ -3045,6 +3277,16 @@ export async function saveBotWaConfigAdmin(
         entity_id: updatedConfig.id,
         summary: `Konfigurasi Bot WA (${updatedConfig.provider}) diperbarui. Status: ${updatedConfig.aktif ? 'Aktif' : 'Nonaktif'}.`,
       });
+      void dispatchActivityNotifications(
+        session,
+        getBendaharaAndKetuaUserIds().map((uid) => ({
+          user_id: uid,
+          category: 'system' as const,
+          title: 'Konfigurasi Bot WA Diperbarui',
+          message: `${session.nama_warga} memperbarui pengaturan Bot WA (${updatedConfig.provider}, status ${updatedConfig.aktif ? 'Aktif' : 'Nonaktif'}).`,
+          target_url: 'settings:bot_wa',
+        }))
+      );
       return { data: data as BotWaConfig };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Gagal menyimpan konfigurasi Bot WhatsApp.') };
@@ -3059,6 +3301,16 @@ export async function saveBotWaConfigAdmin(
     entity_id: updatedConfig.id,
     summary: `Konfigurasi Bot WA (${updatedConfig.provider}) diperbarui. Status: ${updatedConfig.aktif ? 'Aktif' : 'Nonaktif'}.`,
   });
+  void dispatchActivityNotifications(
+    session,
+    getBendaharaAndKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'system' as const,
+      title: 'Konfigurasi Bot WA Diperbarui',
+      message: `${session.nama_warga} memperbarui pengaturan Bot WA (${updatedConfig.provider}).`,
+      target_url: 'settings:bot_wa',
+    }))
+  );
   return { data: updatedConfig };
 }
 
@@ -3726,6 +3978,31 @@ export async function sendBulkSystemNotificationAdmin(
     },
   });
 
+  // Kirim notifikasi lonceng real-time ke Warga, Pengurus, dan Petugas Keamanan
+  void dispatchActivityNotifications(session, [
+    {
+      user_id: 'broadcast:warga',
+      category: 'announcement',
+      title: `Pengumuman: ${cleanTitle}`,
+      message: cleanMessage,
+      target_url: 'tab:beranda',
+    },
+    {
+      user_id: 'broadcast:petugas',
+      category: 'announcement',
+      title: `Info Lingkungan: ${cleanTitle}`,
+      message: cleanMessage,
+      target_url: 'tab:info',
+    },
+    ...getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'announcement' as const,
+      title: `Pengumuman Terkirim: ${cleanTitle}`,
+      message: `${session.nama_warga} mengirim pengumuman (${payload.category}) ke ${recipients.length} unit warga.`,
+      target_url: 'tab:dashboard',
+    })),
+  ]);
+
   return { data: saved };
 }
 
@@ -3935,6 +4212,16 @@ export async function savePaymentConfigAdmin(
         entity_id: updated.id,
         summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening, IPL ${formatRupiah(updated.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)}).`,
       });
+      void dispatchActivityNotifications(
+        session,
+        getBendaharaAndKetuaUserIds().map((uid) => ({
+          user_id: uid,
+          category: 'system' as const,
+          title: 'Pengaturan QRIS & Rekening Diperbarui',
+          message: `${session.nama_warga} memperbarui metode pembayaran (${updated.rekening_list.length} rekening, IPL ${formatRupiah(updated.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)}).`,
+          target_url: 'settings:pembayaran',
+        }))
+      );
       return { data: saved };
     } catch (err) {
       return {
@@ -3954,6 +4241,16 @@ export async function savePaymentConfigAdmin(
     entity_id: updated.id,
     summary: `Bendahara ${session.nama_warga} memperbarui pengaturan pembayaran (QRIS: ${updated.qris_aktif && updated.qris_image_url ? 'Aktif' : 'Nonaktif'}, ${updated.rekening_list.length} rekening, IPL ${formatRupiah(updated.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)}).`,
   });
+  void dispatchActivityNotifications(
+    session,
+    getBendaharaAndKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'system' as const,
+      title: 'Pengaturan QRIS & Rekening Diperbarui',
+      message: `${session.nama_warga} memperbarui metode pembayaran (${updated.rekening_list.length} rekening).`,
+      target_url: 'settings:pembayaran',
+    }))
+  );
 
   return { data: updated };
 }
@@ -4236,6 +4533,16 @@ export async function saveAppBrandConfigAdmin(
           entity_id: updated.id,
           summary: `Bendahara ${session.nama_warga} memperbarui pengaturan identitas "${persisted.app_name}", stempel resmi & No. WA Pengurus (+${persisted.wa_pengurus}).`,
         });
+        void dispatchActivityNotifications(
+          session,
+          getBendaharaAndKetuaUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'system' as const,
+            title: 'Identitas & Logo Aplikasi Diperbarui',
+            message: `${session.nama_warga} memperbarui pengaturan identitas "${persisted.app_name}" dan kontak pengurus.`,
+            target_url: 'settings:identitas',
+          }))
+        );
         return { data: persisted };
       }
     } catch {
@@ -4250,6 +4557,16 @@ export async function saveAppBrandConfigAdmin(
     entity_id: updated.id,
     summary: `Bendahara ${session.nama_warga} memperbarui pengaturan identitas "${updated.app_name}" & No. WA Pengurus (+${updated.wa_pengurus}).`,
   });
+  void dispatchActivityNotifications(
+    session,
+    getBendaharaAndKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'system' as const,
+      title: 'Identitas & Logo Aplikasi Diperbarui',
+      message: `${session.nama_warga} memperbarui pengaturan identitas "${updated.app_name}".`,
+      target_url: 'settings:identitas',
+    }))
+  );
 
   return { data: updated };
 }
@@ -4580,6 +4897,33 @@ export async function createTransaksiKasAdmin(
           entity_id: persisted.id,
           summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
         });
+        const kasNotifs = [
+          ...getBendaharaAndKetuaUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'finance' as const,
+            title:
+              payload.jenis === 'pengeluaran'
+                ? `Pengeluaran Kas: ${persisted.kategori}`
+                : `Pemasukan Non-IPL: ${persisted.kategori}`,
+            message: `${session.nama_warga} mencatat ${formatRupiah(persisted.nominal)} (${persisted.penerima_atau_sumber}).`,
+            target_url: 'tab:keuangan',
+          })),
+          ...(persisted.petugas_id
+            ? [
+                {
+                  user_id: buildPetugasUserId(persisted.petugas_id),
+                  category: 'finance' as const,
+                  title:
+                    persisted.jenis_honor === 'lembur'
+                      ? 'Uang Lembur Tercatat'
+                      : 'Honorarium Keamanan Tercatat',
+                  message: `Pencatatan ${persisted.kategori} sebesar ${formatRupiah(persisted.nominal)} untuk ${persisted.penerima_atau_sumber}.`,
+                  target_url: 'tab:honor',
+                },
+              ]
+            : []),
+        ];
+        void dispatchActivityNotifications(session, kasNotifs);
         return { data: persisted };
       }
 
@@ -4610,6 +4954,32 @@ export async function createTransaksiKasAdmin(
     entity_id: newEntry.id,
     summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
   });
+  void dispatchActivityNotifications(session, [
+    ...getBendaharaAndKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'finance' as const,
+      title:
+        payload.jenis === 'pengeluaran'
+          ? `Pengeluaran Kas: ${newEntry.kategori}`
+          : `Pemasukan Non-IPL: ${newEntry.kategori}`,
+      message: `${session.nama_warga} mencatat ${formatRupiah(newEntry.nominal)} (${newEntry.penerima_atau_sumber}).`,
+      target_url: 'tab:keuangan',
+    })),
+    ...(newEntry.petugas_id
+      ? [
+          {
+            user_id: buildPetugasUserId(newEntry.petugas_id),
+            category: 'finance' as const,
+            title:
+              newEntry.jenis_honor === 'lembur'
+                ? 'Uang Lembur Tercatat'
+                : 'Honorarium Keamanan Tercatat',
+            message: `Pencatatan ${newEntry.kategori} sebesar ${formatRupiah(newEntry.nominal)} untuk ${newEntry.penerima_atau_sumber}.`,
+            target_url: 'tab:honor',
+          },
+        ]
+      : []),
+  ]);
   return { data: newEntry };
 }
 
@@ -4684,6 +5054,20 @@ export async function verifyTransaksiKasBendaharaAdmin(
       decision === 'ACC Bendahara' ? 'memberikan ACC Tahap 1 (diteruskan ke Ketua)' : 'menolak'
     } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
   });
+
+  void dispatchActivityNotifications(
+    session,
+    getKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'finance' as const,
+      title:
+        decision === 'ACC Bendahara'
+          ? `Kas Menunggu Pengesahan Ketua (${kas.no_bukti})`
+          : `Transaksi Kas Ditolak (${kas.no_bukti})`,
+      message: `Bendahara ${approverName} ${decision === 'ACC Bendahara' ? 'memberikan ACC Tahap 1' : 'menolak'} transaksi ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`,
+      target_url: 'tab:keuangan',
+    }))
+  );
 
   return { data: updated };
 }
@@ -4770,6 +5154,30 @@ export async function verifyTransaksiKasKetuaAdmin(
       decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan ke Bendahara'
     } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
   });
+
+  void dispatchActivityNotifications(session, [
+    ...getBendaharaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'finance' as const,
+      title:
+        decision === 'Terverifikasi'
+          ? `Ketua Mengesahkan Kas ${kas.no_bukti}`
+          : `Ketua Mengembalikan Kas ${kas.no_bukti}`,
+      message: `${ketuaName} ${decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan'} ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`,
+      target_url: 'tab:keuangan',
+    })),
+    ...(decision === 'Terverifikasi' && kas.petugas_id
+      ? [
+          {
+            user_id: buildPetugasUserId(kas.petugas_id),
+            category: 'finance' as const,
+            title: 'Honorarium / Lembur Disahkan',
+            message: `${kas.kategori} sebesar ${formatRupiah(kas.nominal)} telah disahkan final. Kwitansi tersedia di tab Honor.`,
+            target_url: 'tab:honor',
+          },
+        ]
+      : []),
+  ]);
 
   return { data: updated };
 }
@@ -5097,6 +5505,26 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
           entity_id: persisted.id,
           summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`,
         });
+        void dispatchActivityNotifications(session, [
+          ...getBendaharaAndKetuaUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'finance' as const,
+            title: `Lembur Dibayarkan — ${cleanOfficer}`,
+            message: `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`,
+            target_url: 'tab:keuangan',
+          })),
+          ...(cleanPetugasId
+            ? [
+                {
+                  user_id: buildPetugasUserId(cleanPetugasId),
+                  category: 'finance' as const,
+                  title: 'Pembayaran Uang Lembur Terverifikasi',
+                  message: `Uang lembur Anda sebesar ${formatRupiah(persisted.nominal)} telah dibayarkan & diverifikasi (${persisted.no_bukti}).`,
+                  target_url: 'tab:honor',
+                },
+              ]
+            : []),
+        ]);
         return { data: persisted };
       }
     } catch {
@@ -5120,6 +5548,26 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
     entity_id: localEntry.id,
     summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`,
   });
+  void dispatchActivityNotifications(session, [
+    ...getBendaharaAndKetuaUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'finance' as const,
+      title: `Lembur Dibayarkan — ${cleanOfficer}`,
+      message: `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`,
+      target_url: 'tab:keuangan',
+    })),
+    ...(cleanPetugasId
+      ? [
+          {
+            user_id: buildPetugasUserId(cleanPetugasId),
+            category: 'finance' as const,
+            title: 'Pembayaran Uang Lembur Terverifikasi',
+            message: `Uang lembur Anda sebesar ${formatRupiah(localEntry.nominal)} telah dibayarkan (${localEntry.no_bukti}).`,
+            target_url: 'tab:honor',
+          },
+        ]
+      : []),
+  ]);
   return { data: localEntry };
 }
 
@@ -5225,6 +5673,15 @@ export async function changeOwnAdminPinAdmin(
         entity_id: session.blok_rumah,
         summary: `Pengurus ${session.nama_warga} (${session.jabatan || 'Admin'}) memperbarui PIN 6 digit akunnya.`,
       });
+      void dispatchActivityNotifications(session, [
+        {
+          user_id: getCanonicalUserId(session),
+          category: 'system',
+          title: 'PIN Akun Pengurus Diperbarui',
+          message: `PIN 6 digit akun ${session.nama_warga} (${session.jabatan || 'Pengurus'}) berhasil diperbarui.`,
+          target_url: 'settings:keamanan',
+        },
+      ]);
       return { data: true };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Terjadi kesalahan saat mengubah PIN pengurus.') };
@@ -5258,6 +5715,15 @@ export async function changeOwnAdminPinAdmin(
     entity_id: session.blok_rumah,
     summary: `Pengurus ${session.nama_warga} (${session.jabatan || 'Admin'}) memperbarui PIN 6 digit akunnya.`,
   });
+  void dispatchActivityNotifications(session, [
+    {
+      user_id: getCanonicalUserId(session),
+      category: 'system',
+      title: 'PIN Akun Pengurus Diperbarui',
+      message: `PIN 6 digit akun ${session.nama_warga} berhasil diperbarui.`,
+      target_url: 'settings:keamanan',
+    },
+  ]);
   return { data: true };
 }
 
@@ -5319,14 +5785,22 @@ function writeLocalLogPatroli(list: LogPatroli[]) {
 }
 
 function normalizePetugasRow(row: Record<string, unknown>, includePin = false): PetugasKeamanan {
+  const id = String(row.id || '');
+  const username = String(row.username || '');
+  const rawAvatar =
+    (typeof row.avatar_url === 'string' && row.avatar_url.trim()) ||
+    getCachedAvatarUrl('petugas', id) ||
+    getCachedAvatarUrl('petugas', username) ||
+    null;
   return {
-    id: String(row.id || ''),
+    id,
     nama: String(row.nama || ''),
-    username: String(row.username || ''),
+    username,
     pin: includePin && typeof row.pin === 'string' ? row.pin : undefined,
     no_hp: normalizePhoneNumber(String(row.no_hp || '')),
     shift: String(row.shift || 'Shift Pagi (07.00 – 19.00)'),
     aktif: row.aktif !== false,
+    avatar_url: rawAvatar,
     created_at: String(row.created_at || new Date().toISOString()),
   };
 }
@@ -5443,6 +5917,11 @@ export async function loginPetugasKeamanan(
         }
 
         clearLocalAttempts(attemptKey);
+        const petugasAvatar =
+          (typeof row.avatar_url === 'string' && row.avatar_url.trim()) ||
+          getCachedAvatarUrl('petugas', row.id) ||
+          getCachedAvatarUrl('petugas', String(row.username || cleanUser)) ||
+          null;
         const session: SessionUser = {
           role: 'petugas',
           petugas_id: row.id,
@@ -5450,6 +5929,7 @@ export async function loginPetugasKeamanan(
           nama_warga: String(row.nama || cleanUser),
           no_wa: normalizePhoneNumber(String(row.no_hp || '')),
           shift: String(row.shift || ''),
+          avatar_url: petugasAvatar,
           login_at: new Date().toISOString(),
         };
         saveStoredSession(session);
@@ -5499,6 +5979,7 @@ export async function loginPetugasKeamanan(
     nama_warga: matched.nama,
     no_wa: matched.no_hp,
     shift: matched.shift,
+    avatar_url: matched.avatar_url || getCachedAvatarUrl('petugas', matched.id) || null,
     login_at: new Date().toISOString(),
   };
   saveStoredSession(session);
@@ -5535,7 +6016,7 @@ export async function loginPetugasWithBiometric(enrolled: {
     try {
       const { data, error } = await supabase
         .from('petugas_keamanan')
-        .select('id, nama, username, no_hp, shift, aktif')
+        .select('*')
         .eq('id', cleanId)
         .maybeSingle();
 
@@ -5555,6 +6036,11 @@ export async function loginPetugasWithBiometric(enrolled: {
         };
       }
 
+      const bioAvatar =
+        (typeof (data as Record<string, unknown>).avatar_url === 'string' &&
+          String((data as Record<string, unknown>).avatar_url).trim()) ||
+        getCachedAvatarUrl('petugas', String(data.id)) ||
+        null;
       const verifiedSession: SessionUser = {
         role: 'petugas',
         petugas_id: String(data.id),
@@ -5562,6 +6048,7 @@ export async function loginPetugasWithBiometric(enrolled: {
         nama_warga: String(data.nama || enrolled.nama || cleanUser),
         no_wa: normalizePhoneNumber(String(data.no_hp || '')),
         shift: String(data.shift || enrolled.shift || ''),
+        avatar_url: bioAvatar,
         login_at: new Date().toISOString(),
       };
 
@@ -5609,6 +6096,7 @@ export interface PetugasOwnData {
     username: string;
     no_hp: string;
     shift: string;
+    avatar_url?: string | null;
   };
   instruksiKeamanan: SystemNotification[];
   titikPatroli: TitikPatroli[];
@@ -5636,6 +6124,11 @@ export async function fetchPetugasOwnData(
     username: session.blok_rumah,
     no_hp: session.no_wa || '',
     shift: session.shift || 'Shift Keamanan',
+    avatar_url:
+      session.avatar_url ||
+      getCachedAvatarUrl('petugas', ownId) ||
+      getCachedAvatarUrl('petugas', session.blok_rumah) ||
+      null,
   };
 
   const supabase = getSupabaseClient(session);
@@ -5645,7 +6138,7 @@ export async function fetchPetugasOwnData(
         await Promise.all([
           supabase
             .from('petugas_keamanan')
-            .select('id, nama, username, no_hp, shift')
+            .select('*')
             .eq('id', ownId)
             .maybeSingle(),
           supabase
@@ -5674,16 +6167,33 @@ export async function fetchPetugasOwnData(
           fetchPatrolMapConfig(session),
         ]);
 
-      const profil =
-        !profilRes.error && profilRes.data
-          ? {
-              id: String(profilRes.data.id),
-              nama: String(profilRes.data.nama || fallbackProfil.nama),
-              username: String(profilRes.data.username || fallbackProfil.username),
-              no_hp: normalizePhoneNumber(String(profilRes.data.no_hp || fallbackProfil.no_hp)),
-              shift: String(profilRes.data.shift || fallbackProfil.shift),
-            }
-          : fallbackProfil;
+      const rawProfilData = (!profilRes.error && profilRes.data
+        ? (profilRes.data as Record<string, unknown>)
+        : null);
+      const resolvedPetugasAvatar =
+        (typeof rawProfilData?.avatar_url === 'string' && rawProfilData.avatar_url.trim()) ||
+        fallbackProfil.avatar_url ||
+        null;
+      if (resolvedPetugasAvatar) {
+        cacheAccountAvatars([
+          { key: buildAvatarKey('petugas', ownId), url: resolvedPetugasAvatar },
+          {
+            key: buildAvatarKey('petugas', String(rawProfilData?.username || fallbackProfil.username)),
+            url: resolvedPetugasAvatar,
+          },
+        ]);
+      }
+
+      const profil = rawProfilData
+        ? {
+            id: String(rawProfilData.id),
+            nama: String(rawProfilData.nama || fallbackProfil.nama),
+            username: String(rawProfilData.username || fallbackProfil.username),
+            no_hp: normalizePhoneNumber(String(rawProfilData.no_hp || fallbackProfil.no_hp)),
+            shift: String(rawProfilData.shift || fallbackProfil.shift),
+            avatar_url: resolvedPetugasAvatar,
+          }
+        : fallbackProfil;
 
       const titikPatroli =
         !titikRes.error && Array.isArray(titikRes.data)
@@ -5821,6 +6331,29 @@ export async function submitLogPatroliPetugas(
         const saved = normalizeLogPatroliRow(data as Record<string, unknown>);
         const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
         writeLocalLogPatroli([saved, ...existing]);
+        const isAlert = saved.status_kondisi !== 'Aman';
+        void dispatchActivityNotifications(session, [
+          ...getAllAdminUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'patrol' as const,
+            title: isAlert
+              ? `Catatan Keamanan — ${saved.nama_lokasi}`
+              : `Scan Patroli: ${saved.nama_lokasi}`,
+            message: `${saved.nama_petugas} (${saved.metode_scan}) melaporkan kondisi ${saved.status_kondisi}${saved.catatan ? `: ${saved.catatan}` : '.'}`,
+            target_url: 'tab:keamanan',
+          })),
+          ...(isAlert
+            ? [
+                {
+                  user_id: 'broadcast:warga',
+                  category: 'patrol' as const,
+                  title: `Info Keamanan di ${saved.nama_lokasi}`,
+                  message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+                  target_url: 'tab:keamanan',
+                },
+              ]
+            : []),
+        ]);
         return { data: saved };
       }
 
@@ -5835,6 +6368,29 @@ export async function submitLogPatroliPetugas(
   }
 
   writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
+  const isAlertLocal = localEntry.status_kondisi !== 'Aman';
+  void dispatchActivityNotifications(session, [
+    ...getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'patrol' as const,
+      title: isAlertLocal
+        ? `Catatan Keamanan — ${localEntry.nama_lokasi}`
+        : `Scan Patroli: ${localEntry.nama_lokasi}`,
+      message: `${localEntry.nama_petugas} (${localEntry.metode_scan}) melaporkan kondisi ${localEntry.status_kondisi}${localEntry.catatan ? `: ${localEntry.catatan}` : '.'}`,
+      target_url: 'tab:keamanan',
+    })),
+    ...(isAlertLocal
+      ? [
+          {
+            user_id: 'broadcast:warga',
+            category: 'patrol' as const,
+            title: `Info Keamanan di ${localEntry.nama_lokasi}`,
+            message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+            target_url: 'tab:keamanan',
+          },
+        ]
+      : []),
+  ]);
   return { data: localEntry };
 }
 
@@ -5901,6 +6457,29 @@ export async function submitLogPatroliAdmin(
         const saved = normalizeLogPatroliRow(data as Record<string, unknown>);
         const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
         writeLocalLogPatroli([saved, ...existing]);
+        const isAlert = saved.status_kondisi !== 'Aman';
+        void dispatchActivityNotifications(session, [
+          ...getAllAdminUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'patrol' as const,
+            title: isAlert
+              ? `Catatan Keamanan — ${saved.nama_lokasi}`
+              : `Log Patroli: ${saved.nama_lokasi}`,
+            message: `${saved.nama_petugas} (${saved.metode_scan}) — ${saved.status_kondisi}${saved.catatan ? `: ${saved.catatan}` : '.'}`,
+            target_url: 'tab:keamanan',
+          })),
+          ...(isAlert
+            ? [
+                {
+                  user_id: 'broadcast:warga',
+                  category: 'patrol' as const,
+                  title: `Info Keamanan di ${saved.nama_lokasi}`,
+                  message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+                  target_url: 'tab:keamanan',
+                },
+              ]
+            : []),
+        ]);
         return { data: saved };
       }
 
@@ -5915,6 +6494,29 @@ export async function submitLogPatroliAdmin(
   }
 
   writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
+  const isAlertAdmin = localEntry.status_kondisi !== 'Aman';
+  void dispatchActivityNotifications(session, [
+    ...getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'patrol' as const,
+      title: isAlertAdmin
+        ? `Catatan Keamanan — ${localEntry.nama_lokasi}`
+        : `Log Patroli: ${localEntry.nama_lokasi}`,
+      message: `${localEntry.nama_petugas} (${localEntry.metode_scan}) — ${localEntry.status_kondisi}${localEntry.catatan ? `: ${localEntry.catatan}` : '.'}`,
+      target_url: 'tab:keamanan',
+    })),
+    ...(isAlertAdmin
+      ? [
+          {
+            user_id: 'broadcast:warga',
+            category: 'patrol' as const,
+            title: `Info Keamanan di ${localEntry.nama_lokasi}`,
+            message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+            target_url: 'tab:keamanan',
+          },
+        ]
+      : []),
+  ]);
   return { data: localEntry };
 }
 
@@ -5930,12 +6532,20 @@ export async function fetchPetugasKontakDarurat(
     try {
       const { data, error } = await supabase.rpc('get_petugas_kontak_darurat');
       if (!error && Array.isArray(data)) {
-        return (data as Record<string, unknown>[]).map((row) => ({
-          id: String(row.id || ''),
-          nama: String(row.nama || ''),
-          no_hp: normalizePhoneNumber(String(row.no_hp || '')),
-          shift: String(row.shift || 'Siaga'),
-        }));
+        return (data as Record<string, unknown>[]).map((row) => {
+          const id = String(row.id || '');
+          const avatarUrl =
+            (typeof row.avatar_url === 'string' && row.avatar_url.trim()) ||
+            getCachedAvatarUrl('petugas', id) ||
+            null;
+          return {
+            id,
+            nama: String(row.nama || ''),
+            no_hp: normalizePhoneNumber(String(row.no_hp || '')),
+            shift: String(row.shift || 'Siaga'),
+            avatar_url: avatarUrl,
+          };
+        });
       }
     } catch {
       // Fallback ke lokal jika RPC belum dijalankan
@@ -5944,7 +6554,13 @@ export async function fetchPetugasKontakDarurat(
 
   return readLocalPetugasList()
     .filter((p) => p.aktif)
-    .map(({ id, nama, no_hp, shift }) => ({ id, nama, no_hp, shift }));
+    .map(({ id, nama, no_hp, shift, avatar_url }) => ({
+      id,
+      nama,
+      no_hp,
+      shift,
+      avatar_url: avatar_url || getCachedAvatarUrl('petugas', id) || null,
+    }));
 }
 
 export async function fetchRecentLogPatroli(

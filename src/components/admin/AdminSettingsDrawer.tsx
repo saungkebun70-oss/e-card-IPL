@@ -23,6 +23,7 @@ import {
   Phone,
   AlertTriangle,
   Radio,
+  UserCircle2,
 } from 'lucide-react';
 import {
   DEFAULT_APP_BRAND_CONFIG,
@@ -60,8 +61,17 @@ import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { AdminBotWaSlide } from './AdminBotWaSlide';
 import { AdminSecurityManagePanel } from './AdminSecurityManagePanel';
+import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
+import { UserAvatar } from '../UserAvatar';
+import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 
-export type SettingsDrawerTab = 'identitas' | 'pembayaran' | 'bot_wa' | 'petugas_nfc' | 'keamanan';
+export type SettingsDrawerTab =
+  | 'profil'
+  | 'identitas'
+  | 'pembayaran'
+  | 'bot_wa'
+  | 'petugas_nfc'
+  | 'keamanan';
 
 interface AdminSettingsDrawerProps {
   open: boolean;
@@ -76,6 +86,7 @@ interface AdminSettingsDrawerProps {
   petugasList: PetugasKeamanan[];
   titikPatroliList: TitikPatroli[];
   patrolMapConfig?: PatrolMapConfig | null;
+  onAvatarUpdated?: (nextUrl: string | null) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -94,16 +105,18 @@ export function AdminSettingsDrawer({
   petugasList,
   titikPatroliList,
   patrolMapConfig,
+  onAvatarUpdated,
   onClose,
   onRefresh,
   onToast,
 }: AdminSettingsDrawerProps) {
   const { brand, setBrand } = useAppBrand();
+  const avatarMap = useAvatarMap();
   const canEdit = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
 
   const resolveSafeTab = (tab: SettingsDrawerTab): SettingsDrawerTab =>
-    tab === 'bot_wa' && !canAccessBotWa ? 'identitas' : tab;
+    tab === 'bot_wa' && !canAccessBotWa ? 'profil' : tab;
 
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>(resolveSafeTab(initialTab));
 
@@ -387,21 +400,22 @@ export function AdminSettingsDrawer({
           </button>
         </div>
 
-        {/* Tab Navigasi Pengaturan Terpusat (Tab Bot WA Eksklusif Bendahara) */}
+        {/* Tab Navigasi Pengaturan Terpusat (Profil Saya tersedia untuk SEMUA Pengurus) */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
           <div
             role="tablist"
-            className={`grid ${canAccessBotWa ? 'grid-cols-5' : 'grid-cols-4'} gap-1 p-1 bg-slate-200/75 rounded-xl`}
+            className={`grid ${canAccessBotWa ? 'grid-cols-6' : 'grid-cols-5'} gap-1 p-1 bg-slate-200/75 rounded-xl`}
           >
             {(
               [
-                { id: 'identitas', label: 'Identitas & Stempel', short: 'Identitas', icon: Sparkles },
+                { id: 'profil', label: 'Profil Saya', short: 'Profil', icon: UserCircle2 },
+                { id: 'identitas', label: 'Identitas', short: 'Identitas', icon: Sparkles },
                 { id: 'pembayaran', label: 'Pembayaran', short: 'Bayar', icon: CreditCard },
                 ...(canAccessBotWa
                   ? [{ id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot }]
                   : []),
                 { id: 'petugas_nfc', label: 'Petugas & Peta', short: 'Petugas', icon: Radio },
-                { id: 'keamanan', label: 'Keamanan & Log', short: 'PIN & Log', icon: ShieldCheck },
+                { id: 'keamanan', label: 'PIN & Log', short: 'PIN & Log', icon: ShieldCheck },
               ] as const
             ).map((tab) => {
               const Icon = tab.icon;
@@ -434,6 +448,84 @@ export function AdminSettingsDrawer({
 
         {/* Konten Tab */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 bg-[#F8FAFC]">
+          {/* TAB 0: PROFIL SAYA & FOTO PROFIL (AKTIF UNTUK SEMUA PENGURUS: KETUA, BENDAHARA, HUMAS, DLL.) */}
+          {activeTab === 'profil' && (
+            <div className="space-y-5 max-w-3xl mx-auto">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+                <ProfileAvatarEditor
+                  session={session}
+                  avatarUrl={
+                    session.avatar_url ||
+                    avatarMap[buildAvatarKey('admin', session.blok_rumah)] ||
+                    null
+                  }
+                  subtitle={`${session.jabatan || 'Pengurus'} · Username @${session.blok_rumah} · ${
+                    session.admin_permission === 'full' ? 'Akses Penuh' : 'Akses Pengurus'
+                  }`}
+                  onAvatarUpdated={(nextUrl) => {
+                    onAvatarUpdated?.(nextUrl);
+                    void onRefresh();
+                  }}
+                  onToast={onToast}
+                />
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#0F172A]">Daftar Akun Pengurus Aktif</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Foto profil tiap pengurus langsung tampil di Header, Sidebar, Daftar Pengurus,
+                      dan Log Aktivitas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('keamanan')}
+                    className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-[#059669]" />
+                    <span>Ganti PIN</span>
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {pengurusAccounts.map((acc) => {
+                    const accAvatar =
+                      acc.avatar_url || avatarMap[buildAvatarKey('admin', acc.username)] || null;
+                    const isSelf =
+                      acc.username.toLowerCase() === session.blok_rumah.toLowerCase();
+                    return (
+                      <div
+                        key={acc.username}
+                        className="px-5 py-3 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <UserAvatar name={acc.nama} src={accAvatar} size="sm" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#0F172A] truncate">
+                              {acc.nama}{' '}
+                              {isSelf && (
+                                <span className="text-[11px] font-semibold text-emerald-700">
+                                  (Anda)
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {acc.jabatan} · Blok {acc.blokRumah} ·{' '}
+                              <span className="font-mono">@{acc.username}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md shrink-0">
+                          {acc.permission === 'full' ? 'Akses Penuh' : 'Pengurus'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           {/* TAB 1: IDENTITAS, LOGO, STEMPEL & KONTAK WA */}
           {activeTab === 'identitas' && (
             <form onSubmit={handleSaveBrand} className="space-y-5 max-w-3xl mx-auto">
@@ -1108,25 +1200,40 @@ export function AdminSettingsDrawer({
                       Belum ada catatan aktivitas sistem.
                     </div>
                   ) : (
-                    auditLogs.map((log) => (
-                      <div key={log.id} className="px-5 py-3 text-xs">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-semibold text-[#0F172A]">
-                            {log.actor_name}{' '}
-                            <span className="font-mono font-normal text-slate-500">
-                              ({log.actor_id})
-                            </span>
-                          </span>
-                          <span className="font-mono text-[11px] text-slate-400">
-                            {formatTanggalWaktu(log.timestamp)}
-                          </span>
+                    auditLogs.map((log) => {
+                      const actorAvatar =
+                        avatarMap[buildAvatarKey('admin', log.actor_id)] ||
+                        avatarMap[buildAvatarKey('warga', log.actor_id)] ||
+                        avatarMap[buildAvatarKey('petugas', log.actor_id)] ||
+                        null;
+                      return (
+                        <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3">
+                          <UserAvatar
+                            name={log.actor_name}
+                            src={actorAvatar}
+                            size="xs"
+                            className="mt-0.5 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold text-[#0F172A]">
+                                {log.actor_name}{' '}
+                                <span className="font-mono font-normal text-slate-500">
+                                  ({log.actor_id})
+                                </span>
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {formatTanggalWaktu(log.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
+                            <p className="text-[10px] font-mono text-emerald-700 mt-0.5">
+                              {log.action} · {log.entity}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
-                        <p className="text-[10px] font-mono text-emerald-700 mt-0.5">
-                          {log.action} · {log.entity}
-                        </p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
