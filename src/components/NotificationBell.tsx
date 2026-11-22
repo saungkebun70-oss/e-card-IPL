@@ -31,6 +31,7 @@ import {
   deleteNotification,
   fetchActivityNotifications,
   formatRelativeTimeId,
+  getCanonicalUserId,
   markActivityNotificationRead,
   markAllActivityNotificationsRead,
   subscribeActivityNotificationsRealtime,
@@ -44,6 +45,7 @@ import {
   requestOsNotificationPermission,
   subscribeBellShakeEvent,
   syncAppIconBadge,
+  syncNativePushTokenForSession,
   triggerIncomingNotificationAlert,
   useNotificationPreferences,
   type OsNotificationPermissionState,
@@ -458,6 +460,8 @@ export function NotificationBell({
   const { prefs, setPref } = useNotificationPreferences();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shakeTimerRef = useRef<number | null>(null);
+  const knownNotifIdsRef = useRef<Set<string>>(new Set());
+  const initialFetchCompletedRef = useRef<boolean>(false);
 
   const triggerBellShake = useCallback(() => {
     setBellShaking(false);
@@ -477,13 +481,46 @@ export function NotificationBell({
       if (!silent) setLoading(true);
       try {
         const list = await fetchActivityNotifications(session);
+        const selfCanonical = getCanonicalUserId(session).trim().toLowerCase();
+
+        if (!initialFetchCompletedRef.current) {
+          knownNotifIdsRef.current = new Set(list.map((n) => n.id));
+          initialFetchCompletedRef.current = true;
+        } else {
+          // Deteksi ID notifikasi baru (is_read === false) dari polling 10 detik
+          const newlyArrivedUnread = list.filter((n) => {
+            if (knownNotifIdsRef.current.has(n.id)) return false;
+            if (n.is_read) return false;
+            const actor = String(n.actor_id || '').trim().toLowerCase();
+            if (actor && actor === selfCanonical) return false;
+            return true;
+          });
+
+          list.forEach((n) => knownNotifIdsRef.current.add(n.id));
+
+          if (newlyArrivedUnread.length > 0) {
+            triggerBellShake();
+            // Pemicu bunyi chime + getar + LocalNotifications/Web Notification (deduplikasi di triggerIncomingNotificationAlert)
+            newlyArrivedUnread.slice(0, 3).forEach((freshNotif) => {
+              void triggerIncomingNotificationAlert(freshNotif);
+            });
+          }
+        }
+
         setItems(list);
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [session]
+    [session, triggerBellShake]
   );
+
+  // Reset tracker ID saat berganti akun/role & sinkronkan token FCM Android ke user_push_tokens
+  useEffect(() => {
+    knownNotifIdsRef.current = new Set();
+    initialFetchCompletedRef.current = false;
+    void syncNativePushTokenForSession(session);
+  }, [session]);
 
   // Inisialisasi Web Audio unlock, Android Notification Channel, cek izin, & listener ketukan OS notification
   useEffect(() => {
@@ -523,7 +560,7 @@ export function NotificationBell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onNavigateTarget, triggerBellShake]);
 
-  // Sinkronisasi Realtime Supabase + polling berkala
+  // Sinkronisasi Realtime Supabase + polling otomatis tiap 10 detik
   useEffect(() => {
     void loadNotifications(false);
     const unsub = subscribeActivityNotificationsRealtime(
@@ -532,19 +569,22 @@ export function NotificationBell({
         void loadNotifications(true);
       },
       (insertedNotif) => {
+        knownNotifIdsRef.current.add(insertedNotif.id);
         setItems((prev) => {
           if (prev.some((n) => n.id === insertedNotif.id)) return prev;
           return [insertedNotif, ...prev].slice(0, 80);
         });
-        triggerBellShake();
-        void triggerIncomingNotificationAlert(insertedNotif);
+        if (!insertedNotif.is_read) {
+          triggerBellShake();
+          void triggerIncomingNotificationAlert(insertedNotif);
+        }
       }
     );
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         void loadNotifications(true);
       }
-    }, 30000);
+    }, 10000);
     return () => {
       unsub();
       window.clearInterval(timer);

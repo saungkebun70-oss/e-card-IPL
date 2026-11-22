@@ -710,3 +710,59 @@ export function resolveDefaultTargetUrlForRole(role: UserRole): string {
   if (role === 'petugas') return 'tab:info';
   return 'tab:beranda';
 }
+
+const LOCAL_PUSH_TOKEN_KEY = 'ecard_fcm_push_token_v1';
+
+/**
+ * Menyimpan token FCM perangkat (Android/iOS Capacitor) ke tabel Supabase `user_push_tokens`
+ * agar server/trigger dapat mengirimkan push notification meski aplikasi di background.
+ * Dibungkus try/catch penuh agar aman di Web Browser maupun saat offline.
+ */
+export async function saveUserPushToken(
+  session: SessionUser,
+  token: string,
+  platform: string = 'android'
+): Promise<boolean> {
+  const cleanToken = String(token || '').trim();
+  if (!session || !cleanToken) return false;
+
+  const userId = getCanonicalUserId(session);
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        LOCAL_PUSH_TOKEN_KEY,
+        JSON.stringify({ user_id: userId, token: cleanToken, platform, updated_at: new Date().toISOString() })
+      );
+    }
+  } catch {
+    // Abaikan keterbatasan storage
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) return false;
+
+  try {
+    const payload = {
+      user_id: userId,
+      role: session.role,
+      blok_rumah: session.blok_rumah || null,
+      token: cleanToken,
+      platform: platform || 'android',
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('user_push_tokens')
+      .upsert(payload, { onConflict: 'user_id,token' });
+
+    if (error) {
+      // Fallback insert jika constraint unik belum dibuat
+      const { error: insertErr } = await supabase.from('user_push_tokens').insert(payload);
+      return !insertErr;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+

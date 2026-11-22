@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Download,
   FileSpreadsheet,
@@ -59,6 +59,7 @@ export function AdminLpjSlide({
   const [tahun, setTahun] = useState<number>(TAHUN_AKTIF);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [printingPdf, setPrintingPdf] = useState(false);
+  const reportRef = useRef<HTMLElement | null>(null);
 
   const lpj = useMemo(
     () =>
@@ -79,7 +80,10 @@ export function AdminLpjSlide({
     if (downloadingPdf || printingPdf) return;
     setDownloadingPdf(true);
     try {
-      const result = await downloadLpjTriwulanPdf(lpj, brand, { mode: 'download' });
+      const result = await downloadLpjTriwulanPdf(lpj, brand, {
+        mode: 'download',
+        captureElement: reportRef.current,
+      });
       if (result.method === 'native_share') {
         if (!result.cancelled) {
           onToast(
@@ -111,7 +115,10 @@ export function AdminLpjSlide({
     if (downloadingPdf || printingPdf) return;
     setPrintingPdf(true);
     try {
-      const result = await downloadLpjTriwulanPdf(lpj, brand, { mode: 'print' });
+      const result = await downloadLpjTriwulanPdf(lpj, brand, {
+        mode: 'print',
+        captureElement: reportRef.current,
+      });
       if (!result.cancelled) {
         onToast(
           'info',
@@ -204,6 +211,7 @@ export function AdminLpjSlide({
 
       {/* Dokumen Resmi LPJ Triwulanan (Presisi A4 Anti-Potong & Rapi di Mobile/Tablet) */}
       <article
+        ref={reportRef}
         id="printable-report"
         className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
       >
