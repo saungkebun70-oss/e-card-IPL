@@ -258,7 +258,7 @@ export function AppShell({
                     <BrandLogo size="sm" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-white leading-tight truncate">
-                        {brand.app_name}
+                        {brand?.app_name || 'e-Card IPL Saung Kebun'}
                       </p>
                       <p className="text-[11px] text-slate-300/80 truncate mt-0.5">
                         Perumahan Saung Kebun
@@ -281,7 +281,7 @@ export function AppShell({
                     aria-hidden="true"
                     className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-emerald-100 font-bold text-sm flex items-center justify-center shrink-0 uppercase"
                   >
-                    {session.nama_warga
+                    {(session?.nama_warga || 'P')
                       .split(/\s+/)
                       .filter(Boolean)
                       .slice(0, 2)
@@ -290,7 +290,7 @@ export function AppShell({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-white leading-tight truncate">
-                      {session.nama_warga}
+                      {session?.nama_warga || 'Pengurus'}
                     </p>
                     <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 px-2.5 py-0.5 text-[11px] font-medium text-emerald-200 max-w-full">
                       <span

@@ -30,7 +30,10 @@ export function EmergencySecurityContactCard({
   petugasList,
   senderContext,
 }: EmergencySecurityContactCardProps) {
-  const validContacts = petugasList.filter((p) => normalizePhoneNumber(p.no_hp).length >= 10);
+  const safePetugasList = Array.isArray(petugasList) ? petugasList : [];
+  const validContacts = safePetugasList.filter(
+    (p) => Boolean(p) && normalizePhoneNumber(p?.no_hp || '').length >= 10
+  );
 
   return (
     <section
@@ -63,23 +66,24 @@ export function EmergencySecurityContactCard({
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {validContacts.map((petugas) => {
-            const cleanWa = normalizePhoneNumber(petugas.no_hp);
+          {validContacts.map((petugas, idx) => {
+            const cleanWa = normalizePhoneNumber(petugas?.no_hp || '');
+            const namaPetugas = petugas?.nama || 'Petugas Keamanan';
             const intro =
               senderContext?.role === 'warga'
-                ? `Halo ${petugas.nama} (Petugas Keamanan Saung Kebun), saya ${senderContext.nama} dari Blok ${senderContext.blokRumah || '-'}. Mohon bantuan/pengecekan keamanan:`
-                : `Halo ${petugas.nama}, saya ${senderContext?.nama || 'Pengurus'} (${senderContext?.jabatan || 'Pengurus'} Saung Kebun). Koordinasi keamanan lingkungan:`;
+                ? `Halo ${namaPetugas} (Petugas Keamanan Saung Kebun), saya ${senderContext?.nama || 'Warga'} dari Blok ${senderContext?.blokRumah || '-'}. Mohon bantuan/pengecekan keamanan:`
+                : `Halo ${namaPetugas}, saya ${senderContext?.nama || 'Pengurus'} (${senderContext?.jabatan || 'Pengurus'} Saung Kebun). Koordinasi keamanan lingkungan:`;
             const waUrl = `https://wa.me/${cleanWa}?text=${encodeURIComponent(intro)}`;
 
             return (
               <div
-                key={petugas.id}
+                key={petugas?.id || `petugas-${idx}`}
                 className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#0F172A] truncate">{petugas.nama}</p>
+                  <p className="text-sm font-bold text-[#0F172A] truncate">{namaPetugas}</p>
                   <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
-                    <span>{petugas.shift}</span>
+                    <span>{petugas?.shift || 'Shift Jaga'}</span>
                     <span aria-hidden="true" className="text-slate-300">·</span>
                     <span className="font-mono tabular-nums text-slate-600">+{cleanWa}</span>
                   </p>
@@ -124,7 +128,8 @@ export function SecurityPatrolFeedCard({
   patroliFeed,
   maxItems = 8,
 }: SecurityPatrolFeedCardProps) {
-  const displayed = patroliFeed.slice(0, maxItems);
+  const safeFeed = Array.isArray(patroliFeed) ? patroliFeed : [];
+  const displayed = safeFeed.slice(0, maxItems);
 
   return (
     <section
@@ -146,7 +151,7 @@ export function SecurityPatrolFeedCard({
           </div>
         </div>
         <span className="text-[11px] font-mono font-semibold text-emerald-700 shrink-0 tabular-nums">
-          {patroliFeed.length} log
+          {safeFeed.length} log
         </span>
       </div>
 
@@ -161,18 +166,18 @@ export function SecurityPatrolFeedCard({
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {displayed.map((log) => {
-            const isAman = log.status_kondisi === 'Aman';
+          {displayed.map((log, idx) => {
+            const isAman = log?.status_kondisi === 'Aman';
             return (
               <article
-                key={log.id}
+                key={log?.id || `log-${idx}`}
                 className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
               >
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                     <span className="font-bold text-[#0F172A] inline-flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                      {log.nama_lokasi}
+                      {log?.nama_lokasi || 'Titik Patroli'}
                     </span>
                     <span
                       className={`text-xs font-semibold inline-flex items-center gap-1 ${
@@ -184,19 +189,20 @@ export function SecurityPatrolFeedCard({
                       ) : (
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       )}
-                      {log.status_kondisi}
+                      {log?.status_kondisi || 'Aman'}
                     </span>
                   </div>
 
                   <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span>
-                      Petugas: <strong className="text-[#0F172A]">{log.nama_petugas}</strong>
+                      Petugas:{' '}
+                      <strong className="text-[#0F172A]">{log?.nama_petugas || 'Petugas'}</strong>
                     </span>
                     <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="text-slate-500">{log.metode_scan}</span>
+                    <span className="text-slate-500">{log?.metode_scan || 'NFC Tap'}</span>
                   </p>
 
-                  {log.catatan && (
+                  {log?.catatan && (
                     <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1.5 mt-1">
                       {log.catatan}
                     </p>
@@ -205,7 +211,7 @@ export function SecurityPatrolFeedCard({
 
                 <div className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0 inline-flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{formatTanggalWaktu(log.waktu_scan)}</span>
+                  <span>{formatTanggalWaktu(log?.waktu_scan || '')}</span>
                 </div>
               </article>
             );

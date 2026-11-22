@@ -80,8 +80,10 @@ interface KeamananSlideProps {
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
-function isTodayLocal(isoDate: string): boolean {
+function isTodayLocal(isoDate?: string | null): boolean {
+  if (!isoDate) return false;
   const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return false;
   const now = new Date();
   return (
     d.getFullYear() === now.getFullYear() &&
@@ -106,6 +108,22 @@ export function KeamananSlide({
   onOpenPetugasSettings,
   onToast,
 }: KeamananSlideProps) {
+  const safePetugasKontak = useMemo(
+    () => (Array.isArray(petugasKontak) ? petugasKontak : []),
+    [petugasKontak]
+  );
+  const safePatroliFeed = useMemo(
+    () => (Array.isArray(patroliFeed) ? patroliFeed : []),
+    [patroliFeed]
+  );
+  const safeTitikPatroliList = useMemo(
+    () => (Array.isArray(titikPatroliList) ? titikPatroliList : []),
+    [titikPatroliList]
+  );
+  const safeNotifications = useMemo(
+    () => (Array.isArray(notifications) ? notifications : []),
+    [notifications]
+  );
   const [kondisiFilter, setKondisiFilter] = useState<'semua' | 'Aman' | 'Ada Catatan'>('semua');
   const [checkpointFilter, setCheckpointFilter] = useState<
     'semua' | CheckpointKondisiState | 'belum_hari_ini'
@@ -175,28 +193,28 @@ export function KeamananSlide({
     text: string;
   } | null>(null);
   const [selectedPetugasId, setSelectedPetugasId] = useState<string>(
-    () => petugasKontak[0]?.id || ''
+    () => safePetugasKontak[0]?.id || ''
   );
   const [patrolKondisi, setPatrolKondisi] = useState<StatusKondisiPatroli>('Aman');
   const [patrolCatatan, setPatrolCatatan] = useState('');
   const [showManualFallback, setShowManualFallback] = useState(!nfcSupported);
   const [manualTitikId, setManualTitikId] = useState<string>(
-    () => titikPatroliList[0]?.id || ''
+    () => safeTitikPatroliList[0]?.id || ''
   );
   const [manualUidInput, setManualUidInput] = useState('');
   const nfcAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!selectedPetugasId && petugasKontak.length > 0) {
-      setSelectedPetugasId(petugasKontak[0].id);
+    if (!selectedPetugasId && safePetugasKontak.length > 0) {
+      setSelectedPetugasId(safePetugasKontak[0]?.id || '');
     }
-  }, [petugasKontak, selectedPetugasId]);
+  }, [safePetugasKontak, selectedPetugasId]);
 
   useEffect(() => {
-    if (!manualTitikId && titikPatroliList.length > 0) {
-      setManualTitikId(titikPatroliList[0].id);
+    if (!manualTitikId && safeTitikPatroliList.length > 0) {
+      setManualTitikId(safeTitikPatroliList[0]?.id || '');
     }
-  }, [titikPatroliList, manualTitikId]);
+  }, [safeTitikPatroliList, manualTitikId]);
 
   const stopNfcScan = useCallback(() => {
     if (nfcAbortRef.current) {
@@ -213,30 +231,30 @@ export function KeamananSlide({
   }, []);
 
   const scanHariIni = useMemo(
-    () => patroliFeed.filter((log) => isTodayLocal(log.waktu_scan)).length,
-    [patroliFeed]
+    () => safePatroliFeed.filter((log) => isTodayLocal(log?.waktu_scan)).length,
+    [safePatroliFeed]
   );
 
   const catatanKhususCount = useMemo(
-    () => patroliFeed.filter((log) => log.status_kondisi === 'Ada Catatan').length,
-    [patroliFeed]
+    () => safePatroliFeed.filter((log) => log?.status_kondisi === 'Ada Catatan').length,
+    [safePatroliFeed]
   );
 
-  const latestLog = patroliFeed[0] || null;
+  const latestLog = safePatroliFeed[0] || null;
 
   const checkpointStatuses = useMemo<CheckpointStatusItem[]>(() => {
-    const activePoints = titikPatroliList.filter((t) => t.aktif !== false);
-    const sortedLogs = [...patroliFeed].sort(
-      (a, b) => new Date(b.waktu_scan).getTime() - new Date(a.waktu_scan).getTime()
+    const activePoints = safeTitikPatroliList.filter((t) => Boolean(t) && t.aktif !== false);
+    const sortedLogs = [...safePatroliFeed].sort(
+      (a, b) => new Date(b?.waktu_scan || 0).getTime() - new Date(a?.waktu_scan || 0).getTime()
     );
 
     return activePoints.map((titik) => {
-      const normalizedName = titik.nama_lokasi.trim().toLowerCase();
+      const normalizedName = (titik?.nama_lokasi || '').trim().toLowerCase();
       const matched =
         sortedLogs.find(
           (log) =>
-            (log.titik_id && log.titik_id === titik.id) ||
-            log.nama_lokasi.trim().toLowerCase() === normalizedName
+            (log?.titik_id && log.titik_id === titik.id) ||
+            (log?.nama_lokasi || '').trim().toLowerCase() === normalizedName
         ) || null;
 
       if (!matched) {
@@ -258,7 +276,7 @@ export function KeamananSlide({
         scannedToday: isTodayLocal(matched.waktu_scan),
       };
     });
-  }, [titikPatroliList, patroliFeed]);
+  }, [safeTitikPatroliList, safePatroliFeed]);
 
   const checkpointSummary = useMemo(() => {
     const total = checkpointStatuses.length;
@@ -286,13 +304,13 @@ export function KeamananSlide({
   }, [checkpointStatuses, checkpointFilter]);
 
   const filteredPatroli = useMemo(() => {
-    if (kondisiFilter === 'semua') return patroliFeed;
-    return patroliFeed.filter((log) => log.status_kondisi === kondisiFilter);
-  }, [patroliFeed, kondisiFilter]);
+    if (kondisiFilter === 'semua') return safePatroliFeed;
+    return safePatroliFeed.filter((log) => log?.status_kondisi === kondisiFilter);
+  }, [safePatroliFeed, kondisiFilter]);
 
   const securityAnnouncements = useMemo(
-    () => notifications.filter((n) => n.category === 'Keamanan'),
-    [notifications]
+    () => safeNotifications.filter((n) => n?.category === 'Keamanan'),
+    [safeNotifications]
   );
 
   const handleCopyPetugasLink = async () => {
@@ -1227,10 +1245,10 @@ export function KeamananSlide({
           <div className="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl">
             {(
               [
-                { id: 'semua', label: `Semua (${patroliFeed.length})` },
+                { id: 'semua', label: `Semua (${safePatroliFeed.length})` },
                 {
                   id: 'Aman',
-                  label: `Aman (${patroliFeed.filter((l) => l.status_kondisi === 'Aman').length})`,
+                  label: `Aman (${safePatroliFeed.filter((l) => l?.status_kondisi === 'Aman').length})`,
                 },
                 {
                   id: 'Ada Catatan',

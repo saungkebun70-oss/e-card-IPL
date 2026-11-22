@@ -34,11 +34,13 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
     setLoading(true);
     try {
       const result = await loginWargaAccount(username, pin);
-      if (result.error || !result.data) {
-        setErrorMsg(result.error || 'Blok rumah atau PIN 6 digit tidak sesuai.');
+      if (result?.error || !result?.data) {
+        setErrorMsg(result?.error || 'Blok rumah atau PIN 6 digit tidak sesuai.');
       } else {
         onLoginSuccess(result.data);
       }
+    } catch {
+      setErrorMsg('Terjadi kendala koneksi saat memverifikasi akun. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -62,10 +64,10 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
             <BrandLogo size="xl" variant="dark" />
             <div className="min-w-0">
               <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                {brand.app_name}
+                {brand?.app_name || 'e-Card IPL Saung Kebun'}
               </p>
               <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5 leading-snug">
-                Portal Warga · {brand.app_subtitle}
+                Portal Warga · {brand?.app_subtitle || 'Perumahan Saung Kebun'}
               </p>
             </div>
           </div>
@@ -98,7 +100,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
         </div>
 
         <footer className="relative z-10 mt-8 lg:mt-12 pt-5 border-t border-slate-800/80">
-          <p className="text-xs text-slate-400 leading-relaxed">{brand.kop_resmi}</p>
+          <p className="text-xs text-slate-400 leading-relaxed">{brand?.kop_resmi || ''}</p>
         </footer>
       </section>
 

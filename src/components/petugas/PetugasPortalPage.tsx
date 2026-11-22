@@ -157,24 +157,32 @@ export function PetugasPortalPage({
     let active = true;
     let unsubscribe = () => {};
     const initBiometry = async () => {
-      const avail = await checkPetugasBiometryAvailability();
-      if (!active) return;
-      setBiometryAvailability(avail);
-      setBiometricProfile(loadPetugasBiometricEnrollment());
-      unsubscribe = await subscribeBiometryResume((nextAvail) => {
+      try {
+        const avail = await checkPetugasBiometryAvailability();
         if (!active) return;
-        setBiometryAvailability(nextAvail);
-      });
+        setBiometryAvailability(avail);
+        setBiometricProfile(loadPetugasBiometricEnrollment());
+        unsubscribe = await subscribeBiometryResume((nextAvail) => {
+          if (!active) return;
+          setBiometryAvailability(nextAvail);
+        });
+      } catch {
+        // Biometrik opsional — abaikan jika tidak tersedia di perangkat/browser
+      }
     };
     void initBiometry();
     return () => {
       active = false;
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch {
+        // Abaikan
+      }
     };
   }, []);
 
   const isBiometricEnabledForMe = Boolean(
-    biometricProfile && biometricProfile.petugas_id === session.petugas_id
+    biometricProfile && biometricProfile.petugas_id === session?.petugas_id
   );
 
   const handleToggleBiometric = async () => {
@@ -196,15 +204,17 @@ export function PetugasPortalPage({
     setTogglingBiometric(true);
     try {
       const res = await enrollPetugasBiometric(session, biometryAvailability);
-      if (res.ok && res.profile) {
+      if (res?.ok && res?.profile) {
         setBiometricProfile(res.profile);
         onToast(
           'success',
-          `Masuk cepat ${biometryAvailability.label} aktif untuk ${session.nama_warga}.`
+          `Masuk cepat ${biometryAvailability.label} aktif untuk ${session?.nama_warga || 'Petugas'}.`
         );
-      } else if (!res.cancelled) {
-        onToast('error', res.error || 'Gagal mengaktifkan login biometrik.');
+      } else if (!res?.cancelled) {
+        onToast('error', res?.error || 'Gagal mengaktifkan login biometrik.');
       }
+    } catch {
+      onToast('error', 'Gagal mengaktifkan login biometrik pada perangkat ini.');
     } finally {
       setTogglingBiometric(false);
     }

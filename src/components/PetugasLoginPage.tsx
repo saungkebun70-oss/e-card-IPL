@@ -61,25 +61,33 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
     let unsubscribe = () => {};
 
     const init = async () => {
-      const avail = await checkPetugasBiometryAvailability();
-      if (!active) return;
-      setBiometryAvailability(avail);
-      const stored = loadPetugasBiometricEnrollment();
-      setEnrolledProfile(stored);
-      if (stored && !username) {
-        setUsername(stored.username);
-      }
-
-      unsubscribe = await subscribeBiometryResume((nextAvail) => {
+      try {
+        const avail = await checkPetugasBiometryAvailability();
         if (!active) return;
-        setBiometryAvailability(nextAvail);
-      });
+        setBiometryAvailability(avail);
+        const stored = loadPetugasBiometricEnrollment();
+        setEnrolledProfile(stored);
+        if (stored?.username) {
+          setUsername((prev) => prev || stored.username);
+        }
+
+        unsubscribe = await subscribeBiometryResume((nextAvail) => {
+          if (!active) return;
+          setBiometryAvailability(nextAvail);
+        });
+      } catch {
+        // Biometrik opsional — abaikan jika tidak tersedia
+      }
     };
 
     void init();
     return () => {
       active = false;
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch {
+        // Abaikan
+      }
     };
   }, []);
 
@@ -90,20 +98,20 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
     setBiometricLoading(true);
     try {
       const authRes = await authenticatePetugasBiometric(enrolledProfile, biometryAvailability);
-      if (!authRes.ok) {
-        if (authRes.cancelled) {
+      if (!authRes?.ok) {
+        if (authRes?.cancelled) {
           setInfoMsg('Verifikasi biometrik dibatalkan. Anda tetap bisa masuk dengan PIN 6 digit.');
         } else {
           setErrorMsg(
-            authRes.error || 'Gagal memverifikasi biometrik. Silakan masuk menggunakan PIN 6 digit.'
+            authRes?.error || 'Gagal memverifikasi biometrik. Silakan masuk menggunakan PIN 6 digit.'
           );
         }
         return;
       }
 
       const sessionRes = await loginPetugasWithBiometric(enrolledProfile);
-      if (sessionRes.error || !sessionRes.data) {
-        const msg = sessionRes.error || 'Akun petugas tidak aktif atau perlu verifikasi PIN ulang.';
+      if (sessionRes?.error || !sessionRes?.data) {
+        const msg = sessionRes?.error || 'Akun petugas tidak aktif atau perlu verifikasi PIN ulang.';
         if (msg.toLowerCase().includes('dinonaktifkan') || msg.toLowerCase().includes('tidak ditemukan')) {
           clearPetugasBiometricEnrollment();
           setEnrolledProfile(null);
@@ -113,6 +121,8 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
       }
 
       onLoginSuccess(sessionRes.data);
+    } catch {
+      setErrorMsg('Gagal memverifikasi biometrik. Silakan masuk menggunakan PIN 6 digit.');
     } finally {
       setBiometricLoading(false);
     }
@@ -133,8 +143,8 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
     setLoading(true);
     try {
       const result = await loginPetugasKeamanan(username, pin);
-      if (result.error || !result.data) {
-        setErrorMsg(result.error || 'Username petugas atau PIN 6 digit tidak sesuai.');
+      if (result?.error || !result?.data) {
+        setErrorMsg(result?.error || 'Username petugas atau PIN 6 digit tidak sesuai.');
         return;
       }
 
@@ -148,13 +158,19 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
 
       // Aktifkan biometrik otomatis pasca login PIN jika dicentang dan perangkat mendukung
       if (enableBiometricAfterPin && biometryAvailability?.isAvailable) {
-        const enrollRes = await enrollPetugasBiometric(loggedInSession, biometryAvailability);
-        if (enrollRes.ok && enrollRes.profile) {
-          setEnrolledProfile(enrollRes.profile);
+        try {
+          const enrollRes = await enrollPetugasBiometric(loggedInSession, biometryAvailability);
+          if (enrollRes?.ok && enrollRes?.profile) {
+            setEnrolledProfile(enrollRes.profile);
+          }
+        } catch {
+          // Tetap lanjutkan masuk portal meskipun aktivasi biometrik dilewati
         }
       }
 
       onLoginSuccess(loggedInSession);
+    } catch {
+      setErrorMsg('Terjadi kendala koneksi saat memverifikasi akun petugas. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -187,10 +203,10 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
             <BrandLogo size="xl" variant="dark" />
             <div className="min-w-0">
               <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                {brand.app_name}
+                {brand?.app_name || 'e-Card IPL Saung Kebun'}
               </p>
               <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5 leading-snug">
-                Portal Petugas Keamanan · {brand.app_subtitle}
+                Portal Petugas Keamanan · {brand?.app_subtitle || 'Perumahan Saung Kebun'}
               </p>
             </div>
           </div>
@@ -240,7 +256,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
         </div>
 
         <footer className="relative z-10 mt-8 lg:mt-12 pt-5 border-t border-slate-800/80">
-          <p className="text-xs text-slate-400 leading-relaxed">{brand.kop_resmi}</p>
+          <p className="text-xs text-slate-400 leading-relaxed">{brand?.kop_resmi || ''}</p>
         </footer>
       </section>
 

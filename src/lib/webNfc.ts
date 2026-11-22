@@ -34,9 +34,13 @@ interface WindowWithNdef extends Window {
 }
 
 export function getNdefReaderConstructor(): (new () => WebNdefReader) | null {
-  if (typeof window === 'undefined') return null;
-  const ctor = (window as unknown as WindowWithNdef).NDEFReader;
-  return typeof ctor === 'function' ? ctor : null;
+  try {
+    if (typeof window === 'undefined') return null;
+    const ctor = (window as unknown as WindowWithNdef).NDEFReader;
+    return typeof ctor === 'function' ? ctor : null;
+  } catch {
+    return null;
+  }
 }
 
 export function isWebNfcSupported(): boolean {
@@ -44,15 +48,20 @@ export function isWebNfcSupported(): boolean {
 }
 
 export function isSecureContextForNfc(): boolean {
-  if (typeof window === 'undefined') return false;
-  return Boolean(window.isSecureContext);
+  try {
+    if (typeof window === 'undefined') return false;
+    return Boolean(window.isSecureContext);
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Standarisasi UID tag NFC/RFID menjadi huruf kapital tanpa titik dua / spasi.
  * Contoh: "04:a1:b2:c3" -> "04A1B2C3"
  */
-export function normalizeNfcUid(raw: string): string {
+export function normalizeNfcUid(raw?: string | null): string {
+  if (typeof raw !== 'string') return '';
   return raw
     .trim()
     .toUpperCase()

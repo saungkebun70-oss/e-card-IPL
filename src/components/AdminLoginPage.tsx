@@ -35,11 +35,13 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
     setLoading(true);
     try {
       const result = await loginAdminAccount(username, pin);
-      if (result.error || !result.data) {
-        setErrorMsg(result.error || 'Username pengurus atau PIN 6 digit tidak valid.');
+      if (result?.error || !result?.data) {
+        setErrorMsg(result?.error || 'Username pengurus atau PIN 6 digit tidak valid.');
       } else {
         onLoginSuccess(result.data);
       }
+    } catch {
+      setErrorMsg('Terjadi kendala koneksi saat memverifikasi akun pengurus. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -63,10 +65,10 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
             <BrandLogo size="xl" variant="dark" />
             <div className="min-w-0">
               <p className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                {brand.app_name}
+                {brand?.app_name || 'e-Card IPL Saung Kebun'}
               </p>
               <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-0.5 leading-snug">
-                Portal Admin &amp; Pengurus · {brand.app_subtitle}
+                Portal Admin &amp; Pengurus · {brand?.app_subtitle || 'Perumahan Saung Kebun'}
               </p>
             </div>
           </div>
@@ -102,7 +104,7 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
         </div>
 
         <footer className="relative z-10 mt-8 lg:mt-12 pt-5 border-t border-slate-800/80">
-          <p className="text-xs text-slate-400 leading-relaxed">{brand.kop_resmi}</p>
+          <p className="text-xs text-slate-400 leading-relaxed">{brand?.kop_resmi || ''}</p>
         </footer>
       </section>
 

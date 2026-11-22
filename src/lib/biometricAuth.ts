@@ -105,15 +105,25 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-async function isWebAuthnPlatformAvailable(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.isSecureContext) return false;
-  if (
-    typeof window.PublicKeyCredential === 'undefined' ||
-    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function'
-  ) {
+function isSafeNativePlatform(): boolean {
+  try {
+    return Boolean(
+      Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()
+    );
+  } catch {
     return false;
   }
+}
+
+async function isWebAuthnPlatformAvailable(): Promise<boolean> {
   try {
+    if (typeof window === 'undefined' || !window.isSecureContext) return false;
+    if (
+      typeof window.PublicKeyCredential === 'undefined' ||
+      typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function'
+    ) {
+      return false;
+    }
     return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
   } catch {
     return false;
@@ -121,10 +131,12 @@ async function isWebAuthnPlatformAvailable(): Promise<boolean> {
 }
 
 export async function checkPetugasBiometryAvailability(): Promise<BiometricAvailability> {
-  if (Capacitor.isNativePlatform()) {
+  if (isSafeNativePlatform()) {
     try {
       const result = await BiometricAuth.checkBiometry();
-      return mapNativeCheckResult(result);
+      if (result) {
+        return mapNativeCheckResult(result);
+      }
     } catch {
       return {
         isAvailable: false,
@@ -138,16 +150,20 @@ export async function checkPetugasBiometryAvailability(): Promise<BiometricAvail
     }
   }
 
-  const webAuthnReady = await isWebAuthnPlatformAvailable();
-  if (webAuthnReady) {
-    return {
-      isAvailable: true,
-      isNative: false,
-      provider: 'webauthn',
-      biometryType: BiometryType.fingerprintAuthentication,
-      label: 'Sidik Jari / Face ID',
-      isFace: false,
-    };
+  try {
+    const webAuthnReady = await isWebAuthnPlatformAvailable();
+    if (webAuthnReady) {
+      return {
+        isAvailable: true,
+        isNative: false,
+        provider: 'webauthn',
+        biometryType: BiometryType.fingerprintAuthentication,
+        label: 'Sidik Jari / Face ID',
+        isFace: false,
+      };
+    }
+  } catch {
+    // Abaikan jika WebAuthn tidak didukung browser
   }
 
   return {
@@ -164,17 +180,31 @@ export async function checkPetugasBiometryAvailability(): Promise<BiometricAvail
 export async function subscribeBiometryResume(
   callback: (availability: BiometricAvailability) => void
 ): Promise<() => void> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isSafeNativePlatform()) {
     return () => {};
   }
   try {
     // checkBiometry() wajib dipanggil minimal sekali sebelum addResumeListener()
     await BiometricAuth.checkBiometry();
-    const handle = await BiometricAuth.addResumeListener((info) => {
-      callback(mapNativeCheckResult(info));
-    });
+    const handle = await Promise.resolve(
+      BiometricAuth.addResumeListener((info) => {
+        try {
+          if (info) {
+            callback(mapNativeCheckResult(info));
+          }
+        } catch {
+          // Abaikan error callback resume
+        }
+      })
+    );
     return () => {
-      void handle.remove();
+      try {
+        if (handle && typeof handle.remove === 'function') {
+          void Promise.resolve(handle.remove()).catch(() => {});
+        }
+      } catch {
+        // Abaikan error pelepasan listener
+      }
     };
   } catch {
     return () => {};
@@ -215,7 +245,7 @@ export function loadPetugasBiometricEnrollment(): BiometricEnrollmentProfile | n
       parsed.provider === 'webauthn' ? 'webauthn' : 'capacitor';
 
     // Hindari ketidakcocokan profil WebAuthn saat dibuka dari native atau sebaliknya
-    if (Capacitor.isNativePlatform() && provider === 'webauthn') {
+    if (isSafeNativePlatform() && provider === 'webauthn') {
       return {
         petugas_id: parsed.petugas_id,
         username: parsed.username,
