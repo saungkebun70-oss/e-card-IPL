@@ -63,6 +63,7 @@ import { AdminBotWaSlide } from './AdminBotWaSlide';
 import { AdminSecurityManagePanel } from './AdminSecurityManagePanel';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import { ThemePicker } from '../ThemePicker';
+import { NotificationSettingsCard } from '../NotificationSettingsCard';
 import { UserAvatar } from '../UserAvatar';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 
@@ -473,6 +474,10 @@ export function AdminSettingsDrawer({
 
               <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
                 <ThemePicker onToast={onToast} />
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+                <NotificationSettingsCard session={session} onToast={onToast} />
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">

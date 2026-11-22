@@ -191,10 +191,14 @@ function addBroadcastReadIds(session: SessionUser, ids: string[]): void {
   }
 }
 
-function emitNotificationsChanged(): void {
+function emitNotificationsChanged(inserted?: ActivityNotification[]): void {
   try {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(NOTIF_EVENT));
+      window.dispatchEvent(
+        new CustomEvent(NOTIF_EVENT, {
+          detail: inserted && inserted.length > 0 ? { inserted } : undefined,
+        })
+      );
     }
   } catch {
     // Abaikan
@@ -384,7 +388,7 @@ export async function dispatchActivityNotifications(
     writeLocalNotifications([...rows, ...existing]);
   }
 
-  emitNotificationsChanged();
+  emitNotificationsChanged(rows);
 }
 
 /**
@@ -468,18 +472,52 @@ export async function markAllActivityNotificationsRead(
 
 /**
  * Berlangganan pembaruan notifikasi secara real-time via Supabase Realtime + event lokal.
+ * Callback opsional `onInsert` dipanggil tepat saat ada notifikasi BARU yang ditujukan ke akun/role ini
+ * (untuk memicu bunyi lonceng, getaran, animasi shake, dan pop-up sistem HP).
  */
 export function subscribeActivityNotificationsRealtime(
   session: SessionUser,
-  onChange: () => void
+  onChange: () => void,
+  onInsert?: (notif: ActivityNotification) => void
 ): () => void {
   const cleanups: Array<() => void> = [];
   const allowedIds = new Set(getUserNotificationMatchIds(session));
+  const selfCanonicalId = getCanonicalUserId(session);
+  const broadcastReadSet = getBroadcastReadSet(session);
 
-  const onLocalEvent = () => onChange();
+  const handleCandidateInsert = (notif: ActivityNotification) => {
+    if (!onInsert) return;
+    const recipient = normalizeIdToken(notif.user_id);
+    if (!recipient || !allowedIds.has(recipient)) return;
+    // Jangan membunyikan notifikasi ke perangkat pelaku sendiri untuk aksi yang baru saja ia tekan
+    const actor = normalizeIdToken(notif.actor_id);
+    if (actor && actor === normalizeIdToken(selfCanonicalId)) return;
+    onInsert(notif);
+  };
+
+  const onLocalEvent = (e: Event) => {
+    onChange();
+    const detail = (e as CustomEvent<{ inserted?: ActivityNotification[] }>).detail;
+    if (detail?.inserted && Array.isArray(detail.inserted)) {
+      detail.inserted.forEach((item) => handleCandidateInsert(item));
+    }
+  };
   const onStorage = (e: StorageEvent) => {
     if (e.key === LOCAL_NOTIF_KEY) {
       onChange();
+      try {
+        if (e.newValue) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const latest = parsed[0] as ActivityNotification;
+            if (latest?.created_at && Date.now() - Date.parse(latest.created_at) < 15000) {
+              handleCandidateInsert(latest);
+            }
+          }
+        }
+      } catch {
+        // Abaikan
+      }
     }
   };
 
@@ -508,6 +546,13 @@ export function subscribeActivityNotificationsRealtime(
             );
             if (!targetUserId || allowedIds.has(targetUserId)) {
               onChange();
+              if (payload.eventType === 'INSERT' && payload.new && onInsert) {
+                const normalized = normalizeNotificationRow(
+                  payload.new as Record<string, unknown>,
+                  broadcastReadSet
+                );
+                handleCandidateInsert(normalized);
+              }
             }
           }
         )

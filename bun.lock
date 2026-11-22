@@ -7,6 +7,8 @@
       "dependencies": {
         "@aparajita/capacitor-biometric-auth": "^9.1.2",
         "@capacitor/core": "^7.6.0",
+        "@capacitor/haptics": "^7.0.0",
+        "@capacitor/local-notifications": "^7.0.0",
         "@capacitor/status-bar": "^7.0.6",
         "@google/genai": "^2.4.0",
         "@supabase/supabase-js": "^2.119.1",
@@ -47,7 +49,11 @@
 
     "@capacitor/core": ["@capacitor/core@7.6.10", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-foYHd//t6E3RTELVG8wdkp5jVnmLcHKUurAa9BA8EUSNd2eY0SijCHpfO0bFwYBP5DrCeXwgSFYi3NJw413gtQ=="],
 
+    "@capacitor/haptics": ["@capacitor/haptics@7.0.5", "", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-ujXuUkL8UG1YLhuJo/q+jiHr0K5JmclGZHmV1RttmiUBRG1XpC4Fc4gXUJyEX+6IoyfwWhgtPvJFRUB31HYnRQ=="],
+
     "@capacitor/ios": ["@capacitor/ios@7.6.10", "", { "peerDependencies": { "@capacitor/core": "^7.6.0" } }, "sha512-iDXt6n6+tQq6fLMgdVNwT7dtgyqGSpGmPx1AGrUJq3YxOqpzqqtY4v4phqhys9PxPSrVyxnWGAL+SEsAHtZLkQ=="],
+
+    "@capacitor/local-notifications": ["@capacitor/local-notifications@7.0.7", "", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-3qSpa8PpVMONHqBOaJ4RbA/lB5vOdEngtep0myGmP3S56gShPScDCotbw7dwmQy3NCdY4Up9nH3ySrGvUh2jZg=="],
 
     "@capacitor/status-bar": ["@capacitor/status-bar@7.0.6", "", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-7AVqj46b26QikImQzWfsJmzG8NUJZBGkrVSuoeTo+SX/YH3hXH0MqwwFgMqMGHfa/BICDgSvTjM9miVFlq0+RQ=="],
 

@@ -17,6 +17,7 @@ import { PanduanBotWaModal } from './PanduanBotWaModal';
 import { PanduanAplikasiModal } from './PanduanAplikasiModal';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import { ThemePicker } from '../ThemePicker';
+import { NotificationSettingsCard } from '../NotificationSettingsCard';
 
 interface WargaProfilSlideProps {
   session: SessionUser;
@@ -105,6 +106,14 @@ export function WargaProfilSlide({
           className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6"
         >
           <ThemePicker onToast={onToast} />
+        </section>
+
+        {/* Pengaturan Notifikasi, Suara & Getaran */}
+        <section
+          aria-label="Pengaturan Notifikasi, Suara & Getaran"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6"
+        >
+          <NotificationSettingsCard session={session} onToast={onToast} />
         </section>
       </div>
 

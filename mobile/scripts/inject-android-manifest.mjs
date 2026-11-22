@@ -20,6 +20,8 @@ const REQUIRED_PERMISSIONS = [
   'android.permission.NFC',
   'android.permission.USE_BIOMETRIC',
   'android.permission.USE_FINGERPRINT',
+  'android.permission.POST_NOTIFICATIONS',
+  'android.permission.VIBRATE',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
 ];

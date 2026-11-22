@@ -573,6 +573,40 @@ html[data-theme="midnight"] #printable-report .border-slate-200 {
   transition: transform 220ms ease-out;
 }
 
+/* Animasi goyang lonceng (shake) saat notifikasi real-time masuk */
+@keyframes bell-ring-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  12% {
+    transform: rotate(18deg) scale(1.08);
+  }
+  24% {
+    transform: rotate(-16deg) scale(1.08);
+  }
+  36% {
+    transform: rotate(14deg) scale(1.06);
+  }
+  48% {
+    transform: rotate(-12deg) scale(1.04);
+  }
+  60% {
+    transform: rotate(8deg) scale(1.02);
+  }
+  72% {
+    transform: rotate(-6deg) scale(1);
+  }
+  84% {
+    transform: rotate(3deg) scale(1);
+  }
+}
+
+.animate-bell-shake {
+  transform-origin: top center;
+  animation: bell-ring-shake 0.95s ease-in-out;
+}
+
 @page {
   size: A4 portrait;
   margin: 12mm 14mm;

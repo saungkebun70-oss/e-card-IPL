@@ -91,6 +91,7 @@ import { NotificationBell } from '../NotificationBell';
 import { UserAvatar } from '../UserAvatar';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import { ThemePicker } from '../ThemePicker';
+import { NotificationSettingsCard } from '../NotificationSettingsCard';
 import {
   fetchShiftOverrides,
   findActiveOverrideForOfficer,
@@ -1113,6 +1114,14 @@ export function PetugasPortalPage({
               <ThemePicker onToast={onToast} />
             </section>
 
+            {/* KARTU PENGATURAN NOTIFIKASI, SUARA & GETARAN */}
+            <section
+              aria-label="Pengaturan Notifikasi, Suara & Getaran Petugas"
+              className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+            >
+              <NotificationSettingsCard session={session} onToast={onToast} />
+            </section>
+
             {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
             <section
               aria-label="Keamanan Akses Biometrik"
@@ -2045,6 +2054,10 @@ export function PetugasPortalPage({
 
             <div className="pt-4 border-t border-slate-100">
               <ThemePicker compact onToast={onToast} />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <NotificationSettingsCard session={session} compact onToast={onToast} />
             </div>
           </div>
         </div>
