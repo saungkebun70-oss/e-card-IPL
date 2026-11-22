@@ -665,12 +665,12 @@ export function PetugasAttendanceCard({
       {/* MODAL KONFIRMASI ABSEN MASUK (CLOCK-IN) */}
       {clockInModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Absen Masuk"
         >
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-[#0F172A]">Konfirmasi Absen Masuk</h3>
@@ -786,8 +786,9 @@ export function PetugasAttendanceCard({
               <button
                 type="button"
                 disabled={submittingClockIn}
+                aria-busy={submittingClockIn}
                 onClick={() => void handleConfirmClockIn()}
-                className="min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submittingClockIn ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -804,12 +805,12 @@ export function PetugasAttendanceCard({
       {/* MODAL KONFIRMASI ABSEN PULANG (CLOCK-OUT) */}
       {clockOutModalOpen && activeSession && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Absen Pulang"
         >
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-[#0F172A]">Konfirmasi Absen Pulang</h3>
@@ -878,8 +879,9 @@ export function PetugasAttendanceCard({
               <button
                 type="button"
                 disabled={submittingClockOut}
+                aria-busy={submittingClockOut}
                 onClick={() => void handleConfirmClockOut()}
-                className="min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submittingClockOut ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -896,14 +898,14 @@ export function PetugasAttendanceCard({
       {/* LIGHTBOX FOTO ABSEN */}
       {lightboxUrl && isSafeAttendanceImageUrl(lightboxUrl) && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Foto Absen Masuk"
           onClick={() => setLightboxUrl(null)}
         >
           <div
-            className="relative max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
+            className="relative max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">

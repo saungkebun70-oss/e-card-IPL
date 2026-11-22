@@ -10,6 +10,7 @@ import {
   SEED_TRANSAKSI,
   SEED_WARGA,
 } from './src/lib/seedData';
+import { normalizePhoneNumber } from './src/lib/phoneAndBlockUtils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,8 +91,6 @@ function readAuditLogs(limit = 150): ServerAuditLog[] {
 }
 
 hydrateMemoryLogs();
-
-import { normalizePhoneNumber } from './src/lib/phoneAndBlockUtils';
 
 async function startServer() {
   const app = express();
@@ -379,10 +378,15 @@ async function startServer() {
         watch: process.env.DISABLE_HMR === 'true' ? null : undefined,
       },
       appType: 'spa',
-    }).then((vite) => {
-      viteInstance = vite;
-      return vite;
-    });
+    })
+      .then((vite) => {
+        viteInstance = vite;
+        return vite;
+      })
+      .catch((err) => {
+        console.error('[VITE_INIT_ERROR]', err);
+        throw err;
+      });
 
     app.use((req, res, next) => {
       vitePromise
