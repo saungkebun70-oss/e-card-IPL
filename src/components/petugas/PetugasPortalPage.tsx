@@ -90,6 +90,7 @@ import { PetugasHonorTab } from './PetugasHonorTab';
 import { NotificationBell } from '../NotificationBell';
 import { UserAvatar } from '../UserAvatar';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
+import { ThemePicker } from '../ThemePicker';
 import {
   fetchShiftOverrides,
   findActiveOverrideForOfficer,
@@ -1104,6 +1105,14 @@ export function PetugasPortalPage({
               />
             </section>
 
+            {/* KARTU TEMA TAMPILAN (NYAMAN UNTUK PATROLI SIANG / MALAM) */}
+            <section
+              aria-label="Tema Tampilan Portal Petugas"
+              className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+            >
+              <ThemePicker onToast={onToast} />
+            </section>
+
             {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
             <section
               aria-label="Keamanan Akses Biometrik"
@@ -1918,12 +1927,12 @@ export function PetugasPortalPage({
                   : 'Aktifkan Scan NFC Checkpoint Patroli'
               }
               aria-pressed={scanningNfc}
-              className={`relative -mt-7 w-14 h-14 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
+              className={`relative -mt-7 w-14 h-14 rounded-full border-4 border-[var(--theme-surface)] flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
                 scanningNfc
                   ? 'bg-emerald-600 text-white shadow-emerald-500/50 ring-4 ring-emerald-300/60 scale-105'
                   : activeTab === 'scan'
-                    ? 'bg-emerald-700 text-white shadow-emerald-700/40'
-                    : 'bg-[#059669] hover:bg-emerald-600 text-white shadow-emerald-600/35'
+                    ? 'bg-[#059669] text-white shadow-black/25'
+                    : 'bg-[#059669] hover:opacity-95 text-white shadow-black/20'
               }`}
             >
               {scanningNfc && (
@@ -1995,30 +2004,30 @@ export function PetugasPortalPage({
         />
       )}
 
-      {/* Modal Foto Profil Petugas (Dibuka saat ketuk Avatar di Header) */}
+      {/* Modal Profil & Tema Petugas (Dibuka saat ketuk Avatar di Header) */}
       {profileModalOpen && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Pengaturan Foto Profil Petugas"
+          aria-label="Pengaturan Profil dan Tema Petugas"
           onClick={() => setProfileModalOpen(false)}
           className="fixed inset-0 z-[65] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-md rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xl"
+            className="bg-white w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-2xl border border-slate-200 p-5 space-y-5 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
-                <h2 className="text-base font-bold text-[#0F172A]">Foto Profil Petugas</h2>
+                <h2 className="text-base font-bold text-[#0F172A]">Profil &amp; Tema Petugas</h2>
                 <p className="text-xs text-slate-500">
-                  Foto tampil pada header, kontak darurat warga, dan log patroli.
+                  Ubah foto profil atau pilih tema tampilan (termasuk Midnight Emerald untuk patroli malam).
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setProfileModalOpen(false)}
-                aria-label="Tutup modal foto profil"
+                aria-label="Tutup modal profil dan tema"
                 className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -2033,6 +2042,10 @@ export function PetugasPortalPage({
               onToast={onToast}
               compact
             />
+
+            <div className="pt-4 border-t border-slate-100">
+              <ThemePicker compact onToast={onToast} />
+            </div>
           </div>
         </div>
       )}

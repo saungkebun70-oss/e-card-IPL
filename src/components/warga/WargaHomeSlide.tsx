@@ -258,28 +258,43 @@ export function WargaHomeSlide({
       {/* Baris Atas: e-Card Verifikasi (Focal Anchor) + Ringkasan Siklus Tagihan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* e-Card Verifikasi Digital */}
-        <section className="lg:col-span-7 rounded-2xl bg-[#0F172A] text-white p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[248px]">
+        <section
+          className="lg:col-span-7 rounded-2xl text-white p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[248px] border"
+          style={{
+            backgroundImage:
+              'linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-2) 100%)',
+            borderColor: 'var(--theme-accent-border)',
+          }}
+        >
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-emerald-600/20 blur-3xl"
+            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-25"
+            style={{ backgroundColor: 'var(--theme-primary)' }}
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 left-0 right-0 h-1.5 bg-[#059669]"
+            className="pointer-events-none absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ backgroundColor: 'var(--theme-primary)' }}
           />
 
           {/* Header Kartu */}
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                <Building2 className="w-5 h-5 text-emerald-400" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                <Building2
+                  className="w-5 h-5"
+                  style={{ color: 'var(--theme-accent-highlight)' }}
+                />
               </div>
               <div>
                 <p className="text-sm font-bold tracking-tight text-white">e-Card Verifikasi IPL</p>
-                <p className="text-xs text-slate-400">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
+                <p className="text-xs text-white/70">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
               </div>
             </div>
-            <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0" />
+            <ShieldCheck
+              className="w-6 h-6 shrink-0"
+              style={{ color: 'var(--theme-accent-highlight)' }}
+            />
           </div>
 
           {/* Identitas Utama Rumah */}

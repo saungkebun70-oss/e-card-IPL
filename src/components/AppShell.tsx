@@ -303,8 +303,8 @@ export function AppShell({
                         </p>
                         <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
                           {canAccessBotWa
-                            ? 'Profil, Identitas, QRIS, Bot WA, Petugas, PIN & Log'
-                            : 'Profil, Identitas, QRIS, Petugas, PIN & Log'}
+                            ? 'Profil, Tema, Identitas, QRIS, Bot WA, Petugas & Log'
+                            : 'Profil, Tema, Identitas, QRIS, Petugas & Log'}
                         </p>
                       </div>
                     )}
@@ -359,8 +359,14 @@ export function AppShell({
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="relative z-10 w-[84vw] max-w-[324px] h-full bg-white/95 backdrop-blur-xl rounded-r-3xl border-r border-slate-200/80 shadow-2xl flex flex-col overflow-hidden"
             >
-              {/* Header Sidebar dengan Jarak Aman Atas & Gradasi Halus */}
-              <div className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-5 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white shrink-0">
+              {/* Header Sidebar dengan Jarak Aman Atas & Gradasi Halus Sesuai Tema */}
+              <div
+                className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-5 text-white shrink-0"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-2) 100%)',
+                }}
+              >
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <BrandLogo size="sm" variant="dark" className="shrink-0" />
@@ -547,7 +553,7 @@ export function AppShell({
                       <span aria-hidden="true" className="shrink-0">
                         ·
                       </span>
-                      <span className="font-mono font-semibold text-emerald-700 shrink-0 whitespace-nowrap">
+                      <span className="font-mono font-semibold text-[var(--theme-primary-text)] shrink-0 whitespace-nowrap">
                         Blok {session.blok_rumah}
                       </span>
                     </div>
@@ -652,17 +658,17 @@ export function AppShell({
                   <span
                     className={`${
                       isCompactSix ? 'w-12 h-12 -mt-5' : 'w-14 h-14 -mt-6'
-                    } rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-all group-active:scale-95 ${
+                    } rounded-full border-4 border-[var(--theme-surface)] shadow-lg flex items-center justify-center transition-all group-active:scale-95 ${
                       isActive
                         ? 'bg-[#0F172A] text-white shadow-slate-900/25'
-                        : 'bg-[#059669] text-white shadow-emerald-600/30 hover:bg-emerald-700'
+                        : 'bg-[#059669] text-white shadow-black/20 hover:opacity-95'
                     }`}
                   >
                     <Icon className={isCompactSix ? 'w-5 h-5' : 'w-6 h-6'} strokeWidth={2.5} />
                   </span>
                   <span
                     className={`text-[11px] font-bold mt-1 leading-none truncate max-w-full ${
-                      isActive ? 'text-[#0F172A]' : 'text-emerald-700'
+                      isActive ? 'text-[var(--theme-text)]' : 'text-[var(--theme-primary)]'
                     }`}
                   >
                     {item.shortLabel}

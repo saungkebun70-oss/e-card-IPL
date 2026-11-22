@@ -16,6 +16,7 @@ import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 import { PanduanAplikasiModal } from './PanduanAplikasiModal';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
+import { ThemePicker } from '../ThemePicker';
 
 interface WargaProfilSlideProps {
   session: SessionUser;
@@ -48,54 +49,64 @@ export function WargaProfilSlide({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* Data Profil Rumah */}
-      <section className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="p-5 sm:p-6 border-b border-slate-200 bg-gradient-to-br from-emerald-50/40 via-white to-white">
-          <ProfileAvatarEditor
-            session={session}
-            avatarUrl={profil.avatar_url ?? session.avatar_url ?? null}
-            subtitle={`Blok ${profil.blok_rumah} · Status ${profil.status_hunian}`}
-            onAvatarUpdated={onAvatarUpdated}
-            onToast={onToast}
-          />
-        </div>
+      {/* Kolom Kiri: Data Profil Rumah & Tema Tampilan */}
+      <div className="lg:col-span-7 space-y-6">
+        <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="p-5 sm:p-6 border-b border-slate-200 bg-[var(--theme-primary-soft)]/50">
+            <ProfileAvatarEditor
+              session={session}
+              avatarUrl={profil.avatar_url ?? session.avatar_url ?? null}
+              subtitle={`Blok ${profil.blok_rumah} · Status ${profil.status_hunian}`}
+              onAvatarUpdated={onAvatarUpdated}
+              onToast={onToast}
+            />
+          </div>
 
-        <dl className="divide-y divide-slate-100 px-5 sm:px-6 text-sm">
-          <div className="py-3.5 flex items-center justify-between gap-4">
-            <dt className="text-slate-500 flex items-center gap-2">
-              <User className="w-4 h-4 text-slate-400" />
-              Nama Kepala Keluarga
-            </dt>
-            <dd className="font-semibold text-[#0F172A] text-right">{profil.nama_warga}</dd>
-          </div>
-          <div className="py-3.5 flex items-center justify-between gap-4">
-            <dt className="text-slate-500 flex items-center gap-2">
-              <Home className="w-4 h-4 text-slate-400" />
-              Blok / No. Rumah
-            </dt>
-            <dd className="font-mono font-bold text-[#0F172A] text-right">{profil.blok_rumah}</dd>
-          </div>
-          <div className="py-3.5 flex items-center justify-between gap-4">
-            <dt className="text-slate-500">Status Hunian</dt>
-            <dd className="font-semibold text-[#0F172A] text-right">{profil.status_hunian}</dd>
-          </div>
-          <div className="py-3.5 flex items-center justify-between gap-4">
-            <dt className="text-slate-500 flex items-center gap-2">
-              <Phone className="w-4 h-4 text-slate-400" />
-              Nomor WhatsApp Terdaftar
-            </dt>
-            <dd className="font-mono font-semibold text-[#0F172A] text-right tabular-nums">
-              +{profil.no_wa}
-            </dd>
-          </div>
-          <div className="py-3.5 flex items-center justify-between gap-4">
-            <dt className="text-slate-500">Iuran Wajib Bulanan</dt>
-            <dd className="font-mono font-bold text-emerald-700 text-right tabular-nums">
-              {formatRupiah(profil.nominal_iuran)} / bulan
-            </dd>
-          </div>
-        </dl>
-      </section>
+          <dl className="divide-y divide-slate-100 px-5 sm:px-6 text-sm">
+            <div className="py-3.5 flex items-center justify-between gap-4">
+              <dt className="text-slate-500 flex items-center gap-2">
+                <User className="w-4 h-4 text-slate-400" />
+                Nama Kepala Keluarga
+              </dt>
+              <dd className="font-semibold text-[#0F172A] text-right">{profil.nama_warga}</dd>
+            </div>
+            <div className="py-3.5 flex items-center justify-between gap-4">
+              <dt className="text-slate-500 flex items-center gap-2">
+                <Home className="w-4 h-4 text-slate-400" />
+                Blok / No. Rumah
+              </dt>
+              <dd className="font-mono font-bold text-[#0F172A] text-right">{profil.blok_rumah}</dd>
+            </div>
+            <div className="py-3.5 flex items-center justify-between gap-4">
+              <dt className="text-slate-500">Status Hunian</dt>
+              <dd className="font-semibold text-[#0F172A] text-right">{profil.status_hunian}</dd>
+            </div>
+            <div className="py-3.5 flex items-center justify-between gap-4">
+              <dt className="text-slate-500 flex items-center gap-2">
+                <Phone className="w-4 h-4 text-slate-400" />
+                Nomor WhatsApp Terdaftar
+              </dt>
+              <dd className="font-mono font-semibold text-[#0F172A] text-right tabular-nums">
+                +{profil.no_wa}
+              </dd>
+            </div>
+            <div className="py-3.5 flex items-center justify-between gap-4">
+              <dt className="text-slate-500">Iuran Wajib Bulanan</dt>
+              <dd className="font-mono font-bold text-emerald-700 text-right tabular-nums">
+                {formatRupiah(profil.nominal_iuran)} / bulan
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* Pemilih Tema Tampilan */}
+        <section
+          aria-label="Tema Tampilan"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6"
+        >
+          <ThemePicker onToast={onToast} />
+        </section>
+      </div>
 
       {/* Keamanan Akun & Bantuan Pengurus */}
       <section className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">

@@ -21,8 +21,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        try {
+          var valid = { emerald: '#ffffff', midnight: '#0b1120', ocean: '#f0f9ff', earth: '#faf8f5', royal: '#f8fafc' };
+          var saved = window.localStorage.getItem('app_theme');
+          var theme = saved && valid[saved] ? saved : 'emerald';
+          var root = document.documentElement;
+          root.setAttribute('data-theme', theme);
+          if (theme === 'midnight') {
+            root.classList.add('dark');
+            root.style.colorScheme = 'dark';
+          } else {
+            root.classList.remove('dark');
+            root.style.colorScheme = 'light';
+          }
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', valid[theme]);
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#F8FAFC] text-[#0F172A] antialiased selection:bg-emerald-600/15 selection:text-emerald-900">
+  <body class="bg-[var(--theme-bg)] text-[var(--theme-text)] antialiased selection:bg-[var(--theme-primary)]/15 selection:text-[var(--theme-primary-text)]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

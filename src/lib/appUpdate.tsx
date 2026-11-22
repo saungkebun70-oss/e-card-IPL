@@ -151,18 +151,24 @@ export function AppUpdateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isSafeNativePlatform()) return;
     const configureNativeStatusBar = async () => {
+      let isDarkTheme = false;
+      try {
+        isDarkTheme = window.localStorage.getItem('app_theme') === 'midnight';
+      } catch {
+        isDarkTheme = false;
+      }
       try {
         await StatusBar.setOverlaysWebView({ overlay: false });
       } catch {
         // Abaikan diam-diam bila tidak didukung perangkat
       }
       try {
-        await StatusBar.setStyle({ style: Style.Light });
+        await StatusBar.setStyle({ style: isDarkTheme ? Style.Dark : Style.Light });
       } catch {
         // Abaikan diam-diam bila tidak didukung perangkat
       }
       try {
-        await StatusBar.setBackgroundColor({ color: '#FFFFFF' });
+        await StatusBar.setBackgroundColor({ color: isDarkTheme ? '#0B1120' : '#FFFFFF' });
       } catch {
         // Abaikan diam-diam bila tidak didukung perangkat (mis. iOS)
       }
