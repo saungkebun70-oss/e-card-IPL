@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock,
+  ChevronDown,
+  ChevronUp,
   MapPin,
   MessageCircle,
   PhoneCall,
@@ -119,6 +121,28 @@ export function EmergencySecurityContactCard({
 interface SecurityPatrolFeedCardProps {
   patroliFeed: LogPatroli[];
   maxItems?: number;
+  initialLimit?: number;
+}
+
+function formatCompactLogTime(isoDate?: string | null): string {
+  if (!isoDate) return '-';
+  try {
+    const parsed = new Date(isoDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return formatTanggalWaktu(isoDate);
+    }
+    const tanggal = new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+    })
+      .format(parsed)
+      .replace(/\./g, '');
+    const jam = String(parsed.getHours()).padStart(2, '0');
+    const menit = String(parsed.getMinutes()).padStart(2, '0');
+    return `${tanggal}, ${jam}.${menit}`;
+  } catch {
+    return formatTanggalWaktu(isoDate);
+  }
 }
 
 /**
@@ -126,17 +150,20 @@ interface SecurityPatrolFeedCardProps {
  */
 export function SecurityPatrolFeedCard({
   patroliFeed,
-  maxItems = 8,
+  initialLimit = 5,
 }: SecurityPatrolFeedCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const safeFeed = Array.isArray(patroliFeed) ? patroliFeed : [];
-  const displayed = safeFeed.slice(0, maxItems);
+  const limit = initialLimit > 0 ? initialLimit : 5;
+  const hasMore = safeFeed.length > limit;
+  const displayed = expanded ? safeFeed : safeFeed.slice(0, limit);
 
   return (
     <section
       aria-label="Info Keamanan dan Patroli Lingkungan"
       className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+      <div className="px-4 sm:px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
             <Radio className="w-4 h-4" />
@@ -165,58 +192,83 @@ export function SecurityPatrolFeedCard({
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {displayed.map((log, idx) => {
-            const isAman = log?.status_kondisi === 'Aman';
-            return (
-              <article
-                key={log?.id || `log-${idx}`}
-                className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                    <span className="font-bold text-[#0F172A] inline-flex items-center gap-1.5">
+        <>
+          <div className="max-h-[360px] overflow-y-auto pr-1 divide-y divide-slate-100">
+            {displayed.map((log, idx) => {
+              const isAman = (log?.status_kondisi || 'Aman') === 'Aman';
+              const rawMethod = (log?.metode_scan || 'NFC').trim();
+              const methodLabel = rawMethod === 'NFC Tap' ? 'NFC' : rawMethod;
+
+              return (
+                <article
+                  key={log?.id || `log-${idx}`}
+                  className="px-3.5 sm:px-4 py-2.5 hover:bg-slate-50/70 transition-colors"
+                >
+                  {/* Baris 1: Nama Pos + Badge Status di kiri, Jam/Tanggal ringkas di kanan */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <MapPin className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                      {log?.nama_lokasi || 'Titik Patroli'}
-                    </span>
-                    <span
-                      className={`text-xs font-semibold inline-flex items-center gap-1 ${
-                        isAman ? 'text-emerald-700' : 'text-amber-700'
-                      }`}
-                    >
-                      {isAman ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      )}
-                      {log?.status_kondisi || 'Aman'}
+                      <span className="text-xs sm:text-[13px] font-bold text-[#0F172A] truncate">
+                        {log?.nama_lokasi || 'Titik Patroli'}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-none shrink-0 ${
+                          isAman
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200/70'
+                        }`}
+                      >
+                        {isAman ? (
+                          <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                        )}
+                        <span>{log?.status_kondisi || 'Aman'}</span>
+                      </span>
+                    </div>
+
+                    <span className="text-[11px] font-mono text-slate-500 tabular-nums whitespace-nowrap shrink-0">
+                      {formatCompactLogTime(log?.waktu_scan)}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <span>
-                      Petugas:{' '}
-                      <strong className="text-[#0F172A]">{log?.nama_petugas || 'Petugas'}</strong>
-                    </span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="text-slate-500">{log?.metode_scan || 'NFC Tap'}</span>
+                  {/* Baris 2: Nama Petugas + keterangan metode */}
+                  <p className="text-xs text-gray-500 truncate mt-0.5 pl-5">
+                    {log?.nama_petugas || 'Petugas'} · {methodLabel}
                   </p>
 
                   {log?.catatan && (
-                    <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1.5 mt-1">
+                    <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200/70 rounded-md px-2 py-1 mt-1.5 ml-5 leading-snug">
                       {log.catatan}
                     </p>
                   )}
-                </div>
+                </article>
+              );
+            })}
+          </div>
 
-                <div className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0 inline-flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{formatTanggalWaktu(log?.waktu_scan || '')}</span>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+          {hasMore && (
+            <div className="border-t border-slate-100 bg-slate-50/70 px-3.5 py-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => !prev)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/80 transition-colors cursor-pointer"
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                    <span>Tutup / Ringkas</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                    <span>Lihat Semua Log ({safeFeed.length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
