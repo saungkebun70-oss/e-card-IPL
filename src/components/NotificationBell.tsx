@@ -1,16 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react';
 import {
   Bell,
   BellRing,
   CheckCheck,
   CreditCard,
-  Loader2,
+  Inbox,
   Megaphone,
   Settings,
   ShieldAlert,
+  Trash2,
   Wallet,
   X,
-  Inbox,
 } from 'lucide-react';
 import type {
   ActivityNotification,
@@ -18,6 +27,8 @@ import type {
   SessionUser,
 } from '../types';
 import {
+  deleteAllNotifications,
+  deleteNotification,
   fetchActivityNotifications,
   formatRelativeTimeId,
   markActivityNotificationRead,
@@ -52,6 +63,9 @@ const FILTER_TABS: Array<{ id: FilterTab; label: string }> = [
   { id: 'patrol', label: 'Keamanan/Patroli' },
   { id: 'info_system', label: 'Info/Sistem' },
 ];
+
+const SWIPE_LOCK_THRESHOLD = 8;
+const SWIPE_DELETE_THRESHOLD = 85;
 
 function getCategoryVisual(category: ActivityNotificationCategory) {
   switch (category) {
@@ -88,6 +102,340 @@ function getCategoryVisual(category: ActivityNotificationCategory) {
   }
 }
 
+interface SwipeableNotificationItemProps {
+  notif: ActivityNotification;
+  deleting: boolean;
+  onSelect: (notif: ActivityNotification) => void;
+  onDelete: (notif: ActivityNotification) => void;
+}
+
+function SwipeableNotificationItem({
+  notif,
+  deleting,
+  onSelect,
+  onDelete,
+}: SwipeableNotificationItemProps) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [dismissDirection, setDismissDirection] = useState<'left' | 'right' | null>(null);
+
+  const gestureRef = useRef({
+    active: false,
+    isTouch: false,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    lockedAxis: null as 'x' | 'y' | null,
+    didSwipe: false,
+    lastTouchEndAt: 0,
+  });
+
+  const visual = getCategoryVisual(notif.category);
+  const Icon = visual.icon;
+
+  const triggerDismiss = useCallback(
+    (direction: 'left' | 'right') => {
+      if (dismissDirection || deleting) return;
+      setIsSwiping(false);
+      setDismissDirection(direction);
+      window.setTimeout(() => {
+        onDelete(notif);
+      }, 200);
+    },
+    [deleting, dismissDirection, notif, onDelete]
+  );
+
+  const finishSwipe = useCallback(
+    (cancelled: boolean) => {
+      const g = gestureRef.current;
+      if (!g.active) return;
+
+      const dx = g.lockedAxis === 'x' ? g.currentX - g.startX : 0;
+      g.active = false;
+      setIsSwiping(false);
+
+      if (!cancelled && g.lockedAxis === 'x' && Math.abs(dx) >= SWIPE_DELETE_THRESHOLD) {
+        triggerDismiss(dx < 0 ? 'left' : 'right');
+      } else {
+        setOffsetX(0);
+      }
+
+      if (g.didSwipe) {
+        window.setTimeout(() => {
+          gestureRef.current.didSwipe = false;
+        }, 120);
+      }
+    },
+    [triggerDismiss]
+  );
+
+  const handleTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    if (dismissDirection || deleting) return;
+    if ((e.target as HTMLElement | null)?.closest('[data-no-swipe="true"]')) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    gestureRef.current = {
+      active: true,
+      isTouch: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentX: touch.clientX,
+      lockedAxis: null,
+      didSwipe: false,
+      lastTouchEndAt: gestureRef.current.lastTouchEndAt,
+    };
+  };
+
+  const handleTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g.active || !g.isTouch || dismissDirection || deleting) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const dx = touch.clientX - g.startX;
+    const dy = touch.clientY - g.startY;
+
+    if (g.lockedAxis === null) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_LOCK_THRESHOLD) {
+        g.lockedAxis = 'x';
+        g.didSwipe = true;
+        setIsSwiping(true);
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_LOCK_THRESHOLD) {
+        g.lockedAxis = 'y';
+        g.active = false;
+        return;
+      } else {
+        return;
+      }
+    }
+
+    if (g.lockedAxis === 'x') {
+      g.currentX = touch.clientX;
+      setOffsetX(dx);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    gestureRef.current.lastTouchEndAt = Date.now();
+    finishSwipe(false);
+  };
+
+  const handleTouchCancel = () => {
+    gestureRef.current.lastTouchEndAt = Date.now();
+    finishSwipe(true);
+  };
+
+  const mouseCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mouseCleanupRef.current?.();
+      mouseCleanupRef.current = null;
+    };
+  }, []);
+
+  const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || dismissDirection || deleting) return;
+    if (Date.now() - gestureRef.current.lastTouchEndAt < 650) return;
+    if ((e.target as HTMLElement | null)?.closest('[data-no-swipe="true"]')) return;
+
+    mouseCleanupRef.current?.();
+
+    gestureRef.current = {
+      active: true,
+      isTouch: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: e.clientX,
+      lockedAxis: null,
+      didSwipe: false,
+      lastTouchEndAt: gestureRef.current.lastTouchEndAt,
+    };
+
+    const handleWindowMouseMove = (moveEvent: MouseEvent) => {
+      const g = gestureRef.current;
+      if (!g.active || g.isTouch) return;
+
+      const dx = moveEvent.clientX - g.startX;
+      const dy = moveEvent.clientY - g.startY;
+
+      if (g.lockedAxis === null) {
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_LOCK_THRESHOLD) {
+          g.lockedAxis = 'x';
+          g.didSwipe = true;
+          setIsSwiping(true);
+        } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_LOCK_THRESHOLD) {
+          g.lockedAxis = 'y';
+          g.active = false;
+          cleanupListeners();
+          return;
+        } else {
+          return;
+        }
+      }
+
+      if (g.lockedAxis === 'x') {
+        g.currentX = moveEvent.clientX;
+        setOffsetX(dx);
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      cleanupListeners();
+      finishSwipe(false);
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      if (mouseCleanupRef.current === cleanupListeners) {
+        mouseCleanupRef.current = null;
+      }
+    };
+
+    mouseCleanupRef.current = cleanupListeners;
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+  };
+
+  const handleCardClick = () => {
+    if (gestureRef.current.didSwipe || isSwiping || dismissDirection || deleting) return;
+    onSelect(notif);
+  };
+
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  };
+
+  const cardTransform = dismissDirection
+    ? `translateX(${dismissDirection === 'left' ? '-110%' : '110%'})`
+    : `translateX(${offsetX}px)`;
+
+  return (
+    <div
+      className="relative overflow-hidden select-none"
+      style={{ touchAction: 'pan-y' }}
+    >
+      {/* Lapisan Latar Belakang Merah Hapus — Tepat di Belakang Kartu */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-red-500 text-white flex items-center justify-between px-4 pointer-events-none"
+      >
+        <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wide">
+          <Trash2 className="w-4 h-4 shrink-0" />
+          <span>Hapus</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wide">
+          <span>Hapus</span>
+          <Trash2 className="w-4 h-4 shrink-0" />
+        </div>
+      </div>
+
+      {/* Kartu Notifikasi Interaktif (div role="button", bukan <button>, agar swipe mobile tidak terblokir) */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleCardClick}
+        onKeyDown={handleKeyDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        onMouseDown={handleMouseDown}
+        style={{
+          touchAction: 'pan-y',
+          transform: cardTransform,
+          opacity: dismissDirection ? 0 : 1,
+          transition: isSwiping ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
+          willChange: isSwiping || dismissDirection ? 'transform, opacity' : 'auto',
+        }}
+        className="relative z-10 w-full text-left px-4 py-3 flex items-start gap-3 cursor-pointer bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-primary)]"
+      >
+        {/* Tint lembut untuk notifikasi belum dibaca di atas dasar solid agar warna merah belakang tidak tembus */}
+        {!notif.is_read && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-emerald-50/70"
+          />
+        )}
+
+        <div className="relative z-10 shrink-0 mt-0.5">
+          <div
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center ${visual.bg}`}
+          >
+            <Icon className="w-4 h-4" />
+          </div>
+          {notif.actor_name && (
+            <div className="absolute -bottom-1 -right-1">
+              <UserAvatar
+                name={notif.actor_name}
+                src={notif.actor_avatar_url}
+                size="xs"
+                className="w-4 h-4 text-[8px] ring-2 ring-white"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="relative z-10 min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={`text-xs leading-snug ${
+                notif.is_read ? 'font-semibold text-slate-800' : 'font-bold text-[#0F172A]'
+              }`}
+            >
+              {notif.title}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
+                {formatRelativeTimeId(notif.created_at)}
+              </span>
+              {!notif.is_read && (
+                <span
+                  aria-label="Belum dibaca"
+                  className="w-2 h-2 rounded-full bg-[#059669] shrink-0"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-end justify-between gap-2 mt-0.5">
+            <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2 flex-1 min-w-0">
+              {notif.message}
+            </p>
+
+            {/* Tombol Ikon Trash Kecil di Pojok Kanan Bawah — Selalu Terlihat */}
+            <button
+              type="button"
+              data-no-swipe="true"
+              disabled={deleting || Boolean(dismissDirection)}
+              aria-label={`Hapus notifikasi ${notif.title}`}
+              title="Hapus notifikasi"
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerDismiss('left');
+              }}
+              className="shrink-0 w-7 h-7 -mr-1 -mb-1 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 active:scale-[0.93] transition-all duration-150 cursor-pointer disabled:opacity-50"
+            >
+              {deleting ? (
+                <LoadingSpinner size="xs" tone="danger" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function NotificationBell({
   session,
   variant = 'light',
@@ -98,6 +446,8 @@ export function NotificationBell({
   const [items, setItems] = useState<ActivityNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
   const [bellShaking, setBellShaking] = useState(false);
   const [osPermission, setOsPermission] = useState<OsNotificationPermissionState>('granted');
   const [requestingPerm, setRequestingPerm] = useState(false);
@@ -144,7 +494,6 @@ export function NotificationBell({
       if (!mounted) return;
       setOsPermission(perm);
       if (perm === 'prompt' && !prefs.permissionPromptDismissed) {
-        // Tunda sebentar agar tampilan utama selesai render dengan halus
         window.setTimeout(() => {
           if (mounted) setShowFloatingPrompt(true);
         }, 1600);
@@ -271,18 +620,50 @@ export function NotificationBell({
     }
   };
 
-  const handleItemClick = async (notif: ActivityNotification) => {
-    if (!notif.is_read) {
-      setItems((prev) =>
-        prev.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
-      );
-      void markActivityNotificationRead(session, notif);
-    }
-    setOpen(false);
-    if (notif.target_url && onNavigateTarget) {
-      onNavigateTarget(notif.target_url);
+  const handleDeleteOne = useCallback(
+    async (notif: ActivityNotification) => {
+      setDeletingIds((prev) => ({ ...prev, [notif.id]: true }));
+      setItems((prev) => prev.filter((item) => item.id !== notif.id));
+      try {
+        await deleteNotification(session, notif);
+      } finally {
+        setDeletingIds((prev) => {
+          const next = { ...prev };
+          delete next[notif.id];
+          return next;
+        });
+      }
+    },
+    [session]
+  );
+
+  const handleDeleteAll = async () => {
+    if (deletingAll || items.length === 0) return;
+    setDeletingAll(true);
+    const snapshot = [...items];
+    setItems([]);
+    try {
+      await deleteAllNotifications(session, snapshot);
+    } finally {
+      setDeletingAll(false);
     }
   };
+
+  const handleItemClick = useCallback(
+    (notif: ActivityNotification) => {
+      if (!notif.is_read) {
+        setItems((prev) =>
+          prev.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
+        );
+        void markActivityNotificationRead(session, notif);
+      }
+      setOpen(false);
+      if (notif.target_url && onNavigateTarget) {
+        onNavigateTarget(notif.target_url);
+      }
+    },
+    [onNavigateTarget, session]
+  );
 
   const buttonTheme =
     variant === 'dark'
@@ -379,8 +760,8 @@ export function NotificationBell({
             className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[60] sm:w-[400px] max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[75dvh] animate-dropdown-pop"
           >
             {/* Header Panel Notifikasi */}
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80 shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80 shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-sm font-bold text-[#0F172A] truncate">Notifikasi</span>
                 {unreadCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-mono font-bold tabular-nums shrink-0">
@@ -389,20 +770,40 @@ export function NotificationBell({
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   disabled={markingAll || unreadCount === 0}
+                  aria-busy={markingAll}
                   onClick={() => void handleMarkAllRead()}
-                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Tandai semua sudah dibaca"
+                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 inline-flex items-center gap-1 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                 >
                   {markingAll ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <LoadingSpinner size="xs" tone="theme" />
                   ) : (
-                    <CheckCheck className="w-3.5 h-3.5" />
+                    <CheckCheck className="w-3.5 h-3.5 shrink-0" />
                   )}
-                  <span>Tandai semua sudah dibaca</span>
+                  <span className="hidden sm:inline">Tandai dibaca</span>
+                  <span className="sm:hidden">Dibaca</span>
                 </button>
+
+                <button
+                  type="button"
+                  disabled={deletingAll || items.length === 0}
+                  aria-busy={deletingAll}
+                  onClick={() => void handleDeleteAll()}
+                  title="Hapus semua notifikasi"
+                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 inline-flex items-center gap-1 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                >
+                  {deletingAll ? (
+                    <LoadingSpinner size="xs" tone="danger" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>{deletingAll ? 'Menghapus...' : 'Hapus semua'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -456,7 +857,10 @@ export function NotificationBell({
             </div>
 
             {/* Daftar Aktivitas */}
-            <div key={filter} className="flex-1 overflow-y-auto divide-y divide-slate-100 animate-page-enter">
+            <div
+              key={filter}
+              className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-slate-100 animate-page-enter"
+            >
               {loading ? (
                 <div className="py-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
                   <LoadingSpinner size="md" tone="theme" label="Memuat aktivitas terbaru" />
@@ -476,69 +880,23 @@ export function NotificationBell({
                   </p>
                 </div>
               ) : (
-                filteredItems.map((notif) => {
-                  const visual = getCategoryVisual(notif.category);
-                  const Icon = visual.icon;
-                  return (
-                    <button
-                      key={notif.id}
-                      type="button"
-                      onClick={() => void handleItemClick(notif)}
-                      className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors cursor-pointer ${
-                        notif.is_read
-                          ? 'bg-white hover:bg-slate-50'
-                          : 'bg-emerald-50/45 hover:bg-emerald-50/80'
-                      }`}
-                    >
-                      <div className="relative shrink-0 mt-0.5">
-                        <div
-                          className={`w-9 h-9 rounded-xl border flex items-center justify-center ${visual.bg}`}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        {notif.actor_name && (
-                          <div className="absolute -bottom-1 -right-1">
-                            <UserAvatar
-                              name={notif.actor_name}
-                              src={notif.actor_avatar_url}
-                              size="xs"
-                              className="w-4 h-4 text-[8px] ring-2 ring-white"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p
-                            className={`text-xs leading-snug ${
-                              notif.is_read
-                                ? 'font-semibold text-slate-800'
-                                : 'font-bold text-[#0F172A]'
-                            }`}
-                          >
-                            {notif.title}
-                          </p>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
-                              {formatRelativeTimeId(notif.created_at)}
-                            </span>
-                            {!notif.is_read && (
-                              <span
-                                aria-label="Belum dibaca"
-                                className="w-2 h-2 rounded-full bg-[#059669] shrink-0"
-                              />
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5 line-clamp-2">
-                          {notif.message}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })
+                filteredItems.map((notif) => (
+                  <SwipeableNotificationItem
+                    key={notif.id}
+                    notif={notif}
+                    deleting={Boolean(deletingIds[notif.id])}
+                    onSelect={handleItemClick}
+                    onDelete={(target) => void handleDeleteOne(target)}
+                  />
+                ))
               )}
+            </div>
+
+            {/* Petunjuk Swipe-to-Delete di Bagian Bawah Daftar */}
+            <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/80 text-center shrink-0">
+              <p className="text-[11px] font-medium text-slate-500">
+                ← Geser pesan ke kiri atau kanan untuk menghapus →
+              </p>
             </div>
           </section>
         </>

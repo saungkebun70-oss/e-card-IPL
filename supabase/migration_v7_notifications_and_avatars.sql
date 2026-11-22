@@ -196,7 +196,7 @@ end;
 $$;
 
 grant execute on function public.current_notification_user_ids() to anon, authenticated;
-grant select, insert, update on public.notifications to anon, authenticated;
+grant select, insert, update, delete on public.notifications to anon, authenticated;
 
 alter table public.notifications enable row level security;
 alter table public.notifications replica identity full;
@@ -220,6 +220,13 @@ create policy "notifications_update_own_read" on public.notifications
     and lower(trim(user_id)) not like 'broadcast:%'
   )
   with check (
+    lower(trim(user_id)) = any(public.current_notification_user_ids())
+    and lower(trim(user_id)) not like 'broadcast:%'
+  );
+
+drop policy if exists "notifications_delete_own_isolated" on public.notifications;
+create policy "notifications_delete_own_isolated" on public.notifications
+  for delete using (
     lower(trim(user_id)) = any(public.current_notification_user_ids())
     and lower(trim(user_id)) not like 'broadcast:%'
   );

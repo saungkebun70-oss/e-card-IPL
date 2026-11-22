@@ -9,6 +9,7 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const LOCAL_NOTIF_KEY = 'ecard_activity_notifications_v1';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
+const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
 const NOTIF_EVENT = 'ecard-activity-notifications-changed';
 const MAX_LOCAL_NOTIFICATIONS = 250;
 
@@ -191,6 +192,31 @@ function addBroadcastReadIds(session: SessionUser, ids: string[]): void {
   }
 }
 
+function getDismissedNotificationSet(session: SessionUser): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const key = `${LOCAL_DISMISSED_NOTIF_PREFIX}${getCanonicalUserId(session)}`;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function addDismissedNotificationIds(session: SessionUser, ids: string[]): void {
+  try {
+    if (typeof window === 'undefined' || ids.length === 0) return;
+    const key = `${LOCAL_DISMISSED_NOTIF_PREFIX}${getCanonicalUserId(session)}`;
+    const existing = getDismissedNotificationSet(session);
+    ids.forEach((id) => existing.add(id));
+    window.localStorage.setItem(key, JSON.stringify(Array.from(existing).slice(-600)));
+  } catch {
+    // Abaikan
+  }
+}
+
 function emitNotificationsChanged(inserted?: ActivityNotification[]): void {
   try {
     if (typeof window !== 'undefined') {
@@ -260,8 +286,9 @@ export async function fetchActivityNotifications(
 ): Promise<ActivityNotification[]> {
   const allowedIds = new Set(getUserNotificationMatchIds(session));
   const broadcastReadSet = getBroadcastReadSet(session);
+  const dismissedSet = getDismissedNotificationSet(session);
   const localFiltered = readLocalNotifications()
-    .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)))
+    .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)) && !dismissedSet.has(n.id))
     .map((n) => ({
       ...n,
       is_read: n.user_id.toLowerCase().startsWith('broadcast:')
@@ -295,7 +322,7 @@ export async function fetchActivityNotifications(
 
     const remoteRows = data
       .map((row) => normalizeNotificationRow(row as Record<string, unknown>, broadcastReadSet))
-      .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)));
+      .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)) && !dismissedSet.has(n.id));
 
     // Gabungkan fallback lokal yang belum ada di server (mis. jika tabel baru saja dibuat)
     const remoteIds = new Set(remoteRows.map((r) => r.id));
@@ -464,6 +491,77 @@ export async function markAllActivityNotificationsRead(
       await supabase.from('notifications').update({ is_read: true }).in('id', remoteDirectIds);
     } catch {
       // Abaikan jika offline
+    }
+  }
+
+  emitNotificationsChanged();
+}
+
+/**
+ * Menghapus 1 notifikasi (mendukung Swipe-to-Delete & tombol Trash).
+ * Notifikasi personal dihapus langsung dari Supabase + cache lokal;
+ * notifikasi broadcast disembunyikan permanen khusus untuk akun aktif agar tidak menghapus milik warga lain.
+ */
+export async function deleteNotification(
+  session: SessionUser,
+  notifOrId: ActivityNotification | string
+): Promise<void> {
+  const id = typeof notifOrId === 'string' ? notifOrId : notifOrId?.id;
+  if (!id) return;
+
+  const isBroadcast =
+    typeof notifOrId !== 'string' && notifOrId.user_id.toLowerCase().startsWith('broadcast:');
+
+  // Catat di daftar dismissed per akun agar langsung hilang secara persisten (offline/broadcast/fallback)
+  addDismissedNotificationIds(session, [id]);
+
+  // Hapus dari cache lokal jika ada
+  const local = readLocalNotifications();
+  if (local.some((item) => item.id === id)) {
+    writeLocalNotifications(local.filter((item) => item.id !== id));
+  }
+
+  // Hapus baris personal di Supabase
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !isBroadcast && !id.startsWith('notif-')) {
+    try {
+      await supabase.from('notifications').delete().eq('id', id);
+    } catch {
+      // Tetap aman karena sudah masuk daftar dismissed lokal
+    }
+  }
+
+  emitNotificationsChanged();
+}
+
+/**
+ * Menghapus seluruh notifikasi yang tampil untuk sesi aktif sekaligus.
+ */
+export async function deleteAllNotifications(
+  session: SessionUser,
+  currentList: ActivityNotification[]
+): Promise<void> {
+  if (!currentList || currentList.length === 0) return;
+
+  const allIds = currentList.map((n) => n.id);
+  addDismissedNotificationIds(session, allIds);
+
+  const allIdSet = new Set(allIds);
+  const local = readLocalNotifications();
+  if (local.some((item) => allIdSet.has(item.id))) {
+    writeLocalNotifications(local.filter((item) => !allIdSet.has(item.id)));
+  }
+
+  const remoteDirectIds = currentList
+    .filter((n) => !n.user_id.toLowerCase().startsWith('broadcast:') && !n.id.startsWith('notif-'))
+    .map((n) => n.id);
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && remoteDirectIds.length > 0) {
+    try {
+      await supabase.from('notifications').delete().in('id', remoteDirectIds);
+    } catch {
+      // Tetap aman karena sudah masuk daftar dismissed lokal
     }
   }
 
