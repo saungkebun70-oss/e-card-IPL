@@ -1,11 +1,29 @@
 -- ============================================================================
 -- MIGRASI v7: NOTIFIKASI REAL-TIME SEMUA AKTIVITAS & FOTO PROFIL SEMUA AKUN
--- Jalankan skrip ini di SQL Editor Supabase untuk mengaktifkan:
+-- Perumahan Saung Kebun — Idempotent & aman dijalankan ulang di Supabase SQL Editor
+-- Mengaktifkan:
+--   0. Extension pgcrypto & helper public.req_header(text)
 --   1. Kolom avatar_url pada users_warga (Warga & Pengurus) dan petugas_keamanan
---   2. Storage bucket publik 'avatars' untuk foto profil
+--   2. Storage bucket publik 'avatars' untuk foto profil (maks 2 MB, JPG/PNG/WebP)
 --   3. RPC aman update_account_avatar untuk semua role (Warga, Pengurus, Keamanan)
 --   4. Tabel public.notifications + RLS ketat + publikasi Supabase Realtime
 -- ============================================================================
+
+create extension if not exists pgcrypto;
+
+-- 0. Pastikan helper pembaca custom header sesi tersedia
+create or replace function public.req_header(header_name text)
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.headers', true), '')::json->>lower(header_name),
+    ''
+  );
+$$;
+
+grant execute on function public.req_header(text) to anon, authenticated;
 
 -- 1. Kolom avatar_url pada tabel akun (nullable)
 alter table public.users_warga
@@ -58,6 +76,7 @@ create or replace function public.update_account_avatar(
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_req_role text := lower(trim(public.req_header('x-user-role')));
@@ -176,7 +195,11 @@ begin
 end;
 $$;
 
+grant execute on function public.current_notification_user_ids() to anon, authenticated;
+grant select, insert, update on public.notifications to anon, authenticated;
+
 alter table public.notifications enable row level security;
+alter table public.notifications replica identity full;
 
 drop policy if exists "notifications_select_own_isolated" on public.notifications;
 create policy "notifications_select_own_isolated" on public.notifications
