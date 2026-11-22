@@ -14,7 +14,7 @@ const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
 const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
-export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saungkebun_high_alerts';
+export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
 
 const DEFAULT_PREFS: NotificationPreferences = {
   soundEnabled: true,
@@ -26,6 +26,7 @@ const alertedIds = new Set<string>();
 let sharedAudioContext: AudioContext | null = null;
 let audioUnlockInstalled = false;
 let androidChannelInitialized = false;
+let nativeLaunchInitPromise: Promise<OsNotificationPermissionState> | null = null;
 
 function isNativeApp(): boolean {
   try {
@@ -264,6 +265,62 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
   }
 }
 
+/**
+ * Dipanggil otomatis saat aplikasi APK Android (Capacitor) pertama kali dibuka:
+ * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif)
+ * serta meminta izin notifikasi sistem (POST_NOTIFICATIONS Android 13+) jika belum diizinkan.
+ * Tidak meminta izin otomatis di Web Browser agar tidak melanggar kebijakan browser.
+ */
+export function initNativeNotificationsOnLaunch(): Promise<OsNotificationPermissionState> {
+  if (!isNativeApp()) {
+    return checkOsNotificationPermission();
+  }
+  if (nativeLaunchInitPromise) {
+    return nativeLaunchInitPromise;
+  }
+
+  nativeLaunchInitPromise = (async () => {
+    try {
+      await ensureAndroidNotificationChannel();
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const current = await LocalNotifications.checkPermissions();
+      if (current.display === 'granted') {
+        return 'granted';
+      }
+      const requested = await LocalNotifications.requestPermissions();
+      if (requested.display === 'granted') return 'granted';
+      if (requested.display === 'denied') return 'denied';
+      return 'prompt';
+    } catch {
+      return 'unsupported';
+    }
+  })();
+
+  return nativeLaunchInitPromise;
+}
+
+/**
+ * Menyinkronkan titik/angka badge ikon aplikasi (Web/PWA App Badging API bila didukung).
+ * Pada APK Android, Android Launcher otomatis memunculkan badge dot ikon aplikasi
+ * ketika notifikasi aktif pada channel dengan importance: 5 (`saung_kebun_alerts`).
+ */
+export async function syncAppIconBadge(unreadCount: number): Promise<void> {
+  try {
+    if (typeof navigator === 'undefined') return;
+    const navWithBadge = navigator as Navigator & {
+      setAppBadge?: (contents?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (unreadCount > 0 && typeof navWithBadge.setAppBadge === 'function') {
+      await navWithBadge.setAppBadge(unreadCount);
+    } else if (unreadCount <= 0 && typeof navWithBadge.clearAppBadge === 'function') {
+      await navWithBadge.clearAppBadge();
+    }
+  } catch {
+    // Abaikan jika browser/OS tidak mendukung App Badging API
+  }
+}
+
 export async function checkOsNotificationPermission(): Promise<OsNotificationPermissionState> {
   if (isNativeApp()) {
     try {
@@ -347,7 +404,10 @@ export async function showOsNotification(payload: {
     try {
       await ensureAndroidNotificationChannel();
       const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const perm = await LocalNotifications.checkPermissions();
+      let perm = await LocalNotifications.checkPermissions();
+      if (perm.display === 'prompt') {
+        perm = await LocalNotifications.requestPermissions();
+      }
       if (perm.display !== 'granted') return false;
 
       const numericId = hashToSafeNotificationId(tag);
@@ -359,7 +419,8 @@ export async function showOsNotification(payload: {
             body,
             channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
             sound: payload.soundEnabled === false ? undefined : 'default',
-            schedule: { at: new Date(Date.now() + 120) },
+            iconColor: '#059669',
+            schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
             extra: {
               target_url: targetUrl,
             },

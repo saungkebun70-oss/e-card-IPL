@@ -22,6 +22,8 @@ const REQUIRED_PERMISSIONS = [
   'android.permission.USE_FINGERPRINT',
   'android.permission.POST_NOTIFICATIONS',
   'android.permission.VIBRATE',
+  'android.permission.WAKE_LOCK',
+  'android.permission.RECEIVE_BOOT_COMPLETED',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
 ];

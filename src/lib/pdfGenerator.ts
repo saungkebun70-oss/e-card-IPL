@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -22,6 +23,136 @@ import type {
 const PAGE_MARGIN = 15; // 15mm presisi A4
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2; // 180mm
+
+export type PdfExportMode = 'download' | 'print';
+
+export interface PdfExportOptions {
+  mode?: PdfExportMode;
+}
+
+export interface PdfExportResult {
+  method: 'native_share' | 'web_download';
+  fileName: string;
+  cancelled?: boolean;
+  savedDirectory?: 'cache' | 'documents';
+}
+
+export function isNativeCapacitorPlatform(): boolean {
+  try {
+    return Boolean(
+      Capacitor &&
+        typeof Capacitor.isNativePlatform === 'function' &&
+        Capacitor.isNativePlatform()
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sanitizePdfFileName(rawName: string): string {
+  const cleaned = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_');
+  return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : `${cleaned}.pdf`;
+}
+
+function isShareCancelledError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'string'
+        ? err
+        : String(err ?? '');
+  return /cancel|dismiss|abort/i.test(msg);
+}
+
+/**
+ * Menyimpan/membagikan dokumen PDF A4 secara lintas platform:
+ * - APK Android/iOS (Capacitor): tulis base64 ke Filesystem (Cache -> fallback Documents),
+ *   lalu buka native Share sheet Android agar bisa disimpan, dibuka di PDF Viewer, dicetak (Print), atau dikirim via WA.
+ * - Browser Web (Vercel/Chrome/Safari): langsung trigger unduh file `.pdf` seperti biasa.
+ */
+async function exportPdfDocument(
+  doc: jsPDF,
+  rawFileName: string,
+  meta: {
+    title: string;
+    text?: string;
+    dialogTitle?: string;
+    mode?: PdfExportMode;
+  }
+): Promise<PdfExportResult> {
+  const fileName = sanitizePdfFileName(rawFileName);
+
+  if (isNativeCapacitorPlatform()) {
+    const dataUri = doc.output('datauristring');
+    const commaIdx = dataUri.indexOf(',');
+    const base64Data = commaIdx >= 0 ? dataUri.slice(commaIdx + 1) : dataUri;
+
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'),
+      import('@capacitor/share'),
+    ]);
+
+    let fileUri = '';
+    let savedDirectory: 'cache' | 'documents' = 'cache';
+
+    try {
+      const writeRes = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+      fileUri =
+        writeRes.uri ||
+        (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri;
+    } catch {
+      savedDirectory = 'documents';
+      const writeRes = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      fileUri =
+        writeRes.uri ||
+        (await Filesystem.getUri({ path: fileName, directory: Directory.Documents })).uri;
+    }
+
+    try {
+      await Share.share({
+        title: meta.title,
+        text: meta.text || meta.title,
+        url: fileUri,
+        dialogTitle:
+          meta.dialogTitle ||
+          (meta.mode === 'print'
+            ? 'Cetak atau Bagikan PDF A4'
+            : 'Simpan atau Bagikan PDF A4'),
+      });
+      return {
+        method: 'native_share',
+        fileName,
+        savedDirectory,
+      };
+    } catch (err) {
+      if (isShareCancelledError(err)) {
+        return {
+          method: 'native_share',
+          fileName,
+          savedDirectory,
+          cancelled: true,
+        };
+      }
+      throw err;
+    }
+  }
+
+  doc.save(fileName);
+  return {
+    method: 'web_download',
+    fileName,
+  };
+}
 
 async function loadImageAsDataUrl(src?: string | null): Promise<string | null> {
   if (!src) return null;
@@ -401,7 +532,11 @@ function addPageNumbers(doc: jsPDF) {
 /**
  * Unduh Kwitansi Resmi Pembayaran IPL Warga (A4 Portrait Presisi + Stempel Digital).
  */
-export async function downloadKwitansiIplPdf(trx: TransaksiIPL, brand: AppBrandConfig) {
+export async function downloadKwitansiIplPdf(
+  trx: TransaksiIPL,
+  brand: AppBrandConfig,
+  options?: PdfExportOptions
+): Promise<PdfExportResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let y = await drawOfficialKop(
     doc,
@@ -465,13 +600,26 @@ export async function downloadKwitansiIplPdf(trx: TransaksiIPL, brand: AppBrandC
 
   addPageNumbers(doc);
   const safeName = trx.no_kwitansi.replace(/[^a-zA-Z0-9_-]/g, '_');
-  doc.save(`Kwitansi_IPL_${safeName}.pdf`);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(doc, `Kwitansi_IPL_${safeName}.pdf`, {
+    title: `Kwitansi IPL ${trx.blok_rumah} (${trx.no_kwitansi})`,
+    text: `Kwitansi Resmi IPL ${trx.nama_warga} Blok ${trx.blok_rumah} — ${formatRupiah(trx.nominal)}`,
+    dialogTitle:
+      mode === 'print'
+        ? 'Cetak atau Bagikan Kwitansi IPL PDF'
+        : 'Simpan atau Bagikan Kwitansi IPL PDF',
+    mode,
+  });
 }
 
 /**
  * Unduh Kwitansi Resmi Bukti Kas Keluar / Kas Masuk (A4 Portrait Presisi + Stempel Digital).
  */
-export async function downloadKwitansiKasPdf(trxKas: TransaksiKas, brand: AppBrandConfig) {
+export async function downloadKwitansiKasPdf(
+  trxKas: TransaksiKas,
+  brand: AppBrandConfig,
+  options?: PdfExportOptions
+): Promise<PdfExportResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const isPengeluaran = trxKas.jenis === 'pengeluaran';
 
@@ -536,7 +684,16 @@ export async function downloadKwitansiKasPdf(trxKas: TransaksiKas, brand: AppBra
 
   addPageNumbers(doc);
   const safeName = trxKas.no_bukti.replace(/[^a-zA-Z0-9_-]/g, '_');
-  doc.save(`Kwitansi_Kas_${safeName}.pdf`);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(doc, `Kwitansi_Kas_${safeName}.pdf`, {
+    title: `Kwitansi Kas ${trxKas.no_bukti}`,
+    text: `${isPengeluaran ? 'Bukti Kas Keluar' : 'Bukti Kas Masuk'} ${trxKas.kategori} — ${formatRupiah(trxKas.nominal)}`,
+    dialogTitle:
+      mode === 'print'
+        ? 'Cetak atau Bagikan Kwitansi Kas PDF'
+        : 'Simpan atau Bagikan Kwitansi Kas PDF',
+    mode,
+  });
 }
 
 /**
@@ -544,8 +701,9 @@ export async function downloadKwitansiKasPdf(trxKas: TransaksiKas, brand: AppBra
  */
 export async function downloadRekapBulananPdf(
   report: MonthlyCashReport,
-  brand: AppBrandConfig
-) {
+  brand: AppBrandConfig,
+  options?: PdfExportOptions
+): Promise<PdfExportResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let y = await drawOfficialKop(
     doc,
@@ -663,7 +821,20 @@ export async function downloadRekapBulananPdf(
   });
 
   addPageNumbers(doc);
-  doc.save(`Rekap_Keuangan_${getNamaBulan(report.bulan)}_${report.tahun}.pdf`);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(
+    doc,
+    `Rekap_Keuangan_${getNamaBulan(report.bulan)}_${report.tahun}.pdf`,
+    {
+      title: `Rekapitulasi Keuangan ${report.namaBulan} ${report.tahun} — Saung Kebun`,
+      text: `Buku Kas Umum Perumahan Saung Kebun periode ${report.namaBulan} ${report.tahun}`,
+      dialogTitle:
+        mode === 'print'
+          ? 'Cetak atau Bagikan Rekap PDF A4'
+          : 'Simpan atau Bagikan Rekap PDF A4',
+      mode,
+    }
+  );
 }
 
 /**
@@ -672,8 +843,9 @@ export async function downloadRekapBulananPdf(
  */
 export async function downloadLpjTriwulanPdf(
   lpj: QuarterlyLpjReport,
-  brand: AppBrandConfig
-) {
+  brand: AppBrandConfig,
+  options?: PdfExportOptions
+): Promise<PdfExportResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let y = await drawOfficialKop(
     doc,
@@ -808,7 +980,20 @@ export async function downloadLpjTriwulanPdf(
   });
 
   addPageNumbers(doc);
-  doc.save(`LPJ_${lpj.labelTriwulan.replace(/\s+/g, '_')}_${lpj.tahun}_Saung_Kebun.pdf`);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(
+    doc,
+    `LPJ_${lpj.labelTriwulan.replace(/\s+/g, '_')}_${lpj.tahun}_Saung_Kebun.pdf`,
+    {
+      title: `LPJ Keuangan ${lpj.labelTriwulan} ${lpj.tahun} — Perumahan Saung Kebun`,
+      text: `Laporan Pertanggungjawaban (LPJ) ${lpj.labelTriwulan} ${lpj.tahun} (${lpj.rentangBulan}) Perumahan Saung Kebun`,
+      dialogTitle:
+        mode === 'print'
+          ? 'Cetak atau Bagikan LPJ PDF A4'
+          : 'Simpan atau Bagikan LPJ PDF',
+      mode,
+    }
+  );
 }
 
 /**
@@ -818,8 +1003,9 @@ export async function downloadLpjTriwulanPdf(
  */
 export async function downloadChairmanMonthlySummaryPdf(
   report: ChairmanMonthlySummaryReport,
-  brand: AppBrandConfig
-) {
+  brand: AppBrandConfig,
+  options?: PdfExportOptions
+): Promise<PdfExportResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const mc = report.monthlyCash;
 
@@ -1150,5 +1336,18 @@ export async function downloadChairmanMonthlySummaryPdf(
   });
 
   addPageNumbers(doc);
-  doc.save(`Laporan_Ringkasan_Ketua_${report.namaBulan}_${report.tahun}_Saung_Kebun.pdf`);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(
+    doc,
+    `Laporan_Ringkasan_Ketua_${report.namaBulan}_${report.tahun}_Saung_Kebun.pdf`,
+    {
+      title: `Laporan Ringkasan Ketua ${report.namaBulan} ${report.tahun} — Saung Kebun`,
+      text: `Laporan Eksekutif Bulanan Ketua Lingkungan periode ${report.namaBulan} ${report.tahun}`,
+      dialogTitle:
+        mode === 'print'
+          ? 'Cetak atau Bagikan Laporan Ketua PDF'
+          : 'Simpan atau Bagikan Laporan Ketua PDF',
+      mode,
+    }
+  );
 }

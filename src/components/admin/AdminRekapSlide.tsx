@@ -11,7 +11,6 @@ import {
   Printer,
   FileText,
   TableProperties,
-  Loader2,
   BookOpen,
   FileBarChart2,
 } from 'lucide-react';
@@ -46,7 +45,10 @@ import { submitManualCashAdmin } from '../../lib/dataService';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { recordAuditLog } from '../../lib/auditLogger';
 import { buildMonthlyCashReport } from '../../lib/financeUtils';
-import { downloadRekapBulananPdf } from '../../lib/pdfGenerator';
+import {
+  downloadRekapBulananPdf,
+  isNativeCapacitorPlatform,
+} from '../../lib/pdfGenerator';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
@@ -97,6 +99,7 @@ export function AdminRekapSlide({
   const [selectedBulan, setSelectedBulan] = useState<number>(currentMonth);
   const [selectedTahun, setSelectedTahun] = useState<number>(TAHUN_AKTIF);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [printingPdf, setPrintingPdf] = useState(false);
 
   // Filter Matriks 12 Bulan
   const [blokFilter, setBlokFilter] = useState<string>('Semua');
@@ -225,14 +228,23 @@ export function AdminRekapSlide({
   };
 
   const handleDownloadMonthlyPdf = async () => {
-    if (downloadingPdf) return;
+    if (downloadingPdf || printingPdf) return;
     setDownloadingPdf(true);
     try {
-      await downloadRekapBulananPdf(monthlyReport, brand);
-      onToast(
-        'success',
-        `PDF Rekapitulasi Kas ${monthlyReport.namaBulan} ${monthlyReport.tahun} (A4) berhasil diunduh.`
-      );
+      const result = await downloadRekapBulananPdf(monthlyReport, brand, { mode: 'download' });
+      if (result.method === 'native_share') {
+        if (!result.cancelled) {
+          onToast(
+            'success',
+            `PDF Rekapitulasi Kas ${monthlyReport.namaBulan} ${monthlyReport.tahun} siap disimpan atau dibagikan via menu Android.`
+          );
+        }
+      } else {
+        onToast(
+          'success',
+          `PDF Rekapitulasi Kas ${monthlyReport.namaBulan} ${monthlyReport.tahun} (A4) berhasil diunduh.`
+        );
+      }
     } catch {
       onToast('error', 'Gagal membuat file PDF Rekapitulasi Bulanan.');
     } finally {
@@ -240,8 +252,26 @@ export function AdminRekapSlide({
     }
   };
 
-  const handlePrintReport = () => {
-    window.print();
+  const handlePrintReport = async () => {
+    if (!isNativeCapacitorPlatform()) {
+      window.print();
+      return;
+    }
+    if (downloadingPdf || printingPdf) return;
+    setPrintingPdf(true);
+    try {
+      const result = await downloadRekapBulananPdf(monthlyReport, brand, { mode: 'print' });
+      if (!result.cancelled) {
+        onToast(
+          'info',
+          `Pilih "Cetak / Print" dari menu Android untuk mencetak Rekap Kas ${monthlyReport.namaBulan} ${monthlyReport.tahun}.`
+        );
+      }
+    } catch {
+      onToast('error', 'Gagal menyiapkan PDF Rekapitulasi Bulanan untuk cetak di Android.');
+    } finally {
+      setPrintingPdf(false);
+    }
   };
 
   const handleExportExcel = () => {
@@ -382,21 +412,26 @@ export function AdminRekapSlide({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={handlePrintReport}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                disabled={printingPdf || downloadingPdf}
+                onClick={() => void handlePrintReport()}
+                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
               >
-                <Printer className="w-4 h-4 text-slate-600" />
-                <span>Cetak A4</span>
+                {printingPdf ? (
+                  <LoadingSpinner size="xs" tone="current" />
+                ) : (
+                  <Printer className="w-4 h-4 text-slate-600" />
+                )}
+                <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
               </button>
 
               <button
                 type="button"
-                disabled={downloadingPdf}
+                disabled={downloadingPdf || printingPdf}
                 onClick={() => void handleDownloadMonthlyPdf()}
-                className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
               >
                 {downloadingPdf ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <LoadingSpinner size="xs" tone="white" />
                 ) : (
                   <FileText className="w-4 h-4 text-emerald-400" />
                 )}

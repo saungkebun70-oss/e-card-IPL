@@ -38,10 +38,12 @@ import {
 import {
   checkOsNotificationPermission,
   ensureAndroidNotificationChannel,
+  initNativeNotificationsOnLaunch,
   initNotificationAudioUnlock,
   registerOsNotificationTapListener,
   requestOsNotificationPermission,
   subscribeBellShakeEvent,
+  syncAppIconBadge,
   triggerIncomingNotificationAlert,
   useNotificationPreferences,
   type OsNotificationPermissionState,
@@ -490,7 +492,7 @@ export function NotificationBell({
 
     let mounted = true;
     const initPerm = async () => {
-      const perm = await checkOsNotificationPermission();
+      const perm = await initNativeNotificationsOnLaunch();
       if (!mounted) return;
       setOsPermission(perm);
       if (perm === 'prompt' && !prefs.permissionPromptDismissed) {
@@ -569,6 +571,10 @@ export function NotificationBell({
   }, [open]);
 
   const unreadCount = useMemo(() => items.filter((n) => !n.is_read).length, [items]);
+
+  useEffect(() => {
+    void syncAppIconBadge(unreadCount);
+  }, [unreadCount]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return items;

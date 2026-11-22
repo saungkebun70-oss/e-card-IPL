@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   CheckCircle2,
   Download,
-  Loader2,
   Printer,
   X,
 } from 'lucide-react';
@@ -14,10 +13,15 @@ import {
   formatTanggal,
   terbilangRupiah,
 } from '../lib/format';
-import { downloadKwitansiIplPdf, downloadKwitansiKasPdf } from '../lib/pdfGenerator';
+import {
+  downloadKwitansiIplPdf,
+  downloadKwitansiKasPdf,
+  isNativeCapacitorPlatform,
+} from '../lib/pdfGenerator';
 import { BrandLogo } from './BrandLogo';
 import { OfficialStamp } from './OfficialStamp';
 import { RoleApprovalStamp } from './RoleApprovalStamp';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type KwitansiDigitalModalProps =
   | {
@@ -45,6 +49,7 @@ function getCompactKopAlamat(kopResmi?: string): string {
 export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
   const { brand } = useAppBrand();
   const [downloading, setDownloading] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const isIpl = props.mode === 'ipl';
   const isPengeluaran = props.mode === 'kas' && props.trxKas.jenis === 'pengeluaran';
@@ -67,15 +72,34 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
   const kopAlamat = getCompactKopAlamat(brand.kop_resmi);
 
   const handleDownloadPdf = async () => {
+    if (downloading || printing) return;
     setDownloading(true);
     try {
       if (props.mode === 'ipl') {
-        await downloadKwitansiIplPdf(props.trx, brand);
+        await downloadKwitansiIplPdf(props.trx, brand, { mode: 'download' });
       } else {
-        await downloadKwitansiKasPdf(props.trxKas, brand);
+        await downloadKwitansiKasPdf(props.trxKas, brand, { mode: 'download' });
       }
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handlePrintA4 = async () => {
+    if (!isNativeCapacitorPlatform()) {
+      window.print();
+      return;
+    }
+    if (downloading || printing) return;
+    setPrinting(true);
+    try {
+      if (props.mode === 'ipl') {
+        await downloadKwitansiIplPdf(props.trx, brand, { mode: 'print' });
+      } else {
+        await downloadKwitansiKasPdf(props.trxKas, brand, { mode: 'print' });
+      }
+    } finally {
+      setPrinting(false);
     }
   };
 
@@ -358,20 +382,25 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
           <div className="grid grid-cols-2 sm:flex items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
-              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              disabled={printing || downloading}
+              onClick={() => void handlePrintA4()}
+              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
-              <Printer className="w-4 h-4 shrink-0" />
-              <span>Cetak A4</span>
+              {printing ? (
+                <LoadingSpinner size="xs" tone="current" />
+              ) : (
+                <Printer className="w-4 h-4 shrink-0" />
+              )}
+              <span>{printing ? 'Menyiapkan...' : 'Cetak A4'}</span>
             </button>
             <button
               type="button"
-              disabled={downloading}
+              disabled={downloading || printing}
               onClick={() => void handleDownloadPdf()}
-              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
               {downloading ? (
-                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                <LoadingSpinner size="xs" tone="white" />
               ) : (
                 <Download className="w-4 h-4 shrink-0" />
               )}

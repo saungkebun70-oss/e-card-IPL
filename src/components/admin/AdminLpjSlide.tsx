@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   Download,
   FileSpreadsheet,
-  Loader2,
   Printer,
   TrendingDown,
   TrendingUp,
@@ -20,9 +19,13 @@ import {
 import { useAppBrand } from '../../lib/brandContext';
 import { buildQuarterlyLpjReport } from '../../lib/financeUtils';
 import { formatRupiah, formatTanggal } from '../../lib/format';
-import { downloadLpjTriwulanPdf } from '../../lib/pdfGenerator';
+import {
+  downloadLpjTriwulanPdf,
+  isNativeCapacitorPlatform,
+} from '../../lib/pdfGenerator';
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
+import { LoadingSpinner } from '../LoadingSpinner';
 
 interface AdminLpjSlideProps {
   wargaList: Warga[];
@@ -55,6 +58,7 @@ export function AdminLpjSlide({
   const [triwulanId, setTriwulanId] = useState<1 | 2 | 3 | 4>(currentQuarter);
   const [tahun, setTahun] = useState<number>(TAHUN_AKTIF);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [printingPdf, setPrintingPdf] = useState(false);
 
   const lpj = useMemo(
     () =>
@@ -72,17 +76,55 @@ export function AdminLpjSlide({
   const kopAlamat = getCompactKopAlamat(brand.kop_resmi);
 
   const handleDownloadPdf = async () => {
+    if (downloadingPdf || printingPdf) return;
     setDownloadingPdf(true);
     try {
-      await downloadLpjTriwulanPdf(lpj, brand);
-      onToast(
-        'success',
-        `LPJ ${lpj.labelTriwulan} ${lpj.tahun} format PDF A4 berhasil diunduh.`
-      );
+      const result = await downloadLpjTriwulanPdf(lpj, brand, { mode: 'download' });
+      if (result.method === 'native_share') {
+        if (!result.cancelled) {
+          onToast(
+            'success',
+            `LPJ ${lpj.labelTriwulan} ${lpj.tahun} (PDF A4) siap disimpan, dibuka di PDF Viewer, atau dikirim melalui menu Android.`
+          );
+        }
+      } else {
+        onToast(
+          'success',
+          `LPJ ${lpj.labelTriwulan} ${lpj.tahun} format PDF A4 berhasil diunduh.`
+        );
+      }
     } catch {
-      onToast('error', 'Gagal membuat file PDF LPJ. Silakan coba Cetak A4.');
+      onToast(
+        'error',
+        'Gagal membuat atau membagikan file PDF LPJ. Pastikan izin penyimpanan aktif lalu coba lagi.'
+      );
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handlePrintA4 = async () => {
+    if (!isNativeCapacitorPlatform()) {
+      window.print();
+      return;
+    }
+    if (downloadingPdf || printingPdf) return;
+    setPrintingPdf(true);
+    try {
+      const result = await downloadLpjTriwulanPdf(lpj, brand, { mode: 'print' });
+      if (!result.cancelled) {
+        onToast(
+          'info',
+          `Pilih "Cetak / Print" atau aplikasi PDF dari menu Android untuk mencetak LPJ ${lpj.labelTriwulan} ${lpj.tahun}.`
+        );
+      }
+    } catch {
+      onToast(
+        'error',
+        'Gagal menyiapkan dokumen LPJ A4 untuk cetak di Android. Silakan coba lagi.'
+      );
+    } finally {
+      setPrintingPdf(false);
     }
   };
 
@@ -133,20 +175,25 @@ export function AdminLpjSlide({
         <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => window.print()}
-            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            disabled={printingPdf || downloadingPdf}
+            onClick={() => void handlePrintA4()}
+            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
           >
-            <Printer className="w-4 h-4 shrink-0" />
-            <span>Cetak A4</span>
+            {printingPdf ? (
+              <LoadingSpinner size="xs" tone="current" />
+            ) : (
+              <Printer className="w-4 h-4 shrink-0" />
+            )}
+            <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
           </button>
           <button
             type="button"
-            disabled={downloadingPdf}
+            disabled={downloadingPdf || printingPdf}
             onClick={() => void handleDownloadPdf()}
-            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
           >
             {downloadingPdf ? (
-              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              <LoadingSpinner size="xs" tone="white" />
             ) : (
               <Download className="w-4 h-4 shrink-0" />
             )}

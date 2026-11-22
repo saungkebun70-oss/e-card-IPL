@@ -58,6 +58,10 @@ import {
 } from './components/admin/AdminSettingsDrawer';
 import { KeamananSlide } from './components/KeamananSlide';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
+import {
+  initNativeNotificationsOnLaunch,
+  initNotificationAudioUnlock,
+} from './lib/notificationAlertService';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -290,6 +294,12 @@ export default function App() {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Inisialisasi audio unlock & Notification Channel + izin notifikasi otomatis saat APK Android dibuka
+  useEffect(() => {
+    initNotificationAudioUnlock();
+    void initNativeNotificationsOnLaunch();
   }, []);
 
   useEffect(() => {

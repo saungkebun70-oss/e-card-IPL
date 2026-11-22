@@ -113,7 +113,7 @@ export function ChairmanMonthlyReportPanel({
     if (generatingPdf) return;
     setGeneratingPdf(true);
     try {
-      await downloadChairmanMonthlySummaryPdf(report, brand);
+      const result = await downloadChairmanMonthlySummaryPdf(report, brand, { mode: 'download' });
       void recordAuditLog({
         session,
         action: 'EXPORT_CHAIRMAN_MONTHLY_PDF',
@@ -130,10 +130,19 @@ export function ChairmanMonthlyReportPanel({
           expense_logs_count: report.expenseLogs.length,
         },
       });
-      onToast(
-        'success',
-        `Laporan Ringkasan Bulanan Ketua (${report.namaBulan} ${report.tahun}) berhasil diunduh sebagai PDF A4.`
-      );
+      if (result.method === 'native_share') {
+        if (!result.cancelled) {
+          onToast(
+            'success',
+            `Laporan Ringkasan Bulanan Ketua (${report.namaBulan} ${report.tahun}) siap disimpan atau dibagikan via menu Android.`
+          );
+        }
+      } else {
+        onToast(
+          'success',
+          `Laporan Ringkasan Bulanan Ketua (${report.namaBulan} ${report.tahun}) berhasil diunduh sebagai PDF A4.`
+        );
+      }
     } catch {
       onToast('error', 'Gagal menyusun PDF Laporan Ringkasan Bulanan Ketua.');
     } finally {
