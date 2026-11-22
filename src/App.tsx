@@ -460,16 +460,44 @@ export default function App() {
     pushToast('info', 'Anda telah keluar dari sesi portal.');
   };
 
+  const navigatePortalRoute = useCallback((nextRoute: PortalRoute) => {
+    const targetPath =
+      nextRoute === 'admin' ? '/admin' : nextRoute === 'petugas' ? '/petugas' : '/';
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+    setPortalRoute(nextRoute);
+    setSession(loadStoredSession(nextRoute));
+    setSettingsOpen(false);
+    lastAdminFingerprintRef.current = null;
+    lastWargaFingerprintRef.current = null;
+    setWargaData(null);
+    setAdminData(null);
+    setDataError(null);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
   if (!session || session.role !== portalRoute) {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         {portalRoute === 'admin' ? (
-          <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
+          <AdminLoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchPortal={navigatePortalRoute}
+          />
         ) : portalRoute === 'petugas' ? (
-          <PetugasLoginPage onLoginSuccess={handleLoginSuccess} />
+          <PetugasLoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchPortal={navigatePortalRoute}
+          />
         ) : (
-          <WargaLoginPage onLoginSuccess={handleLoginSuccess} />
+          <WargaLoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchPortal={navigatePortalRoute}
+          />
         )}
       </>
     );

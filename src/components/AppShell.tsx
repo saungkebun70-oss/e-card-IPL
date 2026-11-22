@@ -251,7 +251,7 @@ export function AppShell({
               className="relative z-10 w-[84vw] max-w-[324px] h-full bg-white/95 backdrop-blur-xl rounded-r-3xl border-r border-slate-200/80 shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Header Sidebar dengan Jarak Aman Atas & Gradasi Halus */}
-              <div className="px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-5 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white shrink-0">
+              <div className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-5 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white shrink-0">
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <BrandLogo size="sm" variant="dark" className="shrink-0" />
@@ -394,7 +394,7 @@ export function AppShell({
       {/* Area Kerja Utama */}
       <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
         {/* Header Kontekstual Bersih — Tanpa Ikon Gerigi, Hamburger Menu di Kiri Atas */}
-        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-safe no-print">
+        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 lg:px-8 pb-2.5 sm:pb-3 pt-safe-header no-print">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5 sm:gap-3">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {isAdmin && (

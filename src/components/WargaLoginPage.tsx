@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Home, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Home,
+  Lock,
+  ArrowRight,
+  AlertCircle,
+  ShieldCheck,
+  Shield,
+} from 'lucide-react';
 import { type SessionUser } from '../types';
 import { loginWargaAccount } from '../lib/dataService';
 import { useAppBrand } from '../lib/brandContext';
@@ -7,9 +16,10 @@ import { BrandLogo } from './BrandLogo';
 
 interface WargaLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
+  onSwitchPortal?: (route: 'warga' | 'admin' | 'petugas') => void;
 }
 
-export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
+export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPageProps) {
   const { brand } = useAppBrand();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
@@ -36,7 +46,7 @@ export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col lg:flex-row">
       {/* Panel Identitas Portal Warga */}
-      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 pt-safe relative overflow-hidden">
+      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-600/15 blur-3xl"
@@ -188,7 +198,53 @@ export function WargaLoginPage({ onLoginSuccess }: WargaLoginPageProps) {
             </button>
           </form>
 
-          <p className="text-xs text-slate-500 text-center mt-5 leading-relaxed">
+          {/* Opsi Akses Khusus Pengurus / Admin & Petugas Keamanan */}
+          {onSwitchPortal && (
+            <div className="mt-5 pt-5 border-t border-slate-200 space-y-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 text-center">
+                Akses Portal Khusus Pengurus &amp; Keamanan
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onSwitchPortal('admin')}
+                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 active:scale-[0.99] text-left flex items-center gap-2.5 transition cursor-pointer shadow-2xs"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-[#0F172A] leading-tight truncate">
+                      Login Pengurus / Admin
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-tight truncate mt-0.5">
+                      Ketua, Bendahara, Humas
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onSwitchPortal('petugas')}
+                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 active:scale-[0.99] text-left flex items-center gap-2.5 transition cursor-pointer shadow-2xs"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-[#0F172A] leading-tight truncate">
+                      Login Petugas Keamanan
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-tight truncate mt-0.5">
+                      Patroli &amp; Scan NFC
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 text-center mt-5 pb-safe leading-relaxed">
             Belum memiliki PIN atau lupa PIN akses? Hubungi Pengurus Lingkungan di Sekretariat Blok{' '}
             <span className="font-mono font-semibold text-slate-700">B3/7</span> atau Bendahara.
           </p>

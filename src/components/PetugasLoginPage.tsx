@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import {
   Eye,
   EyeOff,
+  Home,
   Lock,
   Shield,
+  ShieldCheck,
   ArrowRight,
   AlertCircle,
   UserCheck,
@@ -16,9 +18,10 @@ import { BrandLogo } from './BrandLogo';
 
 interface PetugasLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
+  onSwitchPortal?: (route: 'warga' | 'admin' | 'petugas') => void;
 }
 
-export function PetugasLoginPage({ onLoginSuccess }: PetugasLoginPageProps) {
+export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLoginPageProps) {
   const { brand } = useAppBrand();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
@@ -45,7 +48,7 @@ export function PetugasLoginPage({ onLoginSuccess }: PetugasLoginPageProps) {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col lg:flex-row">
       {/* Panel Identitas Khusus Portal Petugas Keamanan (Terisolasi Penuh) */}
-      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 pt-safe relative overflow-hidden">
+      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-600/20 blur-3xl"
@@ -202,7 +205,28 @@ export function PetugasLoginPage({ onLoginSuccess }: PetugasLoginPageProps) {
             </button>
           </form>
 
-          <p className="text-xs text-slate-500 text-center mt-5 leading-relaxed">
+          {onSwitchPortal && (
+            <div className="mt-5 pt-5 border-t border-slate-200 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onSwitchPortal('warga')}
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Home className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span>Portal Warga</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchPortal('admin')}
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#0F172A] shrink-0" />
+                <span>Pengurus / Admin</span>
+              </button>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 text-center mt-4 pb-safe leading-relaxed">
             Lupa PIN atau belum memiliki akun petugas? Hubungi Ketua atau Bendahara Lingkungan
             Perumahan Saung Kebun.
           </p>

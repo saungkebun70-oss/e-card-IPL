@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import {
   Eye,
   EyeOff,
+  Home,
   Lock,
+  Shield,
   ShieldCheck,
   ArrowRight,
   AlertCircle,
@@ -15,9 +17,10 @@ import { BrandLogo } from './BrandLogo';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
+  onSwitchPortal?: (route: 'warga' | 'admin' | 'petugas') => void;
 }
 
-export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
+export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPageProps) {
   const { brand } = useAppBrand();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
@@ -44,7 +47,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col lg:flex-row">
       {/* Panel Identitas Khusus Admin / Pengurus */}
-      <section className="bg-slate-950 text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 pt-safe relative overflow-hidden">
+      <section className="bg-slate-950 text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-slate-700/25 blur-3xl"
@@ -200,7 +203,28 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
             </button>
           </form>
 
-          <p className="text-xs text-slate-500 text-center mt-5 leading-relaxed">
+          {onSwitchPortal && (
+            <div className="mt-5 pt-5 border-t border-slate-200 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onSwitchPortal('warga')}
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Home className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span>Portal Warga</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchPortal('petugas')}
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Shield className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span>Petugas Keamanan</span>
+              </button>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 text-center mt-4 pb-safe leading-relaxed">
             Akses terbatas khusus Pengurus Lingkungan Perumahan Saung Kebun yang terdaftar.
           </p>
         </div>

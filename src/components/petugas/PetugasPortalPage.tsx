@@ -127,7 +127,7 @@ export function PetugasPortalPage({
   onToast,
 }: PetugasPortalPageProps) {
   const { brand } = useAppBrand();
-  const [activeTab, setActiveTab] = useState<PetugasTab>('info');
+  const [activeTab, setActiveTab] = useState<PetugasTab>('scan');
   const [data, setData] = useState<PetugasOwnData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

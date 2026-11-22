@@ -40,7 +40,17 @@
 }
 
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+}
+
+.pt-safe-header {
+  padding-top: calc(max(env(safe-area-inset-top, 0px), 24px) + 0.625rem);
+}
+
+@media (min-width: 1024px) {
+  .pt-safe-header {
+    padding-top: 0.75rem;
+  }
 }
 
 .pb-safe {
