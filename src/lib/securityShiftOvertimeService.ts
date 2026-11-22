@@ -333,22 +333,41 @@ export async function createShiftOverrideAdmin(
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
-        const { data, error } = await supabase
+        const uuidPetugasId =
+          payload.petugas_id && !payload.petugas_id.startsWith('petugas-')
+            ? payload.petugas_id
+            : null;
+        const baseInsert = {
+          shift_date: shiftDate,
+          officer_name: officerName,
+          shift_name: shiftName,
+          notes: cleanNotes,
+          overtime_amount: overtimeAmount,
+          payment_status: 'unpaid',
+          paid_at: null,
+          cash_transaction_id: null,
+          created_by: session.nama_warga || 'Admin',
+          updated_at: nowIso,
+        };
+
+        let { data, error } = await supabase
           .from('security_shift_overrides')
           .insert({
-            shift_date: shiftDate,
-            officer_name: officerName,
-            shift_name: shiftName,
-            notes: cleanNotes,
-            overtime_amount: overtimeAmount,
-            payment_status: 'unpaid',
-            paid_at: null,
-            cash_transaction_id: null,
-            created_by: session.nama_warga || 'Admin',
-            updated_at: nowIso,
+            ...baseInsert,
+            petugas_id: uuidPetugasId,
           })
           .select(OVERRIDE_COLUMNS)
           .single();
+
+        if (error && String((error as { message?: string }).message || '').toLowerCase().includes('petugas_id')) {
+          const retry = await supabase
+            .from('security_shift_overrides')
+            .insert(baseInsert)
+            .select(OVERRIDE_COLUMNS)
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
 
         if (!error && data) {
           createdRecord = normalizeOverrideRow(data as Record<string, unknown>);
@@ -601,6 +620,71 @@ export async function deleteShiftOverrideWithCashSyncAdmin(
       ? 'Jadwal lembur dihapus & transaksi pengeluaran kas terkait dibatalkan otomatis. Saldo Kas kembali akurat.'
       : 'Jadwal shift/lembur berhasil dihapus.',
     data: true,
+  };
+}
+
+/**
+ * Membatalkan pencairan / pembayaran Lembur Minggu tanpa menghapus jadwal shift-nya.
+ * Otomatis menghapus transaksi pengeluaran terkait di Buku Kas & Tab Honor Petugas
+ * serta mengembalikan status jadwal menjadi 'unpaid' (Belum Dibayar).
+ */
+export async function cancelOvertimePaymentWithCashSyncAdmin(
+  session: SessionUser,
+  override: SecurityShiftOverride
+): Promise<ShiftOverrideResult<SecurityShiftOverride>> {
+  if (session.role !== 'admin') {
+    return { ok: false, message: 'Hanya Admin yang dapat membatalkan pembayaran lembur.' };
+  }
+
+  const wasPaid = override.payment_status === 'paid' || Boolean(override.cash_transaction_id);
+  if (!wasPaid) {
+    return { ok: false, message: 'Jadwal lembur ini memang belum berstatus dibayar.' };
+  }
+
+  // 1. Hapus transaksi pengeluaran terkait di Buku Kas (otomatis menyegarkan Saldo Kas, LPJ & Tab Honor Petugas)
+  await deleteLinkedOvertimeCashExpenseAdmin(
+    session,
+    override.cash_transaction_id,
+    override.id
+  );
+
+  const nowIso = new Date().toISOString();
+  const revertedLocal: SecurityShiftOverride = {
+    ...override,
+    payment_status: 'unpaid',
+    paid_at: null,
+    cash_transaction_id: null,
+    updated_at: nowIso,
+  };
+
+  if (isSupabaseConfigured() && !override.id.startsWith('shift-')) {
+    try {
+      const supabase = getSupabaseClient(session);
+      if (supabase) {
+        await supabase
+          .from('security_shift_overrides')
+          .update({
+            payment_status: 'unpaid',
+            paid_at: null,
+            cash_transaction_id: null,
+            updated_at: nowIso,
+          })
+          .eq('id', override.id);
+      }
+    } catch {
+      // Tetap sinkronkan cache lokal
+    }
+  }
+
+  const nextLocal = readLocalOverrides().map((r) => (r.id === override.id ? revertedLocal : r));
+  writeLocalOverrides(nextLocal);
+  emitOverridesChanged();
+
+  return {
+    ok: true,
+    message:
+      'Pembayaran lembur dibatalkan — transaksi di Buku Kas & Tab Honor Petugas otomatis terhapus, status kembali Belum Dibayar.',
+    data: revertedLocal,
   };
 }
 

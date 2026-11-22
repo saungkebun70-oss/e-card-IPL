@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   Edit3,
+  FileText,
   Loader2,
   Moon,
   Plus,
@@ -13,18 +14,22 @@ import {
   Save,
   ShieldCheck,
   Trash2,
+  Undo2,
   UserCheck,
+  Wallet,
   X,
 } from 'lucide-react';
 import {
   DEFAULT_SECURITY_OFFICER_NAMES,
   STANDARD_SECURITY_SHIFTS,
+  TERMIN_PENGELUARAN_LIST,
   type PetugasKontakDarurat,
   type SecurityAttendanceRecord,
   type SecurityShiftOverride,
   type SessionUser,
+  type TransaksiKas,
 } from '../../types';
-import { formatRupiah } from '../../lib/format';
+import { formatRupiah, formatTanggalSingkat, terbilangRupiah } from '../../lib/format';
 import {
   fetchSecurityAttendance,
   formatWibDateStr,
@@ -35,11 +40,14 @@ import {
   subscribeSecurityAttendance,
 } from '../../lib/securityAttendanceService';
 import {
+  createTransaksiKasAdmin,
+  deleteTransaksiKasAdmin,
   fetchPetugasListAdmin,
   subscribePetugasKeamananRealtime,
 } from '../../lib/dataService';
 import {
   buildOvertimeCashDescription,
+  cancelOvertimePaymentWithCashSyncAdmin,
   createShiftOverrideAdmin,
   deleteShiftOverrideWithCashSyncAdmin,
   fetchShiftOverrides,
@@ -51,10 +59,12 @@ import {
   subscribeShiftOverrides,
   updateShiftOverrideAdmin,
 } from '../../lib/securityShiftOvertimeService';
+import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 
 interface AdminShiftOvertimePanelProps {
   session: SessionUser;
   petugasList: PetugasKontakDarurat[];
+  transaksiKasList?: TransaksiKas[];
   onCashChanged: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -62,6 +72,7 @@ interface AdminShiftOvertimePanelProps {
 export function AdminShiftOvertimePanel({
   session,
   petugasList,
+  transaksiKasList = [],
   onCashChanged,
   onToast,
 }: AdminShiftOvertimePanelProps) {
@@ -137,15 +148,33 @@ export function AdminShiftOvertimePanel({
   const [editNotes, setEditNotes] = useState<string>('');
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
 
-  // Modal Konfirmasi Hapus / Batalkan
+  // Modal Konfirmasi Hapus Jadwal & Pembatalan Pembayaran Lembur
   const [deleteTarget, setDeleteTarget] = useState<SecurityShiftOverride | null>(null);
   const [deletingOverride, setDeletingOverride] = useState<boolean>(false);
+  const [cancelPayTarget, setCancelPayTarget] = useState<SecurityShiftOverride | null>(null);
+  const [cancelingPay, setCancelingPay] = useState<boolean>(false);
+
+  // Pencairan Honor Rutin Keamanan (Terpusat — Satu Pintu Anti Double-Input)
+  const [honorOfficer, setHonorOfficer] = useState<string>(
+    () => officerOptions[0]?.nama || DEFAULT_SECURITY_OFFICER_NAMES[0]
+  );
+  const [honorTermin, setHonorTermin] = useState<string>(TERMIN_PENGELUARAN_LIST[0]);
+  const [honorDate, setHonorDate] = useState<string>(() => getWibParts().dateStr);
+  const [honorNominalStr, setHonorNominalStr] = useState<string>('');
+  const [honorNotes, setHonorNotes] = useState<string>('');
+  const [submittingHonor, setSubmittingHonor] = useState<boolean>(false);
+  const [deleteHonorTarget, setDeleteHonorTarget] = useState<TransaksiKas | null>(null);
+  const [deletingHonor, setDeletingHonor] = useState<boolean>(false);
+  const [previewKwitansi, setPreviewKwitansi] = useState<TransaksiKas | null>(null);
 
   useEffect(() => {
     if (!formOfficer && officerOptions.length > 0) {
       setFormOfficer(officerOptions[0].nama);
     }
-  }, [officerOptions, formOfficer]);
+    if (!honorOfficer && officerOptions.length > 0) {
+      setHonorOfficer(officerOptions[0].nama);
+    }
+  }, [officerOptions, formOfficer, honorOfficer]);
 
   const loadAll = useCallback(
     async (silent = false) => {
@@ -389,6 +418,169 @@ export function AdminShiftOvertimePanel({
       setDeletingOverride(false);
     }
   };
+
+  const handleConfirmCancelOvertimePayment = async () => {
+    if (!cancelPayTarget || cancelingPay) return;
+    setCancelingPay(true);
+    try {
+      const res = await cancelOvertimePaymentWithCashSyncAdmin(session, cancelPayTarget);
+      if (!res.ok) {
+        onToast('error', res.message);
+        return;
+      }
+      setCancelPayTarget(null);
+      onToast('info', res.message);
+      await loadAll(true);
+      await onCashChanged();
+    } finally {
+      setCancelingPay(false);
+    }
+  };
+
+  // Riwayat Pencairan Honor Rutin Keamanan yang tercatat di Buku Kas
+  const honorRutinKasList = useMemo(() => {
+    return transaksiKasList
+      .filter((trx) => {
+        if (trx.jenis !== 'pengeluaran') return false;
+        if (trx.status_verifikasi === 'Ditolak') return false;
+        if (trx.shift_override_id) return false;
+        const katLower = trx.kategori.toLowerCase();
+        const isSecurityCat =
+          katLower.includes('honor') || katLower.includes('keamanan') || katLower.includes('satpam');
+        if (trx.jenis_honor === 'honor_rutin') return true;
+        if (trx.jenis_honor === 'lembur') return false;
+        return isSecurityCat && !katLower.includes('lembur');
+      })
+      .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.created_at.localeCompare(a.created_at));
+  }, [transaksiKasList]);
+
+  const filteredHonorRutinList = useMemo(() => {
+    return honorRutinKasList.filter((trx) => {
+      if (filterMonth && !trx.tanggal.startsWith(filterMonth)) return false;
+      if (
+        filterOfficer !== 'semua' &&
+        !isSameOfficerName(
+          trx.penerima_atau_sumber.replace(/\s*\(Petugas Keamanan\)$/i, ''),
+          filterOfficer
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [honorRutinKasList, filterMonth, filterOfficer]);
+
+  const parsedHonorNominal = useMemo(() => {
+    const clean = honorNominalStr.replace(/\D/g, '');
+    return clean ? Number(clean) : 0;
+  }, [honorNominalStr]);
+
+  const duplicateHonorRutinWarning = useMemo(() => {
+    if (!honorOfficer || !honorDate || honorTermin === 'Insidental') return null;
+    const monthPrefix = honorDate.slice(0, 7);
+    return (
+      honorRutinKasList.find(
+        (trx) =>
+          trx.tanggal.startsWith(monthPrefix) &&
+          (trx.termin || '') === honorTermin &&
+          isSameOfficerName(
+            trx.penerima_atau_sumber.replace(/\s*\(Petugas Keamanan\)$/i, ''),
+            honorOfficer
+          )
+      ) || null
+    );
+  }, [honorRutinKasList, honorOfficer, honorDate, honorTermin]);
+
+  const handleSubmitHonorRutin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submittingHonor) return;
+    const officerName = honorOfficer.trim();
+    if (!officerName || !honorDate) {
+      onToast('error', 'Pilih petugas keamanan dan tanggal pencairan honor terlebih dahulu.');
+      return;
+    }
+    if (parsedHonorNominal <= 0 || parsedHonorNominal > 50_000_000) {
+      onToast('error', 'Masukkan nominal Honor Rutin yang valid (> Rp 0).');
+      return;
+    }
+    if (duplicateHonorRutinWarning) {
+      onToast(
+        'error',
+        `Honor Rutin ${honorTermin} untuk ${officerName} pada bulan ini sudah tercatat (${duplicateHonorRutinWarning.no_bukti}). Batalkan terlebih dahulu atau pilih termin lain.`
+      );
+      return;
+    }
+
+    setSubmittingHonor(true);
+    try {
+      const petugasId = resolveOfficerPetugasId(officerName);
+      const defaultKet = `Honor Rutin Keamanan (${honorTermin}) - ${officerName}`;
+      const finalKet = honorNotes.trim()
+        ? `${defaultKet} · ${honorNotes.trim()}`
+        : defaultKet;
+
+      const res = await createTransaksiKasAdmin(session, {
+        jenis: 'pengeluaran',
+        kategori: 'Honor & Lembur Keamanan',
+        termin: honorTermin,
+        tanggal: honorDate,
+        nominal: parsedHonorNominal,
+        penerima_atau_sumber: officerName,
+        keterangan: finalKet,
+        petugas_id: petugasId,
+        jenis_honor: 'honor_rutin',
+        autoVerify: true,
+      });
+
+      if (res.error || !res.data) {
+        onToast('error', res.error || 'Gagal mencatat pencairan Honor Rutin ke Kas.');
+        return;
+      }
+
+      onToast(
+        'success',
+        `Honor Rutin ${formatRupiah(res.data.nominal)} untuk ${officerName} (${res.data.no_bukti}) dicairkan — Saldo Kas terpotong, masuk LPJ & e-Kwitansi tampil di Tab Honor Petugas.`
+      );
+      setHonorNominalStr('');
+      setHonorNotes('');
+      await onCashChanged();
+    } finally {
+      setSubmittingHonor(false);
+    }
+  };
+
+  const handleConfirmDeleteHonorRutin = async () => {
+    if (!deleteHonorTarget || deletingHonor) return;
+    setDeletingHonor(true);
+    try {
+      const res = await deleteTransaksiKasAdmin(session, deleteHonorTarget);
+      if (res.error) {
+        onToast('error', res.error);
+        return;
+      }
+      setDeleteHonorTarget(null);
+      onToast(
+        'info',
+        `Pencairan Honor Rutin ${deleteHonorTarget.no_bukti} dibatalkan — transaksi di Buku Kas & Tab Honor Petugas otomatis terhapus.`
+      );
+      await onCashChanged();
+    } finally {
+      setDeletingHonor(false);
+    }
+  };
+
+  const findLinkedCashForOverride = useCallback(
+    (ov: SecurityShiftOverride): TransaksiKas | null => {
+      return (
+        transaksiKasList.find(
+          (trx) =>
+            (ov.cash_transaction_id && trx.id === ov.cash_transaction_id) ||
+            (trx.shift_override_id && trx.shift_override_id === ov.id)
+        ) || null
+      );
+    },
+    [transaksiKasList]
+  );
 
   const filteredOverrides = useMemo(() => {
     return overrides.filter((ov) => {
@@ -882,18 +1074,40 @@ export function AdminShiftOvertimePanel({
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {isLembur &&
                         (isPaid ? (
-                          <button
-                            type="button"
-                            disabled
-                            title="Sudah dibayarkan (anti pencatatan ganda)"
-                            className="min-h-[40px] px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 opacity-80 cursor-not-allowed whitespace-nowrap"
-                          >
-                            <ShieldCheck className="w-4 h-4 shrink-0" />
-                            <span>Sudah Cair</span>
-                          </button>
+                          <>
+                            <span
+                              title="Sudah dibayarkan & tercatat di Buku Kas (anti pencatatan ganda)"
+                              className="min-h-[40px] px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap"
+                            >
+                              <ShieldCheck className="w-4 h-4 shrink-0" />
+                              <span>Sudah Cair</span>
+                            </span>
+                            {(() => {
+                              const linkedTrx = findLinkedCashForOverride(ov);
+                              return linkedTrx ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewKwitansi(linkedTrx)}
+                                  className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                                >
+                                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Kwitansi</span>
+                                </button>
+                              ) : null;
+                            })()}
+                            <button
+                              type="button"
+                              onClick={() => setCancelPayTarget(ov)}
+                              title="Batalkan pencairan & hapus transaksi terkait di Buku Kas"
+                              className="min-h-[40px] px-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition"
+                            >
+                              <Undo2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>Batalkan Cair</span>
+                            </button>
+                          </>
                         ) : (
                           <button
                             type="button"
@@ -929,6 +1143,208 @@ export function AdminShiftOvertimePanel({
                 </article>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      {/* PENCAIRAN HONOR RUTIN PETUGAS KEAMANAN (TERPUSAT — OTOMATIS KE BUKU KAS, LPJ & TAB HONOR PETUGAS) */}
+      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-start gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center shrink-0 mt-0.5">
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-[#0F172A] leading-tight">
+                Pencairan Honor Rutin Petugas Keamanan
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Cairkan honor rutin (Termin Tgl 7 / Tgl 18 / Bulanan) langsung dari sini — otomatis
+                tercatat di Buku Kas, memotong Saldo Kas, masuk LPJ, &amp; tampil di Tab Honor Petugas.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 tabular-nums">
+            {filteredHonorRutinList.length} pencairan
+          </span>
+        </div>
+
+        <form onSubmit={(e) => void handleSubmitHonorRutin(e)} className="p-4 sm:p-5 border-b border-slate-200 space-y-3.5 bg-slate-50/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label htmlFor="honor-rutin-officer" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Petugas Penerima
+              </label>
+              <select
+                id="honor-rutin-officer"
+                value={honorOfficer}
+                onChange={(e) => setHonorOfficer(e.target.value)}
+                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+              >
+                {officerOptions.map((opt) => (
+                  <option key={opt.nama} value={opt.nama}>
+                    {opt.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="honor-rutin-termin" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Termin / Periode
+              </label>
+              <select
+                id="honor-rutin-termin"
+                value={honorTermin}
+                onChange={(e) => setHonorTermin(e.target.value)}
+                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+              >
+                {TERMIN_PENGELUARAN_LIST.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="honor-rutin-date" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Tanggal Pencairan
+              </label>
+              <input
+                id="honor-rutin-date"
+                type="date"
+                required
+                value={honorDate}
+                onChange={(e) => setHonorDate(e.target.value)}
+                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="honor-rutin-nominal" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Nominal Honor (Rp)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
+                  Rp
+                </span>
+                <input
+                  id="honor-rutin-nominal"
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={
+                    parsedHonorNominal > 0
+                      ? new Intl.NumberFormat('id-ID').format(parsedHonorNominal)
+                      : ''
+                  }
+                  onChange={(e) => setHonorNominalStr(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Contoh: 750.000"
+                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none"
+                />
+              </div>
+              {parsedHonorNominal > 0 && (
+                <p className="text-[11px] italic text-emerald-700 mt-1">
+                  {terbilangRupiah(parsedHonorNominal)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {duplicateHonorRutinWarning && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-xs text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Anti-Input Ganda:</strong> Honor Rutin <strong>{honorTermin}</strong> untuk{' '}
+                <strong>{honorOfficer}</strong> bulan ini sudah dicairkan ({duplicateHonorRutinWarning.no_bukti} ·{' '}
+                {formatRupiah(duplicateHonorRutinWarning.nominal)}).
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <input
+              type="text"
+              maxLength={240}
+              value={honorNotes}
+              onChange={(e) => setHonorNotes(e.target.value)}
+              placeholder="Catatan tambahan pencairan honor (opsional)..."
+              className="flex-1 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={submittingHonor || Boolean(duplicateHonorRutinWarning)}
+              className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+            >
+              {submittingHonor ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Banknote className="w-4 h-4 text-emerald-400" />
+              )}
+              <span>{submittingHonor ? 'Memproses...' : 'Bayar Honor Rutin & Catat ke Kas'}</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Daftar Riwayat Pencairan Honor Rutin */}
+        {filteredHonorRutinList.length === 0 ? (
+          <div className="px-5 py-7 text-center text-xs text-slate-500">
+            Belum ada pencairan Honor Rutin pada bulan / filter petugas ini.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredHonorRutinList.map((trx) => (
+              <article
+                key={trx.id}
+                className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                    <span className="font-bold text-[#0F172A]">{trx.penerima_atau_sumber}</span>
+                    {trx.termin && (
+                      <>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-semibold text-emerald-700">{trx.termin}</span>
+                      </>
+                    )}
+                    <span className="text-slate-300">·</span>
+                    <span className="font-mono text-slate-500 tabular-nums">
+                      {formatTanggalSingkat(trx.tanggal)}
+                    </span>
+                  </div>
+                  {trx.keterangan && (
+                    <p className="text-xs text-slate-600 line-clamp-2">{trx.keterangan}</p>
+                  )}
+                  <p className="text-[11px] font-mono text-slate-400">
+                    {trx.no_bukti} · Tercatat di Buku Kas &amp; Tab Honor Petugas
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                  <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
+                    {formatRupiah(trx.nominal)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewKwitansi(trx)}
+                    className="min-h-[38px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    <span>Kwitansi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteHonorTarget(trx)}
+                    aria-label={`Batalkan honor ${trx.no_bukti}`}
+                    title="Batalkan / hapus pencairan honor (otomatis terhapus dari Buku Kas & Tab Honor Petugas)"
+                    className="min-h-[38px] min-w-[38px] rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-slate-500 flex items-center justify-center cursor-pointer transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
@@ -1228,6 +1644,133 @@ export function AdminShiftOvertimePanel({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL KONFIRMASI BATALKAN PEMBAYARAN LEMBUR (JADWAL TETAP ADA, TRANSAKSI KAS DIHAPUS) */}
+      {cancelPayTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Konfirmasi Batalkan Pembayaran Lembur"
+        >
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#0F172A]">Batalkan Pencairan Lembur</h3>
+              <button
+                type="button"
+                onClick={() => setCancelPayTarget(null)}
+                aria-label="Tutup modal batal pencairan"
+                className="min-h-[40px] min-w-[40px] rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm text-slate-700">
+              <p className="leading-relaxed">
+                Batalkan status <strong>Sudah Cair</strong> untuk lembur{' '}
+                <strong className="text-[#0F172A]">{cancelPayTarget.officer_name}</strong> tanggal{' '}
+                <strong className="text-[#0F172A]">{formatWibDateStr(cancelPayTarget.shift_date)}</strong>{' '}
+                ({formatRupiah(cancelPayTarget.overtime_amount)})?
+              </p>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Jadwal lembur tetap tersimpan dengan status <strong>Belum Dibayar</strong>, namun
+                  transaksi pengeluaran terkait di <strong>Buku Kas</strong> dan{' '}
+                  <strong>Tab Honor Petugas</strong> akan dihapus otomatis agar Saldo Kas &amp; LPJ
+                  tetap sinkron.
+                </p>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={cancelingPay}
+                onClick={() => setCancelPayTarget(null)}
+                className="min-h-[44px] rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold cursor-pointer"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={cancelingPay}
+                onClick={() => void handleConfirmCancelOvertimePayment()}
+                className="min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {cancelingPay ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                <span>{cancelingPay ? 'Membatalkan...' : 'Ya, Batalkan Cair'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS PENCAIRAN HONOR RUTIN (SINKRON BUKU KAS & PORTAL PETUGAS) */}
+      {deleteHonorTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Konfirmasi Hapus Pencairan Honor Rutin"
+        >
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#0F172A]">Batalkan Pencairan Honor Rutin</h3>
+              <button
+                type="button"
+                onClick={() => setDeleteHonorTarget(null)}
+                aria-label="Tutup modal hapus honor rutin"
+                className="min-h-[40px] min-w-[40px] rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm text-slate-700">
+              <p className="leading-relaxed">
+                Yakin ingin membatalkan &amp; menghapus pencairan Honor Rutin{' '}
+                <strong className="text-[#0F172A]">{deleteHonorTarget.penerima_atau_sumber}</strong>{' '}
+                ({deleteHonorTarget.no_bukti} · {formatRupiah(deleteHonorTarget.nominal)})?
+              </p>
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-900 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Transaksi di <strong>Buku Kas</strong> dan e-Kwitansi di{' '}
+                  <strong>Tab Honor Petugas</strong> otomatis terhapus, serta Saldo Kas &amp; LPJ
+                  diperbarui secara real-time.
+                </p>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={deletingHonor}
+                onClick={() => setDeleteHonorTarget(null)}
+                className="min-h-[44px] rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deletingHonor}
+                onClick={() => void handleConfirmDeleteHonorRutin()}
+                className="min-h-[44px] rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {deletingHonor ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                <span>{deletingHonor ? 'Menghapus...' : 'Ya, Batalkan & Hapus'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PRATINJAU e-KWITANSI HONOR & LEMBUR */}
+      {previewKwitansi && (
+        <KwitansiDigitalModal
+          mode="kas"
+          trxKas={previewKwitansi}
+          onClose={() => setPreviewKwitansi(null)}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownLeft,
+  ArrowRight,
   ArrowUpRight,
   Calendar,
   Camera,
@@ -28,7 +29,6 @@ import {
   KATEGORI_PEMASUKAN_LAIN_LIST,
   KATEGORI_PENGELUARAN_LIST,
   TERMIN_PENGELUARAN_LIST,
-  type JenisHonorPetugas,
   type JenisTransaksiKas,
   type PetugasKeamanan,
   type SecurityShiftOverride,
@@ -54,19 +54,24 @@ import {
 } from '../../lib/format';
 import { compressProofImage } from '../../lib/imageCompressor';
 import {
-  formatWibDateStr,
-  isSameOfficerName,
-} from '../../lib/securityAttendanceService';
-import {
-  buildMultiOvertimeCashDescription,
   fetchShiftOverrides,
   isSundayOvertimeShift,
-  markShiftOverridesPaidByCashTransactionAdmin,
   revertShiftOverridesByCashTransactionAdmin,
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { AdminShiftOvertimePanel } from './AdminShiftOvertimePanel';
+
+function isHonorKeamananPos(kat: string): boolean {
+  return (
+    kat === 'Honor & Lembur Keamanan' ||
+    kat === 'Honorarium Keamanan / Satpam' ||
+    kat === 'Lembur Petugas Keamanan'
+  );
+}
+
+const DEFAULT_NON_HONOR_PENGELUARAN =
+  KATEGORI_PENGELUARAN_LIST.find((k) => !isHonorKeamananPos(k)) || KATEGORI_PENGELUARAN_LIST[0];
 
 interface AdminKeuanganSlideProps {
   session: SessionUser;
@@ -93,7 +98,7 @@ export function AdminKeuanganSlide({
   // Form Pengeluaran / Pemasukan Lain
   const [formJenis, setFormJenis] = useState<JenisTransaksiKas>('pengeluaran');
   const [editingItem, setEditingItem] = useState<TransaksiKas | null>(null);
-  const [kategori, setKategori] = useState<string>(KATEGORI_PENGELUARAN_LIST[0]);
+  const [kategori, setKategori] = useState<string>(DEFAULT_NON_HONOR_PENGELUARAN);
   const [termin, setTermin] = useState<string>(TERMIN_PENGELUARAN_LIST[0]);
   const [tanggal, setTanggal] = useState<string>(todayIso);
   const [nominalStr, setNominalStr] = useState<string>('');
@@ -101,10 +106,6 @@ export function AdminKeuanganSlide({
   const [keterangan, setKeterangan] = useState<string>('');
   const [buktiFile, setBuktiFile] = useState<File | null>(null);
   const [buktiPreview, setBuktiPreview] = useState<string | null>(null);
-  const [selectedPetugasId, setSelectedPetugasId] = useState<string>('');
-  const [selectedOfficerKey, setSelectedOfficerKey] = useState<string>('');
-  const [selectedOverrideIds, setSelectedOverrideIds] = useState<string[]>([]);
-  const [jenisHonor, setJenisHonor] = useState<JenisHonorPetugas>('honor_rutin');
   const [saving, setSaving] = useState(false);
 
   const [keuanganSubTab, setKeuanganSubTab] = useState<'buku_kas' | 'shift_lembur'>('buku_kas');
@@ -151,122 +152,13 @@ export function AdminKeuanganSlide({
     [shiftOverrides]
   );
 
-  // Sumber Data Tunggal Real-Time: gabungkan petugas_keamanan + seluruh petugas & shift terbaru di Kelola Shift & Lembur
-  const syncedOfficerDirectory = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        key: string;
-        nama: string;
-        petugasId: string | null;
-        latestShift: string;
-        unpaidOvertimes: SecurityShiftOverride[];
-      }
-    >();
-
-    livePetugasList
-      .filter((p) => p.aktif !== false)
-      .forEach((p) => {
-        const cleanNama = p.nama.trim();
-        const key = cleanNama.toLowerCase();
-        if (!key) return;
-        map.set(key, {
-          key,
-          nama: cleanNama,
-          petugasId: p.id,
-          latestShift: p.shift || 'Shift Keamanan',
-          unpaidOvertimes: [],
-        });
-      });
-
-    // Terapkan jadwal shift terbaru & tagihan lembur belum dibayar dari security_shift_overrides
-    const sortedOverrides = [...shiftOverrides].sort(
-      (a, b) =>
-        b.shift_date.localeCompare(a.shift_date) ||
-        new Date(b.updated_at || b.created_at).getTime() -
-          new Date(a.updated_at || a.created_at).getTime()
-    );
-
-    const latestShiftAssigned = new Set<string>();
-    sortedOverrides.forEach((ov) => {
-      const cleanNama = ov.officer_name.trim();
-      const key = cleanNama.toLowerCase();
-      if (!key) return;
-      let entry = map.get(key);
-      if (!entry) {
-        entry = {
-          key,
-          nama: cleanNama,
-          petugasId: null,
-          latestShift: ov.shift_name,
-          unpaidOvertimes: [],
-        };
-        map.set(key, entry);
-      }
-      if (!latestShiftAssigned.has(key)) {
-        entry.latestShift = ov.shift_name;
-        latestShiftAssigned.add(key);
-      }
-      if (
-        isSundayOvertimeShift(ov.shift_name) &&
-        ov.payment_status !== 'paid' &&
-        !ov.cash_transaction_id
-      ) {
-        entry.unpaidOvertimes.push(ov);
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
-  }, [livePetugasList, shiftOverrides]);
-
-  const selectedOfficerEntry = useMemo(
-    () => syncedOfficerDirectory.find((o) => o.key === selectedOfficerKey) || null,
-    [syncedOfficerDirectory, selectedOfficerKey]
-  );
-
-  const pendingOvertimesForOfficer = useMemo(
-    () => selectedOfficerEntry?.unpaidOvertimes || [],
-    [selectedOfficerEntry]
-  );
-
   const isHonorKeamananCategory =
-    formJenis === 'pengeluaran' &&
-    (kategori === 'Honor & Lembur Keamanan' ||
-      kategori === 'Honorarium Keamanan / Satpam' ||
-      kategori === 'Lembur Petugas Keamanan');
+    formJenis === 'pengeluaran' && isHonorKeamananPos(kategori);
 
-  // Helper tarik otomatis nominal & keterangan dari daftar lembur belum dibayar
-  const applyOvertimeAutoFill = useCallback(
-    (officerName: string, chosenOvertimes: SecurityShiftOverride[]) => {
-      if (chosenOvertimes.length === 0) {
-        setSelectedOverrideIds([]);
-        return;
-      }
-      setSelectedOverrideIds(chosenOvertimes.map((o) => o.id));
-      const totalAmt = chosenOvertimes.reduce((sum, o) => sum + o.overtime_amount, 0);
-      if (totalAmt > 0) {
-        setNominalStr(String(totalAmt));
-      }
-      setKeterangan(buildMultiOvertimeCashDescription(officerName, chosenOvertimes));
-    },
-    []
-  );
-
-  // Jaga agar selectedOverrideIds selalu sinkron real-time bila ada jadwal baru atau sudah dibayar dari tab lain
-  useEffect(() => {
-    if (editingItem) return;
-    if (!isHonorKeamananCategory || jenisHonor !== 'lembur' || !selectedOfficerEntry) {
-      setSelectedOverrideIds([]);
-      return;
-    }
-    const validPending = selectedOfficerEntry.unpaidOvertimes;
-    setSelectedOverrideIds((prev) => {
-      const validIds = new Set(validPending.map((o) => o.id));
-      const stillValid = prev.filter((id) => validIds.has(id));
-      if (stillValid.length > 0) return stillValid;
-      return validPending.map((o) => o.id);
-    });
-  }, [editingItem, isHonorKeamananCategory, jenisHonor, selectedOfficerEntry]);
+  const goToShiftLemburTab = () => {
+    setKeuanganSubTab('shift_lembur');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Filter & Search Daftar Transaksi Kas
   const [filterJenis, setFilterJenis] = useState<'semua' | JenisTransaksiKas>('semua');
@@ -298,20 +190,16 @@ export function AdminKeuanganSlide({
     setFormJenis(next);
     setEditingItem(null);
     setKategori(
-      next === 'pengeluaran' ? KATEGORI_PENGELUARAN_LIST[0] : KATEGORI_PEMASUKAN_LAIN_LIST[0]
+      next === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0]
     );
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
-    setSelectedPetugasId('');
-    setSelectedOfficerKey('');
-    setSelectedOverrideIds([]);
-    setJenisHonor('honor_rutin');
   };
 
   const resetForm = (keepJenis = formJenis) => {
     setEditingItem(null);
     setFormJenis(keepJenis);
     setKategori(
-      keepJenis === 'pengeluaran' ? KATEGORI_PENGELUARAN_LIST[0] : KATEGORI_PEMASUKAN_LAIN_LIST[0]
+      keepJenis === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0]
     );
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
     setTanggal(todayIso);
@@ -320,10 +208,6 @@ export function AdminKeuanganSlide({
     setKeterangan('');
     setBuktiFile(null);
     setBuktiPreview(null);
-    setSelectedPetugasId('');
-    setSelectedOfficerKey('');
-    setSelectedOverrideIds([]);
-    setJenisHonor('honor_rutin');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -339,21 +223,6 @@ export function AdminKeuanganSlide({
     setKeterangan(item.keterangan || '');
     setBuktiFile(null);
     setBuktiPreview(item.bukti_url || null);
-    setSelectedPetugasId(item.petugas_id || '');
-    const matchedOfficer = syncedOfficerDirectory.find(
-      (o) =>
-        (item.petugas_id && o.petugasId === item.petugas_id) ||
-        isSameOfficerName(o.nama, item.penerima_atau_sumber.replace(/\s*\(Petugas Keamanan\)$/i, ''))
-    );
-    setSelectedOfficerKey(matchedOfficer?.key || '');
-    setSelectedOverrideIds(item.shift_override_id ? [item.shift_override_id] : []);
-    setJenisHonor(
-      item.jenis_honor ||
-        (item.kategori === 'Lembur Petugas Keamanan' ||
-        item.kategori === 'Honor & Lembur Keamanan'
-          ? 'lembur'
-          : 'honor_rutin')
-    );
     setKeuanganSubTab('buku_kas');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -375,26 +244,19 @@ export function AdminKeuanganSlide({
     }
   };
 
-  const handleToggleOvertimeItem = (overrideId: string) => {
-    if (!selectedOfficerEntry) return;
-    const nextIds = selectedOverrideIds.includes(overrideId)
-      ? selectedOverrideIds.filter((id) => id !== overrideId)
-      : [...selectedOverrideIds, overrideId];
-    const chosen = selectedOfficerEntry.unpaidOvertimes.filter((o) => nextIds.includes(o.id));
-    setSelectedOverrideIds(nextIds);
-    if (chosen.length > 0) {
-      const totalAmt = chosen.reduce((sum, o) => sum + o.overtime_amount, 0);
-      if (totalAmt > 0) setNominalStr(String(totalAmt));
-      setKeterangan(buildMultiOvertimeCashDescription(selectedOfficerEntry.nama, chosen));
-    } else {
-      setNominalStr('');
-      setKeterangan('');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+
+    // Satu pintu input anti double-input: Honor & Lembur Keamanan dipusatkan di tab Kelola Shift & Lembur
+    if (!editingItem && isHonorKeamananCategory) {
+      onToast(
+        'info',
+        'Pengelolaan shift, lembur, dan pencairan honor petugas kini terpusat di tab Kelola Shift & Lembur Keamanan.'
+      );
+      goToShiftLemburTab();
+      return;
+    }
 
     if (parsedNominal <= 0) {
       onToast('error', 'Masukkan nominal transaksi yang valid (> Rp 0).');
@@ -403,25 +265,6 @@ export function AdminKeuanganSlide({
 
     setSaving(true);
     try {
-      const resolvedPetugasId =
-        isHonorKeamananCategory && (selectedOfficerEntry?.petugasId || selectedPetugasId)
-          ? selectedOfficerEntry?.petugasId || selectedPetugasId
-          : null;
-      const linkedJenisHonor =
-        isHonorKeamananCategory && (selectedOfficerEntry || resolvedPetugasId) ? jenisHonor : null;
-      const linkedOverrideIds =
-        !editingItem &&
-        isHonorKeamananCategory &&
-        jenisHonor === 'lembur' &&
-        selectedOverrideIds.length > 0
-          ? selectedOverrideIds
-          : [];
-      const shouldAutoVerifyLinkedHonor =
-        !editingItem &&
-        formJenis === 'pengeluaran' &&
-        isHonorKeamananCategory &&
-        (linkedOverrideIds.length > 0 || Boolean(selectedOfficerEntry));
-
       if (editingItem) {
         const res = await updateTransaksiKasAdmin(session, editingItem.id, {
           kategori,
@@ -432,8 +275,8 @@ export function AdminKeuanganSlide({
           keterangan,
           buktiFile,
           bukti_url: buktiPreview,
-          petugas_id: resolvedPetugasId,
-          jenis_honor: linkedJenisHonor,
+          petugas_id: editingItem.petugas_id ?? null,
+          jenis_honor: editingItem.jenis_honor ?? null,
         });
         if (res.error) {
           onToast('error', res.error);
@@ -452,35 +295,17 @@ export function AdminKeuanganSlide({
           penerima_atau_sumber: penerimaAtauSumber,
           keterangan,
           buktiFile,
-          petugas_id: resolvedPetugasId,
-          jenis_honor: linkedJenisHonor,
-          shift_override_id: linkedOverrideIds[0] || null,
-          autoVerify: shouldAutoVerifyLinkedHonor,
         });
         if (res.error || !res.data) {
           onToast('error', res.error || 'Gagal menyimpan transaksi kas.');
         } else {
-          // Sinkronisasi 2-Arah: Buku Kas -> Kelola Shift & Lembur Keamanan (Ubah status menjadi Sudah Dibayar / Cair)
-          if (linkedOverrideIds.length > 0) {
-            await markShiftOverridesPaidByCashTransactionAdmin(
-              session,
-              linkedOverrideIds,
-              res.data.id
-            );
-          }
-
           onToast(
             'success',
-            linkedOverrideIds.length > 0
-              ? `Pengeluaran ${formatRupiah(res.data.nominal)} (${res.data.no_bukti}) dicatat, Saldo Kas terpotong & ${linkedOverrideIds.length} jadwal lembur otomatis berstatus Sudah Dibayar / Cair.`
-              : shouldAutoVerifyLinkedHonor
-                ? `Pengeluaran honor ${formatRupiah(res.data.nominal)} (${res.data.no_bukti}) terverifikasi, memotong Saldo Kas & e-Kwitansi tampil di Portal Petugas.`
-                : `${
-                    formJenis === 'pengeluaran' ? 'Pengeluaran anggaran' : 'Pemasukan lain'
-                  } ${formatRupiah(res.data.nominal)} dicatat (${res.data.no_bukti}) — berstatus Menunggu Verifikasi Bendahara.`
+            `${
+              formJenis === 'pengeluaran' ? 'Pengeluaran anggaran' : 'Pemasukan lain'
+            } ${formatRupiah(res.data.nominal)} dicatat (${res.data.no_bukti}) — berstatus Menunggu Verifikasi Bendahara.`
           );
           resetForm(formJenis);
-          await loadSyncedShiftAndOfficers();
           await onRefresh();
         }
       }
@@ -690,11 +515,12 @@ export function AdminKeuanganSlide({
         </button>
       </div>
 
-      {/* PANEL KELOLA SHIFT & LEMBUR KEAMANAN (TERINTEGRASI LANGSUNG KE KAS PENGELUARAN) */}
+      {/* PANEL KELOLA SHIFT & LEMBUR KEAMANAN (SATU-SATUNYA PUSAT INPUT SHIFT, LEMBUR & HONOR KEAMANAN) */}
       {keuanganSubTab === 'shift_lembur' ? (
         <AdminShiftOvertimePanel
           session={session}
           petugasList={livePetugasList}
+          transaksiKasList={transaksiKasList}
           onCashChanged={async () => {
             await loadSyncedShiftAndOfficers();
             await onRefresh();
@@ -764,25 +590,7 @@ export function AdminKeuanganSlide({
               </label>
               <select
                 value={kategori}
-                onChange={(e) => {
-                  const nextKat = e.target.value;
-                  setKategori(nextKat);
-                  if (
-                    nextKat === 'Lembur Petugas Keamanan' ||
-                    nextKat === 'Honor & Lembur Keamanan'
-                  ) {
-                    setJenisHonor('lembur');
-                    if (selectedOfficerEntry && !editingItem) {
-                      applyOvertimeAutoFill(
-                        selectedOfficerEntry.nama,
-                        selectedOfficerEntry.unpaidOvertimes
-                      );
-                    }
-                  } else if (nextKat === 'Honorarium Keamanan / Satpam') {
-                    setJenisHonor('honor_rutin');
-                    setSelectedOverrideIds([]);
-                  }
-                }}
+                onChange={(e) => setKategori(e.target.value)}
                 className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               >
                 {kategoriOptions.map((opt) => (
@@ -793,334 +601,230 @@ export function AdminKeuanganSlide({
               </select>
             </div>
 
-            {/* Integrasi 2-Arah: Sumber Data Tunggal Petugas/Shift & Tarik Otomatis Tagihan Lembur */}
-            {isHonorKeamananCategory && (
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3.5 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-emerald-900">
-                    Sinkronisasi Otomatis ke Portal Petugas Keamanan
-                  </p>
-                  <span className="text-[10px] font-semibold text-emerald-800 bg-white/80 border border-emerald-200 rounded-md px-2 py-0.5">
-                    Real-Time dari Kelola Shift &amp; Lembur
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
-                      Pilih Petugas Penerima
-                    </label>
-                    <select
-                      value={selectedOfficerKey}
-                      onChange={(e) => {
-                        const nextKey = e.target.value;
-                        setSelectedOfficerKey(nextKey);
-                        const found = syncedOfficerDirectory.find((o) => o.key === nextKey) || null;
-                        setSelectedPetugasId(found?.petugasId || '');
-                        if (found) {
-                          setPenerimaAtauSumber(found.nama);
-                          if (jenisHonor === 'lembur' && !editingItem) {
-                            applyOvertimeAutoFill(found.nama, found.unpaidOvertimes);
-                          }
-                        } else {
-                          setSelectedOverrideIds([]);
-                        }
-                      }}
-                      className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
-                    >
-                      <option value="">-- Tidak ditautkan (Manual) --</option>
-                      {syncedOfficerDirectory.map((officer) => (
-                        <option key={officer.key} value={officer.key}>
-                          {officer.nama} ({officer.latestShift})
-                          {officer.unpaidOvertimes.length > 0
-                            ? ` · ${officer.unpaidOvertimes.length} lembur blm bayar`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
+            {/* SATU PINTU INPUT (ANTI DOUBLE-INPUT): Arahkan Honor & Lembur Keamanan ke Tab Terpusat */}
+            {!editingItem && isHonorKeamananCategory ? (
+              <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200 p-4 space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Moon className="w-4 h-4" />
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
-                      Jenis Pencairan
-                    </label>
-                    <select
-                      value={jenisHonor}
-                      onChange={(e) => {
-                        const nextJenis = e.target.value as JenisHonorPetugas;
-                        setJenisHonor(nextJenis);
-                        if (nextJenis === 'lembur' && selectedOfficerEntry && !editingItem) {
-                          applyOvertimeAutoFill(
-                            selectedOfficerEntry.nama,
-                            selectedOfficerEntry.unpaidOvertimes
-                          );
-                        } else {
-                          setSelectedOverrideIds([]);
-                        }
-                      }}
-                      className="w-full min-h-[40px] rounded-lg border border-emerald-300 bg-white px-2.5 text-xs text-[#0F172A]"
-                    >
-                      <option value="honor_rutin">Honor Rutin (Termin / Bulanan)</option>
-                      <option value="lembur">Uang Lembur Petugas</option>
-                    </select>
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-bold text-[#0F172A] leading-snug">
+                      Pencatatan Honor &amp; Lembur Keamanan Terpusat
+                    </p>
+                    <p className="text-xs text-emerald-950/90 leading-relaxed">
+                      Pengelolaan shift, lembur, dan pencairan honor petugas kini terpusat di tab{' '}
+                      <strong>Kelola Shift &amp; Lembur Keamanan</strong> agar tidak terjadi input
+                      ganda.
+                    </p>
                   </div>
                 </div>
 
-                {/* Panel Tarik Otomatis Lembur Belum Dibayar (Anti-Input Ganda) */}
-                {!editingItem && jenisHonor === 'lembur' && selectedOfficerEntry && (
-                  pendingOvertimesForOfficer.length > 0 ? (
-                    <div className="rounded-xl bg-white border border-emerald-200 p-3 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <p className="text-[11px] font-bold text-[#0F172A]">
-                          Tagihan Lembur Belum Dibayar ({pendingOvertimesForOfficer.length} jadwal)
-                        </p>
-                        <p className="text-xs font-mono font-extrabold text-[#059669] tabular-nums">
-                          Terpilih:{' '}
-                          {formatRupiah(
-                            pendingOvertimesForOfficer
-                              .filter((o) => selectedOverrideIds.includes(o.id))
-                              .reduce((sum, o) => sum + o.overtime_amount, 0)
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
-                        {pendingOvertimesForOfficer.map((ov) => {
-                          const checked = selectedOverrideIds.includes(ov.id);
-                          return (
-                            <label
-                              key={ov.id}
-                              className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-xs cursor-pointer transition ${
-                                checked
-                                  ? 'bg-emerald-50/70 border-emerald-300 text-[#0F172A]'
-                                  : 'bg-slate-50 border-slate-200 text-slate-500'
-                              }`}
-                            >
-                              <span className="flex items-center gap-2 min-w-0">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => handleToggleOvertimeItem(ov.id)}
-                                  className="h-3.5 w-3.5 rounded accent-[#059669] cursor-pointer shrink-0"
-                                />
-                                <span className="truncate font-medium">
-                                  {formatWibDateStr(ov.shift_date)} · {ov.shift_name}
-                                </span>
-                              </span>
-                              <span className="font-mono font-bold tabular-nums shrink-0">
-                                {formatRupiah(ov.overtime_amount)}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-
-                      <p className="text-[11px] text-emerald-800 leading-snug">
-                        Nominal &amp; Keterangan terisi otomatis (tetap bisa diedit manual). Saat
-                        disimpan, status jadwal terpilih di <strong>Kelola Shift &amp; Lembur</strong>{' '}
-                        otomatis menjadi <strong>Sudah Dibayar / Cair</strong>.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-3 py-2 text-[11px] text-amber-900">
-                      Tidak ada tagihan lembur tertunda untuk{' '}
-                      <strong>{selectedOfficerEntry.nama}</strong> di Kelola Shift &amp; Lembur.
-                      Anda tetap dapat mengisi nominal &amp; keterangan secara manual.
-                    </div>
-                  )
-                )}
+                <button
+                  type="button"
+                  onClick={goToShiftLemburTab}
+                  className="w-full min-h-[44px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                >
+                  <Moon className="w-4 h-4 shrink-0" />
+                  <span>Buka Kelola Shift &amp; Lembur Keamanan</span>
+                  <ArrowRight className="w-4 h-4 shrink-0" />
+                </button>
 
                 <p className="text-[11px] text-emerald-800 leading-snug">
-                  Bila petugas dipilih, nominal &amp; e-Kwitansi langsung tampil di akun petugas
-                  terkait sekaligus memotong Saldo Kas &amp; masuk LPJ Triwulanan.
+                  Setiap pembayaran Honor Rutin maupun Uang Lembur di tab tersebut otomatis
+                  tercatat di Buku Kas, memotong Saldo Kas Real-Time, masuk LPJ Triwulanan, dan
+                  langsung tampil di Tab Honor Portal Petugas.
                 </p>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Tanggal & Termin */}
+                <div className={`grid grid-cols-1 ${formJenis === 'pengeluaran' ? 'sm:grid-cols-2' : ''} gap-3`}>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                      Tanggal Transaksi
+                    </label>
+                    <div className="relative">
+                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="date"
+                        required
+                        value={tanggal}
+                        onChange={(e) => setTanggal(e.target.value)}
+                        className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-mono text-[#0F172A]"
+                      />
+                    </div>
+                  </div>
 
-            {/* Tanggal & Termin */}
-            <div className={`grid grid-cols-1 ${formJenis === 'pengeluaran' ? 'sm:grid-cols-2' : ''} gap-3`}>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                  Tanggal Transaksi
-                </label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="date"
-                    required
-                    value={tanggal}
-                    onChange={(e) => setTanggal(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-mono text-[#0F172A]"
-                  />
+                  {formJenis === 'pengeluaran' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                        Termin / Periode
+                      </label>
+                      <select
+                        value={termin}
+                        onChange={(e) => setTermin(e.target.value)}
+                        className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                      >
+                        {TERMIN_PENGELUARAN_LIST.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              {formJenis === 'pengeluaran' && (
+                {/* Nominal + Terbilang Live */}
                 <div>
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                    Termin / Periode
+                    Nominal (Rupiah)
                   </label>
-                  <select
-                    value={termin}
-                    onChange={(e) => setTermin(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
-                  >
-                    {TERMIN_PENGELUARAN_LIST.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Nominal + Terbilang Live */}
-            <div>
-              <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                Nominal (Rupiah)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
-                  Rp
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  value={
-                    parsedNominal > 0 ? new Intl.NumberFormat('id-ID').format(parsedNominal) : ''
-                  }
-                  onChange={(e) => setNominalStr(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Contoh: 500.000"
-                  className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-base font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
-                />
-              </div>
-              {parsedNominal > 0 && (
-                <p className="text-[11px] italic text-emerald-700 mt-1">
-                  Terbilang: {terbilangRupiah(parsedNominal)}
-                </p>
-              )}
-            </div>
-
-            {/* Penerima Dana / Sumber Dana */}
-            <div>
-              <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                {formJenis === 'pengeluaran' ? 'Dibayarkan Kepada (Penerima)' : 'Sumber / Penyetor Dana'}
-              </label>
-              <input
-                type="text"
-                required
-                value={penerimaAtauSumber}
-                onChange={(e) => setPenerimaAtauSumber(e.target.value)}
-                placeholder={
-                  formJenis === 'pengeluaran'
-                    ? 'Contoh: Pak Asep (Petugas Keamanan) / PLN'
-                    : 'Contoh: Donatur Warga Blok B3 / Sisa Kas 2025'
-                }
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A]"
-              />
-            </div>
-
-            {/* Keterangan */}
-            <div>
-              <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                Uraian / Keterangan Detail
-              </label>
-              <textarea
-                rows={2}
-                value={keterangan}
-                onChange={(e) => setKeterangan(e.target.value)}
-                placeholder="Rincian penggunaan anggaran atau keterangan penerimaan dana..."
-                className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-[#0F172A] resize-none"
-              />
-            </div>
-
-            {/* Upload Foto Nota / Bukti */}
-            <div>
-              <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-                Foto Nota / Bukti Transfer (Opsional)
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {buktiPreview ? (
-                <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50 flex items-center justify-between gap-3">
-                  <img
-                    src={buktiPreview}
-                    alt="Pratinjau Nota"
-                    className="w-14 h-14 object-cover rounded-lg border border-slate-200 bg-white"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#0F172A] truncate">
-                      Bukti nota terlampir
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
+                      Rp
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      value={
+                        parsedNominal > 0 ? new Intl.NumberFormat('id-ID').format(parsedNominal) : ''
+                      }
+                      onChange={(e) => setNominalStr(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Contoh: 500.000"
+                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-base font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                    />
+                  </div>
+                  {parsedNominal > 0 && (
+                    <p className="text-[11px] italic text-emerald-700 mt-1">
+                      Terbilang: {terbilangRupiah(parsedNominal)}
                     </p>
+                  )}
+                </div>
+
+                {/* Penerima Dana / Sumber Dana */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                    {formJenis === 'pengeluaran' ? 'Dibayarkan Kepada (Penerima)' : 'Sumber / Penyetor Dana'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={penerimaAtauSumber}
+                    onChange={(e) => setPenerimaAtauSumber(e.target.value)}
+                    placeholder={
+                      formJenis === 'pengeluaran'
+                        ? 'Contoh: Petugas Kebersihan / PLN / Toko Material'
+                        : 'Contoh: Donatur Warga Blok B3 / Sisa Kas 2025'
+                    }
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A]"
+                  />
+                </div>
+
+                {/* Keterangan */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                    Uraian / Keterangan Detail
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={keterangan}
+                    onChange={(e) => setKeterangan(e.target.value)}
+                    placeholder="Rincian penggunaan anggaran atau keterangan penerimaan dana..."
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-[#0F172A] resize-none"
+                  />
+                </div>
+
+                {/* Upload Foto Nota / Bukti */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                    Foto Nota / Bukti Transfer (Opsional)
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  {buktiPreview ? (
+                    <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50 flex items-center justify-between gap-3">
+                      <img
+                        src={buktiPreview}
+                        alt="Pratinjau Nota"
+                        className="w-14 h-14 object-cover rounded-lg border border-slate-200 bg-white"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-[#0F172A] truncate">
+                          Bukti nota terlampir
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                        >
+                          Ganti foto
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBuktiFile(null);
+                          setBuktiPreview(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-600 cursor-pointer"
+                        aria-label="Hapus foto nota"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                      className="w-full min-h-[44px] rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:border-emerald-500 hover:bg-emerald-50/40 text-xs font-semibold text-slate-600 inline-flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      Ganti foto
+                      <Camera className="w-4 h-4 text-slate-500" />
+                      <span>Unggah Foto Nota / Bukti Kas</span>
                     </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBuktiFile(null);
-                      setBuktiPreview(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                    className="p-2 text-slate-400 hover:text-red-600 cursor-pointer"
-                    aria-label="Hapus foto nota"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  )}
                 </div>
-              ) : (
+
                 <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full min-h-[44px] rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:border-emerald-500 hover:bg-emerald-50/40 text-xs font-semibold text-slate-600 inline-flex items-center justify-center gap-2 cursor-pointer"
+                  type="submit"
+                  disabled={saving}
+                  className={`w-full min-h-[46px] rounded-xl text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 ${
+                    formJenis === 'pengeluaran'
+                      ? 'bg-[#0F172A] hover:bg-slate-800'
+                      : 'bg-[#059669] hover:bg-emerald-700'
+                  }`}
                 >
-                  <Camera className="w-4 h-4 text-slate-500" />
-                  <span>Unggah Foto Nota / Bukti Kas</span>
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  <span>
+                    {saving
+                      ? 'Menyimpan...'
+                      : editingItem
+                        ? 'Simpan Perubahan Transaksi'
+                        : formJenis === 'pengeluaran'
+                          ? 'Simpan Pengeluaran Anggaran'
+                          : 'Simpan Pemasukan Lain'}
+                  </span>
                 </button>
-              )}
-            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className={`w-full min-h-[46px] rounded-xl text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 ${
-                formJenis === 'pengeluaran'
-                  ? 'bg-[#0F172A] hover:bg-slate-800'
-                  : 'bg-[#059669] hover:bg-emerald-700'
-              }`}
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              <span>
-                {saving
-                  ? 'Menyimpan...'
-                  : editingItem
-                    ? 'Simpan Perubahan Transaksi'
-                    : formJenis === 'pengeluaran'
-                      ? 'Simpan Pengeluaran Anggaran'
-                      : 'Simpan Pemasukan Lain'}
-              </span>
-            </button>
-
-            {!editingItem && (
-              <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-                Transaksi kas baru berstatus <strong>Menunggu Verifikasi Bendahara</strong> dan
-                memperbarui Saldo Kas Real-Time setelah disahkan <strong>Bendahara &amp; Ketua</strong>.
-              </p>
+                {!editingItem && (
+                  <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                    Transaksi kas baru berstatus <strong>Menunggu Verifikasi Bendahara</strong> dan
+                    memperbarui Saldo Kas Real-Time setelah disahkan <strong>Bendahara &amp; Ketua</strong>.
+                  </p>
+                )}
+              </>
             )}
           </form>
         </section>

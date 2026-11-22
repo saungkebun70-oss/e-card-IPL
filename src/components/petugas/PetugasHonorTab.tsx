@@ -292,7 +292,9 @@ export function PetugasHonorTab({
           <div className="divide-y divide-slate-100">
             {otherHonorRows.map((trx) => {
               const isLembur =
-                trx.jenis_honor === 'lembur' || trx.kategori.toLowerCase().includes('lembur');
+                trx.jenis_honor === 'honor_rutin'
+                  ? false
+                  : trx.jenis_honor === 'lembur' || trx.kategori.toLowerCase().includes('lembur');
               return (
                 <div
                   key={trx.id}
