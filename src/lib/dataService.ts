@@ -5505,6 +5505,103 @@ export async function loginPetugasKeamanan(
   return { data: session };
 }
 
+/**
+ * Memulihkan sesi Petugas Keamanan setelah verifikasi biometrik perangkat (Face ID / Sidik Jari) berhasil.
+ * Memverifikasi ulang status aktif petugas langsung ke Supabase (tanpa pernah menyimpan PIN di perangkat).
+ */
+export async function loginPetugasWithBiometric(enrolled: {
+  petugas_id: string;
+  username: string;
+  nama: string;
+  shift?: string;
+}): Promise<ServiceResult<SessionUser>> {
+  const cleanId = enrolled.petugas_id.trim();
+  const cleanUser = enrolled.username.trim();
+  if (!cleanId || !cleanUser) {
+    return { error: 'Profil biometrik tidak valid. Silakan masuk menggunakan PIN 6 digit.' };
+  }
+
+  const candidateSession: SessionUser = {
+    role: 'petugas',
+    petugas_id: cleanId,
+    blok_rumah: cleanUser,
+    nama_warga: enrolled.nama.trim() || cleanUser,
+    shift: enrolled.shift || '',
+    login_at: new Date().toISOString(),
+  };
+
+  const supabase = getSupabaseClient(candidateSession);
+  if (supabase && isSupabaseConfigured() && !cleanId.startsWith('petugas-')) {
+    try {
+      const { data, error } = await supabase
+        .from('petugas_keamanan')
+        .select('id, nama, username, no_hp, shift, aktif')
+        .eq('id', cleanId)
+        .maybeSingle();
+
+      if (error) {
+        return {
+          error: parseFriendlyError(
+            error,
+            'Gagal memverifikasi status aktif akun petugas di server. Silakan masuk dengan PIN.'
+          ),
+        };
+      }
+
+      if (!data || data.aktif !== true) {
+        return {
+          error:
+            'Akun petugas ini sudah dinonaktifkan atau tidak ditemukan. Hubungi Pengurus Lingkungan.',
+        };
+      }
+
+      const verifiedSession: SessionUser = {
+        role: 'petugas',
+        petugas_id: String(data.id),
+        blok_rumah: String(data.username || cleanUser),
+        nama_warga: String(data.nama || enrolled.nama || cleanUser),
+        no_wa: normalizePhoneNumber(String(data.no_hp || '')),
+        shift: String(data.shift || enrolled.shift || ''),
+        login_at: new Date().toISOString(),
+      };
+
+      saveStoredSession(verifiedSession);
+      await recordAuditLog({
+        session: verifiedSession,
+        action: 'LOGIN_PETUGAS_BIOMETRIC_SUCCESS',
+        entity: 'petugas_keamanan',
+        entity_id: verifiedSession.petugas_id,
+        summary: `Petugas Keamanan ${verifiedSession.nama_warga} (${verifiedSession.shift || 'Shift'}) masuk ke Portal Keamanan via Biometrik.`,
+      });
+      return { data: verifiedSession };
+    } catch {
+      return {
+        error: 'Koneksi ke server terganggu saat memverifikasi akun. Coba lagi atau gunakan PIN 6 digit.',
+      };
+    }
+  }
+
+  const list = readLocalPetugasList();
+  const matched = list.find((p) => p.id === cleanId && p.aktif);
+  if (!matched) {
+    return {
+      error: 'Akun petugas tidak aktif atau tidak ditemukan. Silakan masuk menggunakan PIN 6 digit.',
+    };
+  }
+
+  const localSession: SessionUser = {
+    role: 'petugas',
+    petugas_id: matched.id,
+    blok_rumah: matched.username,
+    nama_warga: matched.nama,
+    no_wa: matched.no_hp,
+    shift: matched.shift,
+    login_at: new Date().toISOString(),
+  };
+  saveStoredSession(localSession);
+  return { data: localSession };
+}
+
 export interface PetugasOwnData {
   profil: {
     id: string;

@@ -18,6 +18,8 @@ const REQUIRED_PERMISSIONS = [
   'android.permission.ACCESS_FINE_LOCATION',
   'android.permission.ACCESS_COARSE_LOCATION',
   'android.permission.NFC',
+  'android.permission.USE_BIOMETRIC',
+  'android.permission.USE_FINGERPRINT',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
 ];
@@ -26,6 +28,8 @@ const OPTIONAL_FEATURES = [
   'android.hardware.nfc',
   'android.hardware.camera',
   'android.hardware.location.gps',
+  'android.hardware.fingerprint',
+  'android.hardware.biometrics.face',
 ];
 
 let xml = fs.readFileSync(manifestPath, 'utf8');

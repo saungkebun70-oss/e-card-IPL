@@ -17,6 +17,8 @@ const USAGE_DESCRIPTIONS = {
     'Aplikasi e-Card IPL Saung Kebun memerlukan akses lokasi GPS untuk kalibrasi titik pos dan live tracking patroli petugas keamanan.',
   NFCReaderUsageDescription:
     'Aplikasi e-Card IPL Saung Kebun memerlukan pembaca NFC untuk memindai tag titik checkpoint patroli keamanan lingkungan.',
+  NSFaceIDUsageDescription:
+    'Aplikasi e-Card IPL Saung Kebun menggunakan Face ID / Touch ID agar Petugas Keamanan dapat masuk ke Portal Patroli secara cepat dan aman tanpa mengetik ulang PIN.',
 };
 
 function escapeXml(value) {

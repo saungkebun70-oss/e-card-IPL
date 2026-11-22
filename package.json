@@ -12,6 +12,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^9.1.2",
+    "@capacitor/core": "^7.6.0",
     "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.119.1",
     "@tailwindcss/vite": "^4.3.3",

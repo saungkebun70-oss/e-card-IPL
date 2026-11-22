@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Clock,
   Crosshair,
+  Fingerprint,
   Loader2,
   LogOut,
   Map as MapIcon,
@@ -15,6 +16,7 @@ import {
   Play,
   Radio,
   RefreshCw,
+  ScanFace,
   Shield,
   ShieldAlert,
   Smartphone,
@@ -46,6 +48,15 @@ import {
   subscribePatroliRealtime,
   type PetugasOwnData,
 } from '../../lib/dataService';
+import {
+  checkPetugasBiometryAvailability,
+  clearPetugasBiometricEnrollment,
+  enrollPetugasBiometric,
+  loadPetugasBiometricEnrollment,
+  subscribeBiometryResume,
+  type BiometricAvailability,
+  type BiometricEnrollmentProfile,
+} from '../../lib/biometricAuth';
 import {
   completeLivePatrolSession,
   fetchActiveLiveSession,
@@ -133,6 +144,70 @@ export function PetugasPortalPage({
   const [refreshing, setRefreshing] = useState(false);
   const [riwayatFilter, setRiwayatFilter] = useState<'hari_ini' | 'semua'>('hari_ini');
   const [resettingCycle, setResettingCycle] = useState(false);
+  const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
+    null
+  );
+  const [biometricProfile, setBiometricProfile] = useState<BiometricEnrollmentProfile | null>(() =>
+    loadPetugasBiometricEnrollment()
+  );
+  const [togglingBiometric, setTogglingBiometric] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+    const initBiometry = async () => {
+      const avail = await checkPetugasBiometryAvailability();
+      if (!active) return;
+      setBiometryAvailability(avail);
+      setBiometricProfile(loadPetugasBiometricEnrollment());
+      unsubscribe = await subscribeBiometryResume((nextAvail) => {
+        if (!active) return;
+        setBiometryAvailability(nextAvail);
+      });
+    };
+    void initBiometry();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const isBiometricEnabledForMe = Boolean(
+    biometricProfile && biometricProfile.petugas_id === session.petugas_id
+  );
+
+  const handleToggleBiometric = async () => {
+    if (isBiometricEnabledForMe) {
+      clearPetugasBiometricEnrollment();
+      setBiometricProfile(null);
+      onToast('info', 'Masuk cepat biometrik di perangkat ini telah dinonaktifkan.');
+      return;
+    }
+
+    if (!biometryAvailability?.isAvailable) {
+      onToast(
+        'error',
+        biometryAvailability?.reason || 'Perangkat ini belum mendukung login biometrik.'
+      );
+      return;
+    }
+
+    setTogglingBiometric(true);
+    try {
+      const res = await enrollPetugasBiometric(session, biometryAvailability);
+      if (res.ok && res.profile) {
+        setBiometricProfile(res.profile);
+        onToast(
+          'success',
+          `Masuk cepat ${biometryAvailability.label} aktif untuk ${session.nama_warga}.`
+        );
+      } else if (!res.cancelled) {
+        onToast('error', res.error || 'Gagal mengaktifkan login biometrik.');
+      }
+    } finally {
+      setTogglingBiometric(false);
+    }
+  };
 
   // State Patroli NFC & Manual Fallback
   const nfcSupported = isWebNfcSupported();
@@ -938,12 +1013,82 @@ export function PetugasPortalPage({
 
         {/* KARTU ABSENSI JAGA & RIWAYAT PRIBADI — BAGIAN PALING ATAS TAB INFO & SHIFT */}
         {activeTab === 'info' && (
-          <PetugasAttendanceCard
-            session={session}
-            officerName={profil.nama}
-            assignedShift={profil.shift}
-            onToast={onToast}
-          />
+          <>
+            <PetugasAttendanceCard
+              session={session}
+              officerName={profil.nama}
+              assignedShift={profil.shift}
+              onToast={onToast}
+            />
+
+            {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
+            <section
+              aria-label="Keamanan Akses Biometrik"
+              className="rounded-2xl border border-slate-200 bg-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isBiometricEnabledForMe
+                      ? 'bg-emerald-50 text-[#059669] border border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {biometryAvailability?.isFace ? (
+                    <ScanFace className="w-5 h-5" />
+                  ) : (
+                    <Fingerprint className="w-5 h-5" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-bold text-[#0F172A]">
+                      Masuk Cepat {biometryAvailability?.label || 'Biometrik'}
+                    </h2>
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                        isBiometricEnabledForMe
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      {isBiometricEnabledForMe ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    {biometryAvailability?.isAvailable
+                      ? isBiometricEnabledForMe
+                        ? `Aktif di perangkat ini hingga ${formatTanggal(biometricProfile?.expires_at || '')}. Saat keluar, Anda dapat masuk kembali tanpa mengetik PIN 6 digit.`
+                        : `Aktifkan ${biometryAvailability.label} agar tidak perlu mengetik ulang PIN 6 digit setiap kali membuka Portal Keamanan.`
+                      : biometryAvailability?.reason ||
+                        'Tersedia pada aplikasi Android/iOS atau perangkat dengan sensor Sidik Jari / Face ID aktif.'}
+                  </p>
+                </div>
+              </div>
+
+              {biometryAvailability?.isAvailable && (
+                <button
+                  type="button"
+                  disabled={togglingBiometric}
+                  onClick={() => void handleToggleBiometric()}
+                  className={`min-h-[42px] px-4 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-60 ${
+                    isBiometricEnabledForMe
+                      ? 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-200'
+                      : 'bg-[#0F172A] hover:bg-slate-800 text-white'
+                  }`}
+                >
+                  {togglingBiometric ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : biometryAvailability.isFace ? (
+                    <ScanFace className="w-4 h-4" />
+                  ) : (
+                    <Fingerprint className="w-4 h-4" />
+                  )}
+                  <span>{isBiometricEnabledForMe ? 'Nonaktifkan' : 'Aktifkan Sekarang'}</span>
+                </button>
+              )}
+            </section>
+          </>
         )}
 
         {/* PANEL KONTROL LIVE TRACKING PATROLI RINGKAS (Pada Tab Info & Scan; pada Tab Peta ditempatkan tepat di bawah Peta 3D) */}
