@@ -13,18 +13,32 @@
     font-family: var(--font-sans);
     background-color: #F8FAFC;
     color: #0F172A;
+    min-height: 100dvh;
+    height: auto;
+    overflow-y: auto;
     overflow-x: hidden;
+    overflow-x: clip;
     scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
 
   body {
-    min-height: 100vh;
     min-height: 100dvh;
+    height: auto;
+    overflow-y: auto;
     overflow-x: hidden;
-    overscroll-behavior-y: none;
+    overflow-x: clip;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    min-height: 100dvh;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: clip;
   }
 
   /* Mencegah auto-zoom paksa pada iOS Safari saat mengetuk kolom input di layar mobile */

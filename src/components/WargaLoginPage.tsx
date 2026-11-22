@@ -47,9 +47,9 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] w-full bg-[#F8FAFC] flex flex-col lg:flex-row overflow-y-auto overflow-x-clip touch-pan-y">
       {/* Panel Identitas Portal Warga */}
-      <section className="bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden">
+      <section className="shrink-0 bg-[#0F172A] text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-600/15 blur-3xl"
@@ -105,7 +105,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
       </section>
 
       {/* Form Login Khusus Warga */}
-      <main className="flex-1 flex items-center justify-center p-5 sm:p-8 lg:p-14">
+      <main className="flex-1 flex items-start lg:items-center justify-center px-5 pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:px-8 sm:pt-8 sm:pb-20 lg:p-14">
         <div className="w-full max-w-md">
           <div className="mb-6 flex flex-col lg:items-center lg:text-center">
             <BrandLogo size="lg" className="hidden lg:flex mb-4" />
