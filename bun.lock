@@ -7,6 +7,7 @@
       "dependencies": {
         "@aparajita/capacitor-biometric-auth": "^9.1.2",
         "@capacitor/core": "^7.6.0",
+        "@capacitor/status-bar": "^7.0.6",
         "@google/genai": "^2.4.0",
         "@supabase/supabase-js": "^2.119.1",
         "@tailwindcss/vite": "^4.3.3",
@@ -47,6 +48,8 @@
     "@capacitor/core": ["@capacitor/core@7.6.10", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-foYHd//t6E3RTELVG8wdkp5jVnmLcHKUurAa9BA8EUSNd2eY0SijCHpfO0bFwYBP5DrCeXwgSFYi3NJw413gtQ=="],
 
     "@capacitor/ios": ["@capacitor/ios@7.6.10", "", { "peerDependencies": { "@capacitor/core": "^7.6.0" } }, "sha512-iDXt6n6+tQq6fLMgdVNwT7dtgyqGSpGmPx1AGrUJq3YxOqpzqqtY4v4phqhys9PxPSrVyxnWGAL+SEsAHtZLkQ=="],
+
+    "@capacitor/status-bar": ["@capacitor/status-bar@7.0.6", "", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-7AVqj46b26QikImQzWfsJmzG8NUJZBGkrVSuoeTo+SX/YH3hXH0MqwwFgMqMGHfa/BICDgSvTjM9miVFlq0+RQ=="],
 
     "@emnapi/core": ["@emnapi/core@2.0.0-beta.2", "", { "dependencies": { "@emnapi/wasi-threads": "2.2.0", "tslib": "^2.4.0" } }, "sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A=="],
 

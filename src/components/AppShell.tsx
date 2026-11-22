@@ -81,7 +81,7 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row overflow-x-hidden">
       {/* Desktop Sidebar Tetap (>= 1024px) */}
       <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30 no-print">
         <div className="px-5 py-5 border-b border-slate-800">
@@ -231,7 +231,7 @@ export function AppShell({
             role="dialog"
             aria-modal="true"
             aria-label="Menu Sidebar Pengurus"
-            className="lg:hidden fixed inset-0 z-50 flex no-print"
+            className="lg:hidden fixed inset-0 z-[60] flex no-print"
           >
             {/* Backdrop Blur */}
             <motion.div
@@ -394,7 +394,7 @@ export function AppShell({
       </AnimatePresence>
 
       {/* Area Kerja Utama */}
-      <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
+      <div className="flex-1 lg:pl-72 flex flex-col min-w-0 overflow-x-hidden">
         {/* Header Kontekstual Bersih — Tanpa Ikon Gerigi, Hamburger Menu di Kiri Atas */}
         <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 lg:px-8 pb-2.5 sm:pb-3 pt-safe-header no-print">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-2.5 sm:gap-3">
@@ -461,8 +461,8 @@ export function AppShell({
         </header>
 
         {/* Single-View Slide Content per Tab */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 lg:pb-10">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 lg:pb-10 min-w-0 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activeTab}
@@ -481,7 +481,7 @@ export function AppShell({
       {/* Bottom Navigation Bar Tetap untuk Mobile & Tablet (< 1024px) */}
       <nav
         aria-label="Navigasi Bawah"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe no-print"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe pb-[env(safe-area-inset-bottom)] no-print"
       >
         <div
           className={`grid ${

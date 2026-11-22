@@ -268,10 +268,10 @@ export function AdminRekapSlide({
   const yearOptions = [TAHUN_AKTIF - 1, TAHUN_AKTIF, TAHUN_AKTIF + 1];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-28 print:pb-0 overflow-x-hidden">
       {/* Sub-Tab Switcher & Quick Action Input Tunai */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="inline-flex p-1 bg-slate-200/80 rounded-xl w-full sm:w-fit">
+        <div className="inline-flex p-1 bg-slate-200/80 rounded-xl w-full sm:w-fit overflow-x-auto">
           <button
             type="button"
             onClick={() => setSubTab('bulanan')}
@@ -347,7 +347,7 @@ export function AdminRekapSlide({
       {/* SUB-TAB 1: REKAPITULASI KEUANGAN BULANAN (BUKU KAS UMUM + PDF A4) */}
       {/* ================================================================= */}
       {subTab === 'bulanan' && (
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0">
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
           <div className="no-print bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -416,7 +416,7 @@ export function AdminRekapSlide({
           {/* Dokumen Resmi Rekapitulasi Bulanan (#printable-report) */}
           <article
             id="printable-report"
-            className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
+            className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
           >
             {/* Kop Resmi Perumahan */}
             <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#0F172A] flex items-center gap-3 sm:gap-4">
@@ -500,7 +500,7 @@ export function AdminRekapSlide({
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Realisasi Pengeluaran per Pos Anggaran
                 </h3>
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
                   <table className="w-full text-left border-collapse text-xs print:text-[10px]">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -544,7 +544,7 @@ export function AdminRekapSlide({
                 </span>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
                 <table className="w-full text-left border-collapse text-xs print:text-[9.5px]">
                   <thead>
                     <tr className="bg-[#0F172A] text-white font-semibold">
@@ -784,7 +784,7 @@ export function AdminRekapSlide({
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto w-full">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600">
@@ -891,7 +891,7 @@ export function AdminRekapSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={() => setManualModalOpen(false)}
         >
           <form

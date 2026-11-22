@@ -36,17 +36,17 @@ const config: CapacitorConfig = {
     allowNavigation: ['e-card-ipl.vercel.app', '*.supabase.co'],
   },
   android: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   ios: {
     contentInset: 'automatic',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   plugins: {
     StatusBar: {
       overlaysWebView: false,
-      style: 'DARK',
-      backgroundColor: '#0F172A',
+      style: 'LIGHT',
+      backgroundColor: '#FFFFFF',
     },
   },
 };

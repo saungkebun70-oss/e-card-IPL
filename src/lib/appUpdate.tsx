@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 export interface VersionManifest {
   version: string;
@@ -47,11 +48,6 @@ interface CapacitorAppPluginLike {
     eventName: string,
     listenerFunc: (state?: { isActive?: boolean }) => void
   ) => Promise<CapacitorListenerHandleLike> | CapacitorListenerHandleLike;
-}
-
-interface CapacitorStatusBarPluginLike {
-  setOverlaysWebView?: (options: { overlay: boolean }) => Promise<void> | void;
-  setBackgroundColor?: (options: { color: string }) => Promise<void> | void;
 }
 
 function isSafeNativePlatform(): boolean {
@@ -153,23 +149,25 @@ export function AppUpdateProvider({ children }: { children: React.ReactNode }) {
 
   // Konfigurasi StatusBar Capacitor secara aman khusus saat berjalan di native Android/iOS
   useEffect(() => {
-    if (!isSafeNativePlatform() || typeof window === 'undefined') return;
-    try {
-      const capPlugins = (
-        window as unknown as {
-          Capacitor?: { Plugins?: { StatusBar?: CapacitorStatusBarPluginLike } };
-        }
-      ).Capacitor?.Plugins;
-      const statusBar = capPlugins?.StatusBar;
-      if (statusBar?.setOverlaysWebView) {
-        void Promise.resolve(statusBar.setOverlaysWebView({ overlay: false })).catch(() => {});
+    if (!isSafeNativePlatform()) return;
+    const configureNativeStatusBar = async () => {
+      try {
+        await StatusBar.setOverlaysWebView({ overlay: false });
+      } catch {
+        // Abaikan diam-diam bila tidak didukung perangkat
       }
-      if (statusBar?.setBackgroundColor) {
-        void Promise.resolve(statusBar.setBackgroundColor({ color: '#0F172A' })).catch(() => {});
+      try {
+        await StatusBar.setStyle({ style: Style.Light });
+      } catch {
+        // Abaikan diam-diam bila tidak didukung perangkat
       }
-    } catch {
-      // Abaikan diam-diam bila plugin StatusBar tidak tersedia
-    }
+      try {
+        await StatusBar.setBackgroundColor({ color: '#FFFFFF' });
+      } catch {
+        // Abaikan diam-diam bila tidak didukung perangkat (mis. iOS)
+      }
+    };
+    void configureNativeStatusBar();
   }, []);
 
   const fetchServerVersion = useCallback(async (): Promise<VersionManifest | null> => {

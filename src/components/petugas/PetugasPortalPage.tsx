@@ -957,7 +957,7 @@ export function PetugasPortalPage({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] pb-28">
+    <div className="min-h-[100dvh] bg-[#F8FAFC] text-[#0F172A] pb-28 overflow-x-hidden">
       {/* Header Terisolasi Khusus Petugas (Tanpa Tautan ke Portal Admin / Warga) */}
       <header className="sticky top-0 z-30 bg-[#0F172A] text-white border-b border-slate-800 pt-safe">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -1807,7 +1807,7 @@ export function PetugasPortalPage({
       {/* BOTTOM NAVIGATION BAR 5 MENU SIMETRIS KHUSUS PETUGAS KEAMANAN */}
       <nav
         aria-label="Navigasi Petugas Keamanan"
-        className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe shadow-[0_-4px_20px_rgba(15,23,42,0.06)]"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(15,23,42,0.06)]"
       >
         <div className="max-w-3xl mx-auto grid grid-cols-5 h-16 items-center px-1">
           {/* 1. Info & Shift */}
@@ -1929,7 +1929,7 @@ export function PetugasPortalPage({
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Selesai Patroli"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
         >
           <div className="bg-white w-full max-w-sm rounded-2xl border border-slate-200 p-5 space-y-4 shadow-xl">
             <div className="space-y-1.5">
