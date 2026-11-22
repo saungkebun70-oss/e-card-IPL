@@ -24,14 +24,14 @@ async function main() {
 
   // Pastikan icon.png berformat PNG asli 1024x1024 agar kompatibel penuh dengan @capacitor/assets
   const normalizedIcon = await sharpModule(iconBuffer)
-    .resize(1024, 1024, { fit: 'cover' })
+    .resize(1024, 1024, { fit: 'contain', background: { r: 245, g: 243, b: 231, alpha: 1 } })
     .png()
     .toBuffer();
   fs.writeFileSync(iconPath, normalizedIcon);
 
-  // Buat splash.png berformat PNG asli 2732x2732 dengan ikon di tengah pada latar navy #0F172A
+  // Buat splash.png berformat PNG asli 2732x2732 dengan logo di tengah pada latar krem lembut #F5F3E7
   const splashLogo = await sharpModule(normalizedIcon)
-    .resize(760, 760, { fit: 'contain' })
+    .resize(820, 820, { fit: 'contain' })
     .png()
     .toBuffer();
 
@@ -40,7 +40,7 @@ async function main() {
       width: 2732,
       height: 2732,
       channels: 4,
-      background: { r: 15, g: 23, b: 42, alpha: 1 },
+      background: { r: 245, g: 243, b: 231, alpha: 1 },
     },
   })
     .composite([{ input: splashLogo, gravity: 'center' }])

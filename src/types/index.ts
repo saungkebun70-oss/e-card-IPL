@@ -74,6 +74,7 @@ export interface PengurusItem {
 export interface PengurusAccountInfo extends PengurusItem {
   pin_akses?: string;
   no_wa?: string;
+  avatar_url?: string | null;
 }
 
 export interface SessionUser {
@@ -87,6 +88,7 @@ export interface SessionUser {
   nominal_iuran?: number;
   petugas_id?: string;
   shift?: string;
+  avatar_url?: string | null;
   login_at: string;
 }
 
@@ -147,6 +149,7 @@ export interface Warga {
   nominal_iuran: number;
   pin_akses: string;
   bot_role?: BotAccessRole | null;
+  avatar_url?: string | null;
   aktif: boolean;
   created_at: string;
 }
@@ -325,6 +328,7 @@ export interface PetugasKeamanan {
   pin?: string;
   no_hp: string;
   shift: string;
+  avatar_url?: string | null;
   aktif: boolean;
   created_at: string;
 }
@@ -334,6 +338,7 @@ export interface PetugasKontakDarurat {
   nama: string;
   no_hp: string;
   shift: string;
+  avatar_url?: string | null;
 }
 
 export interface TitikPatroli {
@@ -562,6 +567,27 @@ export interface SystemNotification {
   recipient_blocks?: string[];
   sender_name: string;
   sender_jabatan: string;
+  created_at: string;
+}
+
+export type ActivityNotificationCategory =
+  | 'ipl'
+  | 'finance'
+  | 'patrol'
+  | 'announcement'
+  | 'system';
+
+export interface ActivityNotification {
+  id: string;
+  user_id: string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  actor_avatar_url?: string | null;
+  category: ActivityNotificationCategory;
+  title: string;
+  message: string;
+  is_read: boolean;
+  target_url: string;
   created_at: string;
 }
 
