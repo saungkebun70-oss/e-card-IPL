@@ -43,6 +43,7 @@ import {
   exportLaporanExcel,
 } from '../../lib/exportReport';
 import { submitManualCashAdmin } from '../../lib/dataService';
+import { LoadingSpinner } from '../LoadingSpinner';
 import { recordAuditLog } from '../../lib/auditLogger';
 import { buildMonthlyCashReport } from '../../lib/financeUtils';
 import { downloadRekapBulananPdf } from '../../lib/pdfGenerator';
@@ -891,12 +892,12 @@ export function AdminRekapSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={() => setManualModalOpen(false)}
+          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-modal-backdrop"
+          onClick={() => !submitting && setManualModalOpen(false)}
         >
           <form
             onSubmit={handleManualSubmit}
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto"
+            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1028,9 +1029,11 @@ export function AdminRekapSlide({
               <button
                 type="submit"
                 disabled={submitting || selectedMonths.length === 0}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+                aria-busy={submitting}
+                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                {submitting ? 'Menyimpan...' : 'Simpan & Verifikasi'}
+                {submitting && <LoadingSpinner size="xs" tone="white" />}
+                <span>{submitting ? 'Menyimpan...' : 'Simpan & Verifikasi'}</span>
               </button>
             </div>
           </form>

@@ -30,6 +30,7 @@ import {
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface PetugasLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -447,8 +448,10 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
             <button
               type="submit"
               disabled={loading || biometricLoading}
-              className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+              aria-busy={loading}
+              className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-70 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer"
             >
+              {loading && <LoadingSpinner size="sm" tone="white" label="Memverifikasi akun petugas" />}
               <span>{loading ? 'Memverifikasi...' : 'Masuk Portal Keamanan'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
@@ -459,7 +462,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
               <button
                 type="button"
                 onClick={() => onSwitchPortal('warga')}
-                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 active:scale-[0.97] text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                 <span>Portal Warga</span>
@@ -467,7 +470,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
               <button
                 type="button"
                 onClick={() => onSwitchPortal('admin')}
-                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 active:scale-[0.97] text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#0F172A] shrink-0" />
                 <span>Pengurus / Admin</span>

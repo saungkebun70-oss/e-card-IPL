@@ -359,11 +359,11 @@ export function AdminSettingsDrawer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="central-settings-title"
-      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 no-print"
+      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 no-print animate-modal-backdrop"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-5xl max-h-[93dvh] border border-slate-200 shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-5xl max-h-[93dvh] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag Handle Mobile */}
@@ -429,7 +429,7 @@ export function AdminSettingsDrawer({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tab.id as SettingsDrawerTab)}
-                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-lg text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-colors cursor-pointer min-w-0 ${
+                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-lg text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer min-w-0 ${
                     active
                       ? 'bg-white text-[#0F172A] shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
@@ -450,6 +450,7 @@ export function AdminSettingsDrawer({
 
         {/* Konten Tab */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 bg-[#F8FAFC]">
+          <div key={activeTab} className="animate-page-enter">
           {/* TAB 0: PROFIL SAYA & FOTO PROFIL (AKTIF UNTUK SEMUA PENGURUS: KETUA, BENDAHARA, HUMAS, DLL.) */}
           {activeTab === 'profil' && (
             <div className="space-y-5 max-w-3xl mx-auto">
@@ -1261,6 +1262,7 @@ export function AdminSettingsDrawer({
               onToast={onToast}
             />
           )}
+          </div>
         </div>
       </div>
     </div>

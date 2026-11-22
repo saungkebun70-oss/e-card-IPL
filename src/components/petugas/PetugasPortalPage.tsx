@@ -37,6 +37,7 @@ import {
   type TransaksiKas,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
+import { ContentLoadingState, LoadingSpinner } from '../LoadingSpinner';
 import {
   formatTanggal,
   formatTanggalWaktu,
@@ -1055,6 +1056,13 @@ export function PetugasPortalPage({
       </header>
 
       <main className="max-w-3xl mx-auto px-4 pt-[calc(4rem+env(safe-area-inset-top,0px)+1rem)] pb-24 space-y-4">
+        {loading && !data ? (
+          <ContentLoadingState
+            message="Memuat Portal Keamanan..."
+            subMessage="Mengambil jadwal shift, titik checkpoint NFC & log patroli"
+          />
+        ) : (
+        <div key={activeTab} className="space-y-4 animate-page-enter">
         {/* Banner Judul Halaman Aktif */}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -1069,7 +1077,7 @@ export function PetugasPortalPage({
             <button
               type="button"
               onClick={() => handleSelectTab('peta')}
-              className="shrink-0 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-right cursor-pointer hover:bg-emerald-100 transition"
+              className="shrink-0 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-right cursor-pointer hover:bg-emerald-100 transition-all duration-200 active:scale-[0.97]"
             >
               <p className="text-[10px] font-semibold text-emerald-700 leading-none">
                 {activeLiveSession?.status === 'active' ? 'LIVE Aktif' : 'Siklus Aktif'}
@@ -1892,6 +1900,8 @@ export function PetugasPortalPage({
             )}
           </>
         )}
+        </div>
+        )}
       </main>
 
       {/* BOTTOM NAVIGATION BAR 5 MENU SIMETRIS KHUSUS PETUGAS KEAMANAN */}
@@ -1904,11 +1914,11 @@ export function PetugasPortalPage({
           <button
             type="button"
             onClick={() => handleSelectTab('info')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition cursor-pointer ${
+            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'info' ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Shield className={`w-5 h-5 ${activeTab === 'info' ? 'stroke-[2.5]' : ''}`} />
+            <Shield className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'info' ? 'stroke-[2.5] scale-105' : ''}`} />
             <span className="text-[10px] font-bold leading-tight">Info &amp; Shift</span>
           </button>
 
@@ -1916,11 +1926,11 @@ export function PetugasPortalPage({
           <button
             type="button"
             onClick={() => handleSelectTab('riwayat')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition cursor-pointer ${
+            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'riwayat' ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <ClipboardList className={`w-5 h-5 ${activeTab === 'riwayat' ? 'stroke-[2.5]' : ''}`} />
+            <ClipboardList className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'riwayat' ? 'stroke-[2.5] scale-105' : ''}`} />
             <span className="text-[10px] font-bold leading-tight">Riwayat</span>
           </button>
 
@@ -1983,11 +1993,11 @@ export function PetugasPortalPage({
           <button
             type="button"
             onClick={() => handleSelectTab('honor')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition cursor-pointer ${
+            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'honor' ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Wallet className={`w-5 h-5 ${activeTab === 'honor' ? 'stroke-[2.5]' : ''}`} />
+            <Wallet className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'honor' ? 'stroke-[2.5] scale-105' : ''}`} />
             <span className="text-[10px] font-bold leading-tight">Honor</span>
           </button>
 
@@ -1995,11 +2005,11 @@ export function PetugasPortalPage({
           <button
             type="button"
             onClick={() => handleSelectTab('peta')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition cursor-pointer ${
+            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'peta' ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MapIcon className={`w-5 h-5 ${activeTab === 'peta' ? 'stroke-[2.5]' : ''}`} />
+            <MapIcon className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'peta' ? 'stroke-[2.5] scale-105' : ''}`} />
             <span className="text-[10px] font-bold leading-tight">Peta</span>
           </button>
         </div>
@@ -2020,11 +2030,11 @@ export function PetugasPortalPage({
           aria-modal="true"
           aria-label="Pengaturan Profil dan Tema Petugas"
           onClick={() => setProfileModalOpen(false)}
-          className="fixed inset-0 z-[65] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-[65] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-2xl border border-slate-200 p-5 space-y-5 shadow-2xl"
+            className="bg-white w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-2xl border border-slate-200 p-5 space-y-5 shadow-2xl animate-modal-pop"
           >
             <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
@@ -2069,9 +2079,9 @@ export function PetugasPortalPage({
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Selesai Patroli"
-          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop"
         >
-          <div className="bg-white w-full max-w-sm rounded-2xl border border-slate-200 p-5 space-y-4 shadow-xl">
+          <div className="bg-white w-full max-w-sm rounded-2xl border border-slate-200 p-5 space-y-4 shadow-xl animate-modal-pop">
             <div className="space-y-1.5">
               <h2 className="text-base font-bold text-[#0F172A]">Selesaikan Patroli Live?</h2>
               <p className="text-xs text-slate-600 leading-relaxed">
@@ -2094,11 +2104,12 @@ export function PetugasPortalPage({
               <button
                 type="button"
                 disabled={completingLivePatrol}
+                aria-busy={completingLivePatrol}
                 onClick={() => void handleConfirmFinishLivePatrol()}
-                className="min-h-[40px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                {completingLivePatrol && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Ya, Selesai Patroli</span>
+                {completingLivePatrol && <LoadingSpinner size="xs" tone="white" />}
+                <span>{completingLivePatrol ? 'Menyelesaikan...' : 'Ya, Selesai Patroli'}</span>
               </button>
             </div>
           </div>

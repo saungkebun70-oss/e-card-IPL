@@ -36,6 +36,7 @@ import {
   type OsNotificationPermissionState,
 } from '../lib/notificationAlertService';
 import { UserAvatar } from './UserAvatar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type FilterTab = 'all' | 'finance_ipl' | 'patrol' | 'info_system';
 
@@ -295,7 +296,7 @@ export function NotificationBell({
         onClick={handleToggleOpen}
         aria-label={`Notifikasi aktivitas${unreadCount > 0 ? ` (${unreadCount} belum dibaca)` : ''}`}
         aria-expanded={open}
-        className={`relative w-10 h-10 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${buttonTheme}`}
+        className={`relative w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
       >
         {bellShaking ? (
           <BellRing className="w-[18px] h-[18px] text-[var(--theme-primary)] animate-bell-shake" />
@@ -320,7 +321,7 @@ export function NotificationBell({
         <div
           role="region"
           aria-label="Aktifkan notifikasi HP"
-          className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[58] sm:w-[340px] max-w-[calc(100vw-1.5rem)] rounded-2xl border border-[var(--theme-primary-soft-border)] bg-white shadow-xl p-3.5 text-left"
+          className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[58] sm:w-[340px] max-w-[calc(100vw-1.5rem)] rounded-2xl border border-[var(--theme-primary-soft-border)] bg-white shadow-xl p-3.5 text-left animate-dropdown-pop"
         >
           <div className="flex items-start gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--theme-primary-soft)] text-[var(--theme-primary)] flex items-center justify-center shrink-0 mt-0.5">
@@ -337,15 +338,15 @@ export function NotificationBell({
                   type="button"
                   disabled={requestingPerm}
                   onClick={() => void handleAllowOsNotifications()}
-                  className="min-h-[32px] px-3 rounded-lg bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-white text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[32px] px-3 rounded-lg bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
                 >
-                  {requestingPerm && <Loader2 className="w-3 h-3 animate-spin" />}
-                  <span>Aktifkan</span>
+                  {requestingPerm && <LoadingSpinner size="xs" tone="white" />}
+                  <span>{requestingPerm ? 'Meminta izin...' : 'Aktifkan'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDismissPrompt}
-                  className="min-h-[32px] px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
+                  className="min-h-[32px] px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer"
                 >
                   Nanti Saja
                 </button>
@@ -369,13 +370,13 @@ export function NotificationBell({
           <div
             aria-hidden="true"
             onClick={() => setOpen(false)}
-            className="sm:hidden fixed inset-0 z-[55] bg-slate-950/45 backdrop-blur-[1px]"
+            className="sm:hidden fixed inset-0 z-[55] bg-slate-950/45 backdrop-blur-[1px] animate-modal-backdrop"
           />
 
           <section
             role="dialog"
             aria-label="Notifikasi Aktivitas"
-            className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[60] sm:w-[400px] max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[75dvh]"
+            className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[60] sm:w-[400px] max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[75dvh] animate-dropdown-pop"
           >
             {/* Header Panel Notifikasi */}
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80 shrink-0">
@@ -442,9 +443,9 @@ export function NotificationBell({
                     key={tab.id}
                     type="button"
                     onClick={() => setFilter(tab.id)}
-                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                       isActive
-                        ? 'bg-[#059669] text-white'
+                        ? 'bg-[#059669] text-white shadow-2xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-[#0F172A]'
                     }`}
                   >
@@ -455,10 +456,10 @@ export function NotificationBell({
             </div>
 
             {/* Daftar Aktivitas */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            <div key={filter} className="flex-1 overflow-y-auto divide-y divide-slate-100 animate-page-enter">
               {loading ? (
-                <div className="py-10 flex flex-col items-center justify-center gap-2 text-slate-500">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#059669]" />
+                <div className="py-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
+                  <LoadingSpinner size="md" tone="theme" label="Memuat aktivitas terbaru" />
                   <span className="text-xs">Memuat aktivitas terbaru...</span>
                 </div>
               ) : filteredItems.length === 0 ? (

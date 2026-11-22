@@ -84,11 +84,11 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="kwitansi-digital-title"
-      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto animate-modal-backdrop"
       onClick={props.onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col"
+        className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal (Disembunyikan saat cetak) */}

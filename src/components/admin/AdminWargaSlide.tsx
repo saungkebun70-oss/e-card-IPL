@@ -51,6 +51,7 @@ import {
 import { SEED_WARGA } from '../../lib/seedData';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { UserAvatar } from '../UserAvatar';
+import { LoadingSpinner } from '../LoadingSpinner';
 
 interface AdminWargaSlideProps {
   session: SessionUser;
@@ -106,6 +107,7 @@ export function AdminWargaSlide({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Warga | null>(null);
+  const [deletingWarga, setDeletingWarga] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importingMaster, setImportingMaster] = useState(false);
   const [syncExistingNames, setSyncExistingNames] = useState(false);
@@ -325,14 +327,19 @@ export function AdminWargaSlide({
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    const res = await deleteWargaAdmin(session, deleteTarget);
-    if (res.error) {
-      onToast('error', res.error);
-    } else {
-      onToast('info', `Data unit ${deleteTarget.blok_rumah} berhasil dihapus.`);
-      setDeleteTarget(null);
-      await onRefresh();
+    if (!deleteTarget || deletingWarga) return;
+    setDeletingWarga(true);
+    try {
+      const res = await deleteWargaAdmin(session, deleteTarget);
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast('info', `Data unit ${deleteTarget.blok_rumah} berhasil dihapus.`);
+        setDeleteTarget(null);
+        await onRefresh();
+      }
+    } finally {
+      setDeletingWarga(false);
     }
   };
 
@@ -702,12 +709,12 @@ export function AdminWargaSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-modal-backdrop"
           onClick={() => setModalOpen(false)}
         >
           <form
             onSubmit={handleSubmitForm}
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto"
+            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -924,9 +931,11 @@ export function AdminWargaSlide({
               <button
                 type="submit"
                 disabled={saving || Boolean(waValidation.error)}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold cursor-pointer"
+                aria-busy={saving}
+                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                {saving ? 'Menyimpan...' : 'Simpan Data'}
+                {saving && <LoadingSpinner size="xs" tone="white" />}
+                <span>{saving ? 'Menyimpan...' : 'Simpan Data'}</span>
               </button>
             </div>
           </form>
@@ -938,11 +947,11 @@ export function AdminWargaSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => !importingMaster && setImportModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1033,10 +1042,15 @@ export function AdminWargaSlide({
               <button
                 type="button"
                 disabled={importingMaster}
+                aria-busy={importingMaster}
                 onClick={() => void handleBulkImportMaster()}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                <Database className="w-4 h-4" />
+                {importingMaster ? (
+                  <LoadingSpinner size="xs" tone="white" />
+                ) : (
+                  <Database className="w-4 h-4" />
+                )}
                 <span>
                   {importingMaster ? 'Menyimpan ke Database...' : 'Masukkan ke Database'}
                 </span>
@@ -1051,11 +1065,11 @@ export function AdminWargaSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setDeleteTarget(null)}
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          onClick={() => !deletingWarga && setDeleteTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5">
@@ -1072,17 +1086,21 @@ export function AdminWargaSlide({
             <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
               <button
                 type="button"
+                disabled={deletingWarga}
                 onClick={() => setDeleteTarget(null)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
+                disabled={deletingWarga}
+                aria-busy={deletingWarga}
                 onClick={() => void handleConfirmDelete()}
-                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold cursor-pointer"
+                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                Ya, Hapus Unit
+                {deletingWarga && <LoadingSpinner size="xs" tone="white" />}
+                <span>{deletingWarga ? 'Menghapus...' : 'Ya, Hapus Unit'}</span>
               </button>
             </div>
           </div>

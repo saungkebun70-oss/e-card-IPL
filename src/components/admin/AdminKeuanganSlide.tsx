@@ -47,6 +47,7 @@ import {
   verifyTransaksiKasKetuaAdmin,
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
+import { LoadingSpinner } from '../LoadingSpinner';
 import {
   formatRupiah,
   formatTanggalSingkat,
@@ -485,7 +486,7 @@ export function AdminKeuanganSlide({
           role="tab"
           aria-selected={keuanganSubTab === 'buku_kas'}
           onClick={() => setKeuanganSubTab('buku_kas')}
-          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
             keuanganSubTab === 'buku_kas'
               ? 'bg-white text-[#0F172A] shadow-sm'
               : 'text-slate-600 hover:text-[#0F172A]'
@@ -499,7 +500,7 @@ export function AdminKeuanganSlide({
           role="tab"
           aria-selected={keuanganSubTab === 'shift_lembur'}
           onClick={() => setKeuanganSubTab('shift_lembur')}
-          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
             keuanganSubTab === 'shift_lembur'
               ? 'bg-white text-[#0F172A] shadow-sm'
               : 'text-slate-600 hover:text-[#0F172A]'
@@ -516,6 +517,7 @@ export function AdminKeuanganSlide({
       </div>
 
       {/* PANEL KELOLA SHIFT & LEMBUR KEAMANAN (SATU-SATUNYA PUSAT INPUT SHIFT, LEMBUR & HONOR KEAMANAN) */}
+      <div key={keuanganSubTab} className="animate-page-enter">
       {keuanganSubTab === 'shift_lembur' ? (
         <AdminShiftOvertimePanel
           session={session}
@@ -1100,6 +1102,7 @@ export function AdminKeuanganSlide({
         </section>
       </div>
       )}
+      </div>
 
       {/* Modal Kwitansi Kas Resmi + Stempel + PDF A4 */}
       {selectedKwitansi && (
@@ -1115,11 +1118,11 @@ export function AdminKeuanganSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setSelectedProofUrl(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl"
+            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
@@ -1148,11 +1151,11 @@ export function AdminKeuanganSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setActionNoteModal(null)}
+          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          onClick={() => !verifyingId && setActionNoteModal(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1163,8 +1166,9 @@ export function AdminKeuanganSlide({
               </h3>
               <button
                 type="button"
+                disabled={Boolean(verifyingId)}
                 onClick={() => setActionNoteModal(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1190,22 +1194,25 @@ export function AdminKeuanganSlide({
             <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
               <button
                 type="button"
+                disabled={Boolean(verifyingId)}
                 onClick={() => setActionNoteModal(null)}
-                className="min-h-[40px] px-4 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700"
+                className="min-h-[40px] px-4 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 disabled={!actionNoteText.trim() || Boolean(verifyingId)}
+                aria-busy={Boolean(verifyingId)}
                 onClick={() => void handleConfirmActionNote()}
-                className={`min-h-[40px] px-4 rounded-xl text-white text-xs font-semibold disabled:opacity-50 ${
+                className={`min-h-[40px] px-4 rounded-xl text-white text-xs font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                   actionNoteModal.mode === 'bendahara_reject'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-amber-600 hover:bg-amber-700'
                 }`}
               >
-                Konfirmasi
+                {Boolean(verifyingId) && <LoadingSpinner size="xs" tone="white" />}
+                <span>{Boolean(verifyingId) ? 'Memproses...' : 'Konfirmasi'}</span>
               </button>
             </div>
           </div>

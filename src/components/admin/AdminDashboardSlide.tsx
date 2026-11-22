@@ -48,6 +48,7 @@ import {
   getCurrentBillingMonth,
   getNamaBulan,
 } from '../../lib/format';
+import { LoadingSpinner } from '../LoadingSpinner';
 import {
   deleteSystemNotificationAdmin,
   deleteTransaksiIplAdmin,
@@ -1039,9 +1040,14 @@ export function AdminDashboardSlide({
                               type="button"
                               disabled={isBusy}
                               onClick={() => void handleBendaharaAcc(trx)}
-                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                              aria-busy={isBusy}
+                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                             >
-                              <CheckCircle2 className="w-4 h-4" />
+                              {isBusy ? (
+                                <LoadingSpinner size="xs" tone="white" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
                               <span>{isBusy ? 'Memproses...' : 'ACC / Verifikasi'}</span>
                             </button>
                           </>
@@ -1061,7 +1067,7 @@ export function AdminDashboardSlide({
                                 setKetuaReturnTarget({ kind: 'ipl', trx });
                                 setKetuaReturnNote('');
                               }}
-                              className="min-h-[42px] px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                              className="min-h-[42px] px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                             >
                               <Undo2 className="w-4 h-4" />
                               <span>Kembalikan</span>
@@ -1071,9 +1077,14 @@ export function AdminDashboardSlide({
                               type="button"
                               disabled={isBusy}
                               onClick={() => void handleKetuaApproveIpl(trx)}
-                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                              aria-busy={isBusy}
+                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                             >
-                              <ShieldCheck className="w-4 h-4" />
+                              {isBusy ? (
+                                <LoadingSpinner size="xs" tone="white" />
+                              ) : (
+                                <ShieldCheck className="w-4 h-4" />
+                              )}
                               <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
                             </button>
                           </>
@@ -1189,11 +1200,16 @@ export function AdminDashboardSlide({
                   <button
                     type="button"
                     disabled={deletingNotifId === notif.id}
+                    aria-busy={deletingNotifId === notif.id}
                     onClick={() => void handleDeleteNotification(notif)}
                     aria-label={`Hapus pengumuman ${notif.title}`}
-                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-medium text-slate-500 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start disabled:opacity-50 whitespace-nowrap"
+                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-medium text-slate-500 inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shrink-0 self-start disabled:opacity-50 whitespace-nowrap"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {deletingNotifId === notif.id ? (
+                      <LoadingSpinner size="xs" tone="danger" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                     <span>{deletingNotifId === notif.id ? 'Menghapus...' : 'Hapus'}</span>
                   </button>
                 )}
@@ -1208,11 +1224,11 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setPreviewTrx(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl"
+            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -1254,11 +1270,11 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setRejectTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1318,10 +1334,12 @@ export function AdminDashboardSlide({
               <button
                 type="button"
                 disabled={processingId === rejectTarget.id || !rejectReason.trim()}
+                aria-busy={processingId === rejectTarget.id}
                 onClick={() => void handleConfirmReject()}
-                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                Konfirmasi Tolak
+                {processingId === rejectTarget.id && <LoadingSpinner size="xs" tone="white" />}
+                <span>{processingId === rejectTarget.id ? 'Memproses...' : 'Konfirmasi Tolak'}</span>
               </button>
             </div>
           </div>
@@ -1333,11 +1351,11 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setPreviewProofUrl(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl"
+            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -1368,11 +1386,11 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setKetuaReturnTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1434,10 +1452,12 @@ export function AdminDashboardSlide({
               <button
                 type="button"
                 disabled={!ketuaReturnNote.trim() || Boolean(processingId)}
+                aria-busy={Boolean(processingId)}
                 onClick={() => void handleConfirmKetuaReturn()}
-                className="min-h-[42px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+                className="min-h-[42px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
-                Kembalikan ke Bendahara
+                {Boolean(processingId) && <LoadingSpinner size="xs" tone="white" />}
+                <span>{Boolean(processingId) ? 'Memproses...' : 'Kembalikan ke Bendahara'}</span>
               </button>
             </div>
           </div>
@@ -1450,12 +1470,12 @@ export function AdminDashboardSlide({
           role="dialog"
           aria-modal="true"
           aria-labelledby="broadcast-modal-title"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => !sendingBroadcast && setBroadcastOpen(false)}
         >
           <form
             onSubmit={handleSendBulkNotification}
-            className="bg-white rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -1678,12 +1698,12 @@ export function AdminDashboardSlide({
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-ipl-pin-title"
-          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={handleCloseDeleteIplModal}
         >
           <form
             onSubmit={(e) => void handleConfirmDeleteIpl(e)}
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-red-100 bg-red-50/70 flex items-center justify-between gap-3">

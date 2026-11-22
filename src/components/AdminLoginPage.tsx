@@ -15,6 +15,7 @@ import { loginAdminAccount } from '../lib/dataService';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -199,8 +200,10 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
             <button
               type="submit"
               disabled={loading}
-              className="w-full min-h-[48px] rounded-xl bg-[#0F172A] hover:bg-slate-800 active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+              aria-busy={loading}
+              className="w-full min-h-[48px] rounded-xl bg-[#0F172A] hover:bg-slate-800 active:scale-[0.97] disabled:opacity-70 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer"
             >
+              {loading && <LoadingSpinner size="sm" tone="white" label="Memverifikasi akun pengurus" />}
               <span>{loading ? 'Memverifikasi...' : 'Masuk ke Portal Admin'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
@@ -211,7 +214,7 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
               <button
                 type="button"
                 onClick={() => onSwitchPortal('warga')}
-                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 active:scale-[0.97] text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                 <span>Portal Warga</span>
@@ -219,7 +222,7 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
               <button
                 type="button"
                 onClick={() => onSwitchPortal('petugas')}
-                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="min-h-[42px] px-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 active:scale-[0.97] text-xs font-semibold text-slate-700 inline-flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
               >
                 <Shield className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                 <span>Petugas Keamanan</span>

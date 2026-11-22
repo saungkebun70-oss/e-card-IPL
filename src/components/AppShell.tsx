@@ -202,9 +202,9 @@ export function AppShell({
                   onClick={() => onTabChange(item.id)}
                   className={`relative w-full min-h-[44px] flex items-center ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-between gap-3 px-3.5'
-                  } py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  } py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? 'bg-[#059669] text-white'
+                      ? 'bg-[#059669] text-white shadow-xs'
                       : item.isCenterFab
                         ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/70 hover:bg-emerald-900/70 hover:text-white'
                         : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
@@ -247,7 +247,7 @@ export function AppShell({
                     sidebarCollapsed
                       ? 'items-center justify-center min-h-[44px] px-2'
                       : 'items-start gap-3 px-3.5 py-2.5'
-                  } transition-colors cursor-pointer ${
+                  } transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                     isLpjActive
                       ? 'bg-[#059669] text-white'
                       : 'text-slate-200 hover:bg-slate-800/80'
@@ -291,7 +291,7 @@ export function AppShell({
                       sidebarCollapsed
                         ? 'items-center justify-center min-h-[44px] px-2'
                         : 'items-start gap-3 px-3.5 py-2.5'
-                    } text-slate-200 hover:bg-slate-800/80 transition-colors cursor-pointer`}
+                    } text-slate-200 hover:bg-slate-800/80 transition-all duration-200 active:scale-[0.97] cursor-pointer`}
                   >
                     <Settings
                       className={`w-4 h-4 shrink-0 text-emerald-400 ${!sidebarCollapsed ? 'mt-0.5' : ''}`}
@@ -615,10 +615,10 @@ export function AppShell({
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
                 {children}
               </motion.div>
@@ -682,18 +682,23 @@ export function AppShell({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`relative flex flex-col items-center justify-center h-16 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                className={`relative flex flex-col items-center justify-center h-16 px-0.5 transition-all duration-200 active:scale-[0.95] cursor-pointer min-w-0 ${
                   isActive ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 {isActive && (
-                  <span
+                  <motion.span
+                    layoutId="bottom-nav-active-bar"
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     aria-hidden="true"
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[#059669]"
                   />
                 )}
-                <div className="relative">
-                  <Icon className="w-5 h-5" strokeWidth={isActive ? 2.4 : 1.9} />
+                <div className="relative transition-transform duration-200">
+                  <Icon
+                    className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-105' : ''}`}
+                    strokeWidth={isActive ? 2.4 : 1.9}
+                  />
                   {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                     <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white text-[10px] font-bold font-mono flex items-center justify-center tabular-nums">
                       {item.badgeCount > 9 ? '9+' : item.badgeCount}

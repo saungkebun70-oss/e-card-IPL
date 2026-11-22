@@ -45,6 +45,7 @@ import {
   EmergencySecurityContactCard,
   SecurityPatrolFeedCard,
 } from './SecurityLiveWidgets';
+import { LoadingSpinner } from './LoadingSpinner';
 import {
   type CheckpointKondisiState,
   type CheckpointStatusItem,
@@ -542,7 +543,7 @@ export function KeamananSlide({
             role="tab"
             aria-selected={adminSubTab === 'patroli'}
             onClick={() => setAdminSubTab('patroli')}
-            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'patroli'
                 ? 'bg-white text-[#0F172A] shadow-sm'
                 : 'text-slate-600 hover:text-[#0F172A]'
@@ -556,7 +557,7 @@ export function KeamananSlide({
             role="tab"
             aria-selected={adminSubTab === 'absensi'}
             onClick={() => setAdminSubTab('absensi')}
-            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'absensi'
                 ? 'bg-white text-[#0F172A] shadow-sm'
                 : 'text-slate-600 hover:text-[#0F172A]'
@@ -575,7 +576,7 @@ export function KeamananSlide({
             role="tab"
             aria-selected={adminSubTab === 'shift_lembur'}
             onClick={() => setAdminSubTab('shift_lembur')}
-            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'shift_lembur'
                 ? 'bg-white text-[#0F172A] shadow-sm'
                 : 'text-slate-600 hover:text-[#0F172A]'
@@ -593,6 +594,7 @@ export function KeamananSlide({
       )}
 
       {/* TAB MONITORING ABSENSI KEAMANAN (ADMIN FULL CONTROL) */}
+      <div key={adminSubTab} className="space-y-5 animate-page-enter">
       {role === 'admin' && session && adminSubTab === 'absensi' ? (
         <AdminAttendanceMonitorPanel
           session={session}
@@ -911,11 +913,16 @@ export function KeamananSlide({
                     <button
                       type="button"
                       disabled={submittingPatrol || (!manualTitikId && !manualUidInput.trim())}
+                      aria-busy={submittingPatrol}
                       onClick={() => void handleManualPatrolSubmit()}
-                      className="sm:col-span-3 min-h-[42px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      className="sm:col-span-3 min-h-[42px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                     >
-                      <MapPin className="w-4 h-4 shrink-0" />
-                      <span>Catat Patroli</span>
+                      {submittingPatrol ? (
+                        <LoadingSpinner size="xs" tone="white" />
+                      ) : (
+                        <MapPin className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{submittingPatrol ? 'Menyimpan...' : 'Catat Patroli'}</span>
                     </button>
                   </div>
                 </div>
@@ -1276,6 +1283,7 @@ export function KeamananSlide({
       </div>
         </>
       )}
+      </div>
     </div>
   );
 }

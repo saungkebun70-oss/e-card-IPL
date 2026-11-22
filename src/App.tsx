@@ -57,6 +57,7 @@ import {
   type SettingsDrawerTab,
 } from './components/admin/AdminSettingsDrawer';
 import { KeamananSlide } from './components/KeamananSlide';
+import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -548,22 +549,24 @@ export default function App() {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        {portalRoute === 'admin' ? (
-          <AdminLoginPage
-            onLoginSuccess={handleLoginSuccess}
-            onSwitchPortal={navigatePortalRoute}
-          />
-        ) : portalRoute === 'petugas' ? (
-          <PetugasLoginPage
-            onLoginSuccess={handleLoginSuccess}
-            onSwitchPortal={navigatePortalRoute}
-          />
-        ) : (
-          <WargaLoginPage
-            onLoginSuccess={handleLoginSuccess}
-            onSwitchPortal={navigatePortalRoute}
-          />
-        )}
+        <div key={`login-${portalRoute}`} className="animate-page-enter">
+          {portalRoute === 'admin' ? (
+            <AdminLoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onSwitchPortal={navigatePortalRoute}
+            />
+          ) : portalRoute === 'petugas' ? (
+            <PetugasLoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onSwitchPortal={navigatePortalRoute}
+            />
+          ) : (
+            <WargaLoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onSwitchPortal={navigatePortalRoute}
+            />
+          )}
+        </div>
       </>
     );
   }
@@ -573,12 +576,14 @@ export default function App() {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        <PetugasPortalPage
-          session={session}
-          onAvatarUpdated={handleAvatarUpdated}
-          onLogout={handleLogout}
-          onToast={pushToast}
-        />
+        <div key="portal-petugas" className="animate-page-enter">
+          <PetugasPortalPage
+            session={session}
+            onAvatarUpdated={handleAvatarUpdated}
+            onLogout={handleLogout}
+            onToast={pushToast}
+          />
+        </div>
       </>
     );
   }
@@ -648,15 +653,14 @@ export default function App() {
 
     if (loadingData && !wargaData && !adminData) {
       return (
-        <div className="space-y-4">
-          <div className="h-56 rounded-2xl bg-slate-200/70 animate-pulse" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="h-28 rounded-2xl bg-slate-200/70 animate-pulse" />
-            <div className="h-28 rounded-2xl bg-slate-200/70 animate-pulse" />
-            <div className="h-28 rounded-2xl bg-slate-200/70 animate-pulse" />
-            <div className="h-28 rounded-2xl bg-slate-200/70 animate-pulse" />
-          </div>
-        </div>
+        <ContentLoadingState
+          message={
+            session.role === 'admin'
+              ? 'Memuat Dashboard Pengurus...'
+              : `Memuat Data Rumah Blok ${session.blok_rumah}...`
+          }
+          subMessage="Mengambil status e-Card, kas, dan aktivitas terbaru dari Supabase"
+        />
       );
     }
 
@@ -849,6 +853,11 @@ export default function App() {
   return (
     <>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <LoadingOverlay
+        visible={loadingData && Boolean(wargaData || adminData)}
+        message="Menyinkronkan data..."
+        subMessage="Memperbarui informasi terbaru dari server"
+      />
       <AppShell
         session={session}
         navItems={navItems}

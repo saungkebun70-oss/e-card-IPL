@@ -607,6 +607,91 @@ html[data-theme="midnight"] #printable-report .border-slate-200 {
   animation: bell-ring-shake 0.95s ease-in-out;
 }
 
+/* ==========================================================================
+   ANIMASI TRANSISI HALUS 60FPS (GPU-ACCELERATED: TRANSFORM & OPACITY ONLY)
+   ========================================================================== */
+
+@keyframes page-enter-smooth {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes modal-backdrop-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes dropdown-pop-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter-smooth 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.animate-modal-backdrop {
+  animation: modal-backdrop-in 180ms ease-out both;
+}
+
+.animate-modal-pop {
+  animation: modal-pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.animate-dropdown-pop {
+  animation: dropdown-pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+/* Hormati pengaturan Reduce Motion perangkat pengguna */
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-enter,
+  .animate-modal-backdrop,
+  .animate-modal-pop,
+  .animate-dropdown-pop,
+  .animate-bell-shake {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
 @page {
   size: A4 portrait;
   margin: 12mm 14mm;

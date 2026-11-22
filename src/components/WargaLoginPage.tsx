@@ -14,6 +14,7 @@ import { loginWargaAccount } from '../lib/dataService';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface WargaLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -194,8 +195,10 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
             <button
               type="submit"
               disabled={loading}
-              className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+              aria-busy={loading}
+              className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-70 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer"
             >
+              {loading && <LoadingSpinner size="sm" tone="white" label="Memverifikasi akun warga" />}
               <span>{loading ? 'Memverifikasi...' : 'Masuk ke Portal Warga'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
@@ -211,7 +214,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 <button
                   type="button"
                   onClick={() => onSwitchPortal('admin')}
-                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 active:scale-[0.99] text-left flex items-center gap-2.5 transition cursor-pointer shadow-2xs"
+                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 active:scale-[0.97] text-left flex items-center gap-2.5 transition-all duration-200 cursor-pointer shadow-2xs"
                 >
                   <div className="w-8 h-8 rounded-lg bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-4 h-4" />
@@ -229,7 +232,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 <button
                   type="button"
                   onClick={() => onSwitchPortal('petugas')}
-                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 active:scale-[0.99] text-left flex items-center gap-2.5 transition cursor-pointer shadow-2xs"
+                  className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 active:scale-[0.97] text-left flex items-center gap-2.5 transition-all duration-200 cursor-pointer shadow-2xs"
                 >
                   <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center shrink-0">
                     <Shield className="w-4 h-4" />

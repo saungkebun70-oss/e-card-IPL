@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Loader2, Trash2, X, AlertCircle } from 'lucide-react';
+import { Camera, Check, Trash2, X, AlertCircle } from 'lucide-react';
 import type { SessionUser } from '../types';
 import {
   removeAccountAvatar,
@@ -7,6 +7,7 @@ import {
   validateAvatarFile,
 } from '../lib/avatarService';
 import { UserAvatar } from './UserAvatar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface ProfileAvatarEditorProps {
   session: SessionUser;
@@ -163,11 +164,12 @@ export function ProfileAvatarEditor({
               <button
                 type="button"
                 disabled={isBusy}
+                aria-busy={saving}
                 onClick={() => void handleSavePhoto()}
-                className="min-h-[38px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="min-h-[38px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {saving ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  <LoadingSpinner size="xs" tone="white" label="Menyimpan foto profil" />
                 ) : (
                   <Check className="w-3.5 h-3.5 shrink-0" />
                 )}
@@ -178,7 +180,7 @@ export function ProfileAvatarEditor({
                 type="button"
                 disabled={isBusy}
                 onClick={clearPendingSelection}
-                className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5 shrink-0" />
                 <span>Batal</span>
@@ -190,7 +192,7 @@ export function ProfileAvatarEditor({
                 type="button"
                 disabled={isBusy}
                 onClick={() => fileInputRef.current?.click()}
-                className="min-h-[38px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="min-h-[38px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 <Camera className="w-3.5 h-3.5 shrink-0" />
                 <span>Ganti Foto</span>
@@ -200,11 +202,12 @@ export function ProfileAvatarEditor({
                 <button
                   type="button"
                   disabled={isBusy}
+                  aria-busy={removing}
                   onClick={() => void handleRemovePhoto()}
-                  className="min-h-[38px] px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-60 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="min-h-[38px] px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-60 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
                 >
                   {removing ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    <LoadingSpinner size="xs" tone="danger" label="Menghapus foto profil" />
                   ) : (
                     <Trash2 className="w-3.5 h-3.5 shrink-0" />
                   )}
