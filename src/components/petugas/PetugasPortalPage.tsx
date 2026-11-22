@@ -57,6 +57,7 @@ import {
   type BiometricAvailability,
   type BiometricEnrollmentProfile,
 } from '../../lib/biometricAuth';
+import { AppVersionFooter } from '../AppUpdateSystem';
 import {
   completeLivePatrolSession,
   fetchActiveLiveSession,
@@ -1088,6 +1089,11 @@ export function PetugasPortalPage({
                 </button>
               )}
             </section>
+
+            {/* INFO VERSI & CEK PEMBARUAN MANUAL */}
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <AppVersionFooter compact />
+            </div>
           </>
         )}
 

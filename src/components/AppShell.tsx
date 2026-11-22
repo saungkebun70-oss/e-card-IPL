@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
+import { AppVersionFooter } from './AppUpdateSystem';
 
 export interface NavItem {
   id: string;
@@ -372,8 +373,9 @@ export function AppShell({
                 )}
               </div>
 
-              {/* Footer Dasar Sidebar (mt-auto): Alamat Sekretariat & Tombol Logout */}
+              {/* Footer Dasar Sidebar (mt-auto): Info Versi, Alamat Sekretariat & Tombol Logout */}
               <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-100 bg-slate-50/70 space-y-3 shrink-0">
+                <AppVersionFooter compact className="px-1" />
                 <p className="text-[11px] text-slate-400 leading-relaxed px-1">
                   {brand.kop_resmi}
                 </p>

@@ -14,6 +14,7 @@ import { type SessionUser } from '../types';
 import { loginAdminAccount } from '../lib/dataService';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
+import { AppVersionFooter } from './AppUpdateSystem';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -224,9 +225,11 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
             </div>
           )}
 
-          <p className="text-xs text-slate-500 text-center mt-4 pb-safe leading-relaxed">
+          <p className="text-xs text-slate-500 text-center mt-4 leading-relaxed">
             Akses terbatas khusus Pengurus Lingkungan Perumahan Saung Kebun yang terdaftar.
           </p>
+
+          <AppVersionFooter className="mt-4 pt-3.5 pb-safe border-t border-slate-200/80" />
         </div>
       </main>
     </div>

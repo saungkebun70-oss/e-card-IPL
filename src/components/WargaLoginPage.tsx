@@ -13,6 +13,7 @@ import { type SessionUser } from '../types';
 import { loginWargaAccount } from '../lib/dataService';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
+import { AppVersionFooter } from './AppUpdateSystem';
 
 interface WargaLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -244,10 +245,12 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
             </div>
           )}
 
-          <p className="text-xs text-slate-500 text-center mt-5 pb-safe leading-relaxed">
+          <p className="text-xs text-slate-500 text-center mt-5 leading-relaxed">
             Belum memiliki PIN atau lupa PIN akses? Hubungi Pengurus Lingkungan di Sekretariat Blok{' '}
             <span className="font-mono font-semibold text-slate-700">B3/7</span> atau Bendahara.
           </p>
+
+          <AppVersionFooter className="mt-4 pt-3.5 pb-safe border-t border-slate-200/80" />
         </div>
       </main>
     </div>

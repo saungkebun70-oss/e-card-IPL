@@ -4,6 +4,7 @@ interface CapacitorServerConfig {
   iosScheme?: string;
   allowNavigation?: string[];
   cleartext?: boolean;
+  errorPath?: string;
 }
 
 interface CapacitorConfig {
@@ -28,8 +29,10 @@ const config: CapacitorConfig = {
   webDir: 'www',
   server: {
     url: 'https://e-card-ipl.vercel.app',
+    cleartext: false,
     androidScheme: 'https',
     iosScheme: 'https',
+    errorPath: 'index.html',
     allowNavigation: ['e-card-ipl.vercel.app', '*.supabase.co'],
   },
   android: {

@@ -29,6 +29,7 @@ import {
 } from '../lib/biometricAuth';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
+import { AppVersionFooter } from './AppUpdateSystem';
 
 interface PetugasLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -458,10 +459,12 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
             </div>
           )}
 
-          <p className="text-xs text-slate-500 text-center mt-4 pb-safe leading-relaxed">
+          <p className="text-xs text-slate-500 text-center mt-4 leading-relaxed">
             Lupa PIN atau belum memiliki akun petugas? Hubungi Ketua atau Bendahara Lingkungan
             Perumahan Saung Kebun.
           </p>
+
+          <AppVersionFooter className="mt-4 pt-3.5 pb-safe border-t border-slate-200/80" />
         </div>
       </main>
     </div>
