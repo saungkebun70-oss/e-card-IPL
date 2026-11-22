@@ -1,0 +1,14 @@
+# Generated native projects & dependencies (auto-built by GitHub Actions)
+android/
+ios/
+node_modules/
+
+# Build outputs & caches
+.gradle/
+build/
+dist/
+*.apk
+*.aab
+*.ipa
+*.log
+.DS_Store
