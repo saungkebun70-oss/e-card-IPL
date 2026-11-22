@@ -31,7 +31,7 @@ jobs:
           java-version: '21'
 
       - name: Install Mobile Dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund
 
       - name: Add & Sync Android Platform
         run: |
@@ -86,7 +86,7 @@ jobs:
           pod --version
 
       - name: Install Mobile Dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund
 
       - name: Add & Sync iOS Platform
         run: |
