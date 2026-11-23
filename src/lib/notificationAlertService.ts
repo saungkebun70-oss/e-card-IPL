@@ -31,7 +31,9 @@ let nativeLaunchInitPromise: Promise<OsNotificationPermissionState> | null = nul
 
 function isNativeApp(): boolean {
   try {
-    return Boolean(Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform());
+    return Boolean(
+      Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()
+    );
   } catch {
     return false;
   }
@@ -128,10 +130,6 @@ function getOrCreateAudioContext(): AudioContext | null {
   }
 }
 
-/**
- * Membuka kunci Web AudioContext secara otomatis pada interaksi sentuhan/klik pertama pengguna
- * agar bunyi notifikasi real-time dapat berbunyi lancar di Chrome Mobile, Safari, & WebView.
- */
 export function initNotificationAudioUnlock(): void {
   if (audioUnlockInstalled || typeof window === 'undefined') return;
   audioUnlockInstalled = true;
@@ -152,10 +150,6 @@ export function initNotificationAudioUnlock(): void {
   window.addEventListener('touchstart', unlock, { passive: true });
 }
 
-/**
- * Memutar bunyi lonceng/chime dua nada yang jernih menggunakan Web Audio API synthesizer
- * (tanpa ketergantungan file .mp3 eksternal yang rawan gagal load/offline).
- */
 export async function playNotificationChime(): Promise<boolean> {
   try {
     const ctx = getOrCreateAudioContext();
@@ -170,7 +164,6 @@ export async function playNotificationChime(): Promise<boolean> {
     masterGain.gain.setValueAtTime(0.28, now);
     masterGain.connect(ctx.destination);
 
-    // Nada 1: A5 (880 Hz) — lonceng jernih lembut
     const playTone = (
       freq: number,
       startTime: number,
@@ -194,7 +187,6 @@ export async function playNotificationChime(): Promise<boolean> {
       osc.stop(startTime + duration + 0.02);
     };
 
-    // Chime 2 nada (A5 -> E6) + harmonik bell halus
     playTone(880, now, 0.32, 0.8, 'sine');
     playTone(1760, now, 0.18, 0.22, 'triangle');
 
@@ -207,9 +199,6 @@ export async function playNotificationChime(): Promise<boolean> {
   }
 }
 
-/**
- * Menjalankan pola getaran notifikasi HP (Web Vibration API + Capacitor Haptics di APK).
- */
 export async function triggerNotificationVibration(): Promise<boolean> {
   let didVibrate = false;
 
@@ -233,45 +222,47 @@ export async function triggerNotificationVibration(): Promise<boolean> {
       if (ok) didVibrate = true;
     }
   } catch {
-    // Abaikan jika browser memblokir vibration
+    // Abaikan
   }
 
   return didVibrate;
 }
 
-/**
- * Membuat Notification Channel Android dengan importance: 5 (High), suara & getaran bawaan aktif.
- * Aman dipanggil berulang kali (idempoten) dan hanya berjalan di APK Capacitor.
- */
 export async function ensureAndroidNotificationChannel(): Promise<void> {
   if (!isNativeApp() || androidChannelInitialized) return;
   try {
+    const channelConfig = {
+      id: ANDROID_NOTIFICATION_CHANNEL_ID,
+      name: 'Notifikasi Saung Kebun',
+      description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
+      importance: 5 as const,
+      visibility: 1 as const,
+      sound: 'default',
+      vibration: true,
+      lights: true,
+      lightColor: '#059669',
+    };
+
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     if (typeof LocalNotifications.createChannel === 'function') {
-      await LocalNotifications.createChannel({
-        id: ANDROID_NOTIFICATION_CHANNEL_ID,
-        name: 'Notifikasi Saung Kebun',
-        description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
-        importance: 5,
-        visibility: 1,
-        sound: 'default',
-        vibration: true,
-        lights: true,
-        lightColor: '#059669',
-      });
+      await LocalNotifications.createChannel(channelConfig);
     }
+
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      if (typeof PushNotifications.createChannel === 'function') {
+        await PushNotifications.createChannel(channelConfig);
+      }
+    } catch {
+      // Abaikan jika plugin push belum siap
+    }
+
     androidChannelInitialized = true;
   } catch {
-    // Abaikan jika platform tidak mendukung channel (misal iOS/Web)
+    // Abaikan
   }
 }
 
-/**
- * Dipanggil otomatis saat aplikasi APK Android (Capacitor) pertama kali dibuka:
- * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif),
- * meminta izin notifikasi sistem (POST_NOTIFICATIONS Android 13+) jika belum diizinkan,
- * dan menyinkronkan token FCM bila sesi pengguna sudah tersedia.
- */
 export function initNativeNotificationsOnLaunch(
   session?: SessionUser | null
 ): Promise<OsNotificationPermissionState> {
@@ -305,11 +296,6 @@ export function initNativeNotificationsOnLaunch(
   return nativeLaunchInitPromise;
 }
 
-/**
- * Menyinkronkan titik/angka badge ikon aplikasi (Web/PWA App Badging API bila didukung).
- * Pada APK Android, Android Launcher otomatis memunculkan badge dot ikon aplikasi
- * ketika notifikasi aktif pada channel dengan importance: 5 (`saung_kebun_alerts`).
- */
 export async function syncAppIconBadge(unreadCount: number): Promise<void> {
   try {
     if (typeof navigator === 'undefined') return;
@@ -323,7 +309,7 @@ export async function syncAppIconBadge(unreadCount: number): Promise<void> {
       await navWithBadge.clearAppBadge();
     }
   } catch {
-    // Abaikan jika browser/OS tidak mendukung App Badging API
+    // Abaikan
   }
 }
 
@@ -389,10 +375,6 @@ function hashToSafeNotificationId(seed: string): number {
   return positive > 0 ? positive : Math.floor(Date.now() % 2147480000);
 }
 
-/**
- * Menampilkan Pop-up Notifikasi Sistem HP (Status Bar + Bunyi & Getar Bawaan HP)
- * baik pada APK Android/iOS (Capacitor LocalNotifications) maupun Web/PWA (Web Notification API).
- */
 export async function showOsNotification(payload: {
   id?: string;
   title: string;
@@ -439,7 +421,6 @@ export async function showOsNotification(payload: {
     }
   }
 
-  // Web / PWA (Chrome / Edge / Android Browser)
   try {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
     if (window.Notification.permission !== 'granted') return false;
@@ -456,7 +437,6 @@ export async function showOsNotification(payload: {
       webOptions.vibrate = [200, 100, 200];
     }
 
-    // Coba tampilkan via Service Worker bila aktif (wajib di Android Chrome PWA)
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       try {
         const reg = await Promise.race([
@@ -492,10 +472,6 @@ export async function showOsNotification(payload: {
   }
 }
 
-/**
- * Mendaftarkan listener ketukan notifikasi sistem (Capacitor APK & Web Notification)
- * agar ketika notifikasi diketuk dari Status Bar HP, aplikasi langsung membuka halaman tujuan.
- */
 export function registerOsNotificationTapListener(
   onNavigateTarget?: (targetUrl: string) => void
 ): () => void {
@@ -533,7 +509,7 @@ export function registerOsNotificationTapListener(
           handleRemove = () => handle.remove();
         }
       } catch {
-        // Abaikan jika plugin tidak tersedia
+        // Abaikan
       }
     })();
 
@@ -566,22 +542,10 @@ export interface TestNotificationResult {
 export interface TriggerDeviceAlertOptions {
   id?: string;
   targetUrl?: string;
-  /** Jika true (mis. tombol Tes Notifikasi), minta izin browser bila masih 'prompt' */
   requestPermissionIfPrompt?: boolean;
-  /** Lewati deduplikasi berbasis id (digunakan untuk tombol Tes Notifikasi) */
   skipDedupe?: boolean;
 }
 
-/**
- * SATU fungsi utama pemicu notifikasi perangkat yang digunakan bersama oleh:
- * 1. Tombol "Tes Notifikasi"
- * 2. Event Supabase Realtime INSERT pada tabel `notifications`
- * 3. Polling otomatis 5 detik saat menemukan notifikasi baru belum dibaca
- *
- * Memicu secara serentak: animasi goyang lonceng, Web Audio chime, getaran HP
- * (Capacitor Haptics + navigator.vibrate), dan pop-up sistem (LocalNotifications
- * ke channel `saung_kebun_alerts` pada APK Android / Web Notification API pada Web).
- */
 export async function triggerDeviceAlert(
   title: string,
   message: string,
@@ -636,10 +600,6 @@ export async function triggerDeviceAlert(
   return { soundPlayed, vibrated, osPopupShown, permission };
 }
 
-/**
- * Dipanggil ketika notifikasi aktivitas baru masuk (Realtime / Polling).
- * Menggunakan fungsi utama yang sama persis (`triggerDeviceAlert`).
- */
 export async function triggerIncomingNotificationAlert(
   notif: ActivityNotification
 ): Promise<TestNotificationResult | null> {
@@ -654,10 +614,6 @@ export async function triggerIncomingNotificationAlert(
   );
 }
 
-/**
- * Tombol uji coba di halaman Profil/Pengaturan:
- * memanggil `triggerDeviceAlert` yang sama persis dengan notifikasi transaksi sungguhan.
- */
 export async function triggerTestNotificationAlert(
   session: SessionUser
 ): Promise<TestNotificationResult> {
@@ -678,7 +634,7 @@ export async function triggerTestNotificationAlert(
   );
 }
 
-// === FCM NATIVE PUSH NOTIFICATION RUNTIME & SYNC ===
+// === FCM NATIVE PUSH NOTIFICATION RUNTIME & SYNC (user_push_tokens) ===
 
 export interface NativePushRuntimeInfo {
   isNative: boolean;
@@ -725,6 +681,8 @@ export async function syncNativePushTokenForSession(
   }
 
   try {
+    await ensureAndroidNotificationChannel();
+
     const [{ PushNotifications }, { getSupabaseClient, isSupabaseConfigured }, { getCanonicalUserId }] =
       await Promise.all([
         import('@capacitor/push-notifications'),
@@ -781,15 +739,35 @@ export async function syncNativePushTokenForSession(
     if (supabase && isSupabaseConfigured()) {
       const userId = getCanonicalUserId(session);
       const platform = Capacitor.getPlatform();
-      await supabase.from('push_tokens').upsert(
-        {
-          user_id: userId,
-          token,
-          platform,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'token' }
-      );
+      const nowIso = new Date().toISOString();
+      const payload = {
+        user_id: userId,
+        role: session.role,
+        blok_rumah: session.blok_rumah || null,
+        token,
+        platform,
+        updated_at: nowIso,
+      };
+
+      const { data: existingRows } = await supabase
+        .from('user_push_tokens')
+        .select('id')
+        .eq('token', token)
+        .limit(1);
+
+      const dbError =
+        existingRows && existingRows.length > 0
+          ? (
+              await supabase
+                .from('user_push_tokens')
+                .update(payload)
+                .eq('id', existingRows[0].id)
+            ).error
+          : (await supabase.from('user_push_tokens').insert(payload)).error;
+
+      if (dbError) {
+        return { ok: false, synced: false, token, error: dbError.message };
+      }
       return { ok: true, synced: true, token };
     }
 
