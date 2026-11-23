@@ -685,6 +685,7 @@ export interface NativePushRuntimeInfo {
   platform: string;
   supported: boolean;
   hasToken: boolean;
+  hasFcmToken: boolean;
   token: string | null;
   tokenPreview: string | null;
 }
@@ -710,6 +711,7 @@ export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
     platform,
     supported: native,
     hasToken: Boolean(savedToken),
+    hasFcmToken: Boolean(savedToken),
     token: savedToken,
     tokenPreview: savedToken ? `${savedToken.slice(0, 12)}...${savedToken.slice(-6)}` : null,
   };
