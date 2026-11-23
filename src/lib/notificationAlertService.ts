@@ -14,6 +14,7 @@ const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
 const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
+const LAST_FCM_TOKEN_KEY = 'ecard_last_fcm_token_v1';
 export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -267,13 +268,18 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
 
 /**
  * Dipanggil otomatis saat aplikasi APK Android (Capacitor) pertama kali dibuka:
- * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif)
- * serta meminta izin notifikasi sistem (POST_NOTIFICATIONS Android 13+) jika belum diizinkan.
- * Tidak meminta izin otomatis di Web Browser agar tidak melanggar kebijakan browser.
+ * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif),
+ * meminta izin notifikasi sistem (POST_NOTIFICATIONS Android 13+) jika belum diizinkan,
+ * dan menyinkronkan token FCM bila sesi pengguna sudah tersedia.
  */
-export function initNativeNotificationsOnLaunch(): Promise<OsNotificationPermissionState> {
+export function initNativeNotificationsOnLaunch(
+  session?: SessionUser | null
+): Promise<OsNotificationPermissionState> {
   if (!isNativeApp()) {
     return checkOsNotificationPermission();
+  }
+  if (session) {
+    void syncNativePushTokenForSession(session);
   }
   if (nativeLaunchInitPromise) {
     return nativeLaunchInitPromise;
@@ -670,4 +676,123 @@ export async function triggerTestNotificationAlert(
       skipDedupe: true,
     }
   );
+}
+
+// === FCM NATIVE PUSH NOTIFICATION RUNTIME & SYNC ===
+
+export interface NativePushRuntimeInfo {
+  isNative: boolean;
+  platform: string;
+  supported: boolean;
+  hasToken: boolean;
+  token: string | null;
+  tokenPreview: string | null;
+}
+
+export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
+  const native = isNativeApp();
+  let platform = 'web';
+  try {
+    platform = Capacitor.getPlatform();
+  } catch {
+    platform = 'web';
+  }
+  let savedToken: string | null = null;
+  try {
+    if (typeof window !== 'undefined') {
+      savedToken = window.localStorage.getItem(LAST_FCM_TOKEN_KEY);
+    }
+  } catch {
+    savedToken = null;
+  }
+  return {
+    isNative: native,
+    platform,
+    supported: native,
+    hasToken: Boolean(savedToken),
+    token: savedToken,
+    tokenPreview: savedToken ? `${savedToken.slice(0, 12)}...${savedToken.slice(-6)}` : null,
+  };
+}
+
+export async function syncNativePushTokenForSession(
+  session?: SessionUser | null
+): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
+  if (!isNativeApp() || !session) {
+    return { ok: false, synced: false, token: null };
+  }
+
+  try {
+    const [{ PushNotifications }, { getSupabaseClient, isSupabaseConfigured }, { getCanonicalUserId }] =
+      await Promise.all([
+        import('@capacitor/push-notifications'),
+        import('./supabase'),
+        import('./notificationService'),
+      ]);
+
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === 'prompt') {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== 'granted') {
+      return { ok: false, synced: false, token: null, error: 'Izin notifikasi belum diberikan' };
+    }
+
+    const token = await new Promise<string | null>((resolve) => {
+      let settled = false;
+      const done = (val: string | null) => {
+        if (!settled) {
+          settled = true;
+          resolve(val);
+        }
+      };
+
+      const timeout = window.setTimeout(() => done(null), 8000);
+
+      void PushNotifications.addListener('registration', (t) => {
+        window.clearTimeout(timeout);
+        done(t?.value || null);
+      });
+
+      void PushNotifications.addListener('registrationError', () => {
+        window.clearTimeout(timeout);
+        done(null);
+      });
+
+      void PushNotifications.register().catch(() => {
+        window.clearTimeout(timeout);
+        done(null);
+      });
+    });
+
+    if (!token) {
+      return { ok: false, synced: false, token: null, error: 'Token FCM gagal diperoleh' };
+    }
+
+    try {
+      window.localStorage.setItem(LAST_FCM_TOKEN_KEY, token);
+    } catch {
+      // Abaikan
+    }
+
+    const supabase = getSupabaseClient(session);
+    if (supabase && isSupabaseConfigured()) {
+      const userId = getCanonicalUserId(session);
+      const platform = Capacitor.getPlatform();
+      await supabase.from('push_tokens').upsert(
+        {
+          user_id: userId,
+          token,
+          platform,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'token' }
+      );
+      return { ok: true, synced: true, token };
+    }
+
+    return { ok: true, synced: false, token };
+  } catch (err) {
+    return { ok: false, synced: false, token: null, error: String(err) };
+  }
 }
