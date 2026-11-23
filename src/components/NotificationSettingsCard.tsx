@@ -3,6 +3,7 @@ import {
   Bell,
   BellRing,
   CheckCircle2,
+  Loader2,
   ShieldAlert,
   Smartphone,
   Vibrate,
@@ -12,14 +13,11 @@ import {
 import type { SessionUser } from '../types';
 import {
   checkOsNotificationPermission,
-  getNativePushRuntimeInfo,
   requestOsNotificationPermission,
-  syncNativePushTokenForSession,
   triggerTestNotificationAlert,
   useNotificationPreferences,
   type OsNotificationPermissionState,
 } from '../lib/notificationAlertService';
-import { LoadingSpinner } from './LoadingSpinner';
 
 interface NotificationSettingsCardProps {
   session: SessionUser;
@@ -34,14 +32,12 @@ export function NotificationSettingsCard({
 }: NotificationSettingsCardProps) {
   const { prefs, setPref } = useNotificationPreferences();
   const [permission, setPermission] = useState<OsNotificationPermissionState>('prompt');
-  const [pushInfo, setPushInfo] = useState(() => getNativePushRuntimeInfo());
   const [requestingPerm, setRequestingPerm] = useState(false);
   const [testing, setTesting] = useState(false);
 
   const refreshPermission = useCallback(async () => {
     const next = await checkOsNotificationPermission();
     setPermission(next);
-    setPushInfo(getNativePushRuntimeInfo());
   }, []);
 
   useEffect(() => {
@@ -59,9 +55,6 @@ export function NotificationSettingsCard({
       setPermission(next);
       setPref({ permissionPromptDismissed: true });
       if (next === 'granted') {
-        void syncNativePushTokenForSession(session).finally(() => {
-          setPushInfo(getNativePushRuntimeInfo());
-        });
         onToast?.(
           'success',
           'Izin pop-up notifikasi HP aktif! Anda akan menerima pemberitahuan real-time di status bar.'
@@ -257,9 +250,7 @@ export function NotificationSettingsCard({
               </div>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                 {permission === 'granted'
-                  ? pushInfo.isNative
-                    ? `Channel saung_kebun_alerts aktif (${pushInfo.hasFcmToken ? 'FCM & Lokal siap' : 'Notifikasi Lokal Android aktif'}).`
-                    : 'Notifikasi pop-up Browser siap tampil dengan suara & getar bawaan.'
+                  ? 'Notifikasi pop-up Android & Browser siap tampil dengan suara & getar bawaan.'
                   : permission === 'denied'
                     ? 'Izin diblokir. Buka Pengaturan HP/Browser lalu izinkan Notifikasi untuk aplikasi ini.'
                     : permission === 'unsupported'
@@ -274,10 +265,10 @@ export function NotificationSettingsCard({
               type="button"
               disabled={requestingPerm}
               onClick={() => void handleRequestPermission()}
-              className="min-h-[36px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shrink-0 whitespace-nowrap"
+              className="min-h-[36px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             >
               {requestingPerm ? (
-                <LoadingSpinner size="xs" tone="white" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Bell className="w-3.5 h-3.5" />
               )}
@@ -292,14 +283,14 @@ export function NotificationSettingsCard({
         type="button"
         disabled={testing}
         onClick={() => void handleTestNotification()}
-        className="w-full min-h-[44px] px-4 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] disabled:opacity-70 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer shadow-xs"
+        className="w-full min-h-[44px] px-4 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] disabled:opacity-70 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
       >
         {testing ? (
-          <LoadingSpinner size="xs" tone="white" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <BellRing className="w-4 h-4" />
         )}
-        <span>{testing ? 'Mengirim Tes Notifikasi...' : 'Tes Bunyi, Getar & Pop-up Notifikasi'}</span>
+        <span>{testing ? 'Mengirim Tes Notifikasi...' : 'Tes Bunyi & Getaran Notifikasi'}</span>
       </button>
     </div>
   );

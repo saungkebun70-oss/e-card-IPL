@@ -28,7 +28,6 @@ export type PdfExportMode = 'download' | 'print';
 
 export interface PdfExportOptions {
   mode?: PdfExportMode;
-  captureElement?: HTMLElement | null;
 }
 
 export interface PdfExportResult {
@@ -153,114 +152,6 @@ async function exportPdfDocument(
     method: 'web_download',
     fileName,
   };
-}
-
-/**
- * Mengonversi fungsi warna modern Tailwind v4 (`oklch(...)` / `oklab(...)`) pada stylesheet kloningan
- * menjadi format RGB/Hex standar agar `html2canvas` tidak pernah melempar error parsing warna.
- */
-function normalizeCssColorsForHtml2Canvas(clonedDoc: Document): void {
-  try {
-    const colorCanvas = clonedDoc.createElement('canvas');
-    colorCanvas.width = 1;
-    colorCanvas.height = 1;
-    const ctx = colorCanvas.getContext('2d');
-    if (!ctx) return;
-
-    const toSafeColor = (rawColor: string): string => {
-      try {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillStyle = rawColor;
-        return ctx.fillStyle;
-      } catch {
-        return '#0f172a';
-      }
-    };
-
-    const styleTags = Array.from(clonedDoc.querySelectorAll('style'));
-    for (const styleEl of styleTags) {
-      const cssText = styleEl.textContent || '';
-      if (!/(oklch|oklab|color-mix)\(/i.test(cssText)) continue;
-      styleEl.textContent = cssText
-        .replace(/oklch\([^)]*\)/gi, (match) => toSafeColor(match))
-        .replace(/oklab\([^)]*\)/gi, (match) => toSafeColor(match))
-        .replace(/color-mix\([^;{}]*\)/gi, '#e2e8f0');
-    }
-  } catch {
-    // Jika gagal normalisasi, fallback vector jsPDF akan tetap mengambil alih
-  }
-}
-
-/**
- * Mengonversi elemen DOM dokumen A4 (mis. halaman LPJ `#printable-report`) menjadi PDF A4
- * menggunakan `html2canvas` + `jsPDF` dengan pemotongan halaman rapi anti-terpotong.
- */
-async function buildA4PdfFromElement(element: HTMLElement): Promise<jsPDF> {
-  const { default: html2canvas } = await import('html2canvas');
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    allowTaint: false,
-    backgroundColor: '#ffffff',
-    logging: false,
-    windowWidth: Math.max(element.scrollWidth, 820),
-    onclone: (clonedDoc) => {
-      normalizeCssColorsForHtml2Canvas(clonedDoc);
-      const target = clonedDoc.getElementById(element.id);
-      if (target) {
-        target.style.backgroundColor = '#ffffff';
-        target.style.color = '#0f172a';
-        target.style.boxShadow = 'none';
-      }
-    },
-  });
-
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageWidthMm = 210;
-  const pageHeightMm = 297;
-  const marginMm = 10;
-  const usableWidthMm = pageWidthMm - marginMm * 2;
-  const usableHeightMm = pageHeightMm - marginMm * 2 - 6; // ruang footer nomor halaman
-
-  const imgWidthPx = canvas.width;
-  const imgHeightPx = canvas.height;
-  const pxPerMm = imgWidthPx / usableWidthMm;
-  const sliceHeightPx = Math.floor(usableHeightMm * pxPerMm);
-
-  let offsetY = 0;
-  let pageIndex = 0;
-
-  while (offsetY < imgHeightPx) {
-    const currentSliceHeight = Math.min(sliceHeightPx, imgHeightPx - offsetY);
-    const pageCanvas = document.createElement('canvas');
-    pageCanvas.width = imgWidthPx;
-    pageCanvas.height = currentSliceHeight;
-    const pageCtx = pageCanvas.getContext('2d');
-    if (pageCtx) {
-      pageCtx.fillStyle = '#ffffff';
-      pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      pageCtx.drawImage(
-        canvas,
-        0,
-        offsetY,
-        imgWidthPx,
-        currentSliceHeight,
-        0,
-        0,
-        imgWidthPx,
-        currentSliceHeight
-      );
-      if (pageIndex > 0) doc.addPage();
-      const sliceHeightMm = currentSliceHeight / pxPerMm;
-      const imgData = pageCanvas.toDataURL('image/jpeg', 0.94);
-      doc.addImage(imgData, 'JPEG', marginMm, marginMm, usableWidthMm, sliceHeightMm, undefined, 'FAST');
-    }
-    offsetY += currentSliceHeight;
-    pageIndex += 1;
-  }
-
-  addPageNumbers(doc);
-  return doc;
 }
 
 async function loadImageAsDataUrl(src?: string | null): Promise<string | null> {
@@ -955,28 +846,6 @@ export async function downloadLpjTriwulanPdf(
   brand: AppBrandConfig,
   options?: PdfExportOptions
 ): Promise<PdfExportResult> {
-  const mode = options?.mode || 'download';
-  const fileName = `LPJ_${lpj.labelTriwulan.replace(/\s+/g, '_')}_${lpj.tahun}_Saung_Kebun.pdf`;
-  const exportMeta = {
-    title: `LPJ Keuangan ${lpj.labelTriwulan} ${lpj.tahun} — Perumahan Saung Kebun`,
-    text: `Laporan Pertanggungjawaban (LPJ) ${lpj.labelTriwulan} ${lpj.tahun} (${lpj.rentangBulan}) Perumahan Saung Kebun`,
-    dialogTitle:
-      mode === 'print'
-        ? 'Cetak atau Bagikan LPJ PDF A4'
-        : 'Simpan atau Bagikan LPJ PDF',
-    mode,
-  };
-
-  // Prioritas 1: Render dokumen LPJ A4 menggunakan html2canvas + jsPDF jika elemen tersedia
-  if (options?.captureElement && typeof document !== 'undefined') {
-    try {
-      const capturedDoc = await buildA4PdfFromElement(options.captureElement);
-      return await exportPdfDocument(capturedDoc, fileName, exportMeta);
-    } catch {
-      // Fallback aman ke generator vektor jsPDF + autoTable di bawah agar selalu berhasil 100%
-    }
-  }
-
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let y = await drawOfficialKop(
     doc,
@@ -1111,7 +980,20 @@ export async function downloadLpjTriwulanPdf(
   });
 
   addPageNumbers(doc);
-  return exportPdfDocument(doc, fileName, exportMeta);
+  const mode = options?.mode || 'download';
+  return exportPdfDocument(
+    doc,
+    `LPJ_${lpj.labelTriwulan.replace(/\s+/g, '_')}_${lpj.tahun}_Saung_Kebun.pdf`,
+    {
+      title: `LPJ Keuangan ${lpj.labelTriwulan} ${lpj.tahun} — Perumahan Saung Kebun`,
+      text: `Laporan Pertanggungjawaban (LPJ) ${lpj.labelTriwulan} ${lpj.tahun} (${lpj.rentangBulan}) Perumahan Saung Kebun`,
+      dialogTitle:
+        mode === 'print'
+          ? 'Cetak atau Bagikan LPJ PDF A4'
+          : 'Simpan atau Bagikan LPJ PDF',
+      mode,
+    }
+  );
 }
 
 /**

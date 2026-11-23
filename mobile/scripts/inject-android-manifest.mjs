@@ -52,46 +52,16 @@ for (const feat of OPTIONAL_FEATURES) {
   }
 }
 
-let modified = false;
-
 if (linesToInsert.length > 0) {
   const block = `\n    <!-- Izin & Fitur Aplikasi e-Card IPL Saung Kebun -->\n${linesToInsert.join('\n')}\n`;
   if (xml.includes('</manifest>')) {
     xml = xml.replace('</manifest>', `${block}</manifest>`);
-    modified = true;
-    console.log(
-      `[inject-android-manifest] Berhasil menyuntikkan ${linesToInsert.length} entri izin/fitur ke AndroidManifest.xml.`
-    );
   } else {
     console.error('[inject-android-manifest] Tag </manifest> tidak ditemukan.');
     process.exit(1);
   }
+  fs.writeFileSync(manifestPath, xml, 'utf8');
+  console.log(`[inject-android-manifest] Berhasil menyuntikkan ${linesToInsert.length} entri izin/fitur ke AndroidManifest.xml.`);
 } else {
   console.log('[inject-android-manifest] Seluruh izin Android sudah terpasang.');
-}
-
-// Suntikkan default_notification_channel_id = saung_kebun_alerts di dalam tag <application>
-const DEFAULT_CHANNEL_META_NAME =
-  'com.google.firebase.messaging.default_notification_channel_id';
-const DEFAULT_CHANNEL_ID = 'saung_kebun_alerts';
-
-if (!xml.includes(DEFAULT_CHANNEL_META_NAME)) {
-  const metaBlock = `\n        <!-- Default Notification Channel untuk FCM & Local Notifications -->\n        <meta-data\n            android:name="${DEFAULT_CHANNEL_META_NAME}"\n            android:value="${DEFAULT_CHANNEL_ID}" />\n    `;
-  if (xml.includes('</application>')) {
-    xml = xml.replace('</application>', `${metaBlock}</application>`);
-    modified = true;
-    console.log(
-      `[inject-android-manifest] Berhasil menyuntikkan default_notification_channel_id=${DEFAULT_CHANNEL_ID}.`
-    );
-  } else {
-    console.warn('[inject-android-manifest] Tag </application> tidak ditemukan.');
-  }
-} else {
-  console.log(
-    `[inject-android-manifest] default_notification_channel_id sudah terpasang.`
-  );
-}
-
-if (modified) {
-  fs.writeFileSync(manifestPath, xml, 'utf8');
 }

@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
       - 'mobile/**'
       - '.github/workflows/build-mobile.yml'
 
@@ -33,34 +30,13 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Install Root Dependencies & Build Web Bundle
-        working-directory: .
-        run: |
-          npm install --no-audit --no-fund
-          npx tsc --noEmit
-          npm run build
-
       - name: Install Mobile Dependencies
         run: npm install --include=dev --no-audit --no-fund
-
-      - name: Prepare Optional google-services.json (FCM)
-        env:
-          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-        run: |
-          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "GOOGLE_SERVICES_JSON_BASE64 ditemukan — mendekode ke mobile/google-services.json."
-            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json
-          else
-            echo "GOOGLE_SERVICES_JSON_BASE64 tidak diset — build tetap lanjut aman tanpa google-services.json."
-          fi
 
       - name: Add & Sync Android Platform
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
-          fi
-          if [ -f "google-services.json" ]; then
-            cp google-services.json android/app/google-services.json
           fi
           npx cap sync android
 
@@ -73,11 +49,8 @@ jobs:
             echo "resources/icon.png tidak ditemukan, lewati generate aset."
           fi
 
-      - name: Inject AndroidManifest Permissions & Default Notification Channel
+      - name: Inject Required Permissions into AndroidManifest.xml
         run: node scripts/inject-android-manifest.mjs
-
-      - name: Patch Android Gradle (Safe Conditional google-services Plugin)
-        run: node scripts/patch-android-gradle.mjs
 
       - name: Prepare Android Release Keystore
         env:
@@ -188,12 +161,6 @@ jobs:
             brew install cocoapods
           fi
           pod --version
-
-      - name: Install Root Dependencies & Build Web Bundle
-        working-directory: .
-        run: |
-          npm install --no-audit --no-fund
-          npm run build
 
       - name: Install Mobile Dependencies
         run: npm install --include=dev --no-audit --no-fund

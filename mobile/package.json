@@ -8,7 +8,6 @@
     "assets:android": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --android --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'",
     "assets:ios": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --ios --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'",
     "android:manifest": "node scripts/inject-android-manifest.mjs",
-    "android:gradle": "node scripts/patch-android-gradle.mjs",
     "ios:plist": "node scripts/inject-ios-plist.mjs",
     "cap:sync": "npx cap sync",
     "cap:sync:android": "npx cap sync android",
@@ -25,7 +24,6 @@
     "@capacitor/haptics": "^7.0.2",
     "@capacitor/ios": "^7.6.0",
     "@capacitor/local-notifications": "^7.0.3",
-    "@capacitor/push-notifications": "^7.0.3",
     "@capacitor/share": "^7.0.4",
     "@capacitor/status-bar": "^7.0.6",
     "@capgo/capacitor-nfc": "^7.2.0"

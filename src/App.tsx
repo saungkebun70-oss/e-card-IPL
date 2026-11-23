@@ -62,7 +62,6 @@ import {
   initNativeNotificationsOnLaunch,
   initNotificationAudioUnlock,
 } from './lib/notificationAlertService';
-import { initializeAndroidNotificationsOnLaunch } from './lib/notificationService';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -300,9 +299,8 @@ export default function App() {
   // Inisialisasi audio unlock & Notification Channel + izin notifikasi otomatis saat APK Android dibuka
   useEffect(() => {
     initNotificationAudioUnlock();
-    void initializeAndroidNotificationsOnLaunch(session);
-    void initNativeNotificationsOnLaunch(session);
-  }, [session]);
+    void initNativeNotificationsOnLaunch();
+  }, []);
 
   useEffect(() => {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;

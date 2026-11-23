@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 import {
   SUSUNAN_PENGURUS,
   type ActivityNotification,
@@ -12,359 +11,7 @@ const LOCAL_NOTIF_KEY = 'ecard_activity_notifications_v1';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
 const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
 const NOTIF_EVENT = 'ecard-activity-notifications-changed';
-const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
 const MAX_LOCAL_NOTIFICATIONS = 250;
-
-export const NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
-
-export type DeviceNotificationPermission = 'granted' | 'denied' | 'prompt' | 'unsupported';
-
-export interface RealtimeNotificationOptions {
-  /**
-   * Otomatis memunculkan LocalNotifications (Android) / Web Notifications saat event INSERT diterima.
-   * Default: `true` jika pemanggil tidak menyediakan callback `onInsert` kustom.
-   */
-  autoShowDeviceNotification?: boolean;
-  /**
-   * Interval polling cadangan dalam milidetik (opsional, misal 10000 untuk 10 detik)
-   * agar notifikasi tetap masuk meski koneksi WebSocket Supabase sempat terputus di HP.
-   */
-  pollingIntervalMs?: number;
-}
-
-const dispatchedDeviceAlertIds = new Set<string>();
-let androidChannelReady = false;
-let androidLaunchInitPromise: Promise<DeviceNotificationPermission> | null = null;
-let pushRegistrationListenersBound = false;
-let cachedNativeFcmToken: string | null = null;
-let currentNotificationSession: SessionUser | null = null;
-
-function isNativeCapacitor(): boolean {
-  try {
-    return Boolean(
-      Capacitor &&
-        typeof Capacitor.isNativePlatform === 'function' &&
-        Capacitor.isNativePlatform()
-    );
-  } catch {
-    return false;
-  }
-}
-
-function hashNotificationId(seed: string): number {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  }
-  const positive = Math.abs(hash) % 2147480000;
-  return positive > 0 ? positive : Math.floor(Date.now() % 2147480000);
-}
-
-export function markDeviceNotificationDispatched(notificationId: string): boolean {
-  if (!notificationId) return false;
-  if (dispatchedDeviceAlertIds.has(notificationId)) return false;
-  dispatchedDeviceAlertIds.add(notificationId);
-  if (dispatchedDeviceAlertIds.size > 300) {
-    const oldest = dispatchedDeviceAlertIds.values().next().value;
-    if (oldest) dispatchedDeviceAlertIds.delete(oldest);
-  }
-  return true;
-}
-
-/**
- * Membuat Notification Channel Android (`saung_kebun_alerts`) berprioritas tinggi (importance: 5)
- * agar notifikasi muncul sebagai banner heads-up di Status Bar disertai suara & getaran bawaan HP.
- */
-export async function createAndroidNotificationChannel(): Promise<void> {
-  if (!isNativeCapacitor() || androidChannelReady) return;
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-    if (typeof LocalNotifications.createChannel === 'function') {
-      await LocalNotifications.createChannel({
-        id: NOTIFICATION_CHANNEL_ID,
-        name: 'Notifikasi Saung Kebun',
-        description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
-        importance: 5,
-        visibility: 1,
-        sound: 'default',
-        vibration: true,
-        lights: true,
-        lightColor: '#059669',
-      });
-    }
-    androidChannelReady = true;
-  } catch {
-    // Aman diabaikan pada platform non-Android / Web
-  }
-}
-
-async function initNativeFcmPushRegistration(): Promise<void> {
-  if (!isNativeCapacitor()) return;
-  try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
-    if (typeof PushNotifications.createChannel === 'function') {
-      await PushNotifications.createChannel({
-        id: NOTIFICATION_CHANNEL_ID,
-        name: 'Notifikasi Saung Kebun',
-        description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
-        importance: 5,
-        visibility: 1,
-        sound: 'default',
-        vibration: true,
-        lights: true,
-        lightColor: '#059669',
-      }).catch(() => {});
-    }
-
-    if (!pushRegistrationListenersBound) {
-      pushRegistrationListenersBound = true;
-      await PushNotifications.addListener('registration', (token) => {
-        const value = token?.value?.trim();
-        if (!value) return;
-        cachedNativeFcmToken = value;
-        if (currentNotificationSession) {
-          const platform =
-            typeof Capacitor.getPlatform === 'function' ? Capacitor.getPlatform() : 'android';
-          void saveUserPushToken(currentNotificationSession, value, platform);
-        }
-      });
-      await PushNotifications.addListener('registrationError', () => {
-        // Tetap aman jika google-services.json belum dipasang
-      });
-      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-        const data = (action?.notification?.data || {}) as { target_url?: string };
-        if (data.target_url && typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl: data.target_url } })
-          );
-        }
-      });
-    }
-
-    let perm = await PushNotifications.checkPermissions();
-    if (perm.receive !== 'granted') {
-      perm = await PushNotifications.requestPermissions();
-    }
-    if (perm.receive === 'granted') {
-      await PushNotifications.register();
-    }
-  } catch {
-    // Aman jika dijalankan di Web atau perangkat tanpa GMS
-  }
-}
-
-/**
- * Memeriksa status izin notifikasi perangkat saat ini (Android Native & Web Browser).
- */
-export async function checkDeviceNotificationPermission(): Promise<DeviceNotificationPermission> {
-  if (isNativeCapacitor()) {
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const status = await LocalNotifications.checkPermissions();
-      if (status.display === 'granted') return 'granted';
-      if (status.display === 'denied') return 'denied';
-      return 'prompt';
-    } catch {
-      return 'unsupported';
-    }
-  }
-
-  try {
-    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
-    const perm = window.Notification.permission;
-    if (perm === 'granted') return 'granted';
-    if (perm === 'denied') return 'denied';
-    return 'prompt';
-  } catch {
-    return 'unsupported';
-  }
-}
-
-/**
- * Meminta izin notifikasi sistem (LocalNotifications + PushNotifications di Android,
- * atau Web Notification API di Browser).
- */
-export async function requestDeviceNotificationPermission(): Promise<DeviceNotificationPermission> {
-  if (isNativeCapacitor()) {
-    try {
-      await createAndroidNotificationChannel();
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const res = await LocalNotifications.requestPermissions();
-      void initNativeFcmPushRegistration();
-      if (res.display === 'granted') return 'granted';
-      if (res.display === 'denied') return 'denied';
-      return 'prompt';
-    } catch {
-      return 'unsupported';
-    }
-  }
-
-  try {
-    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
-    const perm = await window.Notification.requestPermission();
-    if (perm === 'granted') return 'granted';
-    if (perm === 'denied') return 'denied';
-    return 'prompt';
-  } catch {
-    return 'unsupported';
-  }
-}
-
-/**
- * Inisialisasi otomatis saat aplikasi pertama kali dibuka:
- * - Di Android Native (Capacitor): langsung membuat channel `saung_kebun_alerts`,
- *   memanggil `LocalNotifications.requestPermissions()` secara otomatis (Android 13+ POST_NOTIFICATIONS),
- *   serta mendaftarkan PushNotifications (FCM) ke tabel `user_push_tokens` jika sesi login aktif.
- * - Di Web Browser: hanya membaca status izin saat ini tanpa mengganggu kebijakan gesture browser.
- */
-export function initializeAndroidNotificationsOnLaunch(
-  session?: SessionUser | null
-): Promise<DeviceNotificationPermission> {
-  if (session !== undefined) {
-    currentNotificationSession = session;
-  }
-
-  if (!isNativeCapacitor()) {
-    return checkDeviceNotificationPermission();
-  }
-
-  if (session && cachedNativeFcmToken) {
-    const platform =
-      typeof Capacitor.getPlatform === 'function' ? Capacitor.getPlatform() : 'android';
-    void saveUserPushToken(session, cachedNativeFcmToken, platform);
-  }
-
-  if (androidLaunchInitPromise) {
-    return androidLaunchInitPromise;
-  }
-
-  androidLaunchInitPromise = (async () => {
-    try {
-      await createAndroidNotificationChannel();
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      let status = await LocalNotifications.checkPermissions();
-      if (status.display !== 'granted') {
-        status = await LocalNotifications.requestPermissions();
-      }
-
-      // Daftarkan juga PushNotifications (FCM) secara paralel & aman
-      void initNativeFcmPushRegistration();
-
-      if (status.display === 'granted') return 'granted';
-      if (status.display === 'denied') return 'denied';
-      return 'prompt';
-    } catch {
-      return 'unsupported';
-    }
-  })();
-
-  return androidLaunchInitPromise;
-}
-
-/**
- * Mengirimkan notifikasi sistem perangkat untuk 1 objek `ActivityNotification`:
- * - Android Native (Capacitor): `LocalNotifications.schedule` ke channel `saung_kebun_alerts`
- *   disertai suara & getaran bawaan HP.
- * - Web / PWA: Service Worker `showNotification` (Chrome Android PWA) atau `new Notification()`.
- */
-export async function showDeviceSystemNotification(
-  notif: Pick<ActivityNotification, 'id' | 'title' | 'message' | 'category' | 'target_url'>,
-  options?: { soundEnabled?: boolean; vibrationEnabled?: boolean; force?: boolean }
-): Promise<boolean> {
-  const id = notif.id || `sk-${Date.now()}`;
-  if (!options?.force && !markDeviceNotificationDispatched(id)) {
-    return false;
-  }
-
-  const title = notif.title?.trim() || 'e-Card IPL Saung Kebun';
-  const body = notif.message?.trim() || 'Ada aktivitas baru di lingkungan Saung Kebun.';
-  const targetUrl = notif.target_url || '';
-
-  if (isNativeCapacitor()) {
-    try {
-      await createAndroidNotificationChannel();
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      let perm = await LocalNotifications.checkPermissions();
-      if (perm.display === 'prompt') {
-        perm = await LocalNotifications.requestPermissions();
-      }
-      if (perm.display !== 'granted') return false;
-
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id: hashNotificationId(id),
-            title,
-            body,
-            channelId: NOTIFICATION_CHANNEL_ID,
-            sound: options?.soundEnabled === false ? undefined : 'default',
-            iconColor: '#059669',
-            schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
-            extra: {
-              notification_id: id,
-              category: notif.category || 'system',
-              target_url: targetUrl,
-            },
-          },
-        ],
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  // Web / PWA Notification API
-  try {
-    if (typeof window === 'undefined' || !('Notification' in window)) return false;
-    if (window.Notification.permission !== 'granted') return false;
-
-    const webOptions: NotificationOptions & { vibrate?: number[] } = {
-      body,
-      icon: '/app-icon.jpg',
-      badge: '/app-icon.jpg',
-      tag: id,
-      silent: options?.soundEnabled === false,
-      data: { target_url: targetUrl },
-    };
-    if (options?.vibrationEnabled !== false) {
-      webOptions.vibrate = [250, 100, 250];
-    }
-
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-      try {
-        const reg = await Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 500)),
-        ]);
-        if (reg && typeof reg.showNotification === 'function') {
-          await reg.showNotification(title, webOptions);
-          return true;
-        }
-      } catch {
-        // Fallback ke new window.Notification
-      }
-    }
-
-    const webNotif = new window.Notification(title, webOptions);
-    webNotif.onclick = () => {
-      try {
-        window.focus();
-        if (targetUrl) {
-          window.dispatchEvent(
-            new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl } })
-          );
-        }
-        webNotif.close();
-      } catch {
-        // Abaikan
-      }
-    };
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export interface CreateActivityNotificationInput {
   user_id: string;
@@ -922,40 +569,28 @@ export async function deleteAllNotifications(
 }
 
 /**
- * Berlangganan pembaruan notifikasi secara real-time via Supabase Realtime + event lokal,
- * terintegrasi langsung dengan Android `LocalNotifications` (`saung_kebun_alerts`) & Web Notifications.
- * - Saat dipanggil di Android Native, otomatis memastikan channel & izin notifikasi aktif.
- * - Setiap event `INSERT` pada tabel `public.notifications` untuk akun/role ini akan memicu
- *   `onInsert` serta (jika `autoShowDeviceNotification` aktif) langsung memunculkan notifikasi OS.
+ * Berlangganan pembaruan notifikasi secara real-time via Supabase Realtime + event lokal.
+ * Callback opsional `onInsert` dipanggil tepat saat ada notifikasi BARU yang ditujukan ke akun/role ini
+ * (untuk memicu bunyi lonceng, getaran, animasi shake, dan pop-up sistem HP).
  */
 export function subscribeActivityNotificationsRealtime(
   session: SessionUser,
   onChange: () => void,
-  onInsert?: (notif: ActivityNotification) => void,
-  options?: RealtimeNotificationOptions
+  onInsert?: (notif: ActivityNotification) => void
 ): () => void {
   const cleanups: Array<() => void> = [];
   const allowedIds = new Set(getUserNotificationMatchIds(session));
   const selfCanonicalId = getCanonicalUserId(session);
   const broadcastReadSet = getBroadcastReadSet(session);
-  const autoShowDeviceNotification = options?.autoShowDeviceNotification ?? !onInsert;
-
-  // Pastikan inisialisasi Android channel + requestPermission + sinkronisasi token FCM berjalan untuk sesi aktif
-  void initializeAndroidNotificationsOnLaunch(session);
 
   const handleCandidateInsert = (notif: ActivityNotification) => {
+    if (!onInsert) return;
     const recipient = normalizeIdToken(notif.user_id);
     if (!recipient || !allowedIds.has(recipient)) return;
     // Jangan membunyikan notifikasi ke perangkat pelaku sendiri untuk aksi yang baru saja ia tekan
     const actor = normalizeIdToken(notif.actor_id);
     if (actor && actor === normalizeIdToken(selfCanonicalId)) return;
-
-    if (!notif.is_read && autoShowDeviceNotification) {
-      void showDeviceSystemNotification(notif);
-    }
-    if (onInsert) {
-      onInsert(notif);
-    }
+    onInsert(notif);
   };
 
   const onLocalEvent = (e: Event) => {
@@ -1009,7 +644,7 @@ export function subscribeActivityNotificationsRealtime(
             );
             if (!targetUserId || allowedIds.has(targetUserId)) {
               onChange();
-              if (payload.eventType === 'INSERT' && payload.new) {
+              if (payload.eventType === 'INSERT' && payload.new && onInsert) {
                 const normalized = normalizeNotificationRow(
                   payload.new as Record<string, unknown>,
                   broadcastReadSet
@@ -1031,39 +666,6 @@ export function subscribeActivityNotificationsRealtime(
     } catch {
       // Abaikan bila WebSocket realtime dibatasi
     }
-  }
-
-  // Polling cadangan opsional langsung di service bila diminta oleh pemanggil
-  const pollingMs = options?.pollingIntervalMs ?? 0;
-  if (pollingMs > 0 && typeof window !== 'undefined') {
-    const seenIds = new Set<string>();
-    let primed = false;
-
-    const runPoll = async () => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-      try {
-        const list = await fetchActivityNotifications(session);
-        if (!primed) {
-          list.forEach((n) => seenIds.add(n.id));
-          primed = true;
-          return;
-        }
-        const newlyUnread = list.filter((n) => !seenIds.has(n.id) && !n.is_read);
-        list.forEach((n) => seenIds.add(n.id));
-        if (newlyUnread.length > 0) {
-          onChange();
-          newlyUnread.slice(0, 3).forEach((item) => handleCandidateInsert(item));
-        }
-      } catch {
-        // Abaikan error jaringan sementara
-      }
-    };
-
-    void runPoll();
-    const timerId = window.setInterval(() => {
-      void runPoll();
-    }, pollingMs);
-    cleanups.push(() => window.clearInterval(timerId));
   }
 
   return () => {
@@ -1108,59 +710,3 @@ export function resolveDefaultTargetUrlForRole(role: UserRole): string {
   if (role === 'petugas') return 'tab:info';
   return 'tab:beranda';
 }
-
-const LOCAL_PUSH_TOKEN_KEY = 'ecard_fcm_push_token_v1';
-
-/**
- * Menyimpan token FCM perangkat (Android/iOS Capacitor) ke tabel Supabase `user_push_tokens`
- * agar server/trigger dapat mengirimkan push notification meski aplikasi di background.
- * Dibungkus try/catch penuh agar aman di Web Browser maupun saat offline.
- */
-export async function saveUserPushToken(
-  session: SessionUser,
-  token: string,
-  platform: string = 'android'
-): Promise<boolean> {
-  const cleanToken = String(token || '').trim();
-  if (!session || !cleanToken) return false;
-
-  const userId = getCanonicalUserId(session);
-  try {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(
-        LOCAL_PUSH_TOKEN_KEY,
-        JSON.stringify({ user_id: userId, token: cleanToken, platform, updated_at: new Date().toISOString() })
-      );
-    }
-  } catch {
-    // Abaikan keterbatasan storage
-  }
-
-  const supabase = getSupabaseClient(session);
-  if (!supabase || !isSupabaseConfigured()) return false;
-
-  try {
-    const payload = {
-      user_id: userId,
-      role: session.role,
-      blok_rumah: session.blok_rumah || null,
-      token: cleanToken,
-      platform: platform || 'android',
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase
-      .from('user_push_tokens')
-      .upsert(payload, { onConflict: 'user_id,token' });
-
-    if (error) {
-      // Fallback insert jika constraint unik belum dibuat
-      const { error: insertErr } = await supabase.from('user_push_tokens').insert(payload);
-      return !insertErr;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-

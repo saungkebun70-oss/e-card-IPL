@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { ActivityNotification, SessionUser } from '../types';
-import {
-  checkDeviceNotificationPermission,
-  createAndroidNotificationChannel,
-  initializeAndroidNotificationsOnLaunch,
-  NOTIFICATION_CHANNEL_ID,
-  requestDeviceNotificationPermission,
-  saveUserPushToken,
-  showDeviceSystemNotification,
-} from './notificationService';
 
 export interface NotificationPreferences {
   soundEnabled: boolean;
@@ -23,7 +14,7 @@ const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
 const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
-export const ANDROID_NOTIFICATION_CHANNEL_ID = NOTIFICATION_CHANNEL_ID;
+export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
 
 const DEFAULT_PREFS: NotificationPreferences = {
   soundEnabled: true,
@@ -36,9 +27,6 @@ let sharedAudioContext: AudioContext | null = null;
 let audioUnlockInstalled = false;
 let androidChannelInitialized = false;
 let nativeLaunchInitPromise: Promise<OsNotificationPermissionState> | null = null;
-let pushListenersRegistered = false;
-let latestNativePushToken: string | null = null;
-let activePushSession: SessionUser | null = null;
 
 function isNativeApp(): boolean {
   try {
@@ -228,10 +216,10 @@ export async function triggerNotificationVibration(): Promise<boolean> {
     try {
       const { Haptics, NotificationType } = await import('@capacitor/haptics');
       await Haptics.notification({ type: NotificationType.Success });
-      await Haptics.vibrate({ duration: 250 });
+      await Haptics.vibrate({ duration: 200 });
       window.setTimeout(() => {
-        void Haptics.vibrate({ duration: 250 }).catch(() => {});
-      }, 350);
+        void Haptics.vibrate({ duration: 200 }).catch(() => {});
+      }, 300);
       didVibrate = true;
     } catch {
       // Lanjut fallback navigator.vibrate
@@ -240,7 +228,7 @@ export async function triggerNotificationVibration(): Promise<boolean> {
 
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      const ok = navigator.vibrate([250, 100, 250]);
+      const ok = navigator.vibrate([200, 100, 200]);
       if (ok) didVibrate = true;
     }
   } catch {
@@ -256,16 +244,10 @@ export async function triggerNotificationVibration(): Promise<boolean> {
  */
 export async function ensureAndroidNotificationChannel(): Promise<void> {
   if (!isNativeApp() || androidChannelInitialized) return;
-  await createAndroidNotificationChannel();
-  androidChannelInitialized = true;
-}
-
-async function setupNativePushNotifications(): Promise<void> {
-  if (!isNativeApp()) return;
   try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
-    if (typeof PushNotifications.createChannel === 'function') {
-      await PushNotifications.createChannel({
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    if (typeof LocalNotifications.createChannel === 'function') {
+      await LocalNotifications.createChannel({
         id: ANDROID_NOTIFICATION_CHANNEL_ID,
         name: 'Notifikasi Saung Kebun',
         description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
@@ -275,133 +257,43 @@ async function setupNativePushNotifications(): Promise<void> {
         vibration: true,
         lights: true,
         lightColor: '#059669',
-      }).catch(() => {});
-    }
-
-    if (!pushListenersRegistered) {
-      pushListenersRegistered = true;
-
-      await PushNotifications.addListener('registration', (token) => {
-        const value = token?.value?.trim();
-        if (!value) return;
-        latestNativePushToken = value;
-        if (activePushSession) {
-          const platform =
-            typeof Capacitor.getPlatform === 'function' ? Capacitor.getPlatform() : 'android';
-          void saveUserPushToken(activePushSession, value, platform);
-        }
-      });
-
-      await PushNotifications.addListener('registrationError', () => {
-        // Aman bila google-services.json belum dipasang; LocalNotifications tetap jalan penuh
-      });
-
-      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        const prefs = getNotificationPreferences();
-        emitBellShakeEvent();
-        if (prefs.soundEnabled) void playNotificationChime();
-        if (prefs.vibrationEnabled) void triggerNotificationVibration();
-        const dataObj = (notification?.data || {}) as { target_url?: string };
-        void showOsNotification({
-          id: notification?.id || `fcm-${Date.now()}`,
-          title: notification?.title || 'Notifikasi Baru · Saung Kebun',
-          body: notification?.body || 'Ada pembaruan aktivitas di lingkungan Saung Kebun.',
-          targetUrl: dataObj.target_url || '',
-          soundEnabled: prefs.soundEnabled,
-          vibrationEnabled: prefs.vibrationEnabled,
-        });
-      });
-
-      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-        const dataObj = (action?.notification?.data || {}) as { target_url?: string };
-        if (dataObj.target_url && typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl: dataObj.target_url } })
-          );
-        }
       });
     }
-
-    let pushPerm = await PushNotifications.checkPermissions();
-    if (pushPerm.receive !== 'granted') {
-      pushPerm = await PushNotifications.requestPermissions();
-    }
-    if (pushPerm.receive === 'granted') {
-      await PushNotifications.register();
-    }
+    androidChannelInitialized = true;
   } catch {
-    // Aman di Web atau perangkat tanpa Firebase/GMS
+    // Abaikan jika platform tidak mendukung channel (misal iOS/Web)
   }
-}
-
-/**
- * Menyinkronkan sesi login aktif dengan pendaftaran Push Notifications (FCM)
- * lalu menyimpan token FCM ke tabel `user_push_tokens` di Supabase.
- */
-export async function syncNativePushTokenForSession(
-  session: SessionUser | null
-): Promise<boolean> {
-  activePushSession = session;
-  if (!session || !isNativeApp()) return false;
-
-  try {
-    await setupNativePushNotifications();
-    if (latestNativePushToken) {
-      const platform =
-        typeof Capacitor.getPlatform === 'function' ? Capacitor.getPlatform() : 'android';
-      return await saveUserPushToken(session, latestNativePushToken, platform);
-    }
-  } catch {
-    // Abaikan agar tidak mengganggu UI
-  }
-  return false;
-}
-
-export function getNativePushRuntimeInfo(): {
-  isNative: boolean;
-  platform: string;
-  hasFcmToken: boolean;
-} {
-  const native = isNativeApp();
-  let platform = 'web';
-  try {
-    if (native && typeof Capacitor.getPlatform === 'function') {
-      platform = Capacitor.getPlatform();
-    }
-  } catch {
-    platform = native ? 'android' : 'web';
-  }
-  return {
-    isNative: native,
-    platform,
-    hasFcmToken: Boolean(latestNativePushToken),
-  };
 }
 
 /**
  * Dipanggil otomatis saat aplikasi APK Android (Capacitor) pertama kali dibuka:
- * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif),
- * meminta izin `LocalNotifications.requestPermissions()` dan `PushNotifications.requestPermissions()`,
- * serta mendaftarkan token FCM bila tersedia.
+ * langsung membuat Notification Channel `saung_kebun_alerts` (importance: 5, suara & getar aktif)
+ * serta meminta izin notifikasi sistem (POST_NOTIFICATIONS Android 13+) jika belum diizinkan.
  * Tidak meminta izin otomatis di Web Browser agar tidak melanggar kebijakan browser.
  */
-export function initNativeNotificationsOnLaunch(
-  session?: SessionUser | null
-): Promise<OsNotificationPermissionState> {
-  if (session !== undefined) {
-    activePushSession = session;
-  }
+export function initNativeNotificationsOnLaunch(): Promise<OsNotificationPermissionState> {
   if (!isNativeApp()) {
-    return checkDeviceNotificationPermission();
+    return checkOsNotificationPermission();
   }
   if (nativeLaunchInitPromise) {
     return nativeLaunchInitPromise;
   }
 
   nativeLaunchInitPromise = (async () => {
-    const perm = await initializeAndroidNotificationsOnLaunch(session ?? activePushSession);
-    void setupNativePushNotifications();
-    return perm;
+    try {
+      await ensureAndroidNotificationChannel();
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const current = await LocalNotifications.checkPermissions();
+      if (current.display === 'granted') {
+        return 'granted';
+      }
+      const requested = await LocalNotifications.requestPermissions();
+      if (requested.display === 'granted') return 'granted';
+      if (requested.display === 'denied') return 'denied';
+      return 'prompt';
+    } catch {
+      return 'unsupported';
+    }
   })();
 
   return nativeLaunchInitPromise;
@@ -430,15 +322,65 @@ export async function syncAppIconBadge(unreadCount: number): Promise<void> {
 }
 
 export async function checkOsNotificationPermission(): Promise<OsNotificationPermissionState> {
-  return checkDeviceNotificationPermission();
+  if (isNativeApp()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const status = await LocalNotifications.checkPermissions();
+      if (status.display === 'granted') return 'granted';
+      if (status.display === 'denied') return 'denied';
+      return 'prompt';
+    } catch {
+      return 'unsupported';
+    }
+  }
+
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return 'unsupported';
+    }
+    const perm = window.Notification.permission;
+    if (perm === 'granted') return 'granted';
+    if (perm === 'denied') return 'denied';
+    return 'prompt';
+  } catch {
+    return 'unsupported';
+  }
 }
 
 export async function requestOsNotificationPermission(): Promise<OsNotificationPermissionState> {
-  const perm = await requestDeviceNotificationPermission();
   if (isNativeApp()) {
-    void setupNativePushNotifications();
+    try {
+      await ensureAndroidNotificationChannel();
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const res = await LocalNotifications.requestPermissions();
+      if (res.display === 'granted') return 'granted';
+      if (res.display === 'denied') return 'denied';
+      return 'prompt';
+    } catch {
+      return 'unsupported';
+    }
   }
-  return perm;
+
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return 'unsupported';
+    }
+    const perm = await window.Notification.requestPermission();
+    if (perm === 'granted') return 'granted';
+    if (perm === 'denied') return 'denied';
+    return 'prompt';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+function hashToSafeNotificationId(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  const positive = Math.abs(hash) % 2147480000;
+  return positive > 0 ? positive : Math.floor(Date.now() % 2147480000);
 }
 
 /**
@@ -453,20 +395,95 @@ export async function showOsNotification(payload: {
   soundEnabled?: boolean;
   vibrationEnabled?: boolean;
 }): Promise<boolean> {
-  return showDeviceSystemNotification(
-    {
-      id: payload.id || `sk-${Date.now()}`,
-      title: payload.title,
-      message: payload.body,
-      category: 'system',
-      target_url: payload.targetUrl || '',
-    },
-    {
-      soundEnabled: payload.soundEnabled,
-      vibrationEnabled: payload.vibrationEnabled,
-      force: Boolean(payload.id && payload.id.startsWith('test-')),
+  const title = payload.title?.trim() || 'e-Card IPL Saung Kebun';
+  const body = payload.body?.trim() || 'Ada aktivitas baru di lingkungan Saung Kebun.';
+  const targetUrl = payload.targetUrl || '';
+  const tag = payload.id || `sk-${Date.now()}`;
+
+  if (isNativeApp()) {
+    try {
+      await ensureAndroidNotificationChannel();
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      let perm = await LocalNotifications.checkPermissions();
+      if (perm.display === 'prompt') {
+        perm = await LocalNotifications.requestPermissions();
+      }
+      if (perm.display !== 'granted') return false;
+
+      const numericId = hashToSafeNotificationId(tag);
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: numericId,
+            title,
+            body,
+            channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+            sound: payload.soundEnabled === false ? undefined : 'default',
+            iconColor: '#059669',
+            schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
+            extra: {
+              target_url: targetUrl,
+            },
+          },
+        ],
+      });
+      return true;
+    } catch {
+      return false;
     }
-  );
+  }
+
+  // Web / PWA (Chrome / Edge / Android Browser)
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
+    if (window.Notification.permission !== 'granted') return false;
+
+    const webOptions: NotificationOptions & { vibrate?: number[] } = {
+      body,
+      icon: '/app-icon.jpg',
+      badge: '/app-icon.jpg',
+      tag,
+      silent: payload.soundEnabled === false,
+      data: { target_url: targetUrl },
+    };
+    if (payload.vibrationEnabled !== false) {
+      webOptions.vibrate = [200, 100, 200];
+    }
+
+    // Coba tampilkan via Service Worker bila aktif (wajib di Android Chrome PWA)
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 500)),
+        ]);
+        if (reg && typeof reg.showNotification === 'function') {
+          await reg.showNotification(title, webOptions);
+          return true;
+        }
+      } catch {
+        // Fallback ke new Notification()
+      }
+    }
+
+    const notif = new window.Notification(title, webOptions);
+    notif.onclick = () => {
+      try {
+        window.focus();
+        if (targetUrl) {
+          window.dispatchEvent(
+            new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl } })
+          );
+        }
+        notif.close();
+      } catch {
+        // Abaikan
+      }
+    };
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
