@@ -685,7 +685,6 @@ export async function markAllActivityNotificationsRead(
   currentList: ActivityNotification[]
 ): Promise<void> {
   const unread = currentList.filter((n) => !n.is_read);
-  if (unread.length === 0) return;
 
   const broadcastIds = unread
     .filter((n) => n.user_id.toLowerCase().startsWith('broadcast:'))
@@ -709,9 +708,21 @@ export async function markAllActivityNotificationsRead(
 
   const supabase = getSupabaseClient(session);
   const remoteDirectIds = directIds.filter((id) => !id.startsWith('notif-'));
-  if (supabase && isSupabaseConfigured() && remoteDirectIds.length > 0) {
+  const directMatchIds = getQueryMatchUserIds(session).filter(
+    (id) => !id.toLowerCase().startsWith('broadcast:')
+  );
+  if (supabase && isSupabaseConfigured()) {
     try {
-      await supabase.from('notifications').update({ is_read: true }).in('id', remoteDirectIds);
+      if (remoteDirectIds.length > 0) {
+        await supabase.from('notifications').update({ is_read: true }).in('id', remoteDirectIds);
+      }
+      if (directMatchIds.length > 0) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .in('user_id', directMatchIds)
+          .eq('is_read', false);
+      }
     } catch {
       // Abaikan jika offline
     }

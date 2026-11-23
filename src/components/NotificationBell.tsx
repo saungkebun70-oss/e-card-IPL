@@ -30,6 +30,7 @@ import {
   deleteAllNotifications,
   deleteNotification,
   fetchActivityNotifications,
+  fetchUnreadNotificationCount,
   formatRelativeTimeId,
   getCanonicalUserId,
   getSessionSeenNotificationIds,
@@ -57,9 +58,10 @@ import { LoadingSpinner } from './LoadingSpinner';
 
 type FilterTab = 'all' | 'finance_ipl' | 'patrol' | 'info_system';
 
-interface NotificationBellProps {
+export interface NotificationBellProps {
   session: SessionUser;
   variant?: 'light' | 'dark';
+  className?: string;
   externalUnreadCount?: number;
   onUnreadCountChange?: (count: number) => void;
   onNavigateTarget?: (targetUrl: string) => void;
@@ -447,6 +449,7 @@ function SwipeableNotificationItem({
 export function NotificationBell({
   session,
   variant = 'light',
+  className = '',
   externalUnreadCount,
   onUnreadCountChange,
   onNavigateTarget,
@@ -454,6 +457,7 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [items, setItems] = useState<ActivityNotification[]>([]);
+  const [dbUnreadCount, setDbUnreadCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -499,7 +503,10 @@ export function NotificationBell({
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const list = await fetchActivityNotifications(session);
+        const [list, unreadTotal] = await Promise.all([
+          fetchActivityNotifications(session),
+          fetchUnreadNotificationCount(session),
+        ]);
         const sessionSeen = getSessionSeenNotificationIds(session);
 
         // Pada pemuatan pertama: catat seluruh ID notifikasi lama tanpa membunyikan alert
@@ -510,6 +517,7 @@ export function NotificationBell({
           }
           isInitialLoadDoneRef.current = true;
           setItems(list);
+          setDbUnreadCount(unreadTotal);
           return;
         }
 
@@ -532,6 +540,7 @@ export function NotificationBell({
         }
 
         setItems(list);
+        setDbUnreadCount(unreadTotal);
 
         if (newlyArrivedUnread.length > 0) {
           triggerBellShake();
@@ -687,20 +696,28 @@ export function NotificationBell({
 
   const unreadCount = useMemo(() => items.filter((n) => !n.is_read).length, [items]);
   const displayUnreadCount = useMemo(() => {
-    if (loading && typeof externalUnreadCount === 'number') {
-      return externalUnreadCount;
+    if (loading) {
+      if (typeof dbUnreadCount === 'number') return dbUnreadCount;
+      if (typeof externalUnreadCount === 'number') return externalUnreadCount;
+      return 0;
     }
-    if (items.length >= 80 && typeof externalUnreadCount === 'number') {
-      return Math.max(unreadCount, externalUnreadCount);
+    const authoritativeDbCount =
+      typeof dbUnreadCount === 'number'
+        ? dbUnreadCount
+        : typeof externalUnreadCount === 'number'
+          ? externalUnreadCount
+          : unreadCount;
+    if (items.length >= 80) {
+      return Math.max(unreadCount, authoritativeDbCount);
     }
     return unreadCount;
-  }, [externalUnreadCount, items.length, loading, unreadCount]);
+  }, [dbUnreadCount, externalUnreadCount, items.length, loading, unreadCount]);
 
   useEffect(() => {
     if (!loading) {
-      onUnreadCountChange?.(unreadCount);
+      onUnreadCountChange?.(displayUnreadCount);
     }
-  }, [loading, onUnreadCountChange, unreadCount]);
+  }, [displayUnreadCount, loading, onUnreadCountChange]);
 
   useEffect(() => {
     void syncAppIconBadge(displayUnreadCount);
@@ -749,9 +766,11 @@ export function NotificationBell({
   };
 
   const handleMarkAllRead = async () => {
-    if (markingAll || unreadCount === 0) return;
+    if (markingAll || displayUnreadCount === 0) return;
     setMarkingAll(true);
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setDbUnreadCount(0);
+    onUnreadCountChange?.(0);
     try {
       await markAllActivityNotificationsRead(session, items);
     } finally {
@@ -763,6 +782,9 @@ export function NotificationBell({
     async (notif: ActivityNotification) => {
       setDeletingIds((prev) => ({ ...prev, [notif.id]: true }));
       setItems((prev) => prev.filter((item) => item.id !== notif.id));
+      if (!notif.is_read) {
+        setDbUnreadCount((prev) => (typeof prev === 'number' ? Math.max(0, prev - 1) : prev));
+      }
       try {
         await deleteNotification(session, notif);
       } finally {
@@ -781,6 +803,8 @@ export function NotificationBell({
     setDeletingAll(true);
     const snapshot = [...items];
     setItems([]);
+    setDbUnreadCount(0);
+    onUnreadCountChange?.(0);
     try {
       await deleteAllNotifications(session, snapshot);
     } finally {
@@ -794,6 +818,7 @@ export function NotificationBell({
         setItems((prev) =>
           prev.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
         );
+        setDbUnreadCount((prev) => (typeof prev === 'number' ? Math.max(0, prev - 1) : prev));
         void markActivityNotificationRead(session, notif);
       }
       setOpen(false);
@@ -810,7 +835,10 @@ export function NotificationBell({
       : 'bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 text-[#0F172A] border-slate-200';
 
   return (
-    <div ref={containerRef} className="relative inline-flex items-center visible opacity-100 shrink-0">
+    <div
+      ref={containerRef}
+      className={`relative inline-flex items-center visible opacity-100 shrink-0 ${className}`.trim()}
+    >
       <button
         type="button"
         onClick={handleToggleOpen}
@@ -909,9 +937,9 @@ export function NotificationBell({
             <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80 shrink-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-sm font-bold text-[#0F172A] truncate">Notifikasi</span>
-                {unreadCount > 0 && (
+                {displayUnreadCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-mono font-bold tabular-nums shrink-0">
-                    {unreadCount} baru
+                    {displayUnreadCount} baru
                   </span>
                 )}
               </div>
@@ -919,7 +947,7 @@ export function NotificationBell({
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  disabled={markingAll || unreadCount === 0}
+                  disabled={markingAll || displayUnreadCount === 0}
                   aria-busy={markingAll}
                   onClick={() => void handleMarkAllRead()}
                   title="Tandai semua sudah dibaca"
