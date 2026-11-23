@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { ActivityNotification, SessionUser } from '../types';
+import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 export interface NotificationPreferences {
   soundEnabled: boolean;
@@ -10,11 +11,22 @@ export interface NotificationPreferences {
 
 export type OsNotificationPermissionState = 'granted' | 'denied' | 'prompt' | 'unsupported';
 
+export interface NativePushRuntimeInfo {
+  isNative: boolean;
+  platform: string;
+  supported: boolean;
+  hasToken: boolean;
+  hasFcmToken: boolean;
+  token: string | null;
+  tokenPreview: string | null;
+}
+
 const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
+const LAST_FCM_TOKEN_KEY = 'ecard_last_fcm_token_v1';
 const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
-const LAST_FCM_TOKEN_KEY = 'ecard_last_fcm_token_v1';
+const NOTIF_LIST_CHANGED_EVENT = 'ecard-activity-notifications-changed';
 export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -28,6 +40,18 @@ let sharedAudioContext: AudioContext | null = null;
 let audioUnlockInstalled = false;
 let androidChannelInitialized = false;
 let nativeLaunchInitPromise: Promise<OsNotificationPermissionState> | null = null;
+let pushListenersInstalled = false;
+let pushListenersInstallPromise: Promise<boolean> | null = null;
+let cachedFcmToken: string | null = null;
+let activePushSession: SessionUser | null = null;
+let lastSyncedTokenSignature = '';
+let inFlightPushSyncPromise: Promise<{
+  ok: boolean;
+  synced: boolean;
+  token: string | null;
+  error?: string;
+}> | null = null;
+const pendingTokenWaiters: Array<(token: string | null) => void> = [];
 
 function isNativeApp(): boolean {
   try {
@@ -37,6 +61,100 @@ function isNativeApp(): boolean {
   } catch {
     return false;
   }
+}
+
+function getNativePlatformName(): string {
+  try {
+    if (Capacitor && typeof Capacitor.getPlatform === 'function') {
+      return Capacitor.getPlatform() || 'web';
+    }
+  } catch {
+    // Fallback web
+  }
+  return 'web';
+}
+
+function normalizeIdPart(raw?: string | null): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+function resolveCanonicalUserIdForPush(session: SessionUser): string {
+  if (session.role === 'warga') {
+    return `warga:${normalizeIdPart(session.blok_rumah)}`;
+  }
+  if (session.role === 'admin') {
+    const clean = normalizeIdPart(session.blok_rumah);
+    return `admin:${clean === 'admin' ? 'andriansyah' : clean}`;
+  }
+  return `petugas:${normalizeIdPart(session.petugas_id || session.blok_rumah)}`;
+}
+
+function readCachedFcmToken(): string | null {
+  if (cachedFcmToken) return cachedFcmToken;
+  try {
+    if (typeof window === 'undefined') return null;
+    const stored = window.localStorage.getItem(LAST_FCM_TOKEN_KEY)?.trim() || '';
+    if (stored) {
+      cachedFcmToken = stored;
+      return stored;
+    }
+  } catch {
+    // Abaikan keterbatasan storage
+  }
+  return null;
+}
+
+function writeCachedFcmToken(token: string | null): void {
+  const clean = token?.trim() || null;
+  cachedFcmToken = clean;
+  try {
+    if (typeof window === 'undefined') return;
+    if (clean) {
+      window.localStorage.setItem(LAST_FCM_TOKEN_KEY, clean);
+    } else {
+      window.localStorage.removeItem(LAST_FCM_TOKEN_KEY);
+    }
+  } catch {
+    // Abaikan keterbatasan storage
+  }
+}
+
+function resolvePendingTokenWaiters(token: string | null): void {
+  while (pendingTokenWaiters.length > 0) {
+    const waiter = pendingTokenWaiters.shift();
+    if (waiter) {
+      try {
+        waiter(token);
+      } catch {
+        // Abaikan
+      }
+    }
+  }
+}
+
+export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
+  const isNative = isNativeApp();
+  const platform = getNativePlatformName();
+  const token = isNative ? readCachedFcmToken() : null;
+  const hasToken = Boolean(token);
+  const tokenPreview = token
+    ? token.length > 20
+      ? `${token.slice(0, 12)}...${token.slice(-6)}`
+      : token
+    : null;
+
+  return {
+    isNative,
+    platform,
+    supported: isNative,
+    hasToken,
+    hasFcmToken: hasToken,
+    token,
+    tokenPreview,
+  };
 }
 
 export function getNotificationPreferences(): NotificationPreferences {
@@ -228,72 +346,375 @@ export async function triggerNotificationVibration(): Promise<boolean> {
   return didVibrate;
 }
 
+/**
+ * Membuat Notification Channel Android `saung_kebun_alerts` dengan importance: 5 (High),
+ * suara & getaran bawaan aktif melalui LocalNotifications DAN PushNotifications.
+ * Pada iOS, pemanggilan `createChannel` dilewati secara otomatis tanpa error.
+ */
 export async function ensureAndroidNotificationChannel(): Promise<void> {
   if (!isNativeApp() || androidChannelInitialized) return;
-  try {
-    const channelConfig = {
-      id: ANDROID_NOTIFICATION_CHANNEL_ID,
-      name: 'Notifikasi Saung Kebun',
-      description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
-      importance: 5 as const,
-      visibility: 1 as const,
-      sound: 'default',
-      vibration: true,
-      lights: true,
-      lightColor: '#059669',
-    };
+  const platform = getNativePlatformName();
+  if (platform !== 'android') {
+    androidChannelInitialized = true;
+    return;
+  }
 
+  const channelConfig = {
+    id: ANDROID_NOTIFICATION_CHANNEL_ID,
+    name: 'Notifikasi Saung Kebun',
+    description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
+    importance: 5 as const,
+    visibility: 1 as const,
+    sound: 'default',
+    vibration: true,
+    lights: true,
+    lightColor: '#059669',
+  };
+
+  let createdAny = false;
+  try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     if (typeof LocalNotifications.createChannel === 'function') {
       await LocalNotifications.createChannel(channelConfig);
+      createdAny = true;
     }
-
-    try {
-      const { PushNotifications } = await import('@capacitor/push-notifications');
-      if (typeof PushNotifications.createChannel === 'function') {
-        await PushNotifications.createChannel(channelConfig);
-      }
-    } catch {
-      // Abaikan jika plugin push belum siap
-    }
-
-    androidChannelInitialized = true;
   } catch {
-    // Abaikan
+    // Abaikan jika LocalNotifications belum siap
+  }
+
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    if (typeof PushNotifications.createChannel === 'function') {
+      await PushNotifications.createChannel(channelConfig);
+      createdAny = true;
+    }
+  } catch {
+    // Abaikan jika PushNotifications belum siap
+  }
+
+  if (createdAny) {
+    androidChannelInitialized = true;
   }
 }
 
-export function initNativeNotificationsOnLaunch(
-  session?: SessionUser | null
-): Promise<OsNotificationPermissionState> {
-  if (!isNativeApp()) {
-    return checkOsNotificationPermission();
-  }
-  if (session) {
-    void syncNativePushTokenForSession(session);
-  }
-  if (nativeLaunchInitPromise) {
-    return nativeLaunchInitPromise;
+/**
+ * Menyimpan/memperbarui token FCM/APNs perangkat ke tabel Supabase `user_push_tokens`
+ * dengan seluruh kolom wajib (`user_id`, `role`, `blok_rumah`, `token`, `platform`, `updated_at`).
+ */
+async function persistFcmTokenToSupabase(
+  session: SessionUser,
+  fcmToken: string
+): Promise<{ synced: boolean; error?: string }> {
+  const cleanToken = fcmToken.trim();
+  if (!cleanToken || !session) {
+    return { synced: false, error: 'Token atau sesi tidak valid' };
   }
 
-  nativeLaunchInitPromise = (async () => {
-    try {
-      await ensureAndroidNotificationChannel();
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const current = await LocalNotifications.checkPermissions();
-      if (current.display === 'granted') {
-        return 'granted';
+  const userId = resolveCanonicalUserIdForPush(session);
+  const role = session.role;
+  const blokRumah = session.blok_rumah?.trim() || null;
+  const platform = getNativePlatformName();
+  const signature = `${userId}::${role}::${blokRumah || ''}::${platform}::${cleanToken}`;
+
+  if (signature === lastSyncedTokenSignature) {
+    return { synced: true };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) {
+    return { synced: false, error: 'Supabase belum terkonfigurasi' };
+  }
+
+  const payload = {
+    user_id: userId,
+    role,
+    blok_rumah: blokRumah,
+    token: cleanToken,
+    platform,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    // 1. Coba upsert langsung berdasarkan unique constraint kolom `token`
+    const { error: upsertErr } = await supabase
+      .from('user_push_tokens')
+      .upsert(payload, { onConflict: 'token' });
+
+    if (!upsertErr) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+
+    // 2. Fallback select -> update/insert jika tabel tidak memiliki unique constraint di kolom `token`
+    const { data: existingRows, error: selectErr } = await supabase
+      .from('user_push_tokens')
+      .select('id')
+      .eq('token', cleanToken)
+      .limit(1);
+
+    if (!selectErr && Array.isArray(existingRows) && existingRows.length > 0 && existingRows[0]?.id) {
+      const { error: updateErr } = await supabase
+        .from('user_push_tokens')
+        .update(payload)
+        .eq('id', existingRows[0].id);
+      if (!updateErr) {
+        lastSyncedTokenSignature = signature;
+        return { synced: true };
       }
-      const requested = await LocalNotifications.requestPermissions();
-      if (requested.display === 'granted') return 'granted';
-      if (requested.display === 'denied') return 'denied';
-      return 'prompt';
+      return { synced: false, error: updateErr.message };
+    }
+
+    const { error: insertErr } = await supabase.from('user_push_tokens').insert(payload);
+    if (!insertErr) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+    return { synced: false, error: insertErr.message };
+  } catch (err) {
+    return { synced: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Mendaftarkan listener `@capacitor/push-notifications` SATU KALI per lifecycle aplikasi (Android & iOS):
+ * - `registration`: simpan token FCM/APNs ke cache lokal & sinkronkan ke `user_push_tokens`
+ * - `registrationError`: selesaikan waiter tanpa menghentikan aplikasi
+ * - `pushNotificationReceived`: refresh daftar notifikasi & picu alert foreground (suara/getar/status bar)
+ * - `pushNotificationActionPerformed`: buka `target_url` saat notifikasi diketuk dari Status Bar
+ */
+async function ensureNativePushListeners(): Promise<boolean> {
+  if (!isNativeApp()) return false;
+  if (pushListenersInstalled) return true;
+  if (pushListenersInstallPromise) return pushListenersInstallPromise;
+
+  pushListenersInstallPromise = (async () => {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+
+      await PushNotifications.addListener('registration', (tokenData) => {
+        const nextToken = tokenData?.value?.trim() || '';
+        if (!nextToken) {
+          resolvePendingTokenWaiters(null);
+          return;
+        }
+        writeCachedFcmToken(nextToken);
+        resolvePendingTokenWaiters(nextToken);
+        if (activePushSession) {
+          void persistFcmTokenToSupabase(activePushSession, nextToken);
+        }
+      });
+
+      await PushNotifications.addListener('registrationError', () => {
+        resolvePendingTokenWaiters(null);
+      });
+
+      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        const data = (notification?.data || {}) as Record<string, unknown>;
+        const notifId =
+          typeof data.notification_id === 'string' && data.notification_id.trim()
+            ? data.notification_id.trim()
+            : notification?.id
+              ? String(notification.id)
+              : `fcm-${Date.now()}`;
+        const title =
+          notification?.title ||
+          (typeof data.title === 'string' ? data.title : '') ||
+          'Aktivitas Baru · Saung Kebun';
+        const body =
+          notification?.body ||
+          (typeof data.body === 'string' ? data.body : '') ||
+          'Ketuk untuk melihat detail aktivitas terbaru.';
+        const targetUrl = typeof data.target_url === 'string' ? data.target_url : '';
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+        }
+
+        // Pada iOS, `PushNotifications.presentationOptions` di capacitor.config.ts sudah menampilkan banner OS,
+        // sehingga pada iOS kita tetap goyangkan lonceng + suara/getar tanpa menjadwalkan LocalNotification ganda.
+        const isIos = getNativePlatformName() === 'ios';
+        void triggerDeviceAlert(title, body, {
+          id: notifId,
+          targetUrl,
+          skipOsPopup: isIos,
+        });
+      });
+
+      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const data = (action?.notification?.data || {}) as Record<string, unknown>;
+        const targetUrl = typeof data.target_url === 'string' ? data.target_url : '';
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+          if (targetUrl) {
+            window.dispatchEvent(
+              new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl } })
+            );
+          }
+        }
+      });
+
+      pushListenersInstalled = true;
+      return true;
     } catch {
-      return 'unsupported';
+      pushListenersInstalled = false;
+      return false;
+    } finally {
+      pushListenersInstallPromise = null;
     }
   })();
 
-  return nativeLaunchInitPromise;
+  return pushListenersInstallPromise;
+}
+
+/**
+ * Mendaftarkan perangkat Android/iOS ke FCM/APNs via `@capacitor/push-notifications`,
+ * menyimpan token ke cache lokal, dan menyinkronkannya ke tabel Supabase `user_push_tokens`.
+ * Aman dipanggil berulang kali (deduplikasi in-flight) & otomatis menjadi no-op pada Web.
+ */
+export async function syncNativePushTokenForSession(
+  session?: SessionUser | null
+): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
+  if (!isNativeApp() || !session) {
+    return { ok: false, synced: false, token: null };
+  }
+
+  activePushSession = session;
+
+  if (inFlightPushSyncPromise) {
+    return inFlightPushSyncPromise;
+  }
+
+  inFlightPushSyncPromise = (async () => {
+    try {
+      await ensureAndroidNotificationChannel();
+      const listenersReady = await ensureNativePushListeners();
+      if (!listenersReady) {
+        return { ok: false, synced: false, token: readCachedFcmToken(), error: 'Plugin Push tidak tersedia' };
+      }
+
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      let perm = await PushNotifications.checkPermissions();
+      if (perm.receive === 'prompt') {
+        perm = await PushNotifications.requestPermissions();
+      }
+      if (perm.receive !== 'granted') {
+        return { ok: false, synced: false, token: null, error: 'Izin push notification belum diberikan' };
+      }
+
+      const tokenPromise = new Promise<string | null>((resolve) => {
+        let settled = false;
+        const finish = (val: string | null) => {
+          if (!settled) {
+            settled = true;
+            window.clearTimeout(timer);
+            resolve(val);
+          }
+        };
+        const timer = window.setTimeout(() => finish(readCachedFcmToken()), 7000);
+        pendingTokenWaiters.push(finish);
+      });
+
+      await PushNotifications.register();
+      const token = (await tokenPromise) || readCachedFcmToken();
+
+      if (!token) {
+        return { ok: false, synced: false, token: null, error: 'Token FCM/APNs belum diperoleh' };
+      }
+
+      writeCachedFcmToken(token);
+      const persistRes = await persistFcmTokenToSupabase(session, token);
+      return {
+        ok: true,
+        synced: persistRes.synced,
+        token,
+        error: persistRes.error,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        synced: false,
+        token: readCachedFcmToken(),
+        error: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      inFlightPushSyncPromise = null;
+    }
+  })();
+
+  return inFlightPushSyncPromise;
+}
+
+/**
+ * Dipanggil otomatis saat aplikasi native Android/iOS (Capacitor) dibuka atau saat sesi login berubah:
+ * - Membuat Notification Channel Android `saung_kebun_alerts`
+ * - Memasang listener FCM/APNs satu kali
+ * - Meminta izin notifikasi OS bila masih belum diberikan
+ * - Menyinkronkan token perangkat ke Supabase `user_push_tokens` saat `session` tersedia
+ */
+export async function initNativeNotificationsOnLaunch(
+  session?: SessionUser | null
+): Promise<OsNotificationPermissionState> {
+  if (session) {
+    activePushSession = session;
+  }
+
+  if (!isNativeApp()) {
+    return checkOsNotificationPermission();
+  }
+
+  if (!nativeLaunchInitPromise) {
+    nativeLaunchInitPromise = (async () => {
+      try {
+        await ensureAndroidNotificationChannel();
+        await ensureNativePushListeners();
+
+        let localStatus: OsNotificationPermissionState = 'prompt';
+        try {
+          const { LocalNotifications } = await import('@capacitor/local-notifications');
+          let localPerm = await LocalNotifications.checkPermissions();
+          if (localPerm.display !== 'granted') {
+            localPerm = await LocalNotifications.requestPermissions();
+          }
+          if (localPerm.display === 'granted') localStatus = 'granted';
+          else if (localPerm.display === 'denied') localStatus = 'denied';
+        } catch {
+          // Lanjut ke PushNotifications
+        }
+
+        let pushStatus: OsNotificationPermissionState = 'prompt';
+        try {
+          const { PushNotifications } = await import('@capacitor/push-notifications');
+          let pushPerm = await PushNotifications.checkPermissions();
+          if (pushPerm.receive !== 'granted') {
+            pushPerm = await PushNotifications.requestPermissions();
+          }
+          if (pushPerm.receive === 'granted') {
+            pushStatus = 'granted';
+            await PushNotifications.register();
+          } else if (pushPerm.receive === 'denied') {
+            pushStatus = 'denied';
+          }
+        } catch {
+          // Fallback tetap aman dengan LocalNotifications
+        }
+
+        if (localStatus === 'granted' || pushStatus === 'granted') return 'granted';
+        if (localStatus === 'denied' && pushStatus === 'denied') return 'denied';
+        if (localStatus === 'denied' || pushStatus === 'denied') return 'denied';
+        return 'prompt';
+      } catch {
+        return 'unsupported';
+      }
+    })();
+  }
+
+  const permission = await nativeLaunchInitPromise;
+
+  if (session) {
+    void syncNativePushTokenForSession(session);
+  }
+
+  return permission;
 }
 
 export async function syncAppIconBadge(unreadCount: number): Promise<void> {
@@ -315,15 +736,33 @@ export async function syncAppIconBadge(unreadCount: number): Promise<void> {
 
 export async function checkOsNotificationPermission(): Promise<OsNotificationPermissionState> {
   if (isNativeApp()) {
+    let localState: OsNotificationPermissionState = 'unsupported';
+    let pushState: OsNotificationPermissionState = 'unsupported';
+
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       const status = await LocalNotifications.checkPermissions();
-      if (status.display === 'granted') return 'granted';
-      if (status.display === 'denied') return 'denied';
-      return 'prompt';
+      if (status.display === 'granted') localState = 'granted';
+      else if (status.display === 'denied') localState = 'denied';
+      else localState = 'prompt';
     } catch {
-      return 'unsupported';
+      localState = 'unsupported';
     }
+
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const status = await PushNotifications.checkPermissions();
+      if (status.receive === 'granted') pushState = 'granted';
+      else if (status.receive === 'denied') pushState = 'denied';
+      else pushState = 'prompt';
+    } catch {
+      pushState = 'unsupported';
+    }
+
+    if (localState === 'granted' || pushState === 'granted') return 'granted';
+    if (localState === 'prompt' || pushState === 'prompt') return 'prompt';
+    if (localState === 'denied' || pushState === 'denied') return 'denied';
+    return 'unsupported';
   }
 
   try {
@@ -343,10 +782,40 @@ export async function requestOsNotificationPermission(): Promise<OsNotificationP
   if (isNativeApp()) {
     try {
       await ensureAndroidNotificationChannel();
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const res = await LocalNotifications.requestPermissions();
-      if (res.display === 'granted') return 'granted';
-      if (res.display === 'denied') return 'denied';
+      await ensureNativePushListeners();
+
+      let localGranted = false;
+      let localDenied = false;
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        const res = await LocalNotifications.requestPermissions();
+        localGranted = res.display === 'granted';
+        localDenied = res.display === 'denied';
+      } catch {
+        // Abaikan
+      }
+
+      let pushGranted = false;
+      let pushDenied = false;
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        const pushRes = await PushNotifications.requestPermissions();
+        pushGranted = pushRes.receive === 'granted';
+        pushDenied = pushRes.receive === 'denied';
+        if (pushGranted) {
+          await PushNotifications.register();
+        }
+      } catch {
+        // Fallback aman jika PushNotifications tidak tersedia
+      }
+
+      if (localGranted || pushGranted) {
+        if (activePushSession) {
+          void syncNativePushTokenForSession(activePushSession);
+        }
+        return 'granted';
+      }
+      if (localDenied || pushDenied) return 'denied';
       return 'prompt';
     } catch {
       return 'unsupported';
@@ -399,15 +868,15 @@ export async function showOsNotification(payload: {
       if (perm.display !== 'granted') return false;
 
       const numericId = hashToSafeNotificationId(tag);
+      const isAndroid = getNativePlatformName() === 'android';
       await LocalNotifications.schedule({
         notifications: [
           {
             id: numericId,
             title,
             body,
-            channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+            ...(isAndroid ? { channelId: ANDROID_NOTIFICATION_CHANNEL_ID, iconColor: '#059669' } : {}),
             sound: payload.soundEnabled === false ? undefined : 'default',
-            iconColor: '#059669',
             schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
             extra: {
               target_url: targetUrl,
@@ -493,6 +962,7 @@ export function registerOsNotificationTapListener(
     let handleRemove: (() => Promise<void>) | null = null;
     void (async () => {
       try {
+        await ensureNativePushListeners();
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         const handle = await LocalNotifications.addListener(
           'localNotificationActionPerformed',
@@ -544,6 +1014,7 @@ export interface TriggerDeviceAlertOptions {
   targetUrl?: string;
   requestPermissionIfPrompt?: boolean;
   skipDedupe?: boolean;
+  skipOsPopup?: boolean;
 }
 
 export async function triggerDeviceAlert(
@@ -582,10 +1053,12 @@ export async function triggerDeviceAlert(
   const safeTitle = title?.trim() || 'Aktivitas Baru · Saung Kebun';
   const safeMessage = message?.trim() || 'Ketuk untuk melihat detail aktivitas terbaru.';
 
+  const shouldShowOsPopup = !options?.skipOsPopup && permission === 'granted';
+
   const [soundPlayed, vibrated, osPopupShown] = await Promise.all([
     prefs.soundEnabled ? playNotificationChime() : Promise.resolve(false),
     prefs.vibrationEnabled ? triggerNotificationVibration() : Promise.resolve(false),
-    permission === 'granted'
+    shouldShowOsPopup
       ? showOsNotification({
           id: notifId || `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           title: safeTitle,
@@ -632,147 +1105,4 @@ export async function triggerTestNotificationAlert(
       skipDedupe: true,
     }
   );
-}
-
-// === FCM NATIVE PUSH NOTIFICATION RUNTIME & SYNC (user_push_tokens) ===
-
-export interface NativePushRuntimeInfo {
-  isNative: boolean;
-  platform: string;
-  supported: boolean;
-  hasToken: boolean;
-  hasFcmToken: boolean;
-  token: string | null;
-  tokenPreview: string | null;
-}
-
-export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
-  const native = isNativeApp();
-  let platform = 'web';
-  try {
-    platform = Capacitor.getPlatform();
-  } catch {
-    platform = 'web';
-  }
-  let savedToken: string | null = null;
-  try {
-    if (typeof window !== 'undefined') {
-      savedToken = window.localStorage.getItem(LAST_FCM_TOKEN_KEY);
-    }
-  } catch {
-    savedToken = null;
-  }
-  return {
-    isNative: native,
-    platform,
-    supported: native,
-    hasToken: Boolean(savedToken),
-    hasFcmToken: Boolean(savedToken),
-    token: savedToken,
-    tokenPreview: savedToken ? `${savedToken.slice(0, 12)}...${savedToken.slice(-6)}` : null,
-  };
-}
-
-export async function syncNativePushTokenForSession(
-  session?: SessionUser | null
-): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
-  if (!isNativeApp() || !session) {
-    return { ok: false, synced: false, token: null };
-  }
-
-  try {
-    await ensureAndroidNotificationChannel();
-
-    const [{ PushNotifications }, { getSupabaseClient, isSupabaseConfigured }, { getCanonicalUserId }] =
-      await Promise.all([
-        import('@capacitor/push-notifications'),
-        import('./supabase'),
-        import('./notificationService'),
-      ]);
-
-    let perm = await PushNotifications.checkPermissions();
-    if (perm.receive === 'prompt') {
-      perm = await PushNotifications.requestPermissions();
-    }
-    if (perm.receive !== 'granted') {
-      return { ok: false, synced: false, token: null, error: 'Izin notifikasi belum diberikan' };
-    }
-
-    const token = await new Promise<string | null>((resolve) => {
-      let settled = false;
-      const done = (val: string | null) => {
-        if (!settled) {
-          settled = true;
-          resolve(val);
-        }
-      };
-
-      const timeout = window.setTimeout(() => done(null), 8000);
-
-      void PushNotifications.addListener('registration', (t) => {
-        window.clearTimeout(timeout);
-        done(t?.value || null);
-      });
-
-      void PushNotifications.addListener('registrationError', () => {
-        window.clearTimeout(timeout);
-        done(null);
-      });
-
-      void PushNotifications.register().catch(() => {
-        window.clearTimeout(timeout);
-        done(null);
-      });
-    });
-
-    if (!token) {
-      return { ok: false, synced: false, token: null, error: 'Token FCM gagal diperoleh' };
-    }
-
-    try {
-      window.localStorage.setItem(LAST_FCM_TOKEN_KEY, token);
-    } catch {
-      // Abaikan
-    }
-
-    const supabase = getSupabaseClient(session);
-    if (supabase && isSupabaseConfigured()) {
-      const userId = getCanonicalUserId(session);
-      const platform = Capacitor.getPlatform();
-      const nowIso = new Date().toISOString();
-      const payload = {
-        user_id: userId,
-        role: session.role,
-        blok_rumah: session.blok_rumah || null,
-        token,
-        platform,
-        updated_at: nowIso,
-      };
-
-      const { data: existingRows } = await supabase
-        .from('user_push_tokens')
-        .select('id')
-        .eq('token', token)
-        .limit(1);
-
-      const dbError =
-        existingRows && existingRows.length > 0
-          ? (
-              await supabase
-                .from('user_push_tokens')
-                .update(payload)
-                .eq('id', existingRows[0].id)
-            ).error
-          : (await supabase.from('user_push_tokens').insert(payload)).error;
-
-      if (dbError) {
-        return { ok: false, synced: false, token, error: dbError.message };
-      }
-      return { ok: true, synced: true, token };
-    }
-
-    return { ok: true, synced: false, token };
-  } catch (err) {
-    return { ok: false, synced: false, token: null, error: String(err) };
-  }
 }

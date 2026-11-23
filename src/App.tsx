@@ -62,7 +62,6 @@ import {
   initNativeNotificationsOnLaunch,
   initNotificationAudioUnlock,
 } from './lib/notificationAlertService';
-import { initializeAndroidNotificationsOnLaunch } from './lib/notificationService';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -297,10 +296,9 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Inisialisasi audio unlock & Notification Channel + izin notifikasi otomatis saat APK Android dibuka
+  // Inisialisasi audio unlock, Android Notification Channel, & sinkronisasi FCM/APNs saat aplikasi dibuka
   useEffect(() => {
     initNotificationAudioUnlock();
-    void initializeAndroidNotificationsOnLaunch(session);
     void initNativeNotificationsOnLaunch(session);
   }, [session]);
 

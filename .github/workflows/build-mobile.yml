@@ -36,23 +36,28 @@ jobs:
       - name: Install Root Dependencies & Build Web Bundle
         working-directory: .
         run: |
-          npm install --no-audit --no-fund
+          npm install --no-audit --no-fund --legacy-peer-deps
           npx tsc --noEmit
           npm run build
 
       - name: Install Mobile Dependencies
-        run: npm install --include=dev --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund --legacy-peer-deps
 
-      - name: Prepare Optional google-services.json (FCM)
+      - name: Prepare Optional google-services.json (Android FCM)
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "GOOGLE_SERVICES_JSON_BASE64 ditemukan — mendekode ke mobile/google-services.json."
-            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json
-          else
-            echo "GOOGLE_SERVICES_JSON_BASE64 tidak diset — build tetap lanjut aman tanpa google-services.json."
-          fi
+          node -e '
+            const fs = require("node:fs");
+            const b64 = (process.env.GOOGLE_SERVICES_JSON_BASE64 || "").replace(/\s+/g, "");
+            if (!b64) {
+              console.log("GOOGLE_SERVICES_JSON_BASE64 tidak diset — build tetap lanjut aman tanpa google-services.json.");
+              process.exit(0);
+            }
+            const buf = Buffer.from(b64, "base64");
+            fs.writeFileSync("google-services.json", buf);
+            console.log("GOOGLE_SERVICES_JSON_BASE64 berhasil didekode ke mobile/google-services.json (" + buf.length + " bytes).");
+          '
 
       - name: Add & Sync Android Platform
         run: |
@@ -87,7 +92,11 @@ jobs:
           KEYSTORE_PATH="android/app/saungkebun-release.jks"
           if [ -n "${KEYSTORE_BASE64:-}" ]; then
             echo "KEYSTORE_BASE64 ditemukan — mendekode keystore release dari GitHub Secret."
-            echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            node -e '
+              const fs = require("node:fs");
+              const b64 = (process.env.KEYSTORE_BASE64 || "").replace(/\s+/g, "");
+              fs.writeFileSync("android/app/saungkebun-release.jks", Buffer.from(b64, "base64"));
+            '
           else
             echo "KEYSTORE_BASE64 belum diatur — membuat keystore release otomatis dengan keytool."
             keytool -genkeypair -v \
@@ -192,16 +201,36 @@ jobs:
       - name: Install Root Dependencies & Build Web Bundle
         working-directory: .
         run: |
-          npm install --no-audit --no-fund
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --noEmit
           npm run build
 
       - name: Install Mobile Dependencies
-        run: npm install --include=dev --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund --legacy-peer-deps
+
+      - name: Prepare Optional GoogleService-Info.plist (iOS FCM)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const b64 = (process.env.GOOGLE_SERVICE_INFO_PLIST_BASE64 || "").replace(/\s+/g, "");
+            if (!b64) {
+              console.log("GOOGLE_SERVICE_INFO_PLIST_BASE64 tidak diset — build iOS tetap lanjut aman.");
+              process.exit(0);
+            }
+            const buf = Buffer.from(b64, "base64");
+            fs.writeFileSync("GoogleService-Info.plist", buf);
+            console.log("GOOGLE_SERVICE_INFO_PLIST_BASE64 berhasil didekode ke mobile/GoogleService-Info.plist (" + buf.length + " bytes).");
+          '
 
       - name: Add & Sync iOS Platform
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
+          fi
+          if [ -f "GoogleService-Info.plist" ]; then
+            cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist
           fi
           npx cap sync ios
 
@@ -214,7 +243,7 @@ jobs:
             echo "resources/icon.png tidak ditemukan, lewati generate aset."
           fi
 
-      - name: Inject Usage Descriptions into Info.plist
+      - name: Inject Usage Descriptions & Background Push Mode into Info.plist
         run: node scripts/inject-ios-plist.mjs
 
       - name: Install CocoaPods Dependencies

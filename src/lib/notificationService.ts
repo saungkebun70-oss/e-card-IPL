@@ -450,9 +450,22 @@ export async function dispatchActivityNotifications(
         target_url: r.target_url,
         created_at: r.created_at,
       }));
-      const { error } = await supabase.from('notifications').insert(dbPayload);
+      const { data: insertedRows, error } = await supabase
+        .from('notifications')
+        .insert(dbPayload)
+        .select('id, user_id, actor_id, category, title, message, target_url, is_read, created_at');
       if (!error) {
         savedToRemote = true;
+        // Pemicu FCM Push Notification (Android background / minimize / force close) secara non-blocking
+        const pushBatch =
+          Array.isArray(insertedRows) && insertedRows.length > 0 ? insertedRows : rows;
+        void supabase.functions
+          .invoke('send-push-notification', {
+            body: { notifications: pushBatch },
+          })
+          .catch(() => {
+            // Jangan blokir transaksi utama bila Edge Function belum di-deploy atau offline
+          });
       }
     } catch {
       // Lanjut fallback lokal

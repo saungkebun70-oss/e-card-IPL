@@ -163,18 +163,37 @@ declare
   v_blok text := lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g'));
   v_petugas_id text := trim(public.req_header('x-petugas-id'));
   v_jabatan text := lower(trim(public.req_header('x-admin-jabatan')));
+  v_perm text := lower(trim(public.req_header('x-admin-permission')));
   v_ids text[] := array['broadcast:all'];
+  v_match text[];
+  v_prefix text;
+  v_bnum integer;
+  v_hnum integer;
 begin
   if v_role = 'warga' and v_blok <> '' then
     v_ids := array_append(v_ids, 'broadcast:warga');
+    v_ids := array_append(v_ids, 'role:warga');
     v_ids := array_append(v_ids, 'warga:' || v_blok);
+    v_match := regexp_match(v_blok, '^([a-z]+)0*(\d+)/0*(\d+)$');
+    if v_match is not null then
+      v_prefix := v_match[1];
+      v_bnum := v_match[2]::integer;
+      v_hnum := v_match[3]::integer;
+      v_ids := array_append(v_ids, 'warga:' || v_prefix || v_bnum::text || '/' || v_hnum::text);
+      v_ids := array_append(
+        v_ids,
+        'warga:' || v_prefix || lpad(v_bnum::text, 2, '0') || '/' || lpad(v_hnum::text, 2, '0')
+      );
+    end if;
   elsif v_role = 'admin' then
     v_ids := array_append(v_ids, 'broadcast:admin');
+    v_ids := array_append(v_ids, 'role:admin');
     if v_blok <> '' then
       v_ids := array_append(v_ids, 'admin:' || v_blok);
     end if;
-    if v_blok = 'admin' or v_jabatan = 'bendahara' then
+    if v_blok = 'admin' or v_jabatan = 'bendahara' or v_perm = 'full' then
       v_ids := array_append(v_ids, 'admin:andriansyah');
+      v_ids := array_append(v_ids, 'admin:admin');
       v_ids := array_append(v_ids, 'role:bendahara');
     end if;
     if v_jabatan = 'ketua' or v_blok = 'erlangga' then
@@ -183,6 +202,7 @@ begin
     end if;
   elsif v_role = 'petugas' then
     v_ids := array_append(v_ids, 'broadcast:petugas');
+    v_ids := array_append(v_ids, 'role:petugas');
     if v_petugas_id <> '' then
       v_ids := array_append(v_ids, 'petugas:' || lower(v_petugas_id));
     end if;

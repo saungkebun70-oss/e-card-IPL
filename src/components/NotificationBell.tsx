@@ -48,6 +48,7 @@ import {
   requestOsNotificationPermission,
   subscribeBellShakeEvent,
   syncAppIconBadge,
+  syncNativePushTokenForSession,
   useNotificationPreferences,
   type OsNotificationPermissionState,
 } from '../lib/notificationAlertService';
@@ -552,7 +553,7 @@ export function NotificationBell({
 
     let mounted = true;
     const initPerm = async () => {
-      const perm = await initNativeNotificationsOnLaunch();
+      const perm = await initNativeNotificationsOnLaunch(session);
       if (!mounted) return;
       setOsPermission(perm);
       if (perm === 'prompt' && !prefs.permissionPromptDismissed) {
@@ -706,6 +707,9 @@ export function NotificationBell({
       setOsPermission(next);
       setShowFloatingPrompt(false);
       setPref({ permissionPromptDismissed: true });
+      if (next === 'granted') {
+        void syncNativePushTokenForSession(session);
+      }
     } finally {
       setRequestingPerm(false);
     }
