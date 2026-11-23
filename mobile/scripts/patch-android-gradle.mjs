@@ -16,12 +16,26 @@ if (!fs.existsSync(googleServicesPath)) {
   process.exit(0);
 }
 
-// Validasi JSON agar file google-services.json yang kosong/rusak tidak menggagalkan build Gradle
+// Validasi JSON & kecocokan package_name agar google-services.json benar-benar aktif untuk com.saungkebun.ecardipl
 try {
   const rawJson = fs.readFileSync(googleServicesPath, 'utf8').trim();
   const parsed = JSON.parse(rawJson);
   if (!parsed || typeof parsed !== 'object' || !parsed.project_info) {
     throw new Error('Struktur project_info tidak ditemukan di google-services.json');
+  }
+  const expectedPkg = 'com.saungkebun.ecardipl';
+  const clients = Array.isArray(parsed.client) ? parsed.client : [];
+  const registeredPkgs = clients
+    .map((c) => c?.client_info?.android_client_info?.package_name)
+    .filter(Boolean);
+  if (registeredPkgs.length > 0 && !registeredPkgs.includes(expectedPkg)) {
+    console.warn(
+      `[patch-android-gradle] PERINGATAN: package_name di google-services.json (${registeredPkgs.join(', ')}) TIDAK cocok dengan appId (${expectedPkg}). Push FCM Android tidak akan bisa mendaftar token sampai google-services.json dibuat untuk ${expectedPkg}!`
+    );
+  } else {
+    console.log(
+      `[patch-android-gradle] google-services.json valid (project_id=${parsed.project_info.project_id || '?'}, package=${expectedPkg}) — menyinkronkan konfigurasi Gradle FCM...`
+    );
   }
 } catch (err) {
   console.warn(
@@ -30,10 +44,6 @@ try {
   fs.unlinkSync(googleServicesPath);
   process.exit(0);
 }
-
-console.log(
-  '[patch-android-gradle] google-services.json valid ditemukan — menyinkronkan konfigurasi Gradle FCM...'
-);
 
 // 1. Suntikkan classpath com.google.gms:google-services:4.4.2 tepat di dalam buildscript { dependencies { ... } }
 if (fs.existsSync(rootGradlePath)) {

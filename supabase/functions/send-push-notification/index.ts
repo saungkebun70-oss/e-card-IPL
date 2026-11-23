@@ -43,6 +43,7 @@ const CORS_HEADERS: Record<string, string> = {
 };
 
 const ANDROID_CHANNEL_ID = 'saung_kebun_notif';
+const DEFAULT_PUBLIC_APP_URL = 'https://e-card-ipl.vercel.app';
 
 function normalizeToken(raw?: string | null): string {
   return String(raw || '')
@@ -63,6 +64,14 @@ function normalizeRoleName(raw?: string | null): string {
     return 'warga';
   }
   return clean;
+}
+
+function getPublicAppOrigin(): string {
+  const configured = (Deno.env.get('PUBLIC_APP_URL') || Deno.env.get('APP_URL') || '').trim();
+  if (configured.startsWith('https://')) {
+    return configured.replace(/\/+$/, '');
+  }
+  return DEFAULT_PUBLIC_APP_URL;
 }
 
 /**
@@ -369,11 +378,20 @@ async function getGoogleOAuthAccessToken(creds: ServiceAccountCredentials): Prom
   return tokenJson.access_token;
 }
 
+/**
+ * Hanya tandai token sebagai invalid/kedaluwarsa apabila FCM secara eksplisit
+ * menyatakan token UNREGISTERED, NOT_FOUND, SENDER_ID_MISMATCH, atau token tidak valid.
+ * Jangan menghapus token bila error berasal dari payload field lain.
+ */
 function isInvalidFcmTokenError(status: number, bodyText: string): boolean {
   if (status === 404) return true;
-  return /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND|SENDER_ID_MISMATCH|registration-token-not-registered/i.test(
-    bodyText
-  );
+  if (/UNREGISTERED|NOT_FOUND|SENDER_ID_MISMATCH|registration-token-not-registered/i.test(bodyText)) {
+    return true;
+  }
+  if (/registration token is not a valid FCM registration token/i.test(bodyText)) {
+    return true;
+  }
+  return false;
 }
 
 function stringifyDataMap(raw?: Record<string, unknown>): Record<string, string> {
@@ -408,75 +426,82 @@ async function sendSingleFcmMessage(
   const category = String(record.category || 'system');
   const userId = String(record.user_id || device.user_id || '');
   const clickPath = resolveClickPathForDevice(device);
-  const webLink = targetUrl
-    ? `${clickPath}?notif_target=${encodeURIComponent(targetUrl)}`
-    : clickPath;
+  const publicOrigin = getPublicAppOrigin();
+  const fullHttpsLink = targetUrl
+    ? `${publicOrigin}${clickPath}?notif_target=${encodeURIComponent(targetUrl)}`
+    : `${publicOrigin}${clickPath}`;
 
   const extraData = stringifyDataMap(record.data);
+  const platform = normalizeToken(device.platform || 'android');
 
-  const fcmPayload = {
-    message: {
-      token: device.token,
+  // Susun payload spesifik sesuai platform perangkat agar FCM HTTP v1 selalu valid 100%
+  const message: Record<string, unknown> = {
+    token: device.token,
+    notification: {
+      title,
+      body,
+    },
+    data: {
+      ...extraData,
+      notification_id: notificationId,
+      target_url: targetUrl,
+      click_action: clickPath,
+      category,
+      user_id: userId,
+      title,
+      body,
+    },
+  };
+
+  if (platform === 'android' || !platform) {
+    message.android = {
+      priority: 'HIGH',
+      notification: {
+        channel_id: ANDROID_CHANNEL_ID,
+        notification_priority: 'PRIORITY_MAX',
+        sound: 'default',
+        default_vibrate_timings: true,
+        color: '#059669',
+        tag: notificationId,
+      },
+    };
+  } else if (platform === 'ios') {
+    message.apns = {
+      headers: {
+        'apns-priority': '10',
+        'apns-push-type': 'alert',
+      },
+      payload: {
+        aps: {
+          alert: {
+            title,
+            body,
+          },
+          sound: 'default',
+          badge: 1,
+          'mutable-content': 1,
+        },
+      },
+    };
+  } else if (platform === 'web') {
+    message.webpush = {
+      headers: {
+        Urgency: 'high',
+        TTL: '86400',
+      },
       notification: {
         title,
         body,
+        icon: `${publicOrigin}/app-icon.jpg`,
+        badge: `${publicOrigin}/app-icon.jpg`,
+        tag: notificationId,
       },
-      data: {
-        ...extraData,
-        notification_id: notificationId,
-        target_url: targetUrl,
-        click_action: clickPath,
-        category,
-        user_id: userId,
-        title,
-        body,
+      fcm_options: {
+        // WAJIB URL HTTPS absolut untuk FCM HTTP v1 webpush.fcm_options.link!
+        link: fullHttpsLink,
       },
-      android: {
-        priority: 'HIGH',
-        notification: {
-          channel_id: ANDROID_CHANNEL_ID,
-          notification_priority: 'PRIORITY_MAX',
-          sound: 'default',
-          default_vibrate_timings: true,
-          color: '#059669',
-          tag: notificationId,
-        },
-      },
-      apns: {
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert',
-        },
-        payload: {
-          aps: {
-            alert: {
-              title,
-              body,
-            },
-            sound: 'default',
-            badge: 1,
-            'mutable-content': 1,
-          },
-        },
-      },
-      webpush: {
-        headers: {
-          Urgency: 'high',
-          TTL: '86400',
-        },
-        notification: {
-          title,
-          body,
-          icon: '/app-icon.jpg',
-          badge: '/app-icon.jpg',
-          tag: notificationId,
-        },
-        fcm_options: {
-          link: webLink,
-        },
-      },
-    },
-  };
+    };
+  }
 
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
@@ -486,7 +511,7 @@ async function sendSingleFcmMessage(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(fcmPayload),
+      body: JSON.stringify({ message }),
     }
   );
 
@@ -612,6 +637,7 @@ Deno.serve(async (req: Request) => {
           sent: 0,
           failed: 0,
           matchedDevices: 0,
+          totalRegisteredDevices: 0,
           removedInvalidTokens: 0,
         }),
         { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
@@ -621,6 +647,7 @@ Deno.serve(async (req: Request) => {
     const accessToken = await getGoogleOAuthAccessToken(creds);
     const invalidTokens = new Set<string>();
     const deliveredPairs = new Set<string>();
+    const errorSamples: string[] = [];
     let sentCount = 0;
     let failedCount = 0;
 
@@ -658,16 +685,19 @@ Deno.serve(async (req: Request) => {
             item.device,
             item.record
           );
-          return { token: item.device.token, res };
+          return { token: item.device.token, platform: item.device.platform, res };
         })
       );
 
-      for (const { token, res } of results) {
+      for (const { token, platform, res } of results) {
         if (res.ok) {
           sentCount += 1;
         } else {
           failedCount += 1;
-          console.warn('[send-push-notification] Gagal kirim ke token:', res.error);
+          console.warn(`[send-push-notification] Gagal kirim (${platform}):`, res.error);
+          if (errorSamples.length < 3 && res.error) {
+            errorSamples.push(`[${platform}] ${res.error.slice(0, 220)}`);
+          }
           if (res.invalidToken) {
             invalidTokens.add(token);
           }
@@ -675,7 +705,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Hapus otomatis token yang UNREGISTERED / INVALID_ARGUMENT / NOT_FOUND dari user_push_tokens
+    // Hapus otomatis hanya token yang benar-benar UNREGISTERED / NOT_FOUND / SENDER_ID_MISMATCH
     let removedCount = 0;
     if (invalidTokens.size > 0) {
       const tokensToRemove = Array.from(invalidTokens);
@@ -696,7 +726,9 @@ Deno.serve(async (req: Request) => {
         sent: sentCount,
         failed: failedCount,
         matchedDevices: sendQueue.length,
+        totalRegisteredDevices: allDevices.length,
         removedInvalidTokens: removedCount,
+        ...(errorSamples.length > 0 ? { errors: errorSamples } : {}),
       }),
       { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );

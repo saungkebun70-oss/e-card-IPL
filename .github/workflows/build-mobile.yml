@@ -81,6 +81,9 @@ jobs:
       - name: Inject AndroidManifest Permissions & Default Notification Channel
         run: node scripts/inject-android-manifest.mjs
 
+      - name: Patch Android MainActivity (Native Notification Channels)
+        run: node scripts/patch-android-mainactivity.mjs
+
       - name: Patch Android Gradle (Safe Conditional google-services Plugin)
         run: node scripts/patch-android-gradle.mjs
 
