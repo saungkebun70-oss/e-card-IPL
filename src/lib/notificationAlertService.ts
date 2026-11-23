@@ -1575,6 +1575,28 @@ export async function sendAdminTestPushNotification(
           },
         };
 
+  // Simpan juga 1 riwayat tes ke tabel `notifications` agar langsung terlihat di menu Lonceng aplikasi
+  const notifTargetUserId = mode === 'broadcast' ? 'broadcast:all' : canonicalAdminId;
+  try {
+    await supabase.from('notifications').insert({
+      user_id: notifTargetUserId,
+      actor_id: 'system:fcm-test',
+      actor_name: session.nama_warga || 'Pengurus',
+      actor_avatar_url: session.avatar_url || null,
+      category: mode === 'broadcast' ? 'announcement' : 'system',
+      title: bodyPayload.title,
+      message: bodyPayload.body,
+      is_read: false,
+      target_url: bodyPayload.target_url,
+      created_at: new Date().toISOString(),
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+    }
+  } catch {
+    // Tetap lanjutkan pengiriman Edge Function FCM meskipun insert riwayat lonceng terkendala
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke('send-push-notification', {
       body: bodyPayload,
@@ -1586,7 +1608,7 @@ export async function sendAdminTestPushNotification(
         sent: 0,
         failed: 0,
         matchedDevices: 0,
-        message: `Gagal memanggil Edge Function send-push-notification: ${error.message}`,
+        message: `Riwayat tes tercatat di Lonceng, namun gagal memanggil Edge Function send-push-notification: ${error.message}`,
       };
     }
 

@@ -17,6 +17,10 @@ import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
+import {
+  fetchUnreadNotificationCount,
+  subscribeActivityNotificationsRealtime,
+} from '../lib/notificationService';
 
 export interface NavItem {
   id: string;
@@ -57,12 +61,44 @@ export function AppShell({
   const { brand } = useAppBrand();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
 
   const isAdmin = session.role === 'admin';
+  const isPetugas = session.role === 'petugas';
   const canAccessBotWa = isBendaharaOnly(session);
   const adminIdentityLabel = `${session.nama_warga} — ${session.jabatan || 'Pengurus'}`;
   const isLpjActive = activeTab === 'lpj';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
+
+  // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari database untuk badge Lonceng Header
+  useEffect(() => {
+    let active = true;
+    const syncUnreadCount = async () => {
+      const count = await fetchUnreadNotificationCount(session);
+      if (active) {
+        setUnreadNotificationCount(count);
+      }
+    };
+
+    void syncUnreadCount();
+    const unsub = subscribeActivityNotificationsRealtime(session, () => {
+      void syncUnreadCount();
+    });
+    const onFocusOrVisible = () => {
+      if (document.visibilityState !== 'hidden') {
+        void syncUnreadCount();
+      }
+    };
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+
+    return () => {
+      active = false;
+      unsub();
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
+  }, [session]);
 
   const activePageTitle = isLpjActive
     ? 'Laporan Pertanggungjawaban (LPJ)'
@@ -165,7 +201,11 @@ export function AppShell({
           {!sidebarCollapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-medium text-slate-400 truncate">
-                {isAdmin ? 'Pengurus Aktif' : 'Unit Rumah Terverifikasi'}
+                {isAdmin
+                  ? 'Pengurus Aktif'
+                  : isPetugas
+                    ? 'Petugas Keamanan Aktif'
+                    : 'Unit Rumah Terverifikasi'}
               </p>
               <p className="text-sm font-bold text-white mt-0.5 leading-snug truncate">
                 {isAdmin ? adminIdentityLabel : session.nama_warga}
@@ -175,7 +215,9 @@ export function AppShell({
                   ? session.admin_permission === 'full'
                     ? 'Bendahara · Akses Penuh'
                     : `${session.jabatan || 'Pengurus'} · Akses Tambah Data`
-                  : `Blok ${session.blok_rumah}`}
+                  : isPetugas
+                    ? `Keamanan · ${session.jabatan || session.blok_rumah || 'Petugas'}`
+                    : `Blok ${session.blok_rumah}`}
               </p>
             </div>
           )}
@@ -557,6 +599,21 @@ export function AppShell({
                       {activePageTitle}
                     </h1>
                   </>
+                ) : isPetugas ? (
+                  <>
+                    <div className="flex flex-nowrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight min-w-0">
+                      <span className="truncate">{brand.app_name}</span>
+                      <span aria-hidden="true" className="shrink-0">
+                        ·
+                      </span>
+                      <span className="font-semibold text-emerald-700 shrink-0 whitespace-nowrap">
+                        Keamanan
+                      </span>
+                    </div>
+                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
+                      {activePageTitle}
+                    </h1>
+                  </>
                 ) : (
                   <>
                     <div className="flex flex-nowrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight min-w-0">
@@ -576,15 +633,19 @@ export function AppShell({
               </div>
             </div>
 
-            {/* Kanan: Lonceng Semua Aktivitas (Real-Time) + Foto Profil Akun + Aksi Tambahan */}
+            {/* Kanan: Lonceng Semua Aktivitas (Wajib Tampil di Semua Peran & Ukuran Layar) + Foto Profil Akun + Aksi Tambahan */}
             <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
               {headerAction && <div className="shrink-0">{headerAction}</div>}
 
-              <NotificationBell
-                session={session}
-                variant="light"
-                onNavigateTarget={onNavigateTarget}
-              />
+              <div className="inline-flex items-center visible opacity-100 shrink-0">
+                <NotificationBell
+                  session={session}
+                  variant="light"
+                  externalUnreadCount={unreadNotificationCount}
+                  onUnreadCountChange={setUnreadNotificationCount}
+                  onNavigateTarget={onNavigateTarget}
+                />
+              </div>
 
               <button
                 type="button"

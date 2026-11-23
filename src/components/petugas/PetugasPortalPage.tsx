@@ -1045,11 +1045,13 @@ export function PetugasPortalPage({
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
 
-            <NotificationBell
-              session={session}
-              variant="dark"
-              onNavigateTarget={handleNotificationNavigate}
-            />
+            <div className="inline-flex items-center visible opacity-100 shrink-0">
+              <NotificationBell
+                session={session}
+                variant="dark"
+                onNavigateTarget={handleNotificationNavigate}
+              />
+            </div>
 
             <button
               type="button"

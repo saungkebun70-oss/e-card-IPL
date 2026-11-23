@@ -267,3 +267,94 @@ end;
 $$;
 
 grant execute on function public.current_notification_user_ids() to anon, authenticated;
+
+-- 3. Sinkronisasi Tabel & Kebijakan RLS `public.notifications` (Lonceng In-App + Header Login PIN)
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  actor_id text,
+  actor_name text,
+  actor_avatar_url text,
+  category text not null check (category in ('ipl', 'finance', 'patrol', 'announcement', 'system')),
+  title text not null,
+  message text not null,
+  is_read boolean not null default false,
+  target_url text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_notifications_user_created
+  on public.notifications (user_id, created_at desc);
+
+create index if not exists idx_notifications_user_unread
+  on public.notifications (user_id, is_read)
+  where is_read = false;
+
+create index if not exists idx_notifications_category
+  on public.notifications (category, created_at desc);
+
+grant select, insert, update, delete on public.notifications to anon, authenticated;
+
+alter table public.notifications enable row level security;
+alter table public.notifications replica identity full;
+
+-- SELECT: izinkan anon & authenticated membaca notifikasi milik akun sendiri / role / broadcast
+-- sesuai `current_notification_user_ids()` maupun header PIN (`x-user-role`, `x-blok-rumah`, `x-petugas-id`)
+drop policy if exists "notifications_select_own_isolated" on public.notifications;
+create policy "notifications_select_own_isolated" on public.notifications
+  for select to anon, authenticated
+  using (
+    lower(trim(user_id)) = any(public.current_notification_user_ids())
+    or (
+      lower(trim(public.req_header('x-user-role'))) = 'warga'
+      and nullif(lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g')), '') is not null
+      and lower(trim(user_id)) = 'warga:' || lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g'))
+    )
+    or (
+      lower(trim(public.req_header('x-user-role'))) in ('petugas', 'keamanan')
+      and nullif(lower(trim(public.req_header('x-petugas-id'))), '') is not null
+      and lower(trim(user_id)) in (
+        'petugas:' || lower(trim(public.req_header('x-petugas-id'))),
+        'keamanan:' || lower(trim(public.req_header('x-petugas-id')))
+      )
+    )
+  );
+
+-- INSERT: izinkan anon & authenticated dari semua portal login PIN (admin, warga, petugas, keamanan)
+drop policy if exists "notifications_insert_authenticated_portals" on public.notifications;
+create policy "notifications_insert_authenticated_portals" on public.notifications
+  for insert to anon, authenticated
+  with check (
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
+  );
+
+-- UPDATE (`is_read`): izinkan anon & authenticated menandai notifikasi miliknya sebagai sudah dibaca
+drop policy if exists "notifications_update_own_read" on public.notifications;
+create policy "notifications_update_own_read" on public.notifications
+  for update to anon, authenticated
+  using (
+    lower(trim(user_id)) = any(public.current_notification_user_ids())
+    and lower(trim(user_id)) not like 'broadcast:%'
+  )
+  with check (
+    lower(trim(user_id)) = any(public.current_notification_user_ids())
+    and lower(trim(user_id)) not like 'broadcast:%'
+  );
+
+-- DELETE: izinkan anon & authenticated menghapus notifikasi personal miliknya
+drop policy if exists "notifications_delete_own_isolated" on public.notifications;
+create policy "notifications_delete_own_isolated" on public.notifications
+  for delete to anon, authenticated
+  using (
+    lower(trim(user_id)) = any(public.current_notification_user_ids())
+    and lower(trim(user_id)) not like 'broadcast:%'
+  );
+
+-- Pastikan publikasi Supabase Realtime aktif untuk tabel public.notifications
+do $$
+begin
+  alter publication supabase_realtime add table public.notifications;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;

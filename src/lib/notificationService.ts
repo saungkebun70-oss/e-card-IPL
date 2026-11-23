@@ -103,6 +103,7 @@ export function getUserNotificationMatchIds(session?: SessionUser | null): strin
 
   if (session.role === 'warga') {
     ids.add('broadcast:warga');
+    ids.add('role:warga');
     const cleanBlok = normalizeIdToken(session.blok_rumah);
     if (cleanBlok) {
       ids.add(`warga:${cleanBlok}`);
@@ -161,6 +162,24 @@ export function getUserNotificationMatchIds(session?: SessionUser | null): strin
   }
 
   return Array.from(ids);
+}
+
+/**
+ * Menghasilkan daftar variasi user_id (termasuk huruf kapital pada blok seperti warga:B3/7 & warga:B03/07)
+ * untuk query Supabase `.in('user_id', ...)` agar tahan perbedaan kapitalisasi data.
+ */
+function getQueryMatchUserIds(session?: SessionUser | null): string[] {
+  const baseIds = getUserNotificationMatchIds(session);
+  const expanded = new Set<string>(baseIds);
+
+  for (const id of baseIds) {
+    if (id.startsWith('warga:')) {
+      const suffix = id.slice('warga:'.length);
+      expanded.add(`warga:${suffix.toUpperCase()}`);
+    }
+  }
+
+  return Array.from(expanded);
 }
 
 /**
@@ -383,7 +402,7 @@ export async function fetchActivityNotifications(
   }
 
   try {
-    const matchArray = Array.from(allowedIds);
+    const matchArray = getQueryMatchUserIds(session);
     const { data, error } = await supabase
       .from('notifications')
       .select(
@@ -417,6 +436,64 @@ export async function fetchActivityNotifications(
     return localFiltered.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+}
+
+/**
+ * Mengambil jumlah notifikasi yang belum dibaca (`is_read = false`) langsung dari tabel `notifications`
+ * di database Supabase (beserta fallback lokal saat offline) untuk badge counter Lonceng di Header.
+ */
+export async function fetchUnreadNotificationCount(session: SessionUser): Promise<number> {
+  const allowedIds = new Set(getUserNotificationMatchIds(session));
+  const broadcastReadSet = getBroadcastReadSet(session);
+  const dismissedSet = getDismissedNotificationSet(session);
+
+  const localUnread = readLocalNotifications().filter((n) => {
+    if (!allowedIds.has(normalizeIdToken(n.user_id)) || dismissedSet.has(n.id)) return false;
+    const isRead = n.user_id.toLowerCase().startsWith('broadcast:')
+      ? broadcastReadSet.has(n.id)
+      : Boolean(n.is_read);
+    return !isRead;
+  });
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) {
+    return localUnread.length;
+  }
+
+  try {
+    const matchArray = getQueryMatchUserIds(session);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, user_id, is_read')
+      .in('user_id', matchArray)
+      .eq('is_read', false)
+      .limit(120);
+
+    if (error || !Array.isArray(data)) {
+      return localUnread.length;
+    }
+
+    const remoteUnreadIds = new Set<string>();
+    for (const raw of data) {
+      const row = raw as Record<string, unknown>;
+      const id = String(row.id || '');
+      const userId = String(row.user_id || '');
+      if (!id || dismissedSet.has(id) || !allowedIds.has(normalizeIdToken(userId))) continue;
+      if (userId.toLowerCase().startsWith('broadcast:') && broadcastReadSet.has(id)) continue;
+      remoteUnreadIds.add(id);
+    }
+
+    let extraLocal = 0;
+    for (const item of localUnread) {
+      if (item.id.startsWith('notif-') && !remoteUnreadIds.has(item.id)) {
+        extraLocal += 1;
+      }
+    }
+
+    return remoteUnreadIds.size + extraLocal;
+  } catch {
+    return localUnread.length;
   }
 }
 
@@ -514,9 +591,9 @@ export async function dispatchActivityNotifications(
     return;
   }
 
-  // Simpan ke Supabase terlebih dahulu jika terkonfigurasi
+  // Langkah (a): Simpan baris ke tabel `notifications` Supabase (TANPA .select() agar tidak
+  // terkena blokir RLS SELECT saat pengirim berbeda peran dengan penerima, mis. Warga -> Admin)
   let savedToRemote = false;
-  let pushedViaRemote = false;
   const supabase = getSupabaseClient(actorSession || null);
   if (supabase && isSupabaseConfigured()) {
     try {
@@ -532,35 +609,26 @@ export async function dispatchActivityNotifications(
         target_url: r.target_url,
         created_at: r.created_at,
       }));
-      const { data: insertedRows, error } = await supabase
-        .from('notifications')
-        .insert(dbPayload)
-        .select('id, user_id, actor_id, category, title, message, target_url, is_read, created_at');
+      const { error } = await supabase.from('notifications').insert(dbPayload);
       if (!error) {
         savedToRemote = true;
-        pushedViaRemote = true;
-        if (pushOverride) {
-          void sendDirectPushNotification(actorSession, pushOverride);
-        } else {
-          // Pemicu FCM Push Notification (Android/iOS/Web background / minimize / killed) secara non-blocking
-          const pushBatch =
-            Array.isArray(insertedRows) && insertedRows.length > 0 ? insertedRows : rows;
-          void supabase.functions
-            .invoke('send-push-notification', {
-              body: { notifications: pushBatch },
-            })
-            .catch(() => {
-              // Jangan blokir transaksi utama bila Edge Function belum di-deploy atau offline
-            });
-        }
       }
     } catch {
       // Lanjut fallback lokal
     }
 
-    // Jika tabel notifications gagal insert tetapi Supabase aktif & ada pushOverride, tetap kirim push FCM
-    if (!pushedViaRemote && pushOverride) {
+    // Langkah (b): Wajib panggil langsung Edge Function `send-push-notification` secara non-blocking
+    // tanpa bergantung pada database webhook agar push FCM langsung masuk ke HP/browser.
+    if (pushOverride) {
       void sendDirectPushNotification(actorSession, pushOverride);
+    } else {
+      void supabase.functions
+        .invoke('send-push-notification', {
+          body: { notifications: rows },
+        })
+        .catch(() => {
+          // Jangan blokir transaksi utama bila Edge Function belum di-deploy atau offline
+        });
     }
   }
 

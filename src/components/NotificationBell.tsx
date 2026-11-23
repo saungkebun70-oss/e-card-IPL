@@ -60,6 +60,8 @@ type FilterTab = 'all' | 'finance_ipl' | 'patrol' | 'info_system';
 interface NotificationBellProps {
   session: SessionUser;
   variant?: 'light' | 'dark';
+  externalUnreadCount?: number;
+  onUnreadCountChange?: (count: number) => void;
   onNavigateTarget?: (targetUrl: string) => void;
 }
 
@@ -445,6 +447,8 @@ function SwipeableNotificationItem({
 export function NotificationBell({
   session,
   variant = 'light',
+  externalUnreadCount,
+  onUnreadCountChange,
   onNavigateTarget,
 }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
@@ -682,10 +686,18 @@ export function NotificationBell({
   }, [open]);
 
   const unreadCount = useMemo(() => items.filter((n) => !n.is_read).length, [items]);
+  const displayUnreadCount =
+    loading && typeof externalUnreadCount === 'number' ? externalUnreadCount : unreadCount;
 
   useEffect(() => {
-    void syncAppIconBadge(unreadCount);
-  }, [unreadCount]);
+    if (!loading) {
+      onUnreadCountChange?.(unreadCount);
+    }
+  }, [loading, onUnreadCountChange, unreadCount]);
+
+  useEffect(() => {
+    void syncAppIconBadge(displayUnreadCount);
+  }, [displayUnreadCount]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return items;
@@ -791,28 +803,34 @@ export function NotificationBell({
       : 'bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 text-[#0F172A] border-slate-200';
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div ref={containerRef} className="relative inline-flex items-center visible opacity-100 shrink-0">
       <button
         type="button"
         onClick={handleToggleOpen}
-        aria-label={`Notifikasi aktivitas${unreadCount > 0 ? ` (${unreadCount} belum dibaca)` : ''}`}
+        aria-label={`Notifikasi aktivitas${displayUnreadCount > 0 ? ` (${displayUnreadCount} belum dibaca)` : ''}`}
         aria-expanded={open}
-        className={`relative w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
+        data-testid="header-notification-bell"
+        className={`relative w-10 h-10 rounded-xl border inline-flex items-center justify-center visible opacity-100 transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
       >
         {bellShaking ? (
           <BellRing className="w-[18px] h-[18px] text-[var(--theme-primary)] animate-bell-shake" />
         ) : (
           <Bell className="w-[18px] h-[18px]" />
         )}
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold font-mono leading-none flex items-center justify-center shadow-xs ring-2 ring-white tabular-nums">
+        {displayUnreadCount > 0 && (
+          <span
+            data-testid="notification-unread-badge"
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold font-mono leading-none flex items-center justify-center shadow-xs ring-2 ring-white tabular-nums"
+          >
             {bellShaking && (
               <span
                 aria-hidden="true"
                 className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"
               />
             )}
-            <span className="relative z-10">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            <span className="relative z-10">
+              {displayUnreadCount > 99 ? '99+' : displayUnreadCount}
+            </span>
           </span>
         )}
       </button>
@@ -904,8 +922,8 @@ export function NotificationBell({
                   ) : (
                     <CheckCheck className="w-3.5 h-3.5 shrink-0" />
                   )}
-                  <span className="hidden sm:inline">Tandai dibaca</span>
-                  <span className="sm:hidden">Dibaca</span>
+                  <span className="hidden sm:inline">Tandai semua dibaca</span>
+                  <span className="sm:hidden">Tandai dibaca</span>
                 </button>
 
                 <button
