@@ -86,6 +86,7 @@ const STORAGE_KEYS = {
   SESSION_WARGA: 'saungkebun_session_warga_v1',
   SESSION_ADMIN: 'saungkebun_session_admin_v1',
   SESSION_PETUGAS: 'saungkebun_session_petugas_v1',
+  LAST_ACTIVE_ROLE: 'saungkebun_last_active_role_v1',
   WARGA: 'saungkebun_warga_v2',
   TRANSAKSI: 'saungkebun_transaksi_v2',
   STATUS: 'saungkebun_status_v2',
@@ -357,8 +358,27 @@ export function loadStoredSession(expectedRole?: UserRole): SessionUser | null {
   }
 }
 
+export function loadLastActiveSession(): SessionUser | null {
+  try {
+    const rawRole = safeStorageGet(STORAGE_KEYS.LAST_ACTIVE_ROLE);
+    if (rawRole === 'warga' || rawRole === 'admin' || rawRole === 'petugas') {
+      const preferred = loadStoredSession(rawRole);
+      if (preferred) return preferred;
+    }
+    return (
+      loadStoredSession('warga') ||
+      loadStoredSession('admin') ||
+      loadStoredSession('petugas') ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function saveStoredSession(session: SessionUser) {
   safeStorageSet(getSessionKeyForRole(session.role), JSON.stringify(session));
+  safeStorageSet(STORAGE_KEYS.LAST_ACTIVE_ROLE, session.role);
   if (session.role !== 'petugas') {
     safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);
   }
@@ -377,10 +397,15 @@ export function clearStoredSession(session?: SessionUser | null, roleOverride?: 
   }
   if (targetRole) {
     safeStorageRemove(getSessionKeyForRole(targetRole));
+    const lastActive = safeStorageGet(STORAGE_KEYS.LAST_ACTIVE_ROLE);
+    if (lastActive === targetRole) {
+      safeStorageRemove(STORAGE_KEYS.LAST_ACTIVE_ROLE);
+    }
   } else {
     safeStorageRemove(STORAGE_KEYS.SESSION_WARGA);
     safeStorageRemove(STORAGE_KEYS.SESSION_ADMIN);
     safeStorageRemove(STORAGE_KEYS.SESSION_PETUGAS);
+    safeStorageRemove(STORAGE_KEYS.LAST_ACTIVE_ROLE);
   }
   if (targetRole !== 'petugas') {
     safeStorageRemove(STORAGE_KEYS.SESSION_LEGACY);

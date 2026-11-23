@@ -26,10 +26,12 @@ import {
   type TransaksiIPL,
   type Warga,
 } from './types';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import {
   clearStoredSession,
   fetchAdminSnapshot,
   fetchWargaOwnData,
+  loadLastActiveSession,
   loadStoredSession,
   saveStoredSession,
   subscribeAdminRealtime,
@@ -166,6 +168,23 @@ function computeWargaDataFingerprint(data: WargaPortalData): string {
   );
 }
 
+interface CapacitorAppBridge {
+  addListener(
+    eventName: 'backButton',
+    listenerFunc: (event: { canGoBack: boolean }) => void
+  ): Promise<{ remove: () => Promise<void> }>;
+  minimizeApp?: () => Promise<void>;
+}
+
+const NativeAppPlugin = registerPlugin<CapacitorAppBridge>('App');
+const BACK_OVERLAY_EVENT = 'ecard-handle-back-overlay';
+
+function getPathForPortalRoute(route: PortalRoute): string {
+  if (route === 'admin') return '/admin';
+  if (route === 'petugas') return '/petugas';
+  return '/';
+}
+
 function resolvePortalRouteFromPath(pathname: string): PortalRoute {
   const clean = pathname.trim().toLowerCase();
   if (clean === '/admin' || clean.startsWith('/admin/')) return 'admin';
@@ -180,24 +199,70 @@ function resolvePortalRouteFromPath(pathname: string): PortalRoute {
   return 'warga';
 }
 
+function resolveInitialPortalAndSession(): { route: PortalRoute; session: SessionUser | null } {
+  if (typeof window === 'undefined') {
+    return { route: 'warga', session: null };
+  }
+  const pathname = window.location.pathname || '/';
+  const pathRoute = resolvePortalRouteFromPath(pathname);
+  const directSession = loadStoredSession(pathRoute);
+  if (directSession) {
+    return { route: pathRoute, session: directSession };
+  }
+
+  // Saat membuka ulang aplikasi / APK atau kembali ke URL utama (/),
+  // pulihkan otomatis sesi akun terakhir yang masih aktif (Warga / Pengurus / Petugas)
+  // agar tidak langsung keluar login sebelum tombol Keluar ditekan.
+  const isRootEntry = pathname === '/' || pathname === '' || pathname === '/index.html';
+  if (isRootEntry) {
+    const lastActive = loadLastActiveSession();
+    if (lastActive) {
+      const targetPath = getPathForPortalRoute(lastActive.role);
+      if (window.location.pathname !== targetPath) {
+        window.history.replaceState({ ecardSessionGuard: true, route: lastActive.role }, '', targetPath);
+      }
+      return { route: lastActive.role, session: lastActive };
+    }
+  }
+
+  return { route: pathRoute, session: null };
+}
+
 export default function App() {
-  const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
-    typeof window !== 'undefined' ? resolvePortalRouteFromPath(window.location.pathname) : 'warga'
+  const initialAuthRef = useRef<{ route: PortalRoute; session: SessionUser | null } | null>(null);
+  if (initialAuthRef.current === null) {
+    initialAuthRef.current = resolveInitialPortalAndSession();
+  }
+
+  const [portalRoute, setPortalRoute] = useState<PortalRoute>(initialAuthRef.current.route);
+  const [session, setSession] = useState<SessionUser | null>(initialAuthRef.current.session);
+  const [activeTab, setActiveTab] = useState<string>(() =>
+    initialAuthRef.current?.session?.role === 'admin' ? 'dashboard' : 'beranda'
   );
-  const [session, setSession] = useState<SessionUser | null>(() => {
-    const initialRoute =
-      typeof window !== 'undefined' ? resolvePortalRouteFromPath(window.location.pathname) : 'warga';
-    return loadStoredSession(initialRoute);
-  });
-  const [activeTab, setActiveTab] = useState<string>('beranda');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
   const settingsOpenRef = useRef(false);
+  const sessionRef = useRef<SessionUser | null>(session);
+  const portalRouteRef = useRef<PortalRoute>(portalRoute);
+  const activeTabRef = useRef<string>(activeTab);
+  const lastHomeBackNoticeRef = useRef<number>(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
   }, [settingsOpen]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    portalRouteRef.current = portalRoute;
+  }, [portalRoute]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   // State Portal Warga (terisolasi 1 rumah)
   const [wargaData, setWargaData] = useState<WargaPortalData | null>(null);
@@ -280,21 +345,153 @@ export default function App() {
     []
   );
 
+  const handleInAppBackAction = useCallback(
+    (source: 'popstate' | 'native') => {
+      const currentSession = sessionRef.current;
+      const currentRoute = portalRouteRef.current;
+
+      // Jika belum login, biarkan navigasi standar antar halaman login berjalan
+      if (!currentSession || currentSession.role !== currentRoute) {
+        if (source === 'popstate' && typeof window !== 'undefined') {
+          const nextRoute = resolvePortalRouteFromPath(window.location.pathname);
+          setPortalRoute(nextRoute);
+          setSession(loadStoredSession(nextRoute));
+          setSettingsOpen(false);
+          lastAdminFingerprintRef.current = null;
+          lastWargaFingerprintRef.current = null;
+          setWargaData(null);
+          setAdminData(null);
+          setDataError(null);
+        }
+        return;
+      }
+
+      // Saat sedang login: JANGAN PERNAH keluar dari login atau berpindah ke halaman login!
+      // Jika dipicu oleh tombol Back browser/WebView (popstate), pasang ulang entri guard history.
+      if (source === 'popstate' && typeof window !== 'undefined') {
+        const activePath = getPathForPortalRoute(currentRoute);
+        window.history.pushState(
+          { ecardSessionGuard: true, route: currentRoute },
+          '',
+          activePath
+        );
+      }
+
+      // 1. Tutup drawer Pengaturan Admin jika sedang terbuka
+      if (settingsOpenRef.current) {
+        setSettingsOpen(false);
+        return;
+      }
+
+      // 2. Tutup panel/drawer/modal/sub-tab aktif di AppShell, NotificationBell, atau PetugasPortalPage
+      if (typeof window !== 'undefined') {
+        const overlayDetail = { handled: false };
+        window.dispatchEvent(new CustomEvent(BACK_OVERLAY_EVENT, { detail: overlayDetail }));
+        if (overlayDetail.handled) {
+          return;
+        }
+      }
+
+      // 3. Jika berada di sub-tab (bukan menu utama), kembali ke menu utama portal (tetap login)
+      if (currentSession.role === 'warga' && activeTabRef.current !== 'beranda') {
+        setActiveTab('beranda');
+        return;
+      }
+      if (currentSession.role === 'admin' && activeTabRef.current !== 'dashboard') {
+        setActiveTab('dashboard');
+        return;
+      }
+
+      // 4. Sudah berada di Menu Utama: JANGAN logout!
+      // Di APK Android: tekan Back 2x cepat hanya me-minimize app ke background (login tetap tersimpan).
+      // Di Browser/Web: tetap di menu utama dan beri tahu cara keluar lewat tombol Keluar / Logout.
+      const now = Date.now();
+      const isNativeAndroid =
+        Capacitor &&
+        typeof Capacitor.isNativePlatform === 'function' &&
+        Capacitor.isNativePlatform() &&
+        Capacitor.getPlatform() === 'android';
+
+      if (isNativeAndroid && source === 'native' && now - lastHomeBackNoticeRef.current < 2500) {
+        lastHomeBackNoticeRef.current = 0;
+        if (typeof NativeAppPlugin.minimizeApp === 'function') {
+          void NativeAppPlugin.minimizeApp().catch(() => {});
+        }
+        return;
+      }
+
+      if (now - lastHomeBackNoticeRef.current > 1800) {
+        lastHomeBackNoticeRef.current = now;
+        pushToast(
+          'info',
+          isNativeAndroid
+            ? 'Sesi login tetap aktif. Tekan kembali lagi untuk ke layar HP, atau tekan tombol Keluar untuk logout.'
+            : 'Anda sudah di menu utama. Untuk keluar dari akun, silakan tekan tombol Keluar / Logout.'
+        );
+      } else {
+        lastHomeBackNoticeRef.current = now;
+      }
+    },
+    [pushToast]
+  );
+
+  // Pasang entri guard history setiap kali sesi login aktif agar tombol Back HP/Browser tidak keluar login
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!session || session.role !== portalRoute) return;
+    const activePath = getPathForPortalRoute(portalRoute);
+    const currentState = window.history.state as { ecardSessionGuard?: boolean; route?: string } | null;
+    if (!currentState?.ecardSessionGuard || currentState.route !== portalRoute || window.location.pathname !== activePath) {
+      window.history.pushState({ ecardSessionGuard: true, route: portalRoute }, '', activePath);
+    }
+  }, [session, portalRoute]);
+
+  // Tangkap tombol Back Browser / WebView (popstate)
   useEffect(() => {
     const handlePopState = () => {
-      const nextRoute = resolvePortalRouteFromPath(window.location.pathname);
-      setPortalRoute(nextRoute);
-      setSession(loadStoredSession(nextRoute));
-      setSettingsOpen(false);
-      lastAdminFingerprintRef.current = null;
-      lastWargaFingerprintRef.current = null;
-      setWargaData(null);
-      setAdminData(null);
-      setDataError(null);
+      handleInAppBackAction('popstate');
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [handleInAppBackAction]);
+
+  // Tangkap tombol Back fisik/gestur Android pada APK Capacitor (@capacitor/app)
+  useEffect(() => {
+    let isNative = false;
+    try {
+      isNative = Boolean(
+        Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()
+      );
+    } catch {
+      isNative = false;
+    }
+    if (!isNative) return;
+
+    let removed = false;
+    let removeHandle: (() => Promise<void>) | null = null;
+
+    void (async () => {
+      try {
+        const handle = await NativeAppPlugin.addListener('backButton', () => {
+          handleInAppBackAction('native');
+        });
+        if (removed) {
+          await handle.remove();
+        } else {
+          removeHandle = () => handle.remove();
+        }
+      } catch {
+        // Abaikan jika plugin App tidak tersedia
+      }
+    })();
+
+    return () => {
+      removed = true;
+      if (removeHandle) {
+        void removeHandle().catch(() => {});
+      }
+    };
+  }, [handleInAppBackAction]);
 
   // Inisialisasi audio unlock, Android Notification Channel, & sinkronisasi FCM/APNs saat aplikasi dibuka
   useEffect(() => {
@@ -511,7 +708,12 @@ export default function App() {
 
   const handleLoginSuccess = (newSession: SessionUser) => {
     if (newSession.role !== portalRoute) return;
+    saveStoredSession(newSession);
     setSession(newSession);
+    if (typeof window !== 'undefined') {
+      const activePath = getPathForPortalRoute(portalRoute);
+      window.history.pushState({ ecardSessionGuard: true, route: portalRoute }, '', activePath);
+    }
     pushToast(
       'success',
       newSession.role === 'admin'
@@ -533,14 +735,17 @@ export default function App() {
     setWargaData(null);
     setAdminData(null);
     setDataError(null);
+    if (typeof window !== 'undefined') {
+      const loginPath = getPathForPortalRoute(portalRoute);
+      window.history.replaceState({}, '', loginPath);
+    }
     pushToast('info', 'Anda telah keluar dari sesi portal.');
   };
 
   const navigatePortalRoute = useCallback((nextRoute: PortalRoute) => {
-    const targetPath =
-      nextRoute === 'admin' ? '/admin' : nextRoute === 'petugas' ? '/petugas' : '/';
+    const targetPath = getPathForPortalRoute(nextRoute);
     if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-      window.history.pushState({}, '', targetPath);
+      window.history.replaceState({}, '', targetPath);
     }
     setPortalRoute(nextRoute);
     setSession(loadStoredSession(nextRoute));

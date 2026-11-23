@@ -653,7 +653,7 @@ export function NotificationBell({
     };
   }, [session, loadNotifications, markIdAsSeen, triggerBellShake]);
 
-  // Tutup panel saat klik luar (desktop) atau tekan Escape
+  // Tutup panel saat klik luar (desktop), tekan Escape, atau tekan tombol Back HP/Browser
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -664,11 +664,20 @@ export function NotificationBell({
         setOpen(false);
       }
     };
+    const onBackOverlay = (e: Event) => {
+      const detail = (e as CustomEvent<{ handled?: boolean }>).detail;
+      if (detail && !detail.handled) {
+        detail.handled = true;
+        setOpen(false);
+      }
+    };
     window.addEventListener('keydown', onKeyDown);
     document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('ecard-handle-back-overlay', onBackOverlay);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
     };
   }, [open]);
 

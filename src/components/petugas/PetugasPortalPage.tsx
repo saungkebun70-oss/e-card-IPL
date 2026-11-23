@@ -163,6 +163,25 @@ export function PetugasPortalPage({
   );
   const [togglingBiometric, setTogglingBiometric] = useState(false);
 
+  // Tangkap tombol Back HP/Browser agar menutup modal profil atau kembali ke menu utama ('scan') tanpa keluar login
+  useEffect(() => {
+    const onBackOverlay = (e: Event) => {
+      const detail = (e as CustomEvent<{ handled?: boolean }>).detail;
+      if (!detail || detail.handled) return;
+      if (profileModalOpen) {
+        detail.handled = true;
+        setProfileModalOpen(false);
+        return;
+      }
+      if (activeTab !== 'scan') {
+        detail.handled = true;
+        setActiveTab('scan');
+      }
+    };
+    window.addEventListener('ecard-handle-back-overlay', onBackOverlay);
+    return () => window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
+  }, [profileModalOpen, activeTab]);
+
   useEffect(() => {
     let active = true;
     let unsubscribe = () => {};

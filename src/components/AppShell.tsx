@@ -73,8 +73,19 @@ export function AppShell({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setDrawerOpen(false);
     };
+    const onBackOverlay = (e: Event) => {
+      const detail = (e as CustomEvent<{ handled?: boolean }>).detail;
+      if (detail && !detail.handled) {
+        detail.handled = true;
+        setDrawerOpen(false);
+      }
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('ecard-handle-back-overlay', onBackOverlay);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
+    };
   }, [drawerOpen]);
 
   const handleOpenLpj = () => {

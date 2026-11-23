@@ -55,6 +55,15 @@ alter table public.user_push_tokens
 alter table public.user_push_tokens
   add column if not exists updated_at timestamptz not null default now();
 
+-- Pastikan token unik (aman jika tabel sebelumnya dibuat tanpa constraint unique)
+delete from public.user_push_tokens a
+using public.user_push_tokens b
+where a.ctid < b.ctid
+  and a.token = b.token;
+
+create unique index if not exists idx_user_push_tokens_token_unique
+  on public.user_push_tokens (token);
+
 create index if not exists idx_user_push_tokens_user_id
   on public.user_push_tokens (user_id);
 
