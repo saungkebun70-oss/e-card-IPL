@@ -6,12 +6,27 @@ import {
   type UserRole,
 } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+export { triggerDeviceAlert } from './notificationAlertService';
 
 const LOCAL_NOTIF_KEY = 'ecard_activity_notifications_v1';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
 const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
 const NOTIF_EVENT = 'ecard-activity-notifications-changed';
 const MAX_LOCAL_NOTIFICATIONS = 250;
+
+// Penyimpanan module-level ID notifikasi yang sudah pernah dilihat per sesi akun
+// agar tidak berbunyi ulang saat komponen NotificationBell remount antar halaman/tab.
+const sessionSeenNotificationIdsMap = new Map<string, Set<string>>();
+
+export function getSessionSeenNotificationIds(session: SessionUser): Set<string> {
+  const key = getCanonicalUserId(session);
+  let set = sessionSeenNotificationIdsMap.get(key);
+  if (!set) {
+    set = new Set<string>();
+    sessionSeenNotificationIdsMap.set(key, set);
+  }
+  return set;
+}
 
 export interface CreateActivityNotificationInput {
   user_id: string;
@@ -92,14 +107,19 @@ export function getUserNotificationMatchIds(session?: SessionUser | null): strin
     if (rawBlok) ids.add(`admin:${rawBlok}`);
     if (session.jabatan === 'Bendahara' || session.admin_permission === 'full' || rawBlok === 'admin') {
       ids.add('admin:andriansyah');
+      ids.add('admin:admin');
       ids.add('role:bendahara');
+      ids.add('role:admin');
     }
     if (session.jabatan === 'Ketua' || rawBlok === 'erlangga') {
       ids.add('admin:erlangga');
       ids.add('role:ketua');
+      ids.add('role:admin');
     }
+    ids.add('role:admin');
   } else if (session.role === 'petugas') {
     ids.add('broadcast:petugas');
+    ids.add('role:petugas');
     if (session.petugas_id) {
       ids.add(`petugas:${normalizeIdToken(session.petugas_id)}`);
     }
@@ -109,6 +129,33 @@ export function getUserNotificationMatchIds(session?: SessionUser | null): strin
   }
 
   return Array.from(ids);
+}
+
+/**
+ * Memastikan suatu baris notifikasi benar-benar ditujukan untuk akun/role yang sedang login.
+ * Mendukung pencocokan format blok padded/unpadded (B3/7 <-> B03/07) serta seluruh alias Bendahara/Ketua/Admin.
+ */
+export function isNotificationMatchingSession(
+  notif: ActivityNotification,
+  session: SessionUser,
+  options?: { excludeSelfActor?: boolean }
+): boolean {
+  if (!notif || !session) return false;
+  const allowedIds = new Set(getUserNotificationMatchIds(session).map((id) => normalizeIdToken(id)));
+  const recipient = normalizeIdToken(notif.user_id);
+  if (!recipient || !allowedIds.has(recipient)) {
+    return false;
+  }
+
+  if (options?.excludeSelfActor !== false) {
+    const actor = normalizeIdToken(notif.actor_id);
+    const selfCanonicalId = normalizeIdToken(getCanonicalUserId(session));
+    if (actor && actor === selfCanonicalId) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function getAllAdminUserIds(): string[] {
@@ -579,17 +626,13 @@ export function subscribeActivityNotificationsRealtime(
   onInsert?: (notif: ActivityNotification) => void
 ): () => void {
   const cleanups: Array<() => void> = [];
-  const allowedIds = new Set(getUserNotificationMatchIds(session));
-  const selfCanonicalId = getCanonicalUserId(session);
+  const allowedIds = new Set(getUserNotificationMatchIds(session).map((id) => normalizeIdToken(id)));
   const broadcastReadSet = getBroadcastReadSet(session);
 
   const handleCandidateInsert = (notif: ActivityNotification) => {
     if (!onInsert) return;
-    const recipient = normalizeIdToken(notif.user_id);
-    if (!recipient || !allowedIds.has(recipient)) return;
-    // Jangan membunyikan notifikasi ke perangkat pelaku sendiri untuk aksi yang baru saja ia tekan
-    const actor = normalizeIdToken(notif.actor_id);
-    if (actor && actor === normalizeIdToken(selfCanonicalId)) return;
+    if (!isNotificationMatchingSession(notif, session, { excludeSelfActor: true })) return;
+    if (notif.is_read) return;
     onInsert(notif);
   };
 

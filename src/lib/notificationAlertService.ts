@@ -550,47 +550,6 @@ export function registerOsNotificationTapListener(
   };
 }
 
-/**
- * Dipanggil ketika notifikasi aktivitas baru masuk via Supabase Realtime.
- * Memicu animasi goyang lonceng, bunyi chime, getaran HP, dan pop-up sistem HP.
- */
-export async function triggerIncomingNotificationAlert(
-  notif: ActivityNotification
-): Promise<void> {
-  if (!notif || !notif.id) return;
-  if (alertedIds.has(notif.id)) return;
-  alertedIds.add(notif.id);
-  if (alertedIds.size > 250) {
-    const first = alertedIds.values().next().value;
-    if (first) alertedIds.delete(first);
-  }
-
-  emitBellShakeEvent();
-
-  const prefs = getNotificationPreferences();
-
-  const tasks: Promise<unknown>[] = [];
-  if (prefs.soundEnabled) {
-    tasks.push(playNotificationChime());
-  }
-  if (prefs.vibrationEnabled) {
-    tasks.push(triggerNotificationVibration());
-  }
-
-  tasks.push(
-    showOsNotification({
-      id: notif.id,
-      title: notif.title || 'Aktivitas Baru · Saung Kebun',
-      body: notif.message || 'Ketuk untuk melihat detail aktivitas terbaru.',
-      targetUrl: notif.target_url,
-      soundEnabled: prefs.soundEnabled,
-      vibrationEnabled: prefs.vibrationEnabled,
-    })
-  );
-
-  await Promise.allSettled(tasks);
-}
-
 export interface TestNotificationResult {
   soundPlayed: boolean;
   vibrated: boolean;
@@ -598,35 +557,70 @@ export interface TestNotificationResult {
   permission: OsNotificationPermissionState;
 }
 
+export interface TriggerDeviceAlertOptions {
+  id?: string;
+  targetUrl?: string;
+  /** Jika true (mis. tombol Tes Notifikasi), minta izin browser bila masih 'prompt' */
+  requestPermissionIfPrompt?: boolean;
+  /** Lewati deduplikasi berbasis id (digunakan untuk tombol Tes Notifikasi) */
+  skipDedupe?: boolean;
+}
+
 /**
- * Tombol uji coba di halaman Profil/Pengaturan: langsung membunyikan chime, menggetarkan HP,
- * menggoyangkan ikon lonceng di header, dan memunculkan pop-up notifikasi sistem HP.
+ * SATU fungsi utama pemicu notifikasi perangkat yang digunakan bersama oleh:
+ * 1. Tombol "Tes Notifikasi"
+ * 2. Event Supabase Realtime INSERT pada tabel `notifications`
+ * 3. Polling otomatis 5 detik saat menemukan notifikasi baru belum dibaca
+ *
+ * Memicu secara serentak: animasi goyang lonceng, Web Audio chime, getaran HP
+ * (Capacitor Haptics + navigator.vibrate), dan pop-up sistem (LocalNotifications
+ * ke channel `saung_kebun_alerts` pada APK Android / Web Notification API pada Web).
  */
-export async function triggerTestNotificationAlert(
-  session: SessionUser
+export async function triggerDeviceAlert(
+  title: string,
+  message: string,
+  options?: TriggerDeviceAlertOptions
 ): Promise<TestNotificationResult> {
-  const prefs = getNotificationPreferences();
+  const notifId = options?.id?.trim();
+  if (notifId && !options?.skipDedupe) {
+    if (alertedIds.has(notifId)) {
+      const currentPerm = await checkOsNotificationPermission();
+      return {
+        soundPlayed: false,
+        vibrated: false,
+        osPopupShown: false,
+        permission: currentPerm,
+      };
+    }
+    alertedIds.add(notifId);
+    if (alertedIds.size > 300) {
+      const first = alertedIds.values().next().value;
+      if (first) alertedIds.delete(first);
+    }
+  }
+
   emitBellShakeEvent();
 
+  const prefs = getNotificationPreferences();
+  await ensureAndroidNotificationChannel();
+
   let permission = await checkOsNotificationPermission();
-  if (permission === 'prompt') {
+  if (permission === 'prompt' && (options?.requestPermissionIfPrompt || isNativeApp())) {
     permission = await requestOsNotificationPermission();
   }
+
+  const safeTitle = title?.trim() || 'Aktivitas Baru · Saung Kebun';
+  const safeMessage = message?.trim() || 'Ketuk untuk melihat detail aktivitas terbaru.';
 
   const [soundPlayed, vibrated, osPopupShown] = await Promise.all([
     prefs.soundEnabled ? playNotificationChime() : Promise.resolve(false),
     prefs.vibrationEnabled ? triggerNotificationVibration() : Promise.resolve(false),
     permission === 'granted'
       ? showOsNotification({
-          id: `test-${Date.now()}`,
-          title: 'Tes Notifikasi · Saung Kebun',
-          body: `Halo ${session.nama_warga || 'Pengguna'}, suara, getaran, dan pop-up notifikasi HP Anda berfungsi dengan baik!`,
-          targetUrl:
-            session.role === 'admin'
-              ? 'tab:dashboard'
-              : session.role === 'petugas'
-                ? 'tab:info'
-                : 'tab:beranda',
+          id: notifId || `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          title: safeTitle,
+          body: safeMessage,
+          targetUrl: options?.targetUrl,
           soundEnabled: prefs.soundEnabled,
           vibrationEnabled: prefs.vibrationEnabled,
         })
@@ -634,4 +628,46 @@ export async function triggerTestNotificationAlert(
   ]);
 
   return { soundPlayed, vibrated, osPopupShown, permission };
+}
+
+/**
+ * Dipanggil ketika notifikasi aktivitas baru masuk (Realtime / Polling).
+ * Menggunakan fungsi utama yang sama persis (`triggerDeviceAlert`).
+ */
+export async function triggerIncomingNotificationAlert(
+  notif: ActivityNotification
+): Promise<TestNotificationResult | null> {
+  if (!notif || !notif.id) return null;
+  return triggerDeviceAlert(
+    notif.title || 'Aktivitas Baru · Saung Kebun',
+    notif.message || 'Ketuk untuk melihat detail aktivitas terbaru.',
+    {
+      id: notif.id,
+      targetUrl: notif.target_url,
+    }
+  );
+}
+
+/**
+ * Tombol uji coba di halaman Profil/Pengaturan:
+ * memanggil `triggerDeviceAlert` yang sama persis dengan notifikasi transaksi sungguhan.
+ */
+export async function triggerTestNotificationAlert(
+  session: SessionUser
+): Promise<TestNotificationResult> {
+  return triggerDeviceAlert(
+    'Tes Notifikasi · Saung Kebun',
+    `Halo ${session.nama_warga || 'Pengguna'}, suara, getaran, dan pop-up notifikasi HP Anda berfungsi dengan baik!`,
+    {
+      id: `test-${Date.now()}`,
+      targetUrl:
+        session.role === 'admin'
+          ? 'tab:dashboard'
+          : session.role === 'petugas'
+            ? 'tab:info'
+            : 'tab:beranda',
+      requestPermissionIfPrompt: true,
+      skipDedupe: true,
+    }
+  );
 }

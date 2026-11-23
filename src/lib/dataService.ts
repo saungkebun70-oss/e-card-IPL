@@ -1214,7 +1214,7 @@ export async function submitSetoranWarga(
 
       void dispatchActivityNotifications(
         effectiveSession,
-        getBendaharaAndKetuaUserIds().map((uid) => ({
+        getAllAdminUserIds().map((uid) => ({
           user_id: uid,
           category: 'ipl' as const,
           title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
@@ -1272,7 +1272,7 @@ export async function submitSetoranWarga(
 
     void dispatchActivityNotifications(
       effectiveSession,
-      getBendaharaAndKetuaUserIds().map((uid) => ({
+      getAllAdminUserIds().map((uid) => ({
         user_id: uid,
         category: 'ipl' as const,
         title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
