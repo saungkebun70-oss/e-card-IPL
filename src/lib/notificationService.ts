@@ -6,7 +6,10 @@ import {
   type UserRole,
 } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
-export { triggerDeviceAlert } from './notificationAlertService';
+export {
+  triggerDeviceAlert,
+  initNativeNotificationsOnLaunch as initializeAndroidNotificationsOnLaunch,
+} from './notificationAlertService';
 
 const LOCAL_NOTIF_KEY = 'ecard_activity_notifications_v1';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
