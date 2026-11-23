@@ -70,7 +70,7 @@ export function AppShell({
   const isLpjActive = activeTab === 'lpj';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
-  // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari database untuk badge Lonceng Header
+  // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari tabel `notifications` untuk badge Lonceng Header
   useEffect(() => {
     let active = true;
     const syncUnreadCount = async () => {
@@ -84,6 +84,11 @@ export function AppShell({
     const unsub = subscribeActivityNotificationsRealtime(session, () => {
       void syncUnreadCount();
     });
+    const pollTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        void syncUnreadCount();
+      }
+    }, 15000);
     const onFocusOrVisible = () => {
       if (document.visibilityState !== 'hidden') {
         void syncUnreadCount();
@@ -95,6 +100,7 @@ export function AppShell({
     return () => {
       active = false;
       unsub();
+      window.clearInterval(pollTimer);
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };

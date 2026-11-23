@@ -686,8 +686,15 @@ export function NotificationBell({
   }, [open]);
 
   const unreadCount = useMemo(() => items.filter((n) => !n.is_read).length, [items]);
-  const displayUnreadCount =
-    loading && typeof externalUnreadCount === 'number' ? externalUnreadCount : unreadCount;
+  const displayUnreadCount = useMemo(() => {
+    if (loading && typeof externalUnreadCount === 'number') {
+      return externalUnreadCount;
+    }
+    if (items.length >= 80 && typeof externalUnreadCount === 'number') {
+      return Math.max(unreadCount, externalUnreadCount);
+    }
+    return unreadCount;
+  }, [externalUnreadCount, items.length, loading, unreadCount]);
 
   useEffect(() => {
     if (!loading) {
@@ -820,6 +827,7 @@ export function NotificationBell({
         {displayUnreadCount > 0 && (
           <span
             data-testid="notification-unread-badge"
+            aria-live="polite"
             className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold font-mono leading-none flex items-center justify-center shadow-xs ring-2 ring-white tabular-nums"
           >
             {bellShaking && (
