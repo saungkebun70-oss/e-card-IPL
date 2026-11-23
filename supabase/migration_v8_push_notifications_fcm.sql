@@ -1,18 +1,25 @@
 -- ============================================================================
--- MIGRASI v8: TABEL PUSH TOKEN FCM/APNs (Android & iOS) + PEMBARUAN RLS NOTIFIKASI
+-- MIGRASI v8: PUSH NOTIFICATION MULTI-PLATFORM (Android, iOS, & Web FCM)
 -- Perumahan Saung Kebun — Idempotent & aman dijalankan ulang di Supabase SQL Editor
--- Mengaktifkan:
---   1. Tabel public.user_push_tokens (token unik per perangkat Android & iOS)
---   2. Kebijakan RLS untuk sinkronisasi token dari portal Warga, Pengurus, & Petugas
---   3. Pembaruan public.current_notification_user_ids() agar cocok dengan role:*,
---      alias Bendahara/Ketua, serta variasi format blok B3/7 <-> B03/07
+--
+-- Mencakup:
+--   1. Standarisasi tabel public.user_push_tokens:
+--        - user_id  : format seragam (warga:<blok>, admin:<id_atau_blok>, keamanan:<id_atau_nama>)
+--        - role     : 'warga' | 'admin' | 'keamanan' (kompatibel dengan 'petugas')
+--        - blok     : blok rumah (tersinkron dengan blok_rumah)
+--        - platform : 'android' | 'ios' | 'web'
+--        - token    : FCM / APNs / Web Push token
+--        - updated_at
+--   2. Unique constraint komposit (user_id, token) agar 1 akun yang login
+--      di HP dan Web sekaligus tetap menerima push di kedua perangkat tanpa saling menimpa.
+--   3. Kebijakan RLS & pembaruan public.current_notification_user_ids()
+--      agar mendukung prefix keamanan:* & petugas:*, alias Bendahara/Ketua,
+--      serta variasi blok B3/7 <-> B03/07.
 --
 -- Catatan Edge Function `send-push-notification`:
 --   Pastikan Secret berikut diset di Supabase Dashboard -> Edge Functions -> Secrets:
---     - FCM_PROJECT_ID
---     - FCM_CLIENT_EMAIL
---     - FCM_PRIVATE_KEY
---   (atau satu secret JSON/Base64: FIREBASE_SERVICE_ACCOUNT)
+--     - FIREBASE_SERVICE_ACCOUNT (JSON Service Account Firebase atau Base64)
+--   (atau 3 secret terpisah: FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY)
 -- ============================================================================
 
 create extension if not exists pgcrypto;
@@ -31,17 +38,24 @@ $$;
 
 grant execute on function public.req_header(text) to anon, authenticated;
 
--- 1. Tabel Penyimpanan Token FCM/APNs Perangkat (Android & iOS)
+-- 1. Tabel Penyimpanan Token FCM/APNs/Web Push Multi-Platform
 create table if not exists public.user_push_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id text not null,
-  role text not null check (role in ('warga', 'admin', 'petugas')),
+  role text not null,
+  blok text,
   blok_rumah text,
-  token text not null unique,
   platform text not null default 'android' check (platform in ('android', 'ios', 'web')),
+  token text not null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint user_push_tokens_role_check check (role in ('warga', 'admin', 'keamanan', 'petugas')),
+  constraint user_push_tokens_user_id_token_key unique (user_id, token)
 );
+
+-- Pastikan seluruh kolom tersedia apabila tabel sudah dibuat pada versi sebelumnya
+alter table public.user_push_tokens
+  add column if not exists blok text;
 
 alter table public.user_push_tokens
   add column if not exists blok_rumah text;
@@ -55,20 +69,96 @@ alter table public.user_push_tokens
 alter table public.user_push_tokens
   add column if not exists updated_at timestamptz not null default now();
 
--- Pastikan token unik (aman jika tabel sebelumnya dibuat tanpa constraint unique)
+-- Sinkronisasi nilai kolom blok <-> blok_rumah pada data lama
+update public.user_push_tokens
+set
+  blok = coalesce(nullif(trim(blok), ''), nullif(trim(blok_rumah), '')),
+  blok_rumah = coalesce(nullif(trim(blok_rumah), ''), nullif(trim(blok), ''))
+where blok is distinct from blok_rumah;
+
+-- Perbarui CHECK constraint kolom role agar menerima 'keamanan' maupun 'petugas'
+do $$
+declare
+  v_con record;
+begin
+  for v_con in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.user_push_tokens'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%role%'
+  loop
+    execute format('alter table public.user_push_tokens drop constraint if exists %I', v_con.conname);
+  end loop;
+
+  alter table public.user_push_tokens
+    add constraint user_push_tokens_role_check
+    check (role in ('warga', 'admin', 'keamanan', 'petugas'));
+exception when duplicate_object then
+  null;
+end $$;
+
+-- Perbarui CHECK constraint kolom platform
+do $$
+declare
+  v_con record;
+begin
+  for v_con in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.user_push_tokens'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%platform%'
+  loop
+    execute format('alter table public.user_push_tokens drop constraint if exists %I', v_con.conname);
+  end loop;
+
+  alter table public.user_push_tokens
+    add constraint user_push_tokens_platform_check
+    check (platform in ('android', 'ios', 'web'));
+exception when duplicate_object then
+  null;
+end $$;
+
+-- Ganti unique constraint lama pada kolom (token) tunggal menjadi komposit (user_id, token)
+alter table public.user_push_tokens
+  drop constraint if exists user_push_tokens_token_key;
+
+drop index if exists public.idx_user_push_tokens_token_unique;
+
+-- Bersihkan duplikat (user_id, token) bila ada sebelum memasang unique constraint komposit
 delete from public.user_push_tokens a
 using public.user_push_tokens b
 where a.ctid < b.ctid
+  and a.user_id = b.user_id
   and a.token = b.token;
 
-create unique index if not exists idx_user_push_tokens_token_unique
-  on public.user_push_tokens (token);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.user_push_tokens'::regclass
+      and conname = 'user_push_tokens_user_id_token_key'
+  ) then
+    alter table public.user_push_tokens
+      add constraint user_push_tokens_user_id_token_key unique (user_id, token);
+  end if;
+exception when duplicate_object then
+  null;
+end $$;
 
 create index if not exists idx_user_push_tokens_user_id
   on public.user_push_tokens (user_id);
 
 create index if not exists idx_user_push_tokens_role
   on public.user_push_tokens (role);
+
+create index if not exists idx_user_push_tokens_token
+  on public.user_push_tokens (token);
+
+create index if not exists idx_user_push_tokens_platform
+  on public.user_push_tokens (platform);
 
 create index if not exists idx_user_push_tokens_updated_at
   on public.user_push_tokens (updated_at desc);
@@ -80,31 +170,31 @@ alter table public.user_push_tokens enable row level security;
 drop policy if exists "user_push_tokens_select_portal" on public.user_push_tokens;
 create policy "user_push_tokens_select_portal" on public.user_push_tokens
   for select using (
-    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas')
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
   );
 
 drop policy if exists "user_push_tokens_insert_portal" on public.user_push_tokens;
 create policy "user_push_tokens_insert_portal" on public.user_push_tokens
   for insert with check (
-    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas')
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
   );
 
 drop policy if exists "user_push_tokens_update_portal" on public.user_push_tokens;
 create policy "user_push_tokens_update_portal" on public.user_push_tokens
   for update using (
-    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas')
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
   )
   with check (
-    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas')
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
   );
 
 drop policy if exists "user_push_tokens_delete_portal" on public.user_push_tokens;
 create policy "user_push_tokens_delete_portal" on public.user_push_tokens
   for delete using (
-    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas')
+    lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
   );
 
--- 2. Pembaruan Helper RLS Notifikasi agar mendukung role:*, alias Bendahara/Ketua, & B3/7 <-> B03/07
+-- 2. Pembaruan Helper RLS Notifikasi (mendukung role:*, keamanan:* & petugas:*, Bendahara/Ketua, & B3/7 <-> B03/07)
 create or replace function public.current_notification_user_ids()
 returns text[]
 language plpgsql
@@ -114,6 +204,7 @@ declare
   v_role text := lower(trim(public.req_header('x-user-role')));
   v_blok text := lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g'));
   v_petugas_id text := trim(public.req_header('x-petugas-id'));
+  v_petugas_name text := lower(regexp_replace(trim(public.req_header('x-petugas-name')), '\s+', '', 'g'));
   v_jabatan text := lower(trim(public.req_header('x-admin-jabatan')));
   v_perm text := lower(trim(public.req_header('x-admin-permission')));
   v_ids text[] := array['broadcast:all'];
@@ -152,14 +243,22 @@ begin
       v_ids := array_append(v_ids, 'admin:erlangga');
       v_ids := array_append(v_ids, 'role:ketua');
     end if;
-  elsif v_role = 'petugas' then
+  elsif v_role in ('petugas', 'keamanan') then
     v_ids := array_append(v_ids, 'broadcast:petugas');
+    v_ids := array_append(v_ids, 'broadcast:keamanan');
     v_ids := array_append(v_ids, 'role:petugas');
+    v_ids := array_append(v_ids, 'role:keamanan');
     if v_petugas_id <> '' then
       v_ids := array_append(v_ids, 'petugas:' || lower(v_petugas_id));
+      v_ids := array_append(v_ids, 'keamanan:' || lower(v_petugas_id));
     end if;
     if v_blok <> '' then
       v_ids := array_append(v_ids, 'petugas:' || v_blok);
+      v_ids := array_append(v_ids, 'keamanan:' || v_blok);
+    end if;
+    if v_petugas_name <> '' then
+      v_ids := array_append(v_ids, 'petugas:' || v_petugas_name);
+      v_ids := array_append(v_ids, 'keamanan:' || v_petugas_name);
     end if;
   end if;
 

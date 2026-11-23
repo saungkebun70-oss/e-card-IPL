@@ -63,6 +63,8 @@ import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner
 import {
   initNativeNotificationsOnLaunch,
   initNotificationAudioUnlock,
+  removeCurrentDevicePushToken,
+  subscribeForegroundPushToast,
 } from './lib/notificationAlertService';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
@@ -493,11 +495,21 @@ export default function App() {
     };
   }, [handleInAppBackAction]);
 
-  // Inisialisasi audio unlock, Android Notification Channel, & sinkronisasi FCM/APNs saat aplikasi dibuka
+  // Inisialisasi audio unlock, Android Notification Channel, Service Worker Web Push & sinkronisasi FCM/APNs
   useEffect(() => {
     initNotificationAudioUnlock();
     void initNativeNotificationsOnLaunch(session);
   }, [session]);
+
+  // Tampilkan toast in-app setiap kali push notification tiba saat aplikasi sedang dibuka (foreground)
+  useEffect(() => {
+    return subscribeForegroundPushToast((payload) => {
+      const text = payload.body
+        ? `${payload.title} — ${payload.body}`
+        : payload.title;
+      pushToast('info', text);
+    });
+  }, [pushToast]);
 
   useEffect(() => {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;
@@ -727,6 +739,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // Hapus HANYA token perangkat ini dari user_push_tokens agar perangkat lain milik akun ini tetap aktif
+    void removeCurrentDevicePushToken(session);
     clearStoredSession(session, portalRoute);
     setSession(null);
     setSettingsOpen(false);

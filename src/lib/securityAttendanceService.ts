@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { compressProofImage } from './imageCompressor';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { dispatchActivityNotifications, getAllAdminUserIds } from './notificationService';
 
 const LOCAL_STORAGE_KEY = 'skb_security_attendance_v1';
 const ATTENDANCE_CHANGE_EVENT = 'skb-security-attendance-changed';
@@ -779,6 +780,25 @@ export async function clockInSecurityOfficer(
             const localRows = readLocalRecords().filter((r) => r.id !== created.id);
             writeLocalRecords([created, ...localRows]);
             emitAttendanceChangeEvent();
+            const pushTitle = 'Update dari Petugas Keamanan';
+            const pushBody = `${officerName} telah mengirim laporan keamanan (Absen Masuk ${shiftName} · ${formatWibTime(created.clock_in_at)}).`;
+            void dispatchActivityNotifications(
+              session,
+              getAllAdminUserIds().map((uid) => ({
+                user_id: uid,
+                category: 'patrol' as const,
+                title: pushTitle,
+                message: pushBody,
+                target_url: 'tab:keamanan',
+              })),
+              {
+                target_roles: ['admin'],
+                category: 'patrol',
+                title: pushTitle,
+                body: pushBody,
+                target_url: 'tab:keamanan',
+              }
+            );
             return {
               ok: true,
               message: `Absen Masuk berhasil tercatat (${formatWibTime(created.clock_in_at)}). Selamat bertugas!`,
@@ -807,6 +827,25 @@ export async function clockInSecurityOfficer(
 
   writeLocalRecords([fallbackRecord, ...readLocalRecords()]);
   emitAttendanceChangeEvent();
+  const fallbackClockInTitle = 'Update dari Petugas Keamanan';
+  const fallbackClockInBody = `${officerName} telah mengirim laporan keamanan (Absen Masuk ${shiftName} · ${formatWibTime(nowIso)}).`;
+  void dispatchActivityNotifications(
+    session,
+    getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'patrol' as const,
+      title: fallbackClockInTitle,
+      message: fallbackClockInBody,
+      target_url: 'tab:keamanan',
+    })),
+    {
+      target_roles: ['admin'],
+      category: 'patrol',
+      title: fallbackClockInTitle,
+      body: fallbackClockInBody,
+      target_url: 'tab:keamanan',
+    }
+  );
 
   return {
     ok: true,
@@ -868,6 +907,25 @@ export async function clockOutSecurityOfficer(
           );
           emitAttendanceChangeEvent();
           const evalRes = evaluateAttendance(saved);
+          const pushTitle = 'Update dari Petugas Keamanan';
+          const pushBody = `${saved.officer_name} telah mengirim laporan keamanan (Absen Pulang ${saved.shift_name} · Durasi ${evalRes.durationLabel}).`;
+          void dispatchActivityNotifications(
+            session,
+            getAllAdminUserIds().map((uid) => ({
+              user_id: uid,
+              category: 'patrol' as const,
+              title: pushTitle,
+              message: pushBody,
+              target_url: 'tab:keamanan',
+            })),
+            {
+              target_roles: ['admin'],
+              category: 'patrol',
+              title: pushTitle,
+              body: pushBody,
+              target_url: 'tab:keamanan',
+            }
+          );
           return {
             ok: true,
             message: `Absen Pulang tercatat (${formatWibTime(nowIso)}). Total durasi jaga: ${evalRes.durationLabel}.`,
@@ -888,6 +946,25 @@ export async function clockOutSecurityOfficer(
   emitAttendanceChangeEvent();
 
   const evalRes = evaluateAttendance(updatedLocal);
+  const fallbackOutTitle = 'Update dari Petugas Keamanan';
+  const fallbackOutBody = `${updatedLocal.officer_name} telah mengirim laporan keamanan (Absen Pulang ${updatedLocal.shift_name} · Durasi ${evalRes.durationLabel}).`;
+  void dispatchActivityNotifications(
+    session,
+    getAllAdminUserIds().map((uid) => ({
+      user_id: uid,
+      category: 'patrol' as const,
+      title: fallbackOutTitle,
+      message: fallbackOutBody,
+      target_url: 'tab:keamanan',
+    })),
+    {
+      target_roles: ['admin'],
+      category: 'patrol',
+      title: fallbackOutTitle,
+      body: fallbackOutBody,
+      target_url: 'tab:keamanan',
+    }
+  );
   return {
     ok: true,
     message: `Absen Pulang tercatat (${formatWibTime(nowIso)}). Total durasi jaga: ${evalRes.durationLabel}.`,

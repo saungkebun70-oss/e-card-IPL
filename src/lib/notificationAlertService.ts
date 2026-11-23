@@ -19,6 +19,23 @@ export interface NativePushRuntimeInfo {
   hasFcmToken: boolean;
   token: string | null;
   tokenPreview: string | null;
+  webPushConfigured: boolean;
+  channelId: string;
+}
+
+export interface ForegroundPushToastPayload {
+  title: string;
+  body: string;
+  targetUrl?: string;
+}
+
+export interface AdminTestPushResult {
+  ok: boolean;
+  sent: number;
+  failed: number;
+  matchedDevices: number;
+  skipped?: boolean;
+  message: string;
 }
 
 const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
@@ -27,13 +44,26 @@ const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
 const NOTIF_LIST_CHANGED_EVENT = 'ecard-activity-notifications-changed';
-export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_alerts';
+const FOREGROUND_PUSH_TOAST_EVENT = 'ecard-foreground-push-toast';
+
+export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_notif';
+const LEGACY_ANDROID_CHANNEL_ID = 'saung_kebun_alerts';
 
 const DEFAULT_PREFS: NotificationPreferences = {
   soundEnabled: true,
   vibrationEnabled: true,
   permissionPromptDismissed: false,
 };
+
+interface FirebaseWebConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  vapidKey: string;
+}
 
 const alertedIds = new Set<string>();
 let sharedAudioContext: AudioContext | null = null;
@@ -42,6 +72,9 @@ let androidChannelInitialized = false;
 let nativeLaunchInitPromise: Promise<OsNotificationPermissionState> | null = null;
 let pushListenersInstalled = false;
 let pushListenersInstallPromise: Promise<boolean> | null = null;
+let webPushSwRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+let webForegroundListenerInstalled = false;
+let swMessageListenerInstalled = false;
 let cachedFcmToken: string | null = null;
 let activePushSession: SessionUser | null = null;
 let lastSyncedTokenSignature = '';
@@ -63,15 +96,43 @@ function isNativeApp(): boolean {
   }
 }
 
-function getNativePlatformName(): string {
+function getNativePlatformName(): 'android' | 'ios' | 'web' {
   try {
     if (Capacitor && typeof Capacitor.getPlatform === 'function') {
-      return Capacitor.getPlatform() || 'web';
+      const p = String(Capacitor.getPlatform() || 'web').toLowerCase();
+      if (p === 'android' || p === 'ios') return p;
     }
   } catch {
     // Fallback web
   }
   return 'web';
+}
+
+function getFirebaseWebConfig(): FirebaseWebConfig | null {
+  try {
+    const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+    const apiKey = (env.VITE_FIREBASE_API_KEY || '').trim();
+    const projectId = (env.VITE_FIREBASE_PROJECT_ID || '').trim();
+    const messagingSenderId = (env.VITE_FIREBASE_MESSAGING_SENDER_ID || '').trim();
+    const appId = (env.VITE_FIREBASE_APP_ID || '').trim();
+    const vapidKey = (env.VITE_FIREBASE_VAPID_KEY || '').trim();
+
+    if (!apiKey || !projectId || !messagingSenderId || !appId || !vapidKey) {
+      return null;
+    }
+
+    return {
+      apiKey,
+      authDomain: (env.VITE_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`).trim(),
+      projectId,
+      storageBucket: (env.VITE_FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`).trim(),
+      messagingSenderId,
+      appId,
+      vapidKey,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function normalizeIdPart(raw?: string | null): string {
@@ -81,7 +142,13 @@ function normalizeIdPart(raw?: string | null): string {
     .replace(/\s+/g, '');
 }
 
-function resolveCanonicalUserIdForPush(session: SessionUser): string {
+/**
+ * Format standar user_id untuk tabel `user_push_tokens`:
+ * - warga    -> warga:<blok>
+ * - admin    -> admin:<id_atau_blok>
+ * - keamanan -> keamanan:<id_atau_nama>
+ */
+export function resolveCanonicalUserIdForPush(session: SessionUser): string {
   if (session.role === 'warga') {
     return `warga:${normalizeIdPart(session.blok_rumah)}`;
   }
@@ -89,7 +156,13 @@ function resolveCanonicalUserIdForPush(session: SessionUser): string {
     const clean = normalizeIdPart(session.blok_rumah);
     return `admin:${clean === 'admin' ? 'andriansyah' : clean}`;
   }
-  return `petugas:${normalizeIdPart(session.petugas_id || session.blok_rumah)}`;
+  return `keamanan:${normalizeIdPart(session.petugas_id || session.blok_rumah || session.nama_warga)}`;
+}
+
+function resolvePushRole(session: SessionUser): 'warga' | 'admin' | 'keamanan' {
+  if (session.role === 'admin') return 'admin';
+  if (session.role === 'warga') return 'warga';
+  return 'keamanan';
 }
 
 function readCachedFcmToken(): string | null {
@@ -135,10 +208,40 @@ function resolvePendingTokenWaiters(token: string | null): void {
   }
 }
 
+export function emitForegroundPushToast(payload: ForegroundPushToastPayload): void {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(FOREGROUND_PUSH_TOAST_EVENT, { detail: payload }));
+    }
+  } catch {
+    // Abaikan
+  }
+}
+
+export function subscribeForegroundPushToast(
+  callback: (payload: ForegroundPushToastPayload) => void
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<ForegroundPushToastPayload>).detail;
+    if (detail && (detail.title || detail.body)) {
+      callback(detail);
+    }
+  };
+  window.addEventListener(FOREGROUND_PUSH_TOAST_EVENT, handler);
+  return () => window.removeEventListener(FOREGROUND_PUSH_TOAST_EVENT, handler);
+}
+
 export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
   const isNative = isNativeApp();
   const platform = getNativePlatformName();
-  const token = isNative ? readCachedFcmToken() : null;
+  const webPushConfigured = Boolean(getFirebaseWebConfig());
+  const webSupported =
+    !isNative &&
+    typeof window !== 'undefined' &&
+    'Notification' in window &&
+    'serviceWorker' in navigator;
+  const token = readCachedFcmToken();
   const hasToken = Boolean(token);
   const tokenPreview = token
     ? token.length > 20
@@ -149,11 +252,13 @@ export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
   return {
     isNative,
     platform,
-    supported: isNative,
+    supported: isNative || webSupported,
     hasToken,
     hasFcmToken: hasToken,
     token,
     tokenPreview,
+    webPushConfigured,
+    channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
   };
 }
 
@@ -347,9 +452,9 @@ export async function triggerNotificationVibration(): Promise<boolean> {
 }
 
 /**
- * Membuat Notification Channel Android `saung_kebun_alerts` dengan importance: 5 (High),
- * suara & getaran bawaan aktif melalui LocalNotifications DAN PushNotifications.
- * Pada iOS, pemanggilan `createChannel` dilewati secara otomatis tanpa error.
+ * Membuat Notification Channel Android `saung_kebun_notif` dengan importance: 5 (High / Pop-up & Suara aktif)
+ * melalui LocalNotifications DAN PushNotifications agar notifikasi selalu tampil di layar kunci & status bar
+ * meskipun aplikasi ditutup total (killed).
  */
 export async function ensureAndroidNotificationChannel(): Promise<void> {
   if (!isNativeApp() || androidChannelInitialized) return;
@@ -359,23 +464,38 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
     return;
   }
 
-  const channelConfig = {
-    id: ANDROID_NOTIFICATION_CHANNEL_ID,
-    name: 'Notifikasi Saung Kebun',
-    description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
-    importance: 5 as const,
-    visibility: 1 as const,
-    sound: 'default',
-    vibration: true,
-    lights: true,
-    lightColor: '#059669',
-  };
+  const channels = [
+    {
+      id: ANDROID_NOTIFICATION_CHANNEL_ID,
+      name: 'Notifikasi Saung Kebun',
+      description: 'Notifikasi real-time IPL, Kas Lingkungan, Patroli Keamanan & Pengumuman',
+      importance: 5 as const,
+      visibility: 1 as const,
+      sound: 'default',
+      vibration: true,
+      lights: true,
+      lightColor: '#059669',
+    },
+    {
+      id: LEGACY_ANDROID_CHANNEL_ID,
+      name: 'Peringatan Saung Kebun',
+      description: 'Channel kompatibilitas notifikasi Saung Kebun',
+      importance: 5 as const,
+      visibility: 1 as const,
+      sound: 'default',
+      vibration: true,
+      lights: true,
+      lightColor: '#059669',
+    },
+  ];
 
   let createdAny = false;
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     if (typeof LocalNotifications.createChannel === 'function') {
-      await LocalNotifications.createChannel(channelConfig);
+      for (const ch of channels) {
+        await LocalNotifications.createChannel(ch);
+      }
       createdAny = true;
     }
   } catch {
@@ -385,7 +505,9 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications');
     if (typeof PushNotifications.createChannel === 'function') {
-      await PushNotifications.createChannel(channelConfig);
+      for (const ch of channels) {
+        await PushNotifications.createChannel(ch);
+      }
       createdAny = true;
     }
   } catch {
@@ -398,8 +520,9 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
 }
 
 /**
- * Menyimpan/memperbarui token FCM/APNs perangkat ke tabel Supabase `user_push_tokens`
- * dengan seluruh kolom wajib (`user_id`, `role`, `blok_rumah`, `token`, `platform`, `updated_at`).
+ * Menyimpan/memperbarui token FCM/APNs/Web Push ke tabel Supabase `user_push_tokens`
+ * menggunakan upsert berdasarkan komposit `(user_id, token)` agar 1 akun yang login
+ * di HP dan Web sekaligus tetap menerima notifikasi di kedua perangkat tanpa saling menimpa.
  */
 async function persistFcmTokenToSupabase(
   session: SessionUser,
@@ -411,10 +534,10 @@ async function persistFcmTokenToSupabase(
   }
 
   const userId = resolveCanonicalUserIdForPush(session);
-  const role = session.role;
-  const blokRumah = session.blok_rumah?.trim() || null;
+  const role = resolvePushRole(session);
+  const blokVal = session.blok_rumah?.trim() || null;
   const platform = getNativePlatformName();
-  const signature = `${userId}::${role}::${blokRumah || ''}::${platform}::${cleanToken}`;
+  const signature = `${userId}::${role}::${blokVal || ''}::${platform}::${cleanToken}`;
 
   if (signature === lastSyncedTokenSignature) {
     return { synced: true };
@@ -425,61 +548,306 @@ async function persistFcmTokenToSupabase(
     return { synced: false, error: 'Supabase belum terkonfigurasi' };
   }
 
-  const payload = {
+  const nowIso = new Date().toISOString();
+  const fullPayload = {
     user_id: userId,
     role,
-    blok_rumah: blokRumah,
-    token: cleanToken,
+    blok: blokVal,
+    blok_rumah: blokVal,
     platform,
-    updated_at: new Date().toISOString(),
+    token: cleanToken,
+    updated_at: nowIso,
+  };
+
+  // Fallback payload untuk skema lama yang belum memiliki kolom `blok` atau belum mengizinkan role='keamanan'
+  const legacyPayload = {
+    user_id: userId,
+    role: role === 'keamanan' ? 'petugas' : role,
+    blok_rumah: blokVal,
+    platform,
+    token: cleanToken,
+    updated_at: nowIso,
   };
 
   try {
-    // 1. Coba upsert langsung berdasarkan unique constraint kolom `token`
+    // 1. Prioritas utama: Upsert berdasarkan kombinasi (user_id, token)
     const { error: upsertErr } = await supabase
       .from('user_push_tokens')
-      .upsert(payload, { onConflict: 'token' });
+      .upsert(fullPayload, { onConflict: 'user_id,token' });
 
     if (!upsertErr) {
       lastSyncedTokenSignature = signature;
       return { synced: true };
     }
 
-    // 2. Fallback select -> update/insert jika tabel tidak memiliki unique constraint di kolom `token`
-    const { data: existingRows, error: selectErr } = await supabase
+    // 2. Coba cek eksistensi berdasarkan (user_id, token) lalu update/insert
+    const { data: existingPair } = await supabase
       .from('user_push_tokens')
       .select('id')
+      .eq('user_id', userId)
       .eq('token', cleanToken)
       .limit(1);
 
-    if (!selectErr && Array.isArray(existingRows) && existingRows.length > 0 && existingRows[0]?.id) {
+    if (Array.isArray(existingPair) && existingPair.length > 0 && existingPair[0]?.id) {
       const { error: updateErr } = await supabase
         .from('user_push_tokens')
-        .update(payload)
-        .eq('id', existingRows[0].id);
+        .update(fullPayload)
+        .eq('id', existingPair[0].id);
       if (!updateErr) {
         lastSyncedTokenSignature = signature;
         return { synced: true };
       }
-      return { synced: false, error: updateErr.message };
+      const { error: legacyUpdateErr } = await supabase
+        .from('user_push_tokens')
+        .update(legacyPayload)
+        .eq('id', existingPair[0].id);
+      if (!legacyUpdateErr) {
+        lastSyncedTokenSignature = signature;
+        return { synced: true };
+      }
+      return { synced: false, error: legacyUpdateErr.message };
     }
 
-    const { error: insertErr } = await supabase.from('user_push_tokens').insert(payload);
+    // 3. Coba insert fullPayload; bila gagal karena constraint token lama atau kolom blok belum dimigrasi, gunakan fallback aman
+    const { error: insertErr } = await supabase.from('user_push_tokens').insert(fullPayload);
     if (!insertErr) {
       lastSyncedTokenSignature = signature;
       return { synced: true };
     }
-    return { synced: false, error: insertErr.message };
+
+    const { error: legacyUpsertErr } = await supabase
+      .from('user_push_tokens')
+      .upsert(legacyPayload, { onConflict: 'token' });
+    if (!legacyUpsertErr) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+
+    return { synced: false, error: insertErr.message || legacyUpsertErr.message };
   } catch (err) {
     return { synced: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
 /**
- * Mendaftarkan listener `@capacitor/push-notifications` SATU KALI per lifecycle aplikasi (Android & iOS):
+ * Menghapus HANYA token milik perangkat saat ini dari tabel `user_push_tokens` ketika user menekan tombol Keluar (Logout).
+ * Perangkat lain milik akun yang sama (mis. Web saat logout di HP) tidak ikut terhapus.
+ */
+export async function removeCurrentDevicePushToken(session?: SessionUser | null): Promise<void> {
+  const token = readCachedFcmToken();
+  const targetSession = session || activePushSession;
+  activePushSession = null;
+  lastSyncedTokenSignature = '';
+
+  if (!token || !targetSession) return;
+
+  const supabase = getSupabaseClient(targetSession);
+  if (!supabase || !isSupabaseConfigured()) return;
+
+  const userId = resolveCanonicalUserIdForPush(targetSession);
+  try {
+    await supabase
+      .from('user_push_tokens')
+      .delete()
+      .eq('token', token)
+      .eq('user_id', userId);
+  } catch {
+    // Fallback hapus berdasarkan token perangkat saja jika user_id berbeda format lama
+    try {
+      await supabase.from('user_push_tokens').delete().eq('token', token);
+    } catch {
+      // Abaikan jika offline saat logout
+    }
+  }
+}
+
+/**
+ * Mendaftarkan Service Worker `public/firebase-messaging-sw.js` otomatis pada browser Web (Chrome & Safari).
+ */
+export async function registerWebPushServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (isNativeApp()) return null;
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+
+  if (!swMessageListenerInstalled) {
+    swMessageListenerInstalled = true;
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event.data as { type?: string; targetUrl?: string } | null;
+      if (data?.type === 'ECARD_NOTIFICATION_CLICK' && data.targetUrl) {
+        window.dispatchEvent(
+          new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl: data.targetUrl } })
+        );
+      }
+    });
+  }
+
+  if (webPushSwRegistrationPromise) {
+    return webPushSwRegistrationPromise;
+  }
+
+  webPushSwRegistrationPromise = (async () => {
+    try {
+      const cfg = getFirebaseWebConfig();
+      const params = new URLSearchParams();
+      if (cfg) {
+        params.set('apiKey', cfg.apiKey);
+        params.set('authDomain', cfg.authDomain);
+        params.set('projectId', cfg.projectId);
+        params.set('storageBucket', cfg.storageBucket);
+        params.set('messagingSenderId', cfg.messagingSenderId);
+        params.set('appId', cfg.appId);
+      }
+      const swUrl = params.toString()
+        ? `/firebase-messaging-sw.js?${params.toString()}`
+        : '/firebase-messaging-sw.js';
+
+      const registration = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+
+      // Kirim ulang config ke SW aktif apabila SW sudah terpasang sebelumnya
+      if (cfg && registration.active) {
+        registration.active.postMessage({
+          type: 'ECARD_FIREBASE_CONFIG',
+          config: {
+            apiKey: cfg.apiKey,
+            authDomain: cfg.authDomain,
+            projectId: cfg.projectId,
+            storageBucket: cfg.storageBucket,
+            messagingSenderId: cfg.messagingSenderId,
+            appId: cfg.appId,
+          },
+        });
+      }
+
+      return registration;
+    } catch {
+      webPushSwRegistrationPromise = null;
+      return null;
+    }
+  })();
+
+  return webPushSwRegistrationPromise;
+}
+
+/**
+ * Menginisialisasi Firebase Web Push (Chrome & Safari), mengambil token FCM Web,
+ * memasang listener foreground `onMessage` (toast dalam aplikasi + browser Notification),
+ * dan menyinkronkan token ke `user_push_tokens`.
+ */
+async function syncWebPushTokenForSession(
+  session: SessionUser
+): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
+  if (isNativeApp()) {
+    return { ok: false, synced: false, token: null };
+  }
+
+  const registration = await registerWebPushServiceWorker();
+  const cfg = getFirebaseWebConfig();
+  if (!cfg) {
+    return {
+      ok: false,
+      synced: false,
+      token: readCachedFcmToken(),
+      error: 'Konfigurasi VITE_FIREBASE_* & VITE_FIREBASE_VAPID_KEY belum diatur.',
+    };
+  }
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { ok: false, synced: false, token: null, error: 'Browser tidak mendukung Web Notification.' };
+  }
+
+  if (window.Notification.permission !== 'granted') {
+    return { ok: false, synced: false, token: null, error: 'Izin notifikasi browser belum diberikan.' };
+  }
+
+  try {
+    const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported, onMessage }] =
+      await Promise.all([import('firebase/app'), import('firebase/messaging')]);
+
+    const supported = await isSupported().catch(() => false);
+    if (!supported) {
+      return {
+        ok: false,
+        synced: false,
+        token: null,
+        error: 'Browser/perangkat ini belum mendukung FCM Web Push.',
+      };
+    }
+
+    const appName = 'ecard-saung-kebun-webpush';
+    const existingApp = getApps().find((a) => a.name === appName);
+    const firebaseApp =
+      existingApp ||
+      initializeApp(
+        {
+          apiKey: cfg.apiKey,
+          authDomain: cfg.authDomain,
+          projectId: cfg.projectId,
+          storageBucket: cfg.storageBucket,
+          messagingSenderId: cfg.messagingSenderId,
+          appId: cfg.appId,
+        },
+        appName
+      );
+
+    const messaging = getMessaging(firebaseApp);
+
+    if (!webForegroundListenerInstalled) {
+      webForegroundListenerInstalled = true;
+      onMessage(messaging, (payload) => {
+        const data = (payload?.data || {}) as Record<string, string>;
+        const title =
+          payload?.notification?.title || data.title || 'Aktivitas Baru · Saung Kebun';
+        const body =
+          payload?.notification?.body ||
+          data.body ||
+          'Ketuk untuk melihat detail aktivitas terbaru.';
+        const targetUrl = data.target_url || '';
+        const notifId = data.notification_id || `web-fcm-${Date.now()}`;
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+        }
+
+        // Tampilkan toast in-app + pemicu browser Notification (suara/getar/pop-up)
+        emitForegroundPushToast({ title, body, targetUrl });
+        void triggerDeviceAlert(title, body, {
+          id: notifId,
+          targetUrl,
+        });
+      });
+    }
+
+    const token = await getToken(messaging, {
+      vapidKey: cfg.vapidKey,
+      serviceWorkerRegistration: registration || undefined,
+    });
+
+    if (!token) {
+      return { ok: false, synced: false, token: null, error: 'Token FCM Web gagal diperoleh.' };
+    }
+
+    writeCachedFcmToken(token);
+    const persistRes = await persistFcmTokenToSupabase(session, token);
+    return {
+      ok: true,
+      synced: persistRes.synced,
+      token,
+      error: persistRes.error,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      synced: false,
+      token: readCachedFcmToken(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Mendaftarkan listener `@capacitor/push-notifications` SEBELUM `register()` dipanggil (Android & iOS):
  * - `registration`: simpan token FCM/APNs ke cache lokal & sinkronkan ke `user_push_tokens`
  * - `registrationError`: selesaikan waiter tanpa menghentikan aplikasi
- * - `pushNotificationReceived`: refresh daftar notifikasi & picu alert foreground (suara/getar/status bar)
+ * - `pushNotificationReceived`: refresh daftar notifikasi, tampilkan toast foreground & picu alert
  * - `pushNotificationActionPerformed`: buka `target_url` saat notifikasi diketuk dari Status Bar
  */
 async function ensureNativePushListeners(): Promise<boolean> {
@@ -530,8 +898,8 @@ async function ensureNativePushListeners(): Promise<boolean> {
           window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
         }
 
-        // Pada iOS, `PushNotifications.presentationOptions` di capacitor.config.ts sudah menampilkan banner OS,
-        // sehingga pada iOS kita tetap goyangkan lonceng + suara/getar tanpa menjadwalkan LocalNotification ganda.
+        emitForegroundPushToast({ title, body, targetUrl });
+
         const isIos = getNativePlatformName() === 'ios';
         void triggerDeviceAlert(title, body, {
           id: notifId,
@@ -567,14 +935,14 @@ async function ensureNativePushListeners(): Promise<boolean> {
 }
 
 /**
- * Mendaftarkan perangkat Android/iOS ke FCM/APNs via `@capacitor/push-notifications`,
- * menyimpan token ke cache lokal, dan menyinkronkannya ke tabel Supabase `user_push_tokens`.
- * Aman dipanggil berulang kali (deduplikasi in-flight) & otomatis menjadi no-op pada Web.
+ * Mendaftarkan perangkat Android/iOS (Capacitor) MAUPUN Web Browser (Chrome/Safari) ke FCM,
+ * menyimpan token ke cache lokal, dan menyinkronkannya ke tabel Supabase `user_push_tokens`
+ * dengan upsert `(user_id, token)`.
  */
 export async function syncNativePushTokenForSession(
   session?: SessionUser | null
 ): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
-  if (!isNativeApp() || !session) {
+  if (!session) {
     return { ok: false, synced: false, token: null };
   }
 
@@ -586,10 +954,19 @@ export async function syncNativePushTokenForSession(
 
   inFlightPushSyncPromise = (async () => {
     try {
+      if (!isNativeApp()) {
+        return await syncWebPushTokenForSession(session);
+      }
+
       await ensureAndroidNotificationChannel();
       const listenersReady = await ensureNativePushListeners();
       if (!listenersReady) {
-        return { ok: false, synced: false, token: readCachedFcmToken(), error: 'Plugin Push tidak tersedia' };
+        return {
+          ok: false,
+          synced: false,
+          token: readCachedFcmToken(),
+          error: 'Plugin Push tidak tersedia',
+        };
       }
 
       const { PushNotifications } = await import('@capacitor/push-notifications');
@@ -598,7 +975,12 @@ export async function syncNativePushTokenForSession(
         perm = await PushNotifications.requestPermissions();
       }
       if (perm.receive !== 'granted') {
-        return { ok: false, synced: false, token: null, error: 'Izin push notification belum diberikan' };
+        return {
+          ok: false,
+          synced: false,
+          token: null,
+          error: 'Izin push notification belum diberikan',
+        };
       }
 
       const tokenPromise = new Promise<string | null>((resolve) => {
@@ -645,11 +1027,9 @@ export async function syncNativePushTokenForSession(
 }
 
 /**
- * Dipanggil otomatis saat aplikasi native Android/iOS (Capacitor) dibuka atau saat sesi login berubah:
- * - Membuat Notification Channel Android `saung_kebun_alerts`
- * - Memasang listener FCM/APNs satu kali
- * - Meminta izin notifikasi OS bila masih belum diberikan
- * - Menyinkronkan token perangkat ke Supabase `user_push_tokens` saat `session` tersedia
+ * Dipanggil otomatis saat aplikasi (Android APK, iOS, maupun Web Browser) dibuka atau saat sesi login berubah:
+ * - Di Web: otomatis mendaftarkan `public/firebase-messaging-sw.js` & menyinkronkan token FCM Web saat izin granted + sesi login aktif
+ * - Di Android/iOS: membuat channel `saung_kebun_notif`, memasang listener SEBELUM `register()`, meminta izin OS, & menyinkronkan token ke `user_push_tokens`
  */
 export async function initNativeNotificationsOnLaunch(
   session?: SessionUser | null
@@ -659,13 +1039,19 @@ export async function initNativeNotificationsOnLaunch(
   }
 
   if (!isNativeApp()) {
-    return checkOsNotificationPermission();
+    void registerWebPushServiceWorker();
+    const webPerm = await checkOsNotificationPermission();
+    if (session && webPerm === 'granted') {
+      void syncNativePushTokenForSession(session);
+    }
+    return webPerm;
   }
 
   if (!nativeLaunchInitPromise) {
     nativeLaunchInitPromise = (async () => {
       try {
         await ensureAndroidNotificationChannel();
+        // Wajib pasang seluruh listener SEBELUM register() dipanggil
         await ensureNativePushListeners();
 
         let localStatus: OsNotificationPermissionState = 'prompt';
@@ -699,7 +1085,6 @@ export async function initNativeNotificationsOnLaunch(
         }
 
         if (localStatus === 'granted' || pushStatus === 'granted') return 'granted';
-        if (localStatus === 'denied' && pushStatus === 'denied') return 'denied';
         if (localStatus === 'denied' || pushStatus === 'denied') return 'denied';
         return 'prompt';
       } catch {
@@ -826,8 +1211,14 @@ export async function requestOsNotificationPermission(): Promise<OsNotificationP
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return 'unsupported';
     }
+    await registerWebPushServiceWorker();
     const perm = await window.Notification.requestPermission();
-    if (perm === 'granted') return 'granted';
+    if (perm === 'granted') {
+      if (activePushSession) {
+        void syncNativePushTokenForSession(activePushSession);
+      }
+      return 'granted';
+    }
     if (perm === 'denied') return 'denied';
     return 'prompt';
   } catch {
@@ -955,6 +1346,19 @@ export function registerOsNotificationTapListener(
     };
     window.addEventListener(NOTIF_NAVIGATE_EVENT, onWebNav);
     cleanups.push(() => window.removeEventListener(NOTIF_NAVIGATE_EVENT, onWebNav));
+
+    // Tangani deep-link ?notif_target=... ketika aplikasi dibuka dari Web Push background click
+    try {
+      const url = new URL(window.location.href);
+      const pendingTarget = url.searchParams.get('notif_target')?.trim();
+      if (pendingTarget && onNavigateTarget) {
+        url.searchParams.delete('notif_target');
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+        window.setTimeout(() => onNavigateTarget(pendingTarget), 250);
+      }
+    } catch {
+      // Abaikan
+    }
   }
 
   if (isNativeApp()) {
@@ -1105,4 +1509,154 @@ export async function triggerTestNotificationAlert(
       skipDedupe: true,
     }
   );
+}
+
+/**
+ * Tombol "Tes Kirim Notifikasi" khusus Pengurus (Admin) untuk menguji jalur server FCM end-to-end
+ * (Edge Function `send-push-notification` -> FCM v1 -> Android / iOS / Web) tanpa membuat transaksi palsu.
+ */
+export async function sendAdminTestPushNotification(
+  session: SessionUser,
+  mode: 'self' | 'broadcast'
+): Promise<AdminTestPushResult> {
+  if (session.role !== 'admin') {
+    return {
+      ok: false,
+      sent: 0,
+      failed: 0,
+      matchedDevices: 0,
+      message: 'Fitur tes kirim server push hanya tersedia untuk Pengurus (Admin).',
+    };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) {
+    return {
+      ok: false,
+      sent: 0,
+      failed: 0,
+      matchedDevices: 0,
+      message: 'Supabase belum terkonfigurasi. Hubungkan proyek Supabase untuk menguji server FCM.',
+    };
+  }
+
+  // Pastikan token perangkat saat ini ikut tersinkron terlebih dahulu sebelum tes dikirim
+  await syncNativePushTokenForSession(session).catch(() => {});
+
+  const canonicalAdminId = resolveCanonicalUserIdForPush(session);
+  const senderLabel = `${session.nama_warga || 'Pengurus'}${session.jabatan ? ` (${session.jabatan})` : ''}`;
+
+  const bodyPayload =
+    mode === 'broadcast'
+      ? {
+          id: `admin-broadcast-test-${Date.now()}`,
+          broadcast: true,
+          include_self: true,
+          actor_id: canonicalAdminId,
+          category: 'announcement',
+          title: 'Tes Broadcast Notifikasi · Saung Kebun',
+          body: `Uji coba pengiriman notifikasi real-time oleh ${senderLabel}. Perangkat Anda terhubung dengan sistem push e-Card IPL.`,
+          target_url: 'tab:beranda',
+          data: {
+            test_mode: 'broadcast',
+          },
+        }
+      : {
+          id: `admin-self-test-${Date.now()}`,
+          target_user_ids: [canonicalAdminId],
+          include_self: true,
+          actor_id: canonicalAdminId,
+          category: 'system',
+          title: 'Tes Push Server FCM · Saung Kebun',
+          body: `Halo ${senderLabel}, jalur Push Notification server FCM ke perangkat Anda berhasil & aktif!`,
+          target_url: 'tab:dashboard',
+          data: {
+            test_mode: 'self',
+          },
+        };
+
+  try {
+    const { data, error } = await supabase.functions.invoke('send-push-notification', {
+      body: bodyPayload,
+    });
+
+    if (error) {
+      return {
+        ok: false,
+        sent: 0,
+        failed: 0,
+        matchedDevices: 0,
+        message: `Gagal memanggil Edge Function send-push-notification: ${error.message}`,
+      };
+    }
+
+    const res = (data || {}) as {
+      ok?: boolean;
+      sent?: number;
+      failed?: number;
+      matchedDevices?: number;
+      skipped?: boolean;
+      reason?: string;
+      error?: string;
+    };
+
+    if (res.skipped) {
+      return {
+        ok: false,
+        sent: 0,
+        failed: 0,
+        matchedDevices: 0,
+        skipped: true,
+        message:
+          res.reason ||
+          'Secret FIREBASE_SERVICE_ACCOUNT belum diatur di Supabase Edge Functions.',
+      };
+    }
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        sent: res.sent || 0,
+        failed: res.failed || 0,
+        matchedDevices: res.matchedDevices || 0,
+        message: res.error || 'Server push mengembalikan kesalahan.',
+      };
+    }
+
+    const sent = Number(res.sent || 0);
+    const failed = Number(res.failed || 0);
+    const matched = Number(res.matchedDevices || 0);
+
+    if (sent === 0 && matched === 0) {
+      return {
+        ok: true,
+        sent: 0,
+        failed: 0,
+        matchedDevices: 0,
+        message:
+          mode === 'self'
+            ? 'Server FCM aktif, namun belum ada token perangkat untuk akun Anda di user_push_tokens. Pastikan izin notifikasi sudah aktif.'
+            : 'Server FCM aktif, namun belum ada token perangkat terdaftar di tabel user_push_tokens.',
+      };
+    }
+
+    return {
+      ok: true,
+      sent,
+      failed,
+      matchedDevices: matched,
+      message:
+        mode === 'broadcast'
+          ? `Broadcast tes FCM terkirim ke ${sent} perangkat aktif${failed > 0 ? ` (${failed} gagal/kedaluwarsa)` : ''}.`
+          : `Push tes server FCM berhasil dikirim ke ${sent} perangkat milik Anda${failed > 0 ? ` (${failed} gagal)` : ''}.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      sent: 0,
+      failed: 0,
+      matchedDevices: 0,
+      message: err instanceof Error ? err.message : 'Terjadi kesalahan saat mengirim tes push FCM.',
+    };
+  }
 }

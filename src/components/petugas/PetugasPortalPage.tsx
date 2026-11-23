@@ -1784,6 +1784,7 @@ export function PetugasPortalPage({
                 officerName={profil.nama}
                 riwayatHonor={data?.riwayatHonor || []}
                 onOpenKwitansi={setSelectedHonorTrx}
+                onToast={onToast}
               />
             )}
 

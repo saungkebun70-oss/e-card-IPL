@@ -70,10 +70,10 @@ if (linesToInsert.length > 0) {
   console.log('[inject-android-manifest] Seluruh izin Android sudah terpasang.');
 }
 
-// Suntikkan default_notification_channel_id = saung_kebun_alerts di dalam tag <application>
+// Suntikkan default_notification_channel_id = saung_kebun_notif di dalam tag <application>
 const DEFAULT_CHANNEL_META_NAME =
   'com.google.firebase.messaging.default_notification_channel_id';
-const DEFAULT_CHANNEL_ID = 'saung_kebun_alerts';
+const DEFAULT_CHANNEL_ID = 'saung_kebun_notif';
 
 if (!xml.includes(DEFAULT_CHANNEL_META_NAME)) {
   const metaBlock = `\n        <!-- Default Notification Channel untuk FCM & Local Notifications -->\n        <meta-data\n            android:name="${DEFAULT_CHANNEL_META_NAME}"\n            android:value="${DEFAULT_CHANNEL_ID}" />\n    `;
@@ -86,9 +86,15 @@ if (!xml.includes(DEFAULT_CHANNEL_META_NAME)) {
   } else {
     console.warn('[inject-android-manifest] Tag </application> tidak ditemukan.');
   }
+} else if (xml.includes('android:value="saung_kebun_alerts"')) {
+  xml = xml.replace('android:value="saung_kebun_alerts"', `android:value="${DEFAULT_CHANNEL_ID}"`);
+  modified = true;
+  console.log(
+    `[inject-android-manifest] Memperbarui default_notification_channel_id menjadi ${DEFAULT_CHANNEL_ID}.`
+  );
 } else {
   console.log(
-    `[inject-android-manifest] default_notification_channel_id sudah terpasang.`
+    `[inject-android-manifest] default_notification_channel_id=${DEFAULT_CHANNEL_ID} sudah terpasang.`
   );
 }
 

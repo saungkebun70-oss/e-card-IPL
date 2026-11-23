@@ -543,15 +543,24 @@ export async function completeLivePatrolSession(
 
         if (!error) {
           emitLivePatrolEvent();
+          const pushTitle = 'Update dari Petugas Keamanan';
+          const pushBody = `${session.nama_warga} telah mengirim laporan keamanan (Sesi Patroli Live selesai).`;
           void dispatchActivityNotifications(
             session,
             getAllAdminUserIds().map((uid) => ({
               user_id: uid,
               category: 'patrol' as const,
-              title: 'Sesi Patroli Live Selesai',
-              message: `${session.nama_warga} (${session.shift || 'Petugas Keamanan'}) telah menyelesaikan sesi patroli lingkungan.`,
+              title: pushTitle,
+              message: pushBody,
               target_url: 'tab:keamanan',
-            }))
+            })),
+            {
+              target_roles: ['admin'],
+              category: 'patrol',
+              title: pushTitle,
+              body: pushBody,
+              target_url: 'tab:keamanan',
+            }
           );
           return {
             ok: true,
@@ -565,15 +574,24 @@ export async function completeLivePatrolSession(
   }
 
   emitLivePatrolEvent();
+  const fallbackTitle = 'Update dari Petugas Keamanan';
+  const fallbackBody = `${session.nama_warga} telah mengirim laporan keamanan (Sesi Patroli Live selesai).`;
   void dispatchActivityNotifications(
     session,
     getAllAdminUserIds().map((uid) => ({
       user_id: uid,
       category: 'patrol' as const,
-      title: 'Sesi Patroli Live Selesai',
-      message: `${session.nama_warga} (${session.shift || 'Petugas Keamanan'}) telah menyelesaikan sesi patroli lingkungan.`,
+      title: fallbackTitle,
+      message: fallbackBody,
       target_url: 'tab:keamanan',
-    }))
+    })),
+    {
+      target_roles: ['admin'],
+      category: 'patrol',
+      title: fallbackTitle,
+      body: fallbackBody,
+      target_url: 'tab:keamanan',
+    }
   );
   return {
     ok: true,

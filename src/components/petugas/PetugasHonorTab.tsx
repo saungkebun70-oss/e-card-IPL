@@ -5,6 +5,7 @@ import {
   FileText,
   Moon,
   ShieldAlert,
+  ThumbsUp,
   Wallet,
 } from 'lucide-react';
 import type {
@@ -23,12 +24,40 @@ import {
   isSundayOvertimeShift,
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
+import {
+  dispatchActivityNotifications,
+  getAllAdminUserIds,
+} from '../../lib/notificationService';
 
 interface PetugasHonorTabProps {
   session: SessionUser;
   officerName: string;
   riwayatHonor: TransaksiKas[];
   onOpenKwitansi: (trx: TransaksiKas) => void;
+  onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
+}
+
+const HONOR_CONFIRMED_STORAGE_KEY = 'ecard_petugas_honor_confirmed_v1';
+
+function readConfirmedHonorMap(): Record<string, string> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = window.localStorage.getItem(HONOR_CONFIRMED_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeConfirmedHonorMap(map: Record<string, string>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(HONOR_CONFIRMED_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // Abaikan keterbatasan storage
+  }
 }
 
 export function PetugasHonorTab({
@@ -36,9 +65,14 @@ export function PetugasHonorTab({
   officerName,
   riwayatHonor,
   onOpenKwitansi,
+  onToast,
 }: PetugasHonorTabProps) {
   const [overrides, setOverrides] = useState<SecurityShiftOverride[]>([]);
   const [loadingOverrides, setLoadingOverrides] = useState(true);
+  const [confirmedMap, setConfirmedMap] = useState<Record<string, string>>(() =>
+    readConfirmedHonorMap()
+  );
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
 
   const loadOverrides = useCallback(async () => {
     try {
@@ -61,6 +95,48 @@ export function PetugasHonorTab({
       unsub();
     };
   }, [session, loadOverrides]);
+
+  const handleConfirmHonorReceipt = useCallback(
+    async (confirmKey: string, periodeLabel: string, nominal: number) => {
+      if (confirmingKey || confirmedMap[confirmKey]) return;
+      setConfirmingKey(confirmKey);
+      try {
+        const nowIso = new Date().toISOString();
+        const nextMap = { ...confirmedMap, [confirmKey]: nowIso };
+        setConfirmedMap(nextMap);
+        writeConfirmedHonorMap(nextMap);
+
+        const pushTitle = 'Update dari Petugas Keamanan';
+        const pushBody = `${officerName} telah mengonfirmasi penerimaan honor (${periodeLabel} · ${formatRupiah(nominal)}).`;
+
+        await dispatchActivityNotifications(
+          session,
+          getAllAdminUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'finance' as const,
+            title: pushTitle,
+            message: pushBody,
+            target_url: 'tab:keuangan',
+          })),
+          {
+            target_roles: ['admin'],
+            category: 'finance',
+            title: pushTitle,
+            body: pushBody,
+            target_url: 'tab:keuangan',
+          }
+        );
+
+        onToast?.(
+          'success',
+          `Konfirmasi penerimaan honor (${periodeLabel}) telah dikirim ke Pengurus.`
+        );
+      } finally {
+        setConfirmingKey(null);
+      }
+    },
+    [confirmingKey, confirmedMap, officerName, session, onToast]
+  );
 
   const currentMonthStr = getWibParts().monthStr;
 
@@ -197,6 +273,8 @@ export function PetugasHonorTab({
             {lemburOverrides.map((ov) => {
               const isPaid = ov.payment_status === 'paid' || Boolean(ov.cash_transaction_id);
               const linkedTrx = linkedCashByOverrideId.get(ov.id) || null;
+              const confirmKey = `lembur:${ov.id}`;
+              const isConfirmed = Boolean(confirmedMap[confirmKey]);
               return (
                 <article
                   key={ov.id}
@@ -241,10 +319,42 @@ export function PetugasHonorTab({
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
+                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums mr-1">
                       {formatRupiah(ov.overtime_amount)}
                     </p>
+                    {isPaid && (
+                      <button
+                        type="button"
+                        disabled={isConfirmed || confirmingKey === confirmKey}
+                        onClick={() =>
+                          void handleConfirmHonorReceipt(
+                            confirmKey,
+                            `Lembur Minggu ${formatWibDateStr(ov.shift_date)}`,
+                            ov.overtime_amount
+                          )
+                        }
+                        className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                          isConfirmed
+                            ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
+                            : 'border-slate-300 bg-white hover:bg-slate-50 text-[#0F172A] cursor-pointer'
+                        }`}
+                      >
+                        {isConfirmed ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Dikonfirmasi</span>
+                          </>
+                        ) : (
+                          <>
+                            <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                              {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
                     {linkedTrx && (
                       <button
                         type="button"
@@ -295,6 +405,10 @@ export function PetugasHonorTab({
                 trx.jenis_honor === 'honor_rutin'
                   ? false
                   : trx.jenis_honor === 'lembur' || trx.kategori.toLowerCase().includes('lembur');
+              const confirmKey = `kas:${trx.id}`;
+              const isConfirmed = Boolean(confirmedMap[confirmKey]);
+              const periodeLabel =
+                trx.termin || `${isLembur ? 'Uang Lembur' : 'Honor Rutin'} ${formatTanggal(trx.tanggal)}`;
               return (
                 <div
                   key={trx.id}
@@ -328,10 +442,36 @@ export function PetugasHonorTab({
                     <p className="text-[11px] font-mono text-slate-400">{trx.no_bukti}</p>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
+                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums mr-1">
                       {formatRupiah(trx.nominal)}
                     </p>
+                    <button
+                      type="button"
+                      disabled={isConfirmed || confirmingKey === confirmKey}
+                      onClick={() =>
+                        void handleConfirmHonorReceipt(confirmKey, periodeLabel, trx.nominal)
+                      }
+                      className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                        isConfirmed
+                          ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
+                          : 'border-slate-300 bg-white hover:bg-slate-50 text-[#0F172A] cursor-pointer'
+                      }`}
+                    >
+                      {isConfirmed ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Dikonfirmasi</span>
+                        </>
+                      ) : (
+                        <>
+                          <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
+                          </span>
+                        </>
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => onOpenKwitansi(trx)}

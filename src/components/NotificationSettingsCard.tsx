@@ -3,6 +3,8 @@ import {
   Bell,
   BellRing,
   CheckCircle2,
+  Radio,
+  Send,
   ShieldAlert,
   Smartphone,
   Vibrate,
@@ -11,9 +13,11 @@ import {
 } from 'lucide-react';
 import type { SessionUser } from '../types';
 import {
+  ANDROID_NOTIFICATION_CHANNEL_ID,
   checkOsNotificationPermission,
   getNativePushRuntimeInfo,
   requestOsNotificationPermission,
+  sendAdminTestPushNotification,
   syncNativePushTokenForSession,
   triggerTestNotificationAlert,
   useNotificationPreferences,
@@ -37,6 +41,11 @@ export function NotificationSettingsCard({
   const [pushInfo, setPushInfo] = useState(() => getNativePushRuntimeInfo());
   const [requestingPerm, setRequestingPerm] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [sendingServerPush, setSendingServerPush] = useState<'self' | 'broadcast' | null>(null);
+  const [lastServerResult, setLastServerResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   const refreshPermission = useCallback(async () => {
     const next = await checkOsNotificationPermission();
@@ -85,6 +94,7 @@ export function NotificationSettingsCard({
     try {
       const res = await triggerTestNotificationAlert(session);
       setPermission(res.permission);
+      setPushInfo(getNativePushRuntimeInfo());
 
       const activeParts: string[] = [];
       if (prefs.soundEnabled && res.soundPlayed) activeParts.push('bunyi lonceng');
@@ -109,6 +119,20 @@ export function NotificationSettingsCard({
       }
     } finally {
       window.setTimeout(() => setTesting(false), 650);
+    }
+  };
+
+  const handleAdminServerPushTest = async (mode: 'self' | 'broadcast') => {
+    if (sendingServerPush || session.role !== 'admin') return;
+    setSendingServerPush(mode);
+    setLastServerResult(null);
+    try {
+      const res = await sendAdminTestPushNotification(session, mode);
+      setPushInfo(getNativePushRuntimeInfo());
+      setLastServerResult({ ok: res.ok && !res.skipped, message: res.message });
+      onToast?.(res.ok && !res.skipped ? 'success' : 'info', res.message);
+    } finally {
+      setSendingServerPush(null);
     }
   };
 
@@ -145,7 +169,7 @@ export function NotificationSettingsCard({
               Notifikasi, Suara &amp; Getaran
             </h3>
             <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-              Atur bunyi lonceng, getaran, dan pop-up status bar HP untuk notifikasi real-time.
+              Atur bunyi lonceng, getaran, dan push notification real-time (Android, iOS, &amp; Web).
             </p>
           </div>
         </div>
@@ -204,7 +228,7 @@ export function NotificationSettingsCard({
             <div className="min-w-0">
               <p className="text-xs sm:text-sm font-semibold text-[#0F172A]">Getaran (Vibration)</p>
               <p className="text-[11px] text-slate-500 leading-snug">
-                Pola getar HP saat notifikasi masuk di aplikasi Android maupun Web.
+                Pola getar HP saat notifikasi masuk di aplikasi Android, iOS, maupun Web.
               </p>
             </div>
           </div>
@@ -242,7 +266,7 @@ export function NotificationSettingsCard({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <p className="text-xs sm:text-sm font-semibold text-[#0F172A]">
-                  Pop-up Status Bar HP
+                  Pop-up Status Bar &amp; Push FCM
                 </p>
                 <span
                   className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${permBadge.className}`}
@@ -258,13 +282,15 @@ export function NotificationSettingsCard({
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                 {permission === 'granted'
                   ? pushInfo.isNative
-                    ? `Channel saung_kebun_alerts aktif (${pushInfo.hasFcmToken ? 'FCM & Lokal siap' : 'Notifikasi Lokal Android aktif'}).`
-                    : 'Notifikasi pop-up Browser siap tampil dengan suara & getar bawaan.'
+                    ? `Channel ${ANDROID_NOTIFICATION_CHANNEL_ID} aktif (${pushInfo.hasFcmToken ? 'Token FCM tersinkron' : 'Notifikasi Lokal aktif'}).`
+                    : pushInfo.hasFcmToken
+                      ? 'Web Push FCM aktif (Chrome/Safari siap menerima notifikasi background).'
+                      : 'Notifikasi pop-up Browser siap tampil dengan suara & getar bawaan.'
                   : permission === 'denied'
                     ? 'Izin diblokir. Buka Pengaturan HP/Browser lalu izinkan Notifikasi untuk aplikasi ini.'
                     : permission === 'unsupported'
                       ? 'Browser ini tidak mendukung pop-up sistem, namun bunyi & lonceng aplikasi tetap aktif.'
-                      : 'Izinkan pop-up agar pemberitahuan muncul di atas layar HP seperti aplikasi Android.'}
+                      : 'Izinkan pop-up agar pemberitahuan muncul di atas layar HP dan saat aplikasi ditutup.'}
               </p>
             </div>
           </div>
@@ -287,7 +313,7 @@ export function NotificationSettingsCard({
         </div>
       </div>
 
-      {/* Tombol Uji Coba Bunyi, Getaran & Pop-up */}
+      {/* Tombol Uji Coba Bunyi, Getaran & Pop-up Lokal */}
       <button
         type="button"
         disabled={testing}
@@ -301,6 +327,75 @@ export function NotificationSettingsCard({
         )}
         <span>{testing ? 'Mengirim Tes Notifikasi...' : 'Tes Bunyi, Getar & Pop-up Notifikasi'}</span>
       </button>
+
+      {/* Panel Khusus Admin: Tes Kirim Notifikasi Server FCM (Perangkat Sendiri / Broadcast) */}
+      {session.role === 'admin' && (
+        <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0">
+              <Radio className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                Tes Kirim Notifikasi (Server FCM)
+              </p>
+              <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                Uji pengiriman Push Notification asli melalui Edge Function{' '}
+                <span className="font-mono text-slate-700">send-push-notification</span> tanpa
+                membuat transaksi palsu.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={sendingServerPush !== null}
+              onClick={() => void handleAdminServerPushTest('self')}
+              className="min-h-[40px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              {sendingServerPush === 'self' ? (
+                <LoadingSpinner size="xs" tone="white" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {sendingServerPush === 'self' ? 'Mengirim...' : 'Tes ke Perangkat Sendiri'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              disabled={sendingServerPush !== null}
+              onClick={() => void handleAdminServerPushTest('broadcast')}
+              className="min-h-[40px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 text-emerald-800 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              {sendingServerPush === 'broadcast' ? (
+                <LoadingSpinner size="xs" />
+              ) : (
+                <Radio className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {sendingServerPush === 'broadcast'
+                  ? 'Mengirim Broadcast...'
+                  : 'Broadcast Tes (Semua Perangkat)'}
+              </span>
+            </button>
+          </div>
+
+          {lastServerResult && (
+            <p
+              className={`text-[11px] leading-relaxed rounded-lg border px-2.5 py-2 ${
+                lastServerResult.ok
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50/80 border-amber-200 text-amber-800'
+              }`}
+            >
+              {lastServerResult.message}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

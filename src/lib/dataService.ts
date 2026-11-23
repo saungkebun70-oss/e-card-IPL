@@ -47,6 +47,7 @@ import {
   formatDaftarBulan,
   formatRupiah,
   generateBuktiKasNumber,
+  formatTanggal,
   generateKwitansiNumber,
   generateRandomPin,
   getCurrentBillingMonth,
@@ -70,6 +71,7 @@ import {
 } from './seedData';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import {
+  buildKeamananUserId,
   buildPetugasUserId,
   buildWargaUserId,
   dispatchActivityNotifications,
@@ -1237,15 +1239,25 @@ export async function submitSetoranWarga(
         metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
       });
 
+      const bulanLabel = formatDaftarBulan(sortedBulan, true);
+      const pushTitle = 'Pembayaran IPL Baru';
+      const pushBody = `Warga Blok ${effectiveBlok} mengirim pembayaran IPL sebesar ${formatRupiah(payload.nominal)} untuk bulan ${bulanLabel}. Menunggu verifikasi.`;
       void dispatchActivityNotifications(
         effectiveSession,
         getAllAdminUserIds().map((uid) => ({
           user_id: uid,
           category: 'ipl' as const,
-          title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
-          message: `${effectiveNama} mengirim setoran ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+          title: pushTitle,
+          message: pushBody,
           target_url: 'tab:dashboard',
-        }))
+        })),
+        {
+          target_roles: ['admin'],
+          category: 'ipl',
+          title: pushTitle,
+          body: pushBody,
+          target_url: 'tab:dashboard',
+        }
       );
 
       return { data: normalizeTransaksiRow(inserted as Record<string, unknown>) };
@@ -1295,15 +1307,25 @@ export async function submitSetoranWarga(
       metadata: { bulan: sortedBulan, nominal: payload.nominal, metode: payload.metode_bayar },
     });
 
+    const bulanLabelLocal = formatDaftarBulan(sortedBulan, true);
+    const pushTitleLocal = 'Pembayaran IPL Baru';
+    const pushBodyLocal = `Warga Blok ${effectiveBlok} mengirim pembayaran IPL sebesar ${formatRupiah(payload.nominal)} untuk bulan ${bulanLabelLocal}. Menunggu verifikasi.`;
     void dispatchActivityNotifications(
       effectiveSession,
       getAllAdminUserIds().map((uid) => ({
         user_id: uid,
         category: 'ipl' as const,
-        title: `Bukti IPL Baru — Blok ${effectiveBlok}`,
-        message: `${effectiveNama} mengirim setoran ${formatRupiah(payload.nominal)} (${formatDaftarBulan(sortedBulan, true)}) via ${payload.metode_bayar}.`,
+        title: pushTitleLocal,
+        message: pushBodyLocal,
         target_url: 'tab:dashboard',
-      }))
+      })),
+      {
+        target_roles: ['admin'],
+        category: 'ipl',
+        title: pushTitleLocal,
+        body: pushBodyLocal,
+        target_url: 'tab:dashboard',
+      }
     );
 
     return { data: newTrx };
@@ -1995,34 +2017,60 @@ export async function verifyTransaksiAdmin(
         metadata: { catatan: cleanNote, blok: trx.blok_rumah },
       });
 
-      void dispatchActivityNotifications(session, [
-        {
-          user_id: buildWargaUserId(trx.blok_rumah),
-          category: 'ipl',
-          title:
-            effectiveStatus === 'ACC Bendahara'
-              ? 'IPL Di-ACC Bendahara'
-              : 'Setoran IPL Ditolak Bendahara',
-          message:
-            effectiveStatus === 'ACC Bendahara'
-              ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah ACC Bendahara dan diteruskan ke Ketua.`
-              : `Setoran ${formatRupiah(trx.nominal)} ditolak. Alasan: ${cleanNote || 'Periksa kembali bukti transaksi.'}`,
-          target_url: 'tab:riwayat',
-        },
-        ...getKetuaUserIds().map((uid) => ({
-          user_id: uid,
-          category: 'ipl' as const,
-          title:
-            effectiveStatus === 'ACC Bendahara'
-              ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
-              : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`,
-          message:
-            effectiveStatus === 'ACC Bendahara'
-              ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}). Menunggu verifikasi final Anda.`
-              : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`,
-          target_url: 'tab:dashboard',
-        })),
-      ]);
+      const bulanVerifLabel = formatDaftarBulan(trx.bulan_dibayar, true);
+      const wargaTargetId = buildWargaUserId(trx.blok_rumah);
+      const wargaTitle =
+        effectiveStatus === 'ACC Bendahara'
+          ? 'Pembayaran IPL Terverifikasi'
+          : 'Pembayaran IPL Ditolak';
+      const wargaBody =
+        effectiveStatus === 'ACC Bendahara'
+          ? `Pembayaran IPL Blok ${trx.blok_rumah} bulan ${bulanVerifLabel} sebesar ${formatRupiah(trx.nominal)} telah diverifikasi pengurus (ACC Bendahara).`
+          : `Pengajuan IPL Blok ${trx.blok_rumah} ditolak: ${cleanNote || 'Periksa kembali bukti transaksi'}. Silakan periksa kembali.`;
+      const ketuaTitle =
+        effectiveStatus === 'ACC Bendahara'
+          ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
+          : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`;
+      const ketuaBody =
+        effectiveStatus === 'ACC Bendahara'
+          ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${bulanVerifLabel}). Menunggu verifikasi final Anda.`
+          : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`;
+
+      void dispatchActivityNotifications(
+        session,
+        [
+          {
+            user_id: wargaTargetId,
+            category: 'ipl',
+            title: wargaTitle,
+            message: wargaBody,
+            target_url: 'tab:riwayat',
+          },
+          ...getKetuaUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'ipl' as const,
+            title: ketuaTitle,
+            message: ketuaBody,
+            target_url: 'tab:dashboard',
+          })),
+        ],
+        [
+          {
+            target_user_ids: [wargaTargetId],
+            category: 'ipl',
+            title: wargaTitle,
+            body: wargaBody,
+            target_url: 'tab:riwayat',
+          },
+          {
+            target_user_ids: getKetuaUserIds(),
+            category: 'ipl',
+            title: ketuaTitle,
+            body: ketuaBody,
+            target_url: 'tab:dashboard',
+          },
+        ]
+      );
 
       return { data: normalizeTransaksiRow((data || trx) as Record<string, unknown>) };
     } catch (err) {
@@ -2075,34 +2123,60 @@ export async function verifyTransaksiAdmin(
     metadata: { catatan: cleanNote, blok: trx.blok_rumah },
   });
 
-  void dispatchActivityNotifications(session, [
-    {
-      user_id: buildWargaUserId(trx.blok_rumah),
-      category: 'ipl',
-      title:
-        effectiveStatus === 'ACC Bendahara'
-          ? 'IPL Di-ACC Bendahara'
-          : 'Setoran IPL Ditolak Bendahara',
-      message:
-        effectiveStatus === 'ACC Bendahara'
-          ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah ACC Bendahara dan diteruskan ke Ketua.`
-          : `Setoran ${formatRupiah(trx.nominal)} ditolak. Alasan: ${cleanNote || 'Periksa kembali bukti transaksi.'}`,
-      target_url: 'tab:riwayat',
-    },
-    ...getKetuaUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'ipl' as const,
-      title:
-        effectiveStatus === 'ACC Bendahara'
-          ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
-          : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`,
-      message:
-        effectiveStatus === 'ACC Bendahara'
-          ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}).`
-          : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`,
-      target_url: 'tab:dashboard',
-    })),
-  ]);
+  const bulanVerifLocal = formatDaftarBulan(trx.bulan_dibayar, true);
+  const wargaTargetIdLocal = buildWargaUserId(trx.blok_rumah);
+  const wargaTitleLocal =
+    effectiveStatus === 'ACC Bendahara'
+      ? 'Pembayaran IPL Terverifikasi'
+      : 'Pembayaran IPL Ditolak';
+  const wargaBodyLocal =
+    effectiveStatus === 'ACC Bendahara'
+      ? `Pembayaran IPL Blok ${trx.blok_rumah} bulan ${bulanVerifLocal} sebesar ${formatRupiah(trx.nominal)} telah diverifikasi pengurus (ACC Bendahara).`
+      : `Pengajuan IPL Blok ${trx.blok_rumah} ditolak: ${cleanNote || 'Periksa kembali bukti transaksi'}. Silakan periksa kembali.`;
+  const ketuaTitleLocal =
+    effectiveStatus === 'ACC Bendahara'
+      ? `Menunggu Pengesahan Ketua — Blok ${trx.blok_rumah}`
+      : `Setoran Blok ${trx.blok_rumah} Ditolak Bendahara`;
+  const ketuaBodyLocal =
+    effectiveStatus === 'ACC Bendahara'
+      ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${bulanVerifLocal}).`
+      : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`;
+
+  void dispatchActivityNotifications(
+    session,
+    [
+      {
+        user_id: wargaTargetIdLocal,
+        category: 'ipl',
+        title: wargaTitleLocal,
+        message: wargaBodyLocal,
+        target_url: 'tab:riwayat',
+      },
+      ...getKetuaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'ipl' as const,
+        title: ketuaTitleLocal,
+        message: ketuaBodyLocal,
+        target_url: 'tab:dashboard',
+      })),
+    ],
+    [
+      {
+        target_user_ids: [wargaTargetIdLocal],
+        category: 'ipl',
+        title: wargaTitleLocal,
+        body: wargaBodyLocal,
+        target_url: 'tab:riwayat',
+      },
+      {
+        target_user_ids: getKetuaUserIds(),
+        category: 'ipl',
+        title: ketuaTitleLocal,
+        body: ketuaBodyLocal,
+        target_url: 'tab:dashboard',
+      },
+    ]
+  );
 
   return { data: updatedItem };
 }
@@ -2238,34 +2312,60 @@ export async function verifyTransaksiKetuaAdmin(
         metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
       });
 
-      void dispatchActivityNotifications(session, [
-        {
-          user_id: buildWargaUserId(trx.blok_rumah),
-          category: 'ipl',
-          title:
-            decision === 'Terverifikasi'
-              ? 'Pembayaran IPL Lunas & Sah'
-              : 'Setoran IPL Perlu Pengecekan Ulang',
-          message:
-            decision === 'Terverifikasi'
-              ? `Pembayaran IPL ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah disahkan Ketua ${ketuaName}. Kwitansi resmi sudah tersedia.`
-              : `Ketua ${ketuaName} mengembalikan setoran ${formatRupiah(trx.nominal)} ke Bendahara untuk pengecekan: ${cleanKetuaNote}`,
-          target_url: 'tab:riwayat',
-        },
-        ...getBendaharaUserIds().map((uid) => ({
-          user_id: uid,
-          category: 'ipl' as const,
-          title:
-            decision === 'Terverifikasi'
-              ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
-              : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`,
-          message:
-            decision === 'Terverifikasi'
-              ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) resmi Lunas dan masuk saldo kas.`
-              : `Catatan Ketua: ${cleanKetuaNote}`,
-          target_url: 'tab:dashboard',
-        })),
-      ]);
+      const bulanFinalLabel = formatDaftarBulan(trx.bulan_dibayar, true);
+      const wargaTargetFinal = buildWargaUserId(trx.blok_rumah);
+      const wargaFinalTitle =
+        decision === 'Terverifikasi'
+          ? 'Pembayaran IPL Terverifikasi'
+          : 'Pembayaran IPL Ditolak';
+      const wargaFinalBody =
+        decision === 'Terverifikasi'
+          ? `Pembayaran IPL Blok ${trx.blok_rumah} bulan ${bulanFinalLabel} sebesar ${formatRupiah(trx.nominal)} telah diverifikasi pengurus.`
+          : `Pengajuan IPL Blok ${trx.blok_rumah} ditolak: ${cleanKetuaNote}. Silakan periksa kembali.`;
+      const bendaharaTitle =
+        decision === 'Terverifikasi'
+          ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
+          : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`;
+      const bendaharaBody =
+        decision === 'Terverifikasi'
+          ? `Setoran ${formatRupiah(trx.nominal)} (${bulanFinalLabel}) resmi Lunas dan masuk saldo kas.`
+          : `Catatan Ketua: ${cleanKetuaNote}`;
+
+      void dispatchActivityNotifications(
+        session,
+        [
+          {
+            user_id: wargaTargetFinal,
+            category: 'ipl',
+            title: wargaFinalTitle,
+            message: wargaFinalBody,
+            target_url: 'tab:riwayat',
+          },
+          ...getBendaharaUserIds().map((uid) => ({
+            user_id: uid,
+            category: 'ipl' as const,
+            title: bendaharaTitle,
+            message: bendaharaBody,
+            target_url: 'tab:dashboard',
+          })),
+        ],
+        [
+          {
+            target_user_ids: [wargaTargetFinal],
+            category: 'ipl',
+            title: wargaFinalTitle,
+            body: wargaFinalBody,
+            target_url: 'tab:riwayat',
+          },
+          {
+            target_user_ids: getBendaharaUserIds(),
+            category: 'ipl',
+            title: bendaharaTitle,
+            body: bendaharaBody,
+            target_url: 'tab:dashboard',
+          },
+        ]
+      );
 
       return {
         data: normalizeTransaksiRow(((data as Record<string, unknown>) || trx) as Record<string, unknown>),
@@ -2327,34 +2427,60 @@ export async function verifyTransaksiKetuaAdmin(
     metadata: { catatan: cleanKetuaNote, blok: trx.blok_rumah },
   });
 
-  void dispatchActivityNotifications(session, [
-    {
-      user_id: buildWargaUserId(trx.blok_rumah),
-      category: 'ipl',
-      title:
-        decision === 'Terverifikasi'
-          ? 'Pembayaran IPL Lunas & Sah'
-          : 'Setoran IPL Perlu Pengecekan Ulang',
-      message:
-        decision === 'Terverifikasi'
-          ? `Pembayaran IPL ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) telah disahkan Ketua ${ketuaName}. Kwitansi resmi sudah tersedia.`
-          : `Ketua ${ketuaName} mengembalikan setoran ${formatRupiah(trx.nominal)} ke Bendahara: ${cleanKetuaNote}`,
-      target_url: 'tab:riwayat',
-    },
-    ...getBendaharaUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'ipl' as const,
-      title:
-        decision === 'Terverifikasi'
-          ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
-          : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`,
-      message:
-        decision === 'Terverifikasi'
-          ? `Setoran ${formatRupiah(trx.nominal)} (${formatDaftarBulan(trx.bulan_dibayar, true)}) resmi Lunas.`
-          : `Catatan Ketua: ${cleanKetuaNote}`,
-      target_url: 'tab:dashboard',
-    })),
-  ]);
+  const bulanFinalLocal = formatDaftarBulan(trx.bulan_dibayar, true);
+  const wargaTargetFinalLocal = buildWargaUserId(trx.blok_rumah);
+  const wargaFinalTitleLocal =
+    decision === 'Terverifikasi'
+      ? 'Pembayaran IPL Terverifikasi'
+      : 'Pembayaran IPL Ditolak';
+  const wargaFinalBodyLocal =
+    decision === 'Terverifikasi'
+      ? `Pembayaran IPL Blok ${trx.blok_rumah} bulan ${bulanFinalLocal} sebesar ${formatRupiah(trx.nominal)} telah diverifikasi pengurus.`
+      : `Pengajuan IPL Blok ${trx.blok_rumah} ditolak: ${cleanKetuaNote}. Silakan periksa kembali.`;
+  const bendaharaTitleLocal =
+    decision === 'Terverifikasi'
+      ? `Ketua Mengesahkan IPL Blok ${trx.blok_rumah}`
+      : `Ketua Mengembalikan IPL Blok ${trx.blok_rumah}`;
+  const bendaharaBodyLocal =
+    decision === 'Terverifikasi'
+      ? `Setoran ${formatRupiah(trx.nominal)} (${bulanFinalLocal}) resmi Lunas.`
+      : `Catatan Ketua: ${cleanKetuaNote}`;
+
+  void dispatchActivityNotifications(
+    session,
+    [
+      {
+        user_id: wargaTargetFinalLocal,
+        category: 'ipl',
+        title: wargaFinalTitleLocal,
+        message: wargaFinalBodyLocal,
+        target_url: 'tab:riwayat',
+      },
+      ...getBendaharaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'ipl' as const,
+        title: bendaharaTitleLocal,
+        message: bendaharaBodyLocal,
+        target_url: 'tab:dashboard',
+      })),
+    ],
+    [
+      {
+        target_user_ids: [wargaTargetFinalLocal],
+        category: 'ipl',
+        title: wargaFinalTitleLocal,
+        body: wargaFinalBodyLocal,
+        target_url: 'tab:riwayat',
+      },
+      {
+        target_user_ids: getBendaharaUserIds(),
+        category: 'ipl',
+        title: bendaharaTitleLocal,
+        body: bendaharaBodyLocal,
+        target_url: 'tab:dashboard',
+      },
+    ]
+  );
 
   return { data: updatedItem };
 }
@@ -4003,30 +4129,42 @@ export async function sendBulkSystemNotificationAdmin(
     },
   });
 
-  // Kirim notifikasi lonceng real-time ke Warga, Pengurus, dan Petugas Keamanan
-  void dispatchActivityNotifications(session, [
+  // Kirim notifikasi lonceng real-time & Broadcast FCM ke SELURUH perangkat (Warga, Pengurus, Keamanan)
+  const broadcastSummary =
+    cleanMessage.length > 180 ? `${cleanMessage.slice(0, 177).trim()}...` : cleanMessage;
+  void dispatchActivityNotifications(
+    session,
+    [
+      {
+        user_id: 'broadcast:warga',
+        category: 'announcement',
+        title: cleanTitle,
+        message: cleanMessage,
+        target_url: 'tab:beranda',
+      },
+      {
+        user_id: 'broadcast:petugas',
+        category: 'announcement',
+        title: cleanTitle,
+        message: cleanMessage,
+        target_url: 'tab:info',
+      },
+      ...getAllAdminUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'announcement' as const,
+        title: cleanTitle,
+        message: `${cleanMessage} (Dikirim oleh ${session.nama_warga} ke ${recipients.length} unit warga)`,
+        target_url: 'tab:dashboard',
+      })),
+    ],
     {
-      user_id: 'broadcast:warga',
+      broadcast: true,
       category: 'announcement',
-      title: `Pengumuman: ${cleanTitle}`,
-      message: cleanMessage,
+      title: cleanTitle,
+      body: broadcastSummary,
       target_url: 'tab:beranda',
-    },
-    {
-      user_id: 'broadcast:petugas',
-      category: 'announcement',
-      title: `Info Lingkungan: ${cleanTitle}`,
-      message: cleanMessage,
-      target_url: 'tab:info',
-    },
-    ...getAllAdminUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'announcement' as const,
-      title: `Pengumuman Terkirim: ${cleanTitle}`,
-      message: `${session.nama_warga} mengirim pengumuman (${payload.category}) ke ${recipients.length} unit warga.`,
-      target_url: 'tab:dashboard',
-    })),
-  ]);
+    }
+  );
 
   return { data: saved };
 }
@@ -4922,15 +5060,20 @@ export async function createTransaksiKasAdmin(
           entity_id: persisted.id,
           summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(persisted.nominal)} (${persisted.kategori} — ${persisted.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
         });
+        const honorPeriode = persisted.termin || persisted.kategori || formatTanggal(persisted.tanggal);
+        const honorTitle = 'Honor Keamanan Diterima';
+        const honorBody = `Halo ${persisted.penerima_atau_sumber}, honor keamanan periode ${honorPeriode} sebesar ${formatRupiah(persisted.nominal)} telah dibayarkan oleh pengurus.`;
+        const adminKasTitle =
+          payload.jenis === 'pengeluaran'
+            ? `Pengeluaran Kas: ${persisted.kategori}`
+            : `Pemasukan Non-IPL: ${persisted.kategori}`;
+        const adminKasBody = `${session.nama_warga} mencatat ${formatRupiah(persisted.nominal)} (${persisted.penerima_atau_sumber}).`;
         const kasNotifs = [
           ...getBendaharaAndKetuaUserIds().map((uid) => ({
             user_id: uid,
             category: 'finance' as const,
-            title:
-              payload.jenis === 'pengeluaran'
-                ? `Pengeluaran Kas: ${persisted.kategori}`
-                : `Pemasukan Non-IPL: ${persisted.kategori}`,
-            message: `${session.nama_warga} mencatat ${formatRupiah(persisted.nominal)} (${persisted.penerima_atau_sumber}).`,
+            title: adminKasTitle,
+            message: adminKasBody,
             target_url: 'tab:keuangan',
           })),
           ...(persisted.petugas_id
@@ -4938,17 +5081,36 @@ export async function createTransaksiKasAdmin(
                 {
                   user_id: buildPetugasUserId(persisted.petugas_id),
                   category: 'finance' as const,
-                  title:
-                    persisted.jenis_honor === 'lembur'
-                      ? 'Uang Lembur Tercatat'
-                      : 'Honorarium Keamanan Tercatat',
-                  message: `Pencatatan ${persisted.kategori} sebesar ${formatRupiah(persisted.nominal)} untuk ${persisted.penerima_atau_sumber}.`,
+                  title: honorTitle,
+                  message: honorBody,
                   target_url: 'tab:honor',
                 },
               ]
             : []),
         ];
-        void dispatchActivityNotifications(session, kasNotifs);
+        void dispatchActivityNotifications(session, kasNotifs, [
+          {
+            target_roles: ['admin'],
+            category: 'finance',
+            title: adminKasTitle,
+            body: adminKasBody,
+            target_url: 'tab:keuangan',
+          },
+          ...(persisted.petugas_id
+            ? [
+                {
+                  target_user_ids: [
+                    buildKeamananUserId(persisted.petugas_id),
+                    buildPetugasUserId(persisted.petugas_id),
+                  ],
+                  category: 'finance' as const,
+                  title: honorTitle,
+                  body: honorBody,
+                  target_url: 'tab:honor',
+                },
+              ]
+            : []),
+        ]);
         return { data: persisted };
       }
 
@@ -4979,32 +5141,60 @@ export async function createTransaksiKasAdmin(
     entity_id: newEntry.id,
     summary: `${session.nama_warga} mencatat ${payload.jenis === 'pengeluaran' ? 'pengeluaran' : 'pemasukan lain'} ${formatRupiah(newEntry.nominal)} (${newEntry.kategori} — ${newEntry.penerima_atau_sumber}) [${shouldAutoVerify ? 'Terverifikasi & Sinkron Shift/Lembur' : 'Menunggu Verifikasi Bendahara'}].`,
   });
-  void dispatchActivityNotifications(session, [
-    ...getBendaharaAndKetuaUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'finance' as const,
-      title:
-        payload.jenis === 'pengeluaran'
-          ? `Pengeluaran Kas: ${newEntry.kategori}`
-          : `Pemasukan Non-IPL: ${newEntry.kategori}`,
-      message: `${session.nama_warga} mencatat ${formatRupiah(newEntry.nominal)} (${newEntry.penerima_atau_sumber}).`,
-      target_url: 'tab:keuangan',
-    })),
-    ...(newEntry.petugas_id
-      ? [
-          {
-            user_id: buildPetugasUserId(newEntry.petugas_id),
-            category: 'finance' as const,
-            title:
-              newEntry.jenis_honor === 'lembur'
-                ? 'Uang Lembur Tercatat'
-                : 'Honorarium Keamanan Tercatat',
-            message: `Pencatatan ${newEntry.kategori} sebesar ${formatRupiah(newEntry.nominal)} untuk ${newEntry.penerima_atau_sumber}.`,
-            target_url: 'tab:honor',
-          },
-        ]
-      : []),
-  ]);
+  const honorPeriodeLocal = newEntry.termin || newEntry.kategori || formatTanggal(newEntry.tanggal);
+  const honorTitleLocal = 'Honor Keamanan Diterima';
+  const honorBodyLocal = `Halo ${newEntry.penerima_atau_sumber}, honor keamanan periode ${honorPeriodeLocal} sebesar ${formatRupiah(newEntry.nominal)} telah dibayarkan oleh pengurus.`;
+  const adminKasTitleLocal =
+    payload.jenis === 'pengeluaran'
+      ? `Pengeluaran Kas: ${newEntry.kategori}`
+      : `Pemasukan Non-IPL: ${newEntry.kategori}`;
+  const adminKasBodyLocal = `${session.nama_warga} mencatat ${formatRupiah(newEntry.nominal)} (${newEntry.penerima_atau_sumber}).`;
+  void dispatchActivityNotifications(
+    session,
+    [
+      ...getBendaharaAndKetuaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'finance' as const,
+        title: adminKasTitleLocal,
+        message: adminKasBodyLocal,
+        target_url: 'tab:keuangan',
+      })),
+      ...(newEntry.petugas_id
+        ? [
+            {
+              user_id: buildPetugasUserId(newEntry.petugas_id),
+              category: 'finance' as const,
+              title: honorTitleLocal,
+              message: honorBodyLocal,
+              target_url: 'tab:honor',
+            },
+          ]
+        : []),
+    ],
+    [
+      {
+        target_roles: ['admin'],
+        category: 'finance',
+        title: adminKasTitleLocal,
+        body: adminKasBodyLocal,
+        target_url: 'tab:keuangan',
+      },
+      ...(newEntry.petugas_id
+        ? [
+            {
+              target_user_ids: [
+                buildKeamananUserId(newEntry.petugas_id),
+                buildPetugasUserId(newEntry.petugas_id),
+              ],
+              category: 'finance' as const,
+              title: honorTitleLocal,
+              body: honorBodyLocal,
+              target_url: 'tab:honor',
+            },
+          ]
+        : []),
+    ]
+  );
   return { data: newEntry };
 }
 
@@ -5180,29 +5370,61 @@ export async function verifyTransaksiKasKetuaAdmin(
     } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
   });
 
-  void dispatchActivityNotifications(session, [
-    ...getBendaharaUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'finance' as const,
-      title:
-        decision === 'Terverifikasi'
-          ? `Ketua Mengesahkan Kas ${kas.no_bukti}`
-          : `Ketua Mengembalikan Kas ${kas.no_bukti}`,
-      message: `${ketuaName} ${decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan'} ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`,
-      target_url: 'tab:keuangan',
-    })),
-    ...(decision === 'Terverifikasi' && kas.petugas_id
-      ? [
-          {
-            user_id: buildPetugasUserId(kas.petugas_id),
-            category: 'finance' as const,
-            title: 'Honorarium / Lembur Disahkan',
-            message: `${kas.kategori} sebesar ${formatRupiah(kas.nominal)} telah disahkan final. Kwitansi tersedia di tab Honor.`,
-            target_url: 'tab:honor',
-          },
-        ]
-      : []),
-  ]);
+  const kasPeriode = kas.termin || kas.kategori || formatTanggal(kas.tanggal);
+  const kasHonorTitle = 'Honor Keamanan Diterima';
+  const kasHonorBody = `Halo ${kas.penerima_atau_sumber}, honor keamanan periode ${kasPeriode} sebesar ${formatRupiah(kas.nominal)} telah dibayarkan oleh pengurus.`;
+  const kasBendaharaTitle =
+    decision === 'Terverifikasi'
+      ? `Ketua Mengesahkan Kas ${kas.no_bukti}`
+      : `Ketua Mengembalikan Kas ${kas.no_bukti}`;
+  const kasBendaharaBody = `${ketuaName} ${decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan'} ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`;
+
+  void dispatchActivityNotifications(
+    session,
+    [
+      ...getBendaharaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'finance' as const,
+        title: kasBendaharaTitle,
+        message: kasBendaharaBody,
+        target_url: 'tab:keuangan',
+      })),
+      ...(decision === 'Terverifikasi' && kas.petugas_id
+        ? [
+            {
+              user_id: buildPetugasUserId(kas.petugas_id),
+              category: 'finance' as const,
+              title: kasHonorTitle,
+              message: kasHonorBody,
+              target_url: 'tab:honor',
+            },
+          ]
+        : []),
+    ],
+    [
+      {
+        target_user_ids: getBendaharaUserIds(),
+        category: 'finance',
+        title: kasBendaharaTitle,
+        body: kasBendaharaBody,
+        target_url: 'tab:keuangan',
+      },
+      ...(decision === 'Terverifikasi' && kas.petugas_id
+        ? [
+            {
+              target_user_ids: [
+                buildKeamananUserId(kas.petugas_id),
+                buildPetugasUserId(kas.petugas_id),
+              ],
+              category: 'finance' as const,
+              title: kasHonorTitle,
+              body: kasHonorBody,
+              target_url: 'tab:honor',
+            },
+          ]
+        : []),
+    ]
+  );
 
   return { data: updated };
 }
@@ -5530,26 +5752,50 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
           entity_id: persisted.id,
           summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`,
         });
-        void dispatchActivityNotifications(session, [
-          ...getBendaharaAndKetuaUserIds().map((uid) => ({
-            user_id: uid,
-            category: 'finance' as const,
-            title: `Lembur Dibayarkan — ${cleanOfficer}`,
-            message: `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`,
-            target_url: 'tab:keuangan',
-          })),
-          ...(cleanPetugasId
-            ? [
-                {
-                  user_id: buildPetugasUserId(cleanPetugasId),
-                  category: 'finance' as const,
-                  title: 'Pembayaran Uang Lembur Terverifikasi',
-                  message: `Uang lembur Anda sebesar ${formatRupiah(persisted.nominal)} telah dibayarkan & diverifikasi (${persisted.no_bukti}).`,
-                  target_url: 'tab:honor',
-                },
-              ]
-            : []),
-        ]);
+        const lemburPeriode = persisted.termin || `Lembur ${formatTanggal(persisted.tanggal)}`;
+        const lemburHonorTitle = 'Honor Keamanan Diterima';
+        const lemburHonorBody = `Halo ${cleanOfficer}, honor keamanan periode ${lemburPeriode} sebesar ${formatRupiah(persisted.nominal)} telah dibayarkan oleh pengurus.`;
+        const lemburAdminTitle = `Lembur Dibayarkan — ${cleanOfficer}`;
+        const lemburAdminBody = `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(persisted.nominal)} (${persisted.no_bukti}).`;
+        const lemburOfficerTargetIds = cleanPetugasId
+          ? [buildKeamananUserId(cleanPetugasId), buildPetugasUserId(cleanPetugasId)]
+          : [buildKeamananUserId(cleanOfficer), buildPetugasUserId(cleanOfficer)];
+
+        void dispatchActivityNotifications(
+          session,
+          [
+            ...getBendaharaAndKetuaUserIds().map((uid) => ({
+              user_id: uid,
+              category: 'finance' as const,
+              title: lemburAdminTitle,
+              message: lemburAdminBody,
+              target_url: 'tab:keuangan',
+            })),
+            {
+              user_id: buildPetugasUserId(cleanPetugasId || cleanOfficer),
+              category: 'finance' as const,
+              title: lemburHonorTitle,
+              message: lemburHonorBody,
+              target_url: 'tab:honor',
+            },
+          ],
+          [
+            {
+              target_roles: ['admin'],
+              category: 'finance',
+              title: lemburAdminTitle,
+              body: lemburAdminBody,
+              target_url: 'tab:keuangan',
+            },
+            {
+              target_user_ids: lemburOfficerTargetIds,
+              category: 'finance',
+              title: lemburHonorTitle,
+              body: lemburHonorBody,
+              target_url: 'tab:honor',
+            },
+          ]
+        );
         return { data: persisted };
       }
     } catch {
@@ -5573,26 +5819,50 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
     entity_id: localEntry.id,
     summary: `${session.nama_warga} membayarkan Lembur Minggu ${cleanOfficer} sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`,
   });
-  void dispatchActivityNotifications(session, [
-    ...getBendaharaAndKetuaUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'finance' as const,
-      title: `Lembur Dibayarkan — ${cleanOfficer}`,
-      message: `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`,
-      target_url: 'tab:keuangan',
-    })),
-    ...(cleanPetugasId
-      ? [
-          {
-            user_id: buildPetugasUserId(cleanPetugasId),
-            category: 'finance' as const,
-            title: 'Pembayaran Uang Lembur Terverifikasi',
-            message: `Uang lembur Anda sebesar ${formatRupiah(localEntry.nominal)} telah dibayarkan (${localEntry.no_bukti}).`,
-            target_url: 'tab:honor',
-          },
-        ]
-      : []),
-  ]);
+  const lemburPeriodeLocal = localEntry.termin || `Lembur ${formatTanggal(localEntry.tanggal)}`;
+  const lemburHonorTitleLocal = 'Honor Keamanan Diterima';
+  const lemburHonorBodyLocal = `Halo ${cleanOfficer}, honor keamanan periode ${lemburPeriodeLocal} sebesar ${formatRupiah(localEntry.nominal)} telah dibayarkan oleh pengurus.`;
+  const lemburAdminTitleLocal = `Lembur Dibayarkan — ${cleanOfficer}`;
+  const lemburAdminBodyLocal = `${session.nama_warga} membayarkan lembur sebesar ${formatRupiah(localEntry.nominal)} (${localEntry.no_bukti}).`;
+  const lemburOfficerTargetIdsLocal = cleanPetugasId
+    ? [buildKeamananUserId(cleanPetugasId), buildPetugasUserId(cleanPetugasId)]
+    : [buildKeamananUserId(cleanOfficer), buildPetugasUserId(cleanOfficer)];
+
+  void dispatchActivityNotifications(
+    session,
+    [
+      ...getBendaharaAndKetuaUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'finance' as const,
+        title: lemburAdminTitleLocal,
+        message: lemburAdminBodyLocal,
+        target_url: 'tab:keuangan',
+      })),
+      {
+        user_id: buildPetugasUserId(cleanPetugasId || cleanOfficer),
+        category: 'finance' as const,
+        title: lemburHonorTitleLocal,
+        message: lemburHonorBodyLocal,
+        target_url: 'tab:honor',
+      },
+    ],
+    [
+      {
+        target_roles: ['admin'],
+        category: 'finance',
+        title: lemburAdminTitleLocal,
+        body: lemburAdminBodyLocal,
+        target_url: 'tab:keuangan',
+      },
+      {
+        target_user_ids: lemburOfficerTargetIdsLocal,
+        category: 'finance',
+        title: lemburHonorTitleLocal,
+        body: lemburHonorBodyLocal,
+        target_url: 'tab:honor',
+      },
+    ]
+  );
   return { data: localEntry };
 }
 
@@ -6357,28 +6627,51 @@ export async function submitLogPatroliPetugas(
         const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
         writeLocalLogPatroli([saved, ...existing]);
         const isAlert = saved.status_kondisi !== 'Aman';
-        void dispatchActivityNotifications(session, [
-          ...getAllAdminUserIds().map((uid) => ({
-            user_id: uid,
-            category: 'patrol' as const,
-            title: isAlert
-              ? `Catatan Keamanan — ${saved.nama_lokasi}`
-              : `Scan Patroli: ${saved.nama_lokasi}`,
-            message: `${saved.nama_petugas} (${saved.metode_scan}) melaporkan kondisi ${saved.status_kondisi}${saved.catatan ? `: ${saved.catatan}` : '.'}`,
-            target_url: 'tab:keamanan',
-          })),
-          ...(isAlert
-            ? [
-                {
-                  user_id: 'broadcast:warga',
-                  category: 'patrol' as const,
-                  title: `Info Keamanan di ${saved.nama_lokasi}`,
-                  message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
-                  target_url: 'tab:keamanan',
-                },
-              ]
-            : []),
-        ]);
+        const patrolAdminTitle = 'Update dari Petugas Keamanan';
+        const patrolAdminBody = `${saved.nama_petugas} telah mengirim laporan keamanan di ${saved.nama_lokasi} (Kondisi: ${saved.status_kondisi}${saved.catatan ? ` — ${saved.catatan}` : ''}).`;
+        void dispatchActivityNotifications(
+          session,
+          [
+            ...getAllAdminUserIds().map((uid) => ({
+              user_id: uid,
+              category: 'patrol' as const,
+              title: patrolAdminTitle,
+              message: patrolAdminBody,
+              target_url: 'tab:keamanan',
+            })),
+            ...(isAlert
+              ? [
+                  {
+                    user_id: 'broadcast:warga',
+                    category: 'patrol' as const,
+                    title: `Info Keamanan di ${saved.nama_lokasi}`,
+                    message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+                    target_url: 'tab:keamanan',
+                  },
+                ]
+              : []),
+          ],
+          [
+            {
+              target_roles: ['admin'],
+              category: 'patrol',
+              title: patrolAdminTitle,
+              body: patrolAdminBody,
+              target_url: 'tab:keamanan',
+            },
+            ...(isAlert
+              ? [
+                  {
+                    target_roles: ['warga' as const],
+                    category: 'patrol' as const,
+                    title: `Info Keamanan di ${saved.nama_lokasi}`,
+                    body: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+                    target_url: 'tab:keamanan',
+                  },
+                ]
+              : []),
+          ]
+        );
         return { data: saved };
       }
 
@@ -6394,28 +6687,51 @@ export async function submitLogPatroliPetugas(
 
   writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
   const isAlertLocal = localEntry.status_kondisi !== 'Aman';
-  void dispatchActivityNotifications(session, [
-    ...getAllAdminUserIds().map((uid) => ({
-      user_id: uid,
-      category: 'patrol' as const,
-      title: isAlertLocal
-        ? `Catatan Keamanan — ${localEntry.nama_lokasi}`
-        : `Scan Patroli: ${localEntry.nama_lokasi}`,
-      message: `${localEntry.nama_petugas} (${localEntry.metode_scan}) melaporkan kondisi ${localEntry.status_kondisi}${localEntry.catatan ? `: ${localEntry.catatan}` : '.'}`,
-      target_url: 'tab:keamanan',
-    })),
-    ...(isAlertLocal
-      ? [
-          {
-            user_id: 'broadcast:warga',
-            category: 'patrol' as const,
-            title: `Info Keamanan di ${localEntry.nama_lokasi}`,
-            message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
-            target_url: 'tab:keamanan',
-          },
-        ]
-      : []),
-  ]);
+  const patrolAdminTitleLocal = 'Update dari Petugas Keamanan';
+  const patrolAdminBodyLocal = `${localEntry.nama_petugas} telah mengirim laporan keamanan di ${localEntry.nama_lokasi} (Kondisi: ${localEntry.status_kondisi}${localEntry.catatan ? ` — ${localEntry.catatan}` : ''}).`;
+  void dispatchActivityNotifications(
+    session,
+    [
+      ...getAllAdminUserIds().map((uid) => ({
+        user_id: uid,
+        category: 'patrol' as const,
+        title: patrolAdminTitleLocal,
+        message: patrolAdminBodyLocal,
+        target_url: 'tab:keamanan',
+      })),
+      ...(isAlertLocal
+        ? [
+            {
+              user_id: 'broadcast:warga',
+              category: 'patrol' as const,
+              title: `Info Keamanan di ${localEntry.nama_lokasi}`,
+              message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+              target_url: 'tab:keamanan',
+            },
+          ]
+        : []),
+    ],
+    [
+      {
+        target_roles: ['admin'],
+        category: 'patrol',
+        title: patrolAdminTitleLocal,
+        body: patrolAdminBodyLocal,
+        target_url: 'tab:keamanan',
+      },
+      ...(isAlertLocal
+        ? [
+            {
+              target_roles: ['warga' as const],
+              category: 'patrol' as const,
+              title: `Info Keamanan di ${localEntry.nama_lokasi}`,
+              body: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
+              target_url: 'tab:keamanan',
+            },
+          ]
+        : []),
+    ]
+  );
   return { data: localEntry };
 }
 

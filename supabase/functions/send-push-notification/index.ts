@@ -8,16 +8,23 @@ interface IncomingNotificationRecord {
   category?: string;
   title?: string;
   message?: string;
+  body?: string;
   target_url?: string;
   is_read?: boolean;
   created_at?: string;
+  target_user_ids?: string[];
+  target_roles?: string[];
+  broadcast?: boolean;
+  include_self?: boolean;
+  data?: Record<string, unknown>;
 }
 
 interface UserPushTokenRow {
   id: string;
   user_id: string;
   role: string;
-  blok_rumah: string | null;
+  blok?: string | null;
+  blok_rumah?: string | null;
   token: string;
   platform: string;
 }
@@ -35,13 +42,27 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ANDROID_CHANNEL_ID = 'saung_kebun_alerts';
+const ANDROID_CHANNEL_ID = 'saung_kebun_notif';
 
 function normalizeToken(raw?: string | null): string {
   return String(raw || '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '');
+}
+
+function normalizeRoleName(raw?: string | null): string {
+  const clean = normalizeToken(raw);
+  if (clean === 'petugas' || clean === 'keamanan' || clean === 'security') {
+    return 'keamanan';
+  }
+  if (clean === 'admin' || clean === 'pengurus' || clean === 'ketua' || clean === 'bendahara') {
+    return 'admin';
+  }
+  if (clean === 'warga') {
+    return 'warga';
+  }
+  return clean;
 }
 
 /**
@@ -70,13 +91,25 @@ function expandWargaAliases(blokOrUserId?: string | null): string[] {
 }
 
 /**
+ * Menghasilkan variasi ID petugas keamanan (keamanan:<id> <-> petugas:<id>)
+ */
+function expandKeamananAliases(raw?: string | null): string[] {
+  const clean = normalizeToken(raw);
+  if (!clean) return [];
+  const bare = clean.replace(/^(keamanan:|petugas:)/, '');
+  if (!bare) return [];
+  return [`keamanan:${bare}`, `petugas:${bare}`];
+}
+
+/**
  * Menghasilkan seluruh target penerima yang cocok untuk 1 baris perangkat di tabel `user_push_tokens`.
  */
 function buildDeviceMatchSet(device: UserPushTokenRow): Set<string> {
   const set = new Set<string>(['broadcast:all']);
   const uid = normalizeToken(device.user_id);
-  const role = normalizeToken(device.role);
-  const blok = normalizeToken(device.blok_rumah);
+  const rawRole = normalizeToken(device.role);
+  const role = normalizeRoleName(rawRole);
+  const blok = normalizeToken(device.blok || device.blok_rumah);
 
   if (uid) set.add(uid);
 
@@ -92,7 +125,12 @@ function buildDeviceMatchSet(device: UserPushTokenRow): Set<string> {
     set.add('role:admin');
     const adminName = uid.replace(/^admin:/, '') || blok;
     if (adminName) set.add(`admin:${adminName}`);
-    if (adminName === 'andriansyah' || adminName === 'admin' || blok === 'andriansyah' || blok === 'admin') {
+    if (
+      adminName === 'andriansyah' ||
+      adminName === 'admin' ||
+      blok === 'andriansyah' ||
+      blok === 'admin'
+    ) {
       set.add('admin:andriansyah');
       set.add('admin:admin');
       set.add('role:bendahara');
@@ -103,10 +141,13 @@ function buildDeviceMatchSet(device: UserPushTokenRow): Set<string> {
     }
   }
 
-  if (role === 'petugas' || uid.startsWith('petugas:')) {
+  if (role === 'keamanan' || uid.startsWith('petugas:') || uid.startsWith('keamanan:')) {
     set.add('broadcast:petugas');
+    set.add('broadcast:keamanan');
     set.add('role:petugas');
-    if (blok) set.add(`petugas:${blok}`);
+    set.add('role:keamanan');
+    for (const alias of expandKeamananAliases(uid)) set.add(alias);
+    for (const alias of expandKeamananAliases(blok)) set.add(alias);
   }
 
   return set;
@@ -121,6 +162,9 @@ function isDeviceSelfActor(device: UserPushTokenRow, actorId?: string | null): b
   if (!cleanActor || cleanActor === 'system' || cleanActor === 'anon') return false;
 
   const uid = normalizeToken(device.user_id);
+  const blok = normalizeToken(device.blok || device.blok_rumah);
+  const role = normalizeRoleName(device.role);
+
   if (uid === cleanActor) return true;
 
   // Alias Bendahara (admin:admin <-> admin:andriansyah)
@@ -132,23 +176,26 @@ function isDeviceSelfActor(device: UserPushTokenRow, actorId?: string | null): b
   }
 
   // Alias Warga (warga:b3/7 <-> warga:b03/07)
-  if (cleanActor.startsWith('warga:') && (uid.startsWith('warga:') || normalizeToken(device.role) === 'warga')) {
+  if (cleanActor.startsWith('warga:') && (uid.startsWith('warga:') || role === 'warga')) {
     const actorAliases = new Set(expandWargaAliases(cleanActor));
-    const deviceAliases = expandWargaAliases(uid || device.blok_rumah);
+    const deviceAliases = expandWargaAliases(uid || blok);
     if (deviceAliases.some((a) => actorAliases.has(a))) return true;
   }
 
-  // Alias Petugas (petugas:<id> <-> petugas:<blok/username>)
-  if (cleanActor.startsWith('petugas:') && (uid.startsWith('petugas:') || normalizeToken(device.role) === 'petugas')) {
-    const actorPart = cleanActor.replace(/^petugas:/, '');
-    const deviceBlok = normalizeToken(device.blok_rumah);
-    if (actorPart && deviceBlok && actorPart === deviceBlok) return true;
+  // Alias Petugas / Keamanan (keamanan:<id> <-> petugas:<id>)
+  if (
+    (cleanActor.startsWith('petugas:') || cleanActor.startsWith('keamanan:')) &&
+    (uid.startsWith('petugas:') || uid.startsWith('keamanan:') || role === 'keamanan')
+  ) {
+    const actorAliases = new Set(expandKeamananAliases(cleanActor));
+    const deviceAliases = [...expandKeamananAliases(uid), ...expandKeamananAliases(blok)];
+    if (deviceAliases.some((a) => actorAliases.has(a))) return true;
   }
 
   return false;
 }
 
-function doesDeviceMatchTarget(device: UserPushTokenRow, targetUserId?: string | null): boolean {
+function doesDeviceMatchSingleTarget(device: UserPushTokenRow, targetUserId?: string | null): boolean {
   const cleanTarget = normalizeToken(targetUserId);
   if (!cleanTarget) return false;
 
@@ -158,6 +205,48 @@ function doesDeviceMatchTarget(device: UserPushTokenRow, targetUserId?: string |
   if (cleanTarget.startsWith('warga:')) {
     const targetAliases = expandWargaAliases(cleanTarget);
     if (targetAliases.some((a) => deviceMatches.has(a))) return true;
+  }
+
+  if (cleanTarget.startsWith('petugas:') || cleanTarget.startsWith('keamanan:')) {
+    const targetAliases = expandKeamananAliases(cleanTarget);
+    if (targetAliases.some((a) => deviceMatches.has(a))) return true;
+  }
+
+  return false;
+}
+
+function doesDeviceMatchRecord(
+  device: UserPushTokenRow,
+  record: IncomingNotificationRecord
+): boolean {
+  if (!device.token || !device.token.trim()) return false;
+
+  // 1. Broadcast ke seluruh perangkat terdaftar
+  if (record.broadcast === true) {
+    return true;
+  }
+
+  // 2. Pencocokan berdasarkan target_roles (mis. ['admin'], ['warga'], ['keamanan'])
+  if (Array.isArray(record.target_roles) && record.target_roles.length > 0) {
+    const deviceRole = normalizeRoleName(device.role);
+    const normalizedTargets = new Set(record.target_roles.map((r) => normalizeRoleName(r)));
+    if (normalizedTargets.has(deviceRole)) {
+      return true;
+    }
+  }
+
+  // 3. Pencocokan berdasarkan target_user_ids (mis. ['warga:b03/07'] atau ['keamanan:petugas-1'])
+  if (Array.isArray(record.target_user_ids) && record.target_user_ids.length > 0) {
+    for (const targetUid of record.target_user_ids) {
+      if (doesDeviceMatchSingleTarget(device, targetUid)) {
+        return true;
+      }
+    }
+  }
+
+  // 4. Kompatibilitas format lama: single record.user_id (termasuk broadcast:all / role:admin)
+  if (record.user_id && doesDeviceMatchSingleTarget(device, record.user_id)) {
+    return true;
   }
 
   return false;
@@ -171,6 +260,28 @@ function normalizePrivateKey(rawKey: string): string {
 }
 
 function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
+  // Prioritas 1: Secret FIREBASE_SERVICE_ACCOUNT (JSON mentah atau Base64)
+  const rawServiceAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')?.trim() || '';
+  if (rawServiceAccount) {
+    try {
+      let jsonText = rawServiceAccount;
+      if (!jsonText.startsWith('{')) {
+        jsonText = atob(rawServiceAccount.replace(/\s+/g, ''));
+      }
+      const parsed = JSON.parse(jsonText) as Partial<ServiceAccountCredentials>;
+      if (parsed.project_id && parsed.client_email && parsed.private_key) {
+        return {
+          project_id: String(parsed.project_id).trim(),
+          client_email: String(parsed.client_email).trim(),
+          private_key: normalizePrivateKey(String(parsed.private_key)),
+        };
+      }
+    } catch (err) {
+      console.error('[send-push-notification] Gagal parsing FIREBASE_SERVICE_ACCOUNT:', err);
+    }
+  }
+
+  // Prioritas 2: 3 Secret terpisah (FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY)
   const projectIdEnv = Deno.env.get('FCM_PROJECT_ID')?.trim() || '';
   const clientEmailEnv = Deno.env.get('FCM_CLIENT_EMAIL')?.trim() || '';
   const privateKeyEnv = Deno.env.get('FCM_PRIVATE_KEY')?.trim() || '';
@@ -183,25 +294,6 @@ function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
     };
   }
 
-  const rawServiceAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')?.trim() || '';
-  if (!rawServiceAccount) return null;
-
-  try {
-    let jsonText = rawServiceAccount;
-    if (!jsonText.startsWith('{')) {
-      jsonText = atob(rawServiceAccount.replace(/\s+/g, ''));
-    }
-    const parsed = JSON.parse(jsonText) as Partial<ServiceAccountCredentials>;
-    if (parsed.project_id && parsed.client_email && parsed.private_key) {
-      return {
-        project_id: String(parsed.project_id).trim(),
-        client_email: String(parsed.client_email).trim(),
-        private_key: normalizePrivateKey(String(parsed.private_key)),
-      };
-    }
-  } catch (err) {
-    console.error('[send-push-notification] Gagal parsing FIREBASE_SERVICE_ACCOUNT:', err);
-  }
   return null;
 }
 
@@ -284,29 +376,56 @@ function isInvalidFcmTokenError(status: number, bodyText: string): boolean {
   );
 }
 
+function stringifyDataMap(raw?: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === undefined || v === null) continue;
+    out[k] = typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  return out;
+}
+
+function resolveClickPathForDevice(device: UserPushTokenRow): string {
+  const role = normalizeRoleName(device.role);
+  if (role === 'admin') return '/admin';
+  if (role === 'keamanan') return '/petugas';
+  return '/';
+}
+
 async function sendSingleFcmMessage(
   projectId: string,
   accessToken: string,
-  deviceToken: string,
+  device: UserPushTokenRow,
   record: IncomingNotificationRecord
 ): Promise<{ ok: boolean; invalidToken?: boolean; error?: string }> {
   const title = String(record.title || 'Aktivitas Baru · Saung Kebun').trim();
-  const body = String(record.message || 'Ketuk untuk melihat detail aktivitas terbaru.').trim();
+  const body = String(
+    record.body || record.message || 'Ketuk untuk melihat detail aktivitas terbaru.'
+  ).trim();
   const notificationId = String(record.id || `notif-${Date.now()}`);
   const targetUrl = String(record.target_url || '');
   const category = String(record.category || 'system');
-  const userId = String(record.user_id || '');
+  const userId = String(record.user_id || device.user_id || '');
+  const clickPath = resolveClickPathForDevice(device);
+  const webLink = targetUrl
+    ? `${clickPath}?notif_target=${encodeURIComponent(targetUrl)}`
+    : clickPath;
+
+  const extraData = stringifyDataMap(record.data);
 
   const fcmPayload = {
     message: {
-      token: deviceToken,
+      token: device.token,
       notification: {
         title,
         body,
       },
       data: {
+        ...extraData,
         notification_id: notificationId,
         target_url: targetUrl,
+        click_action: clickPath,
         category,
         user_id: userId,
         title,
@@ -330,10 +449,30 @@ async function sendSingleFcmMessage(
         },
         payload: {
           aps: {
+            alert: {
+              title,
+              body,
+            },
             sound: 'default',
             badge: 1,
             'mutable-content': 1,
           },
+        },
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+          TTL: '86400',
+        },
+        notification: {
+          title,
+          body,
+          icon: '/app-icon.jpg',
+          badge: '/app-icon.jpg',
+          tag: notificationId,
+        },
+        fcm_options: {
+          link: webLink,
         },
       },
     },
@@ -369,17 +508,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const body = (await req.json().catch(() => ({}))) as {
+    const body = (await req.json().catch(() => ({}))) as IncomingNotificationRecord & {
       record?: IncomingNotificationRecord;
       notification?: IncomingNotificationRecord;
       notifications?: IncomingNotificationRecord[];
-      id?: string;
-      user_id?: string;
-      actor_id?: string | null;
-      category?: string;
-      title?: string;
-      message?: string;
-      target_url?: string;
     };
 
     const records: IncomingNotificationRecord[] = [];
@@ -389,7 +521,13 @@ Deno.serve(async (req: Request) => {
       records.push(body.record);
     } else if (body.notification) {
       records.push(body.notification);
-    } else if (body.user_id && (body.title || body.message)) {
+    } else if (
+      (body.title || body.body || body.message) &&
+      (body.broadcast === true ||
+        (Array.isArray(body.target_roles) && body.target_roles.length > 0) ||
+        (Array.isArray(body.target_user_ids) && body.target_user_ids.length > 0) ||
+        Boolean(body.user_id))
+    ) {
       records.push({
         id: body.id,
         user_id: body.user_id,
@@ -397,7 +535,13 @@ Deno.serve(async (req: Request) => {
         category: body.category,
         title: body.title,
         message: body.message,
+        body: body.body,
         target_url: body.target_url,
+        target_user_ids: body.target_user_ids,
+        target_roles: body.target_roles,
+        broadcast: body.broadcast,
+        include_self: body.include_self,
+        data: body.data,
       });
     }
 
@@ -415,7 +559,7 @@ Deno.serve(async (req: Request) => {
           ok: false,
           skipped: true,
           reason:
-            'Kredensial FCM belum diatur (set FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY atau FIREBASE_SERVICE_ACCOUNT).',
+            'Kredensial FCM belum diatur di Supabase Edge Function Secrets (set FIREBASE_SERVICE_ACCOUNT atau FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY).',
         }),
         { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
@@ -434,9 +578,23 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: tokenRows, error: tokenErr } = await supabaseAdmin
+    // Baca user_push_tokens (mendukung tabel dengan kolom `blok` baru maupun tabel lama `blok_rumah`)
+    let tokenRows: UserPushTokenRow[] | null = null;
+    let tokenErr: { message: string } | null = null;
+
+    const primaryQuery = await supabaseAdmin
       .from('user_push_tokens')
-      .select('id, user_id, role, blok_rumah, token, platform');
+      .select('id, user_id, role, blok, blok_rumah, token, platform');
+
+    if (primaryQuery.error) {
+      const legacyQuery = await supabaseAdmin
+        .from('user_push_tokens')
+        .select('id, user_id, role, blok_rumah, token, platform');
+      tokenRows = (legacyQuery.data || null) as UserPushTokenRow[] | null;
+      tokenErr = legacyQuery.error;
+    } else {
+      tokenRows = (primaryQuery.data || null) as UserPushTokenRow[] | null;
+    }
 
     if (tokenErr) {
       console.error('[send-push-notification] Gagal membaca user_push_tokens:', tokenErr);
@@ -446,10 +604,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const allDevices = (tokenRows || []) as UserPushTokenRow[];
+    const allDevices = (tokenRows || []).filter((d) => Boolean(d.token && d.token.trim()));
     if (allDevices.length === 0) {
       return new Response(
-        JSON.stringify({ ok: true, sent: 0, matchedDevices: 0, removedInvalidTokens: 0 }),
+        JSON.stringify({
+          ok: true,
+          sent: 0,
+          failed: 0,
+          matchedDevices: 0,
+          removedInvalidTokens: 0,
+        }),
         { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
@@ -460,28 +624,29 @@ Deno.serve(async (req: Request) => {
     let sentCount = 0;
     let failedCount = 0;
 
-    const sendQueue: Array<{ token: string; record: IncomingNotificationRecord }> = [];
+    const sendQueue: Array<{ device: UserPushTokenRow; record: IncomingNotificationRecord }> = [];
 
     for (const record of records) {
       if (record.is_read) continue;
+      const titleKey = String(record.title || '').trim();
+      const bodyKey = String(record.body || record.message || '').trim();
 
-      const matchedDevices = allDevices.filter(
-        (device) =>
-          Boolean(device.token) &&
-          doesDeviceMatchTarget(device, record.user_id) &&
-          !isDeviceSelfActor(device, record.actor_id)
-      );
+      const matchedDevices = allDevices.filter((device) => {
+        if (!doesDeviceMatchRecord(device, record)) return false;
+        if (!record.include_self && isDeviceSelfActor(device, record.actor_id)) return false;
+        return true;
+      });
 
       for (const device of matchedDevices) {
-        // Cegah pengiriman ganda ke token yang sama dalam 1 batch untuk judul+pesan identik
-        const pairKey = `${device.token}::${record.title || ''}::${record.message || ''}`;
+        // Deduplikasi ketat berdasarkan token perangkat agar 1 HP/Browser tidak menerima push ganda
+        const pairKey = `${device.token}::${titleKey}::${bodyKey}`;
         if (deliveredPairs.has(pairKey)) continue;
         deliveredPairs.add(pairKey);
-        sendQueue.push({ token: device.token, record });
+        sendQueue.push({ device, record });
       }
     }
 
-    // Kirim secara paralel per chunk (10 perangkat sekaligus) agar broadcast 109 warga cepat & tidak timeout
+    // Kirim secara paralel per chunk (10 perangkat sekaligus) agar broadcast massal cepat & stabil
     const CHUNK_SIZE = 10;
     for (let i = 0; i < sendQueue.length; i += CHUNK_SIZE) {
       const chunk = sendQueue.slice(i, i + CHUNK_SIZE);
@@ -490,10 +655,10 @@ Deno.serve(async (req: Request) => {
           const res = await sendSingleFcmMessage(
             creds.project_id,
             accessToken,
-            item.token,
+            item.device,
             item.record
           );
-          return { token: item.token, res };
+          return { token: item.device.token, res };
         })
       );
 
@@ -510,7 +675,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Hapus otomatis token yang UNREGISTERED / INVALID_ARGUMENT dari tabel user_push_tokens
+    // Hapus otomatis token yang UNREGISTERED / INVALID_ARGUMENT / NOT_FOUND dari user_push_tokens
     let removedCount = 0;
     if (invalidTokens.size > 0) {
       const tokensToRemove = Array.from(invalidTokens);
@@ -530,6 +695,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         sent: sentCount,
         failed: failedCount,
+        matchedDevices: sendQueue.length,
         removedInvalidTokens: removedCount,
       }),
       { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }

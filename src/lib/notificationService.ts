@@ -42,6 +42,20 @@ export interface CreateActivityNotificationInput {
   actor_avatar_url?: string | null;
 }
 
+export interface DirectPushDispatchInput {
+  id?: string;
+  title: string;
+  body: string;
+  target_user_ids?: string[];
+  target_roles?: Array<'admin' | 'warga' | 'keamanan' | 'petugas'>;
+  broadcast?: boolean;
+  include_self?: boolean;
+  target_url?: string;
+  category?: ActivityNotificationCategory;
+  actor_id?: string | null;
+  data?: Record<string, string>;
+}
+
 function normalizeIdToken(raw?: string | null): string {
   return String(raw || '')
     .trim()
@@ -60,6 +74,10 @@ export function buildAdminUserId(username: string): string {
 
 export function buildPetugasUserId(petugasIdOrUsername: string): string {
   return `petugas:${normalizeIdToken(petugasIdOrUsername)}`;
+}
+
+export function buildKeamananUserId(petugasIdOrUsername: string): string {
+  return `keamanan:${normalizeIdToken(petugasIdOrUsername)}`;
 }
 
 export function getCanonicalUserId(session?: SessionUser | null): string {
@@ -122,12 +140,23 @@ export function getUserNotificationMatchIds(session?: SessionUser | null): strin
     ids.add('role:admin');
   } else if (session.role === 'petugas') {
     ids.add('broadcast:petugas');
+    ids.add('broadcast:keamanan');
     ids.add('role:petugas');
+    ids.add('role:keamanan');
     if (session.petugas_id) {
-      ids.add(`petugas:${normalizeIdToken(session.petugas_id)}`);
+      const cleanPid = normalizeIdToken(session.petugas_id);
+      ids.add(`petugas:${cleanPid}`);
+      ids.add(`keamanan:${cleanPid}`);
     }
     if (session.blok_rumah) {
-      ids.add(`petugas:${normalizeIdToken(session.blok_rumah)}`);
+      const cleanBlok = normalizeIdToken(session.blok_rumah);
+      ids.add(`petugas:${cleanBlok}`);
+      ids.add(`keamanan:${cleanBlok}`);
+    }
+    if (session.nama_warga) {
+      const cleanNama = normalizeIdToken(session.nama_warga);
+      ids.add(`petugas:${cleanNama}`);
+      ids.add(`keamanan:${cleanNama}`);
     }
   }
 
@@ -392,14 +421,61 @@ export async function fetchActivityNotifications(
 }
 
 /**
- * Mengirim 1 atau banyak notifikasi aktivitas sekaligus secara real-time ke Supabase + cache lokal.
+ * Memanggil Supabase Edge Function `send-push-notification` secara langsung dan non-blocking.
+ */
+export async function sendDirectPushNotification(
+  actorSession: SessionUser | null | undefined,
+  payload: DirectPushDispatchInput | DirectPushDispatchInput[]
+): Promise<void> {
+  const supabase = getSupabaseClient(actorSession || null);
+  if (!supabase || !isSupabaseConfigured()) return;
+
+  const actorId = actorSession ? getCanonicalUserId(actorSession) : 'system';
+  const items = Array.isArray(payload) ? payload : [payload];
+  const validItems = items
+    .filter((item) => Boolean(item && (item.title || item.body)))
+    .map((item) => ({
+      id: item.id || createUuidFallback(),
+      title: item.title.trim(),
+      body: item.body.trim(),
+      message: item.body.trim(),
+      target_user_ids: item.target_user_ids,
+      target_roles: item.target_roles,
+      broadcast: item.broadcast,
+      include_self: item.include_self,
+      target_url: item.target_url || '',
+      category: item.category || 'system',
+      actor_id: item.actor_id ?? actorId,
+      data: item.data,
+    }));
+
+  if (validItems.length === 0) return;
+
+  try {
+    await supabase.functions.invoke('send-push-notification', {
+      body: validItems.length === 1 ? validItems[0] : { notifications: validItems },
+    });
+  } catch {
+    // Jangan blokir alur utama bila Edge Function belum di-deploy atau offline
+  }
+}
+
+/**
+ * Mengirim 1 atau banyak notifikasi aktivitas sekaligus secara real-time ke Supabase + cache lokal,
+ * sekaligus memicu Edge Function `send-push-notification` untuk Android/iOS/Web (foreground, background, killed).
  * Aman dipanggil dari aktivitas apa pun tanpa melempar error ke alur utama.
  */
 export async function dispatchActivityNotifications(
   actorSession: SessionUser | null | undefined,
-  inputs: CreateActivityNotificationInput[]
+  inputs: CreateActivityNotificationInput[],
+  pushOverride?: DirectPushDispatchInput | DirectPushDispatchInput[]
 ): Promise<void> {
-  if (!inputs || inputs.length === 0) return;
+  if (!inputs || inputs.length === 0) {
+    if (pushOverride) {
+      void sendDirectPushNotification(actorSession, pushOverride);
+    }
+    return;
+  }
 
   const nowIso = new Date().toISOString();
   const actorId = actorSession ? getCanonicalUserId(actorSession) : 'system';
@@ -431,10 +507,16 @@ export async function dispatchActivityNotifications(
     });
   }
 
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    if (pushOverride) {
+      void sendDirectPushNotification(actorSession, pushOverride);
+    }
+    return;
+  }
 
   // Simpan ke Supabase terlebih dahulu jika terkonfigurasi
   let savedToRemote = false;
+  let pushedViaRemote = false;
   const supabase = getSupabaseClient(actorSession || null);
   if (supabase && isSupabaseConfigured()) {
     try {
@@ -456,19 +538,29 @@ export async function dispatchActivityNotifications(
         .select('id, user_id, actor_id, category, title, message, target_url, is_read, created_at');
       if (!error) {
         savedToRemote = true;
-        // Pemicu FCM Push Notification (Android background / minimize / force close) secara non-blocking
-        const pushBatch =
-          Array.isArray(insertedRows) && insertedRows.length > 0 ? insertedRows : rows;
-        void supabase.functions
-          .invoke('send-push-notification', {
-            body: { notifications: pushBatch },
-          })
-          .catch(() => {
-            // Jangan blokir transaksi utama bila Edge Function belum di-deploy atau offline
-          });
+        pushedViaRemote = true;
+        if (pushOverride) {
+          void sendDirectPushNotification(actorSession, pushOverride);
+        } else {
+          // Pemicu FCM Push Notification (Android/iOS/Web background / minimize / killed) secara non-blocking
+          const pushBatch =
+            Array.isArray(insertedRows) && insertedRows.length > 0 ? insertedRows : rows;
+          void supabase.functions
+            .invoke('send-push-notification', {
+              body: { notifications: pushBatch },
+            })
+            .catch(() => {
+              // Jangan blokir transaksi utama bila Edge Function belum di-deploy atau offline
+            });
+        }
       }
     } catch {
       // Lanjut fallback lokal
+    }
+
+    // Jika tabel notifications gagal insert tetapi Supabase aktif & ada pushOverride, tetap kirim push FCM
+    if (!pushedViaRemote && pushOverride) {
+      void sendDirectPushNotification(actorSession, pushOverride);
     }
   }
 
