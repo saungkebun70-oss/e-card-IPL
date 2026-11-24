@@ -192,7 +192,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
   return (
     <div className="space-y-5">
       {/* Header & Tombol Refresh */}
-      <section className="glass-card rounded-3xl p-5 sm:p-6">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
@@ -270,7 +270,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
       </section>
 
       {/* Filter & Pencarian */}
-      <section className="glass-card rounded-3xl p-4 space-y-3">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           {/* Tab Status */}
           <div className="inline-flex rounded-2xl bg-indigo-50/80 p-1 shrink-0 self-start">
@@ -330,12 +330,12 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
 
       {/* Daftar Laporan Bug */}
       {loading ? (
-        <div className="glass-card rounded-3xl p-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
           <Loader2 className="w-6 h-6 animate-spin text-[#4C1D95]" />
           <p className="text-sm font-medium">Memuat laporan bug dari database...</p>
         </div>
       ) : filteredReports.length === 0 ? (
-        <div className="glass-card rounded-3xl p-10 text-center">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-10 text-center">
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto">
             {statusFilter === 'pending' ? (
               <CheckCircle2 className="w-6 h-6 text-emerald-600" />
@@ -368,7 +368,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
             return (
               <article
                 key={item.id}
-                className={`glass-card rounded-3xl p-4 sm:p-5 space-y-3.5 transition-colors ${
+                className={`glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-3.5 transition-colors ${
                   resolved ? '' : 'ring-1 ring-amber-300/70'
                 }`}
               >

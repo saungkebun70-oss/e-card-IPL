@@ -313,10 +313,10 @@ export function PetugasAttendanceCard({
       {/* KARTU UTAMA: ABSENSI JAGA */}
       <section
         aria-label="Absensi Jaga Petugas Keamanan"
-        className="glass-card rounded-3xl overflow-hidden"
+        className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
       >
         {/* Header Kartu + Live Clock WIB */}
-        <div className="glass-hero text-white px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] text-white px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#A7F3D0] shrink-0" />

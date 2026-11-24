@@ -16,17 +16,17 @@
 :root,
 html[data-theme="emerald"] {
   --theme-bg: #eef2ff;
-  --theme-bg-gradient: radial-gradient(circle at 12% 10%, rgba(221, 214, 254, 0.72) 0%, transparent 45%),
-    radial-gradient(circle at 88% 18%, rgba(186, 230, 253, 0.72) 0%, transparent 48%),
-    radial-gradient(circle at 50% 88%, rgba(233, 213, 255, 0.58) 0%, transparent 52%),
-    linear-gradient(135deg, #ede9fe 0%, #f4f7fe 48%, #e0f2fe 100%);
+  --theme-bg-gradient: radial-gradient(circle at 10% 8%, rgba(221, 214, 254, 0.78) 0%, transparent 46%),
+    radial-gradient(circle at 90% 14%, rgba(186, 230, 253, 0.76) 0%, transparent 48%),
+    radial-gradient(circle at 52% 90%, rgba(233, 213, 255, 0.62) 0%, transparent 54%),
+    linear-gradient(135deg, #eef2ff 0%, #f3e8ff 48%, #e0f2fe 100%);
   --theme-surface: rgba(255, 255, 255, 0.80);
   --theme-surface-solid: #ffffff;
   --theme-surface-muted: rgba(238, 242, 255, 0.75);
   --theme-surface-hover: rgba(255, 255, 255, 0.94);
   --theme-border: rgba(255, 255, 255, 0.92);
   --theme-border-subtle: rgba(199, 210, 254, 0.45);
-  --theme-card-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.12);
+  --theme-card-shadow: 0 12px 32px -12px rgba(79, 70, 229, 0.14), 0 4px 12px -4px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.92);
   --theme-text: #0f172a;
   --theme-text-secondary: #475569;
   --theme-text-muted: #64748b;
@@ -45,13 +45,13 @@ html[data-theme="emerald"] {
 
   --theme-accent: #3b0764;
   --theme-accent-2: #6d28d9;
-  --theme-accent-border: rgba(255, 255, 255, 0.22);
+  --theme-accent-border: rgba(255, 255, 255, 0.24);
   --theme-accent-highlight: #a7f3d0;
-  --theme-hero-gradient: linear-gradient(135deg, #3b0764 0%, #4c1d95 48%, #6d28d9 100%);
-  --theme-hero-shadow: 0 16px 34px -10px rgba(76, 29, 149, 0.36);
+  --theme-hero-gradient: linear-gradient(135deg, #3b0764 0%, #4c1d95 36%, #6d28d9 74%, #312e81 100%);
+  --theme-hero-shadow: 0 20px 40px -14px rgba(76, 29, 149, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 
-  --theme-header-bg: rgba(255, 255, 255, 0.94);
-  --theme-nav-bg: rgba(255, 255, 255, 0.86);
+  --theme-header-bg: rgba(255, 255, 255, 0.82);
+  --theme-nav-bg: rgba(255, 255, 255, 0.82);
   --theme-input-bg: rgba(255, 255, 255, 0.90);
   --theme-input-border: #cbd5e1;
   --theme-input-text: #0f172a;
@@ -278,8 +278,8 @@ html[data-theme="royal"] {
 
 .glass-card {
   background-color: var(--theme-surface);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: 1px solid var(--theme-border);
   box-shadow: var(--theme-card-shadow);
 }
@@ -292,18 +292,18 @@ html[data-theme="royal"] {
 
 .glass-header {
   background-color: var(--theme-header-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--theme-border);
-  box-shadow: 0 8px 24px -6px rgba(79, 70, 229, 0.10);
+  box-shadow: 0 10px 28px -8px rgba(79, 70, 229, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .glass-dock {
   background-color: var(--theme-nav-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--theme-border);
-  box-shadow: 0 12px 32px -8px rgba(79, 70, 229, 0.18);
+  box-shadow: 0 14px 36px -10px rgba(79, 70, 229, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 /* ==========================================================================
@@ -356,8 +356,23 @@ html[data-theme="midnight"] .bg-white\/90,
 html[data-theme="midnight"] .bg-white\/85,
 html[data-theme="midnight"] .bg-white\/80,
 html[data-theme="midnight"] .bg-white\/75,
-html[data-theme="midnight"] .bg-white\/70 {
+html[data-theme="midnight"] .bg-white\/70,
+html[data-theme="midnight"] .bg-white\/65,
+html[data-theme="midnight"] .bg-white\/60 {
   background-color: var(--theme-surface);
+}
+
+html[data-theme="midnight"] .glass-canvas {
+  background-image: var(--theme-bg-gradient);
+}
+
+html[data-theme="midnight"] .glass-hero {
+  background-image: var(--theme-hero-gradient);
+}
+
+html[data-theme="midnight"] .glass-header,
+html[data-theme="midnight"] .glass-dock {
+  box-shadow: 0 12px 28px -10px rgba(2, 6, 23, 0.65);
 }
 
 html[data-theme="midnight"] .bg-slate-50,
@@ -371,14 +386,18 @@ html[data-theme="midnight"] .bg-slate-100,
 html[data-theme="midnight"] .bg-slate-200\/70,
 html[data-theme="midnight"] .bg-slate-200\/75,
 html[data-theme="midnight"] .bg-slate-200\/80,
+html[data-theme="midnight"] .bg-indigo-50\/40,
+html[data-theme="midnight"] .bg-indigo-50\/50,
 html[data-theme="midnight"] .bg-indigo-50\/60,
-html[data-theme="midnight"] .bg-indigo-50\/70 {
+html[data-theme="midnight"] .bg-indigo-50\/70,
+html[data-theme="midnight"] .bg-indigo-50\/80 {
   background-color: #1e293b;
 }
 
 html[data-theme="midnight"] .hover\:bg-slate-50:hover,
 html[data-theme="midnight"] .hover\:bg-slate-50\/70:hover,
-html[data-theme="midnight"] .hover\:bg-slate-100:hover {
+html[data-theme="midnight"] .hover\:bg-slate-100:hover,
+html[data-theme="midnight"] .hover\:bg-indigo-50\/50:hover {
   background-color: #1f2937;
 }
 
@@ -410,7 +429,10 @@ html[data-theme="midnight"] .border-white\/95,
 html[data-theme="midnight"] .border-white\/90,
 html[data-theme="midnight"] .border-white\/80,
 html[data-theme="midnight"] .border-indigo-100,
+html[data-theme="midnight"] .border-indigo-100\/80,
+html[data-theme="midnight"] .border-indigo-100\/90,
 html[data-theme="midnight"] .border-indigo-200\/70,
+html[data-theme="midnight"] .border-indigo-200\/80,
 html[data-theme="midnight"] .border-slate-200,
 html[data-theme="midnight"] .border-slate-200\/80,
 html[data-theme="midnight"] .border-slate-200\/70,
@@ -419,6 +441,8 @@ html[data-theme="midnight"] .border-slate-300 {
 }
 
 html[data-theme="midnight"] .border-slate-100,
+html[data-theme="midnight"] .divide-indigo-100\/70 > :not([hidden]) ~ :not([hidden]),
+html[data-theme="midnight"] .divide-indigo-100\/80 > :not([hidden]) ~ :not([hidden]),
 html[data-theme="midnight"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html[data-theme="midnight"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
   border-color: #1f2937;

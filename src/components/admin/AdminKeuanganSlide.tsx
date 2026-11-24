@@ -461,7 +461,7 @@ export function AdminKeuanganSlide({
     <div className="space-y-6">
       {/* KPI Strip Saldo Kas Real-Time */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="col-span-2 lg:col-span-1 glass-hero text-white rounded-3xl p-4 sm:p-5">
+        <div className="col-span-2 lg:col-span-1 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-indigo-100/90">Saldo Kas Real-Time</p>
             <Wallet className="w-4 h-4 text-emerald-300 shrink-0" />
@@ -474,7 +474,7 @@ export function AdminKeuanganSlide({
           </p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total IPL Terverifikasi</p>
           <p className="text-lg sm:text-xl font-bold font-mono text-[#047857] tabular-nums mt-2">
             {formatRupiah(cashSummary.totalIplMasuk)}
@@ -482,7 +482,7 @@ export function AdminKeuanganSlide({
           <p className="text-[11px] text-slate-500 mt-1">Akumulasi iuran warga lunas</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total Pemasukan Lain</p>
           <p className="text-lg sm:text-xl font-bold font-mono text-[#3730A3] tabular-nums mt-2">
             {formatRupiah(cashSummary.totalPemasukanLain)}
@@ -490,7 +490,7 @@ export function AdminKeuanganSlide({
           <p className="text-[11px] text-slate-500 mt-1">Donasi, kas awal &amp; parsial</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total Pengeluaran</p>
           <p className="text-lg sm:text-xl font-bold font-mono text-red-700 tabular-nums mt-2">
             {formatRupiah(cashSummary.totalPengeluaran)}
@@ -557,7 +557,7 @@ export function AdminKeuanganSlide({
         /* Grid Utama: Form Input Cepat (Kiri) + Daftar Riwayat Kas (Kanan) */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Pencatatan Pengeluaran Anggaran / Pemasukan Lain */}
-        <section className="lg:col-span-5 glass-card rounded-3xl overflow-hidden">
+        <section className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-indigo-100/80 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-bold text-[#0F172A]">
@@ -617,7 +617,7 @@ export function AdminKeuanganSlide({
               <select
                 value={kategori}
                 onChange={(e) => setKategori(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
               >
                 {kategoriOptions.map((opt) => (
                   <option key={opt} value={opt}>
@@ -677,7 +677,7 @@ export function AdminKeuanganSlide({
                         required
                         value={tanggal}
                         onChange={(e) => setTanggal(e.target.value)}
-                        className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-mono text-[#0F172A]"
+                        className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-9 pr-3 text-sm font-mono text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                       />
                     </div>
                   </div>
@@ -690,7 +690,7 @@ export function AdminKeuanganSlide({
                       <select
                         value={termin}
                         onChange={(e) => setTermin(e.target.value)}
-                        className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                        className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                       >
                         {TERMIN_PENGELUARAN_LIST.map((t) => (
                           <option key={t} value={t}>
@@ -720,7 +720,7 @@ export function AdminKeuanganSlide({
                       }
                       onChange={(e) => setNominalStr(e.target.value.replace(/\D/g, ''))}
                       placeholder="Contoh: 500.000"
-                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-base font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                      className="w-full min-h-[46px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-10 pr-4 text-base font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                     />
                   </div>
                   {parsedNominal > 0 && (
@@ -745,7 +745,7 @@ export function AdminKeuanganSlide({
                         ? 'Contoh: Petugas Kebersihan / PLN / Toko Material'
                         : 'Contoh: Donatur Warga Blok B3 / Sisa Kas 2025'
                     }
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A]"
+                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                   />
                 </div>
 
@@ -759,7 +759,7 @@ export function AdminKeuanganSlide({
                     value={keterangan}
                     onChange={(e) => setKeterangan(e.target.value)}
                     placeholder="Rincian penggunaan anggaran atau keterangan penerimaan dana..."
-                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-[#0F172A] resize-none"
+                    className="w-full rounded-2xl border border-indigo-200/80 bg-white/90 p-3 text-sm text-[#0F172A] resize-none focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                   />
                 </div>
 
@@ -811,7 +811,7 @@ export function AdminKeuanganSlide({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full min-h-[44px] rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:border-emerald-500 hover:bg-emerald-50/40 text-xs font-semibold text-slate-600 inline-flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full min-h-[44px] rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 hover:border-[#4C1D95] hover:bg-indigo-50/80 text-xs font-semibold text-slate-600 inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
                     >
                       <Camera className="w-4 h-4 text-slate-500" />
                       <span>Unggah Foto Nota / Bukti Kas</span>
@@ -856,7 +856,7 @@ export function AdminKeuanganSlide({
         </section>
 
         {/* Daftar Riwayat Pengeluaran & Pemasukan Lain */}
-        <section className="lg:col-span-7 glass-card rounded-3xl overflow-hidden">
+        <section className="lg:col-span-7 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-indigo-100/80 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -929,10 +929,10 @@ export function AdminKeuanganSlide({
             </div>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-indigo-100/70">
             {filteredKas.length === 0 ? (
               <div className="p-10 text-center">
-                <Wallet className="w-9 h-9 text-slate-300 mx-auto" />
+                <Wallet className="w-9 h-9 text-indigo-300 mx-auto" />
                 <p className="text-sm font-semibold text-slate-700 mt-2">
                   Belum Ada Catatan Kas
                 </p>
@@ -947,7 +947,7 @@ export function AdminKeuanganSlide({
                 const statusVerif: StatusVerifikasi = item.status_verifikasi || 'Terverifikasi';
                 const isBusy = verifyingId === item.id;
                 return (
-                  <article key={item.id} className="p-4 sm:p-5 hover:bg-slate-50/70 transition-colors">
+                  <article key={item.id} className="p-4 sm:p-5 hover:bg-white/50 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="space-y-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">

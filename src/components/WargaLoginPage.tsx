@@ -188,9 +188,9 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
   const biometryLabel = biometryAvailability?.label || 'Sidik Jari / Face ID';
 
   return (
-    <div className="min-h-[100dvh] w-full glass-canvas flex flex-col lg:flex-row overflow-y-auto overflow-x-clip touch-pan-y">
+    <div className="min-h-[100dvh] w-full glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] flex flex-col lg:flex-row overflow-y-auto overflow-x-clip touch-pan-y">
       {/* Panel Identitas Portal Warga */}
-      <section className="shrink-0 glass-hero text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden lg:rounded-r-3xl">
+      <section className="shrink-0 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white lg:w-[46%] xl:w-[44%] flex flex-col justify-between px-6 pb-6 sm:px-10 sm:pb-10 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] lg:p-14 relative overflow-hidden lg:rounded-r-3xl">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-indigo-400/20 blur-3xl"
@@ -279,7 +279,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
           {canQuickUnlock && enrolledProfile && (
             <section
               aria-label="Masuk Cepat Biometrik Warga"
-              className="mb-4 glass-card rounded-3xl p-5 space-y-3.5"
+              className="mb-4 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 space-y-3.5"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -333,7 +333,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
 
           <form
             onSubmit={handleSubmit}
-            className="glass-card rounded-3xl p-6 sm:p-7 space-y-5"
+            className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-6 sm:p-7 space-y-5"
           >
             {canQuickUnlock && (
               <div className="flex items-center gap-3 -mt-1">

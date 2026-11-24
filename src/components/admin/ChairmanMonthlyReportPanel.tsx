@@ -155,9 +155,9 @@ export function ChairmanMonthlyReportPanel({
   const isSurplus = report.surplusDefisit >= 0;
 
   return (
-    <section className="glass-card rounded-3xl overflow-hidden">
+    <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
       {/* Header Panel Eksekutif Ketua */}
-      <div className="px-4 sm:px-5 py-4 glass-hero text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+      <div className="px-4 sm:px-5 py-4 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 rounded-2xl bg-white/15 border border-white/25 text-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
             <FileBarChart2 className="w-5 h-5" />

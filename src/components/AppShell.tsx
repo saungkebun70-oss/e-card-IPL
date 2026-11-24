@@ -195,7 +195,7 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-full glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full max-w-full bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
       {/* Slide-Over Menu Drawer Admin (Mobile, Tablet & Desktop — Akses LPJ, Laporan Bug & Pengaturan Sistem) */}
       <AnimatePresence>
         {drawerOpen && isAdmin && (
@@ -221,11 +221,11 @@ export function AppShell({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[85vw] max-w-[336px] h-full bg-white/95 backdrop-blur-2xl rounded-r-3xl border-r border-white/90 shadow-2xl flex flex-col overflow-hidden"
+              className="relative z-10 w-[85vw] max-w-[336px] h-full bg-white/85 backdrop-blur-2xl rounded-r-3xl border-r border-white/90 shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Header Drawer Gradasi Ungu-Indigo Tema Aktif */}
               <div
-                className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),20px)+1rem)] pb-5 text-white shrink-0"
+                className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),20px)+1rem)] pb-5 bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] text-white shrink-0"
                 style={{ backgroundImage: 'var(--theme-hero-gradient)' }}
               >
                 <div className="flex items-center justify-between gap-2.5">
@@ -316,9 +316,9 @@ export function AppShell({
                     type="button"
                     onClick={handleOpenLpj}
                     className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
-                      isLpjActive
-                        ? 'bg-[#EDE9FE] border-[#DDD6FE]'
-                        : 'bg-white border-slate-100 hover:bg-indigo-50/50'
+                        isLpjActive
+                        ? 'bg-[#EDE9FE]/90 border-[#DDD6FE]'
+                        : 'bg-white/80 backdrop-blur-md border-white/90 hover:bg-indigo-50/60'
                     }`}
                   >
                     <div
@@ -346,8 +346,8 @@ export function AppShell({
                     onClick={handleOpenBugReports}
                     className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
                       isBugReportsActive
-                        ? 'bg-[#EDE9FE] border-[#DDD6FE]'
-                        : 'bg-white border-slate-100 hover:bg-indigo-50/50'
+                        ? 'bg-[#EDE9FE]/90 border-[#DDD6FE]'
+                        : 'bg-white/80 backdrop-blur-md border-white/90 hover:bg-indigo-50/60'
                     }`}
                   >
                     <div
@@ -386,7 +386,7 @@ export function AppShell({
                     <button
                       type="button"
                       onClick={handleOpenSettingsFromSidebar}
-                      className="w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border border-slate-100 bg-white hover:bg-indigo-50/50 active:scale-[0.98] flex items-center gap-3 transition-all cursor-pointer"
+                      className="w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border border-white/90 bg-white/80 backdrop-blur-md hover:bg-indigo-50/60 active:scale-[0.98] flex items-center gap-3 transition-all cursor-pointer"
                     >
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                         <Settings className="w-5 h-5" />
@@ -429,7 +429,7 @@ export function AppShell({
 
       {/* Floating Glass Header Bar (Mobile, Tablet & Desktop) */}
       <div className="fixed top-0 left-0 right-0 z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto glass-header rounded-2xl px-3.5 sm:px-5 min-h-14 sm:min-h-16 py-2 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 sm:gap-4 pointer-events-auto">
+        <header className="max-w-7xl mx-auto glass-header bg-white/80 backdrop-blur-xl border border-white/90 rounded-2xl px-3.5 sm:px-5 min-h-14 sm:min-h-16 py-2 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 sm:gap-4 pointer-events-auto">
           {/* Zona 1: Brand Lockup (Kiri) */}
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 shrink-0">
             {isAdmin && (
@@ -601,7 +601,7 @@ export function AppShell({
       {/* Floating Bottom Dock untuk Tablet & Desktop (>= 768px) */}
       <nav
         aria-label="Dock Navigasi Utama"
-        className="hidden md:flex fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass-dock rounded-2xl px-2.5 py-1.5 items-center gap-1.5 max-w-[94vw] no-print"
+        className="hidden md:flex fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass-dock bg-white/80 backdrop-blur-xl border border-white/90 rounded-2xl px-2.5 py-1.5 items-center gap-1.5 max-w-[94vw] no-print"
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -635,7 +635,7 @@ export function AppShell({
       {/* Bottom Navigation Bar Tetap untuk Mobile (< 768px) dengan Floating Center + Circle */}
       <nav
         aria-label="Navigasi Bawah Mobile"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/92 backdrop-blur-xl border-t border-white/90 shadow-[0_-8px_24px_-8px_rgba(79,70,229,0.14)] pb-safe pb-[env(safe-area-inset-bottom)] no-print"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl border-t border-white/90 shadow-[0_-8px_24px_-8px_rgba(79,70,229,0.14)] pb-safe pb-[env(safe-area-inset-bottom)] no-print"
       >
         <div
           className={`grid ${

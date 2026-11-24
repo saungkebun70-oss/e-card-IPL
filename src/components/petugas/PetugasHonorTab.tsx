@@ -212,7 +212,7 @@ export function PetugasHonorTab({
     <div className="space-y-4">
       {/* RINGKASAN TOTAL LEMBUR BULAN INI & TOTAL HONOR DITERIMA (READ-ONLY) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-3xl glass-hero text-white p-4 sm:p-5 space-y-2">
+        <div className="rounded-3xl glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white p-4 sm:p-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A7F3D0]">
               Total Lembur Bulan Ini
@@ -232,7 +232,7 @@ export function PetugasHonorTab({
           </p>
         </div>
 
-        <div className="rounded-3xl glass-card p-4 sm:p-5 space-y-2">
+        <div className="rounded-3xl glass-card bg-white/80 backdrop-blur-xl border border-white/90 p-4 sm:p-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4C1D95]">
               Total Honor &amp; Lembur Diterima
@@ -249,7 +249,7 @@ export function PetugasHonorTab({
       </section>
 
       {/* DAFTAR LEMBUR MINGGU (19:00 – 07:00 WIB) */}
-      <section className="glass-card rounded-3xl overflow-hidden">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Moon className="w-4 h-4 text-[#4C1D95] shrink-0" />
@@ -377,7 +377,7 @@ export function PetugasHonorTab({
       </section>
 
       {/* RIWAYAT HONOR BULANAN & PENCAIRAN KAS */}
-      <section className="glass-card rounded-3xl overflow-hidden">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Wallet className="w-4 h-4 text-[#4C1D95] shrink-0" />

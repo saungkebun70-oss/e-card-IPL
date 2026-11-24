@@ -138,7 +138,7 @@ export function AdminLpjSlide({
   return (
     <div className="space-y-5">
       {/* Toolbar Kontrol Filter Triwulan & Tombol Ekspor PDF/Cetak A4 */}
-      <section className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 no-print">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 no-print">
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500">
             Pilih Periode Laporan Pertanggungjawaban (Per 3 Bulan)

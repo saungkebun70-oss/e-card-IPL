@@ -626,7 +626,7 @@ export function KeamananSlide({
 
           {/* Ringkasan KPI Keamanan & Status Petugas Bertugas */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-        <div className="glass-hero text-white rounded-3xl p-4 sm:p-5">
+        <div className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-indigo-100/80">Petugas Siaga Aktif</p>
             <ShieldCheck className="w-4 h-4 text-[#A7F3D0] shrink-0" />
@@ -642,7 +642,7 @@ export function KeamananSlide({
           </p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-slate-500">Progres Titik Hari Ini</p>
             <Radio className="w-4 h-4 text-[#4C1D95] shrink-0" />
@@ -660,7 +660,7 @@ export function KeamananSlide({
           </p>
         </div>
 
-        <div className="col-span-2 lg:col-span-1 glass-card rounded-3xl p-4 sm:p-5">
+        <div className="col-span-2 lg:col-span-1 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-slate-500">Patroli Terakhir</p>
             <Clock className="w-4 h-4 text-[#4C1D95] shrink-0" />
@@ -689,7 +689,7 @@ export function KeamananSlide({
       {role === 'admin' && session && (
         <section
           aria-label="Scan Checkpoint Patroli NFC"
-          className="glass-card rounded-3xl overflow-hidden"
+          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
         >
           <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
@@ -956,7 +956,7 @@ export function KeamananSlide({
       {role === 'admin' && (
         <section
           aria-label="Status Kondisi Terkini Titik Checkpoint Patroli"
-          className="glass-card rounded-3xl overflow-hidden"
+          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
         >
           {/* Header & Ringkasan Kondisi Titik */}
           <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1223,7 +1223,7 @@ export function KeamananSlide({
 
       {/* Info & Instruksi Keamanan dari Pengurus (Jika Ada) */}
       {securityAnnouncements.length > 0 && (
-        <section className="glass-card rounded-3xl overflow-hidden">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center gap-2">
             <Megaphone className="w-4 h-4 text-amber-600 shrink-0" />
             <h2 className="text-sm font-bold text-[#0F172A]">

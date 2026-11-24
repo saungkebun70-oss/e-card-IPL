@@ -53,7 +53,7 @@ export function WargaProfilSlide({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Kolom Kiri: Data Profil Rumah & Tema Tampilan */}
       <div className="lg:col-span-7 space-y-6">
-        <section className="glass-card rounded-3xl overflow-hidden">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="p-5 sm:p-6 border-b border-indigo-100/70 bg-indigo-50/40">
             <ProfileAvatarEditor
               session={session}
@@ -104,7 +104,7 @@ export function WargaProfilSlide({
         {/* Pemilih Tema Tampilan */}
         <section
           aria-label="Tema Tampilan"
-          className="glass-card rounded-3xl p-5 sm:p-6"
+          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6"
         >
           <ThemePicker onToast={onToast} />
         </section>
@@ -112,7 +112,7 @@ export function WargaProfilSlide({
         {/* Pengaturan Notifikasi, Suara & Getaran */}
         <section
           aria-label="Pengaturan Notifikasi, Suara & Getaran"
-          className="glass-card rounded-3xl p-5 sm:p-6"
+          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6"
         >
           <NotificationSettingsCard session={session} onToast={onToast} />
         </section>
@@ -120,14 +120,14 @@ export function WargaProfilSlide({
         {/* Pelaporan Bug Cepat */}
         <section
           aria-label="Pelaporan Bug Cepat"
-          className="glass-card rounded-3xl p-5 sm:p-6"
+          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6"
         >
           <BugReportCard session={session} onToast={onToast} />
         </section>
       </div>
 
       {/* Keamanan Akun & Bantuan Pengurus */}
-      <section className="lg:col-span-5 glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+      <section className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
         <div className="flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-[#4C1D95] shrink-0 mt-0.5" />
           <div>

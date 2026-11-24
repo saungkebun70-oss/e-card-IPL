@@ -479,7 +479,7 @@ export function AdminWargaSlide({
   return (
     <div className="space-y-5 pb-[100px] min-w-0">
       {/* Toolbar Pencarian & Tombol Aksi */}
-      <div className="relative z-10 glass-card rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="relative z-10 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
           <Search className="w-4 h-4 text-indigo-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -519,7 +519,7 @@ export function AdminWargaSlide({
       </div>
 
       {/* Bar Filter Status Hunian & Counter Unit Real-Time */}
-      <div className="glass-card rounded-3xl p-3 sm:p-3.5 space-y-2">
+      <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-3 sm:p-3.5 space-y-2">
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           <button
             type="button"
@@ -593,7 +593,7 @@ export function AdminWargaSlide({
       {/* Tampilan Kartu Mobile (< md) agar Status Hunian & Quick Toggle nyaman di HP */}
       <div className="md:hidden space-y-3">
         {pagedWarga.length === 0 ? (
-          <div className="glass-card rounded-3xl p-8 text-center text-sm text-slate-500">
+          <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-8 text-center text-sm text-slate-500">
             Tidak ada unit rumah yang cocok dengan filter pencarian.
           </div>
         ) : (
@@ -613,7 +613,7 @@ export function AdminWargaSlide({
             return (
               <article
                 key={w.id}
-                className="glass-card rounded-3xl p-4 space-y-3"
+                className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -755,7 +755,7 @@ export function AdminWargaSlide({
       </div>
 
       {/* Daftar / Tabel Master Data Warga (Desktop & Tablet >= md) */}
-      <section className="hidden md:block w-full min-w-0 glass-card rounded-3xl overflow-hidden">
+      <section className="hidden md:block w-full min-w-0 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="w-full overflow-x-auto overscroll-x-contain">
           <table className="w-full min-w-max text-left border-collapse">
             <thead>

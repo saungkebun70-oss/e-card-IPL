@@ -252,7 +252,7 @@ export function WargaSetorSlide({
       {/* Kolom Kiri: Identitas Terkunci, Bulan & Metode */}
       <div className={`lg:col-span-7 space-y-6 transition-opacity ${submitting ? 'opacity-70 pointer-events-none' : ''}`}>
         {/* Identitas Terkunci (Read-only) */}
-        <section className="glass-card rounded-3xl p-5 sm:p-6">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-4">
             <h2 className="text-base font-bold text-[#0F172A]">Identitas Penyetor</h2>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -288,7 +288,7 @@ export function WargaSetorSlide({
         </section>
 
         {/* Pilihan Multi-Bulan */}
-        <section className="glass-card rounded-3xl p-5 sm:p-6">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h2 className="text-base font-bold text-[#0F172A]">
               Pilih Bulan yang Dibayar ({TAHUN_AKTIF})
@@ -347,7 +347,7 @@ export function WargaSetorSlide({
         </section>
 
         {/* Metode Pembayaran */}
-        <section className="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
           <h2 className="text-base font-bold text-[#0F172A]">Metode Pembayaran</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -496,7 +496,7 @@ export function WargaSetorSlide({
 
       {/* Kolom Kanan: Nominal, Upload Bukti WAJIB & Submit */}
       <div className="lg:col-span-5 space-y-6">
-        <section className="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
           <div>
             <label
               htmlFor="nominal-setoran"

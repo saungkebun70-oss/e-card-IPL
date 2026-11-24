@@ -299,7 +299,7 @@ export function AdminBotWaSlide({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl glass-card px-5 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl glass-card bg-white/80 backdrop-blur-xl border border-white/90 px-5 py-4">
         <div className="min-w-0">
           <p className="text-sm font-bold text-[#0F172A]">
             Panduan Format Pesan Otomatis Warga
@@ -329,7 +329,7 @@ export function AdminBotWaSlide({
 
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Kiri: Konfigurasi Gateway & Jadwal */}
-        <section className="lg:col-span-6 glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+        <section className="lg:col-span-6 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
           {/* Sakelar Aktif / Nonaktif */}
           <div className="flex items-center justify-between gap-4 pb-4 border-b border-indigo-100/70">
             <div>
@@ -474,7 +474,7 @@ export function AdminBotWaSlide({
         </section>
 
         {/* Kanan: Editor Template Pesan, Preview & Aksi Kirim */}
-        <section className="lg:col-span-6 glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+        <section className="lg:col-span-6 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Editor Template Pesan WhatsApp</h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -688,7 +688,7 @@ export function AdminBotWaSlide({
       </form>
 
       {/* Template & Bagikan Link Portal Pengurus (/admin) */}
-      <section className="glass-card rounded-3xl overflow-hidden">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-[#4C1D95] text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -856,7 +856,7 @@ export function AdminBotWaSlide({
       {/* Bot Jawab Otomatis (Webhook Fonnte) + Simulator Live */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Pengaturan Webhook Fonnte */}
-        <div className="lg:col-span-5 glass-card rounded-3xl p-5 sm:p-6 space-y-4">
+        <div className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#EDE9FE] border border-[#DDD6FE] flex items-center justify-center shrink-0">
               <Webhook className="w-5 h-5 text-[#4C1D95]" />
@@ -937,7 +937,7 @@ export function AdminBotWaSlide({
         </div>
 
         {/* Simulator Live Bot Jawab Otomatis */}
-        <div className="lg:col-span-7 glass-card rounded-3xl overflow-hidden">
+        <div className="lg:col-span-7 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <Bot className="w-4 h-4 text-[#4C1D95] shrink-0" />
@@ -1055,7 +1055,7 @@ export function AdminBotWaSlide({
       </section>
 
       {/* Tabel Log Riwayat Pengiriman Bot WA */}
-      <section className="glass-card rounded-3xl overflow-hidden">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Log Riwayat Pengiriman Bot WA</h2>

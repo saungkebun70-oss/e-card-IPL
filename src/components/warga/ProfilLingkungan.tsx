@@ -247,7 +247,7 @@ export function ProfilLingkungan({
   return (
     <div className="space-y-6">
       {/* Header Identitas Lingkungan & Ringkasan */}
-      <section className="glass-card rounded-3xl overflow-hidden">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-indigo-100/70">
           <div className="min-w-0 space-y-1.5">
             <p className="text-xs font-semibold text-[#4C1D95]">
@@ -383,7 +383,7 @@ export function ProfilLingkungan({
         <div className="lg:col-span-7">
           {viewMode === 'daftar' ? (
             filteredPengurus.length === 0 ? (
-              <div className="glass-card rounded-3xl p-8 text-center">
+              <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-8 text-center">
                 <Users className="w-8 h-8 text-indigo-300 mx-auto" />
                 <p className="text-sm font-semibold text-[#0F172A] mt-3">
                   Pengurus tidak ditemukan
@@ -403,7 +403,7 @@ export function ProfilLingkungan({
                 </button>
               </div>
             ) : (
-              <div className="glass-card rounded-3xl overflow-hidden divide-y divide-indigo-100/60">
+              <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden divide-y divide-indigo-100/60">
                 {filteredPengurus.map((p) => {
                   const isSelected = selectedPengurus.username === p.username;
                   return (
@@ -476,7 +476,7 @@ export function ProfilLingkungan({
             /* Bagan Struktur Organisasi Interaktif */
             <section
               aria-label="Bagan Struktur Pengurus Saung Kebun"
-              className="glass-card rounded-3xl p-5 sm:p-6"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6"
             >
               <div className="mb-5">
                 <h3 className="text-sm font-bold text-[#0F172A]">
@@ -586,7 +586,7 @@ export function ProfilLingkungan({
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               aria-label={`Detail Pengurus ${selectedPengurus.nama}`}
-              className="glass-card rounded-3xl overflow-hidden"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
             >
               {/* Header Detail */}
               <div className="p-5 sm:p-6 border-b border-indigo-100/70">

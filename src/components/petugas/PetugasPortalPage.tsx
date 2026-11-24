@@ -1018,9 +1018,9 @@ export function PetugasPortalPage({
   };
 
   return (
-    <div className="min-h-[100dvh] glass-canvas text-[#0F172A] pb-28 overflow-x-hidden">
+    <div className="min-h-[100dvh] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] pb-28 overflow-x-hidden">
       {/* Header Tetap & Anti-Geser Khusus Petugas (Fixed top-0, Tinggi Konstan h-16) */}
-      <header className="fixed top-0 left-0 right-0 z-40 w-full h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#3b0764]/95 backdrop-blur-xl text-white border-b border-white/15 flex items-center shadow-lg shadow-indigo-950/15">
+      <header className="fixed top-0 left-0 right-0 z-40 w-full h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-gradient-to-r from-[#3B0764]/95 via-[#4C1D95]/95 to-[#312E81]/95 backdrop-blur-xl text-white border-b border-white/15 flex items-center shadow-lg shadow-indigo-950/15">
         <div className="max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
             <BrandLogo size="xs" variant="dark" className="shrink-0" />
@@ -1123,7 +1123,7 @@ export function PetugasPortalPage({
             {/* KARTU FOTO PROFIL PETUGAS KEAMANAN */}
             <section
               aria-label="Foto Profil Petugas Keamanan"
-              className="glass-card rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
             >
               <ProfileAvatarEditor
                 session={session}
@@ -1138,7 +1138,7 @@ export function PetugasPortalPage({
             {/* KARTU TEMA TAMPILAN (NYAMAN UNTUK PATROLI SIANG / MALAM) */}
             <section
               aria-label="Tema Tampilan Portal Petugas"
-              className="glass-card rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
             >
               <ThemePicker onToast={onToast} />
             </section>
@@ -1146,7 +1146,7 @@ export function PetugasPortalPage({
             {/* KARTU PENGATURAN NOTIFIKASI, SUARA & GETARAN */}
             <section
               aria-label="Pengaturan Notifikasi, Suara & Getaran Petugas"
-              className="glass-card rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
             >
               <NotificationSettingsCard session={session} onToast={onToast} />
             </section>
@@ -1154,7 +1154,7 @@ export function PetugasPortalPage({
             {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
             <section
               aria-label="Keamanan Akses Biometrik"
-              className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="flex items-start gap-3 min-w-0">
                 <div
@@ -1220,7 +1220,7 @@ export function PetugasPortalPage({
             </section>
 
             {/* INFO VERSI & CEK PEMBARUAN MANUAL */}
-            <div className="glass-card rounded-3xl px-4 py-3">
+            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl px-4 py-3">
               <AppVersionFooter compact />
             </div>
           </>
@@ -1232,8 +1232,8 @@ export function PetugasPortalPage({
             aria-label="Status Patroli Live GPS"
             className={`rounded-3xl p-4 sm:p-5 space-y-3 ${
               activeLiveSession?.status === 'active'
-                ? 'glass-hero text-white'
-                : 'glass-card text-[#0F172A]'
+                ? 'glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white'
+                : 'glass-card bg-white/80 backdrop-blur-xl border border-white/90 text-[#0F172A]'
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1342,7 +1342,7 @@ export function PetugasPortalPage({
             {activeTab === 'info' && (
               <div className="space-y-4">
                 {/* Kartu Shift Aktif & Ringkasan Tugas */}
-                <section className="glass-hero text-white rounded-3xl p-4 sm:p-5 space-y-4">
+                <section className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white rounded-3xl p-4 sm:p-5 space-y-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 text-[#A7F3D0] flex items-center justify-center shrink-0">
@@ -1400,7 +1400,7 @@ export function PetugasPortalPage({
                 </section>
 
                 {/* Instruksi Keamanan Hari Ini dari Pengurus */}
-                <section className="glass-card rounded-3xl p-4 sm:p-5 space-y-3">
+                <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-3">
                   <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Instruksi Keamanan Hari Ini dari Pengurus</span>
@@ -1433,7 +1433,7 @@ export function PetugasPortalPage({
 
                 {/* Tombol Panggilan Darurat ke Erlangga (Ketua) & Andriansyah (Bendahara) */}
                 {emergencyPengurus.length > 0 && (
-                  <section className="glass-card rounded-3xl p-4 sm:p-5 space-y-3">
+                  <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-3">
                     <div>
                       <h2 className="text-sm font-bold text-[#0F172A]">
                         Panggilan Darurat ke Pengurus
@@ -1489,7 +1489,7 @@ export function PetugasPortalPage({
 
             {/* TAB 2: RIWAYAT PATROLI PRIBADI */}
             {activeTab === 'riwayat' && (
-              <section className="glass-card rounded-3xl overflow-hidden">
+              <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
                 <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl">
                     <button
@@ -1593,7 +1593,7 @@ export function PetugasPortalPage({
 
             {/* TAB 3 (TENGAH FAB): PATROLI & SCAN CHECKPOINT NFC */}
             {activeTab === 'scan' && (
-              <section className="glass-card rounded-3xl p-4 sm:p-5 space-y-4">
+              <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-4">
                 {/* Pilihan Kondisi & Catatan Sebelum Tap */}
                 <div className="space-y-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-3.5">
                   <div>
@@ -1809,8 +1809,8 @@ export function PetugasPortalPage({
                   aria-label="Kontrol Patroli Live di Bawah Peta 3D"
                   className={`rounded-3xl p-4 sm:p-5 space-y-3 ${
                     activeLiveSession?.status === 'active'
-                      ? 'glass-hero text-white'
-                      : 'glass-card text-[#0F172A]'
+                      ? 'glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white'
+                      : 'glass-card bg-white/80 backdrop-blur-xl border border-white/90 text-[#0F172A]'
                   }`}
                 >
                   {activeLiveSession?.status === 'active' ? (
@@ -1929,7 +1929,7 @@ export function PetugasPortalPage({
       {/* BOTTOM NAVIGATION BAR 5 MENU SIMETRIS KHUSUS PETUGAS KEAMANAN */}
       <nav
         aria-label="Navigasi Petugas Keamanan"
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-indigo-100/80 pb-safe pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(76,29,149,0.08)]"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl border-t border-white/90 pb-safe pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(76,29,149,0.08)]"
       >
         <div className="max-w-3xl mx-auto grid grid-cols-5 h-16 items-center px-1">
           {/* 1. Info & Shift */}

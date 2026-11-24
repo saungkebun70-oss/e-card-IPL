@@ -580,8 +580,16 @@ export function AdminDashboardSlide({
   return (
     <div className="space-y-5 sm:space-y-6">
       {/* Hero Card Saldo Kas Lingkungan — Ungu-Indigo Gelap Bercahaya */}
-      <section className="glass-hero rounded-3xl text-white px-5 py-6 sm:px-8 sm:py-8 relative overflow-hidden">
-        <div className="flex items-center justify-between gap-3 mb-2">
+      <section className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white px-5 py-6 sm:px-8 sm:py-8 relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-400/20 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-emerald-400/15 blur-3xl"
+        />
+        <div className="relative z-10 flex items-center justify-between gap-3 mb-2">
           <p className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-purple-100/85 inline-flex items-center gap-1.5">
             <Wallet className="w-3.5 h-3.5 shrink-0 text-emerald-300" />
             <span>
@@ -601,7 +609,7 @@ export function AdminDashboardSlide({
           </button>
         </div>
 
-        <div className="text-center py-1 sm:py-2">
+        <div className="relative z-10 text-center py-1 sm:py-2">
           <p className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight tabular-nums text-white">
             {formatRupiah(globalCash.saldoKas)}
           </p>
@@ -646,7 +654,7 @@ export function AdminDashboardSlide({
       {/* Dual-Column Bento Grid: Antrean Verifikasi Setoran & Pengumuman Sistem */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
         {/* Bento Kiri: Antrean Verifikasi Setoran */}
-        <div className="glass-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600">
@@ -733,7 +741,7 @@ export function AdminDashboardSlide({
         </div>
 
         {/* Bento Kanan: Pengumuman Sistem ke Seluruh Warga */}
-        <div className="glass-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
           <div className="space-y-3">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
@@ -813,7 +821,7 @@ export function AdminDashboardSlide({
 
       {/* 4 KPI Ringkasan Kas Bulan Berjalan */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Pemasukan Terverifikasi</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-[#059669] tabular-nums mt-2 truncate">
             {formatRupiah(pemasukanBulanIni)}
@@ -823,7 +831,7 @@ export function AdminDashboardSlide({
           </p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Rumah Lunas</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-2">
             {rumahLunasBulanIni}{' '}
@@ -832,7 +840,7 @@ export function AdminDashboardSlide({
           <p className="text-[11px] text-emerald-700 mt-1 font-medium">Terverifikasi Lunas</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Belum Bayar</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-red-700 tabular-nums mt-2">
             {rumahBelumBayarBulanIni}
@@ -840,7 +848,7 @@ export function AdminDashboardSlide({
           <p className="text-[11px] text-slate-500 mt-1">Unit aktif belum setor</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">
             {isKetua ? 'Antrean Verifikasi Ketua' : 'Antrean Verifikasi'}
           </p>
@@ -870,7 +878,7 @@ export function AdminDashboardSlide({
 
       {/* PANEL KHUSUS KETUA (TAHAP 2): Antrean Verifikasi Final Transaksi ACC Bendahara */}
       {isKetua && (
-        <section className="glass-card rounded-3xl overflow-hidden border-sky-200/80">
+        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
           <div className="px-5 py-4 bg-sky-50/75 border-b border-sky-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-start gap-2.5">
               <div className="w-9 h-9 rounded-2xl bg-[#3730A3] text-white flex items-center justify-center shrink-0 mt-0.5">
@@ -1082,7 +1090,7 @@ export function AdminDashboardSlide({
       )}
 
       {/* Daftar Verifikasi & Riwayat Setoran Masuk Warga */}
-      <section id="verifikasi-section" className="glass-card rounded-3xl overflow-hidden">
+      <section id="verifikasi-section" className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-indigo-100/80 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -1498,7 +1506,7 @@ export function AdminDashboardSlide({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
@@ -1616,7 +1624,7 @@ export function AdminDashboardSlide({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setKetuaReturnTarget(null)}
@@ -1830,7 +1838,7 @@ export function AdminDashboardSlide({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={sendingBroadcast}
@@ -1980,7 +1988,7 @@ export function AdminDashboardSlide({
               </div>
             </div>
 
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-3.5 bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={deletingIpl}

@@ -43,7 +43,7 @@ export function EmergencySecurityContactCard({
   return (
     <section
       aria-label="Kontak Darurat Keamanan 24 Jam"
-      className="glass-card rounded-3xl overflow-hidden"
+      className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
     >
       <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2 bg-red-50/55">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -176,7 +176,7 @@ export function SecurityPatrolFeedCard({
   return (
     <section
       aria-label="Info Keamanan dan Patroli Lingkungan"
-      className="glass-card rounded-3xl overflow-hidden"
+      className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
     >
       <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">

@@ -380,7 +380,7 @@ export function AdminRekapSlide({
       {subTab === 'bulanan' && (
         <div className="space-y-5 min-w-0">
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
-          <div className="no-print glass-card rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="no-print glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <select
                 aria-label="Pilih Bulan Rekapitulasi"
@@ -707,7 +707,7 @@ export function AdminRekapSlide({
         <div className="space-y-5">
           {/* Ringkasan Alokasi Kas & Dana Darurat */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="glass-card rounded-3xl p-5">
+            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">
                 Total Kas Terverifikasi ({TAHUN_AKTIF})
               </p>
@@ -717,7 +717,7 @@ export function AdminRekapSlide({
               <p className="text-xs text-slate-500 mt-1">Akumulasi seluruh setoran lunas</p>
             </div>
 
-            <div className="glass-card rounded-3xl p-5">
+            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">Kas IPL Reguler (≥ Rp 100.000/bln)</p>
               <p className="text-2xl font-mono font-bold text-[#047857] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiIplReguler)}
@@ -725,7 +725,7 @@ export function AdminRekapSlide({
               <p className="text-xs text-slate-500 mt-1">Operasional &amp; pemeliharaan lingkungan</p>
             </div>
 
-            <div className="glass-card rounded-3xl p-5">
+            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">
                 Alokasi Dana Darurat (&lt; Rp 100.000/bln)
               </p>
@@ -739,7 +739,7 @@ export function AdminRekapSlide({
           </section>
 
           {/* Toolbar Filter & Export */}
-          <div className="glass-card rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
                 <Search className="w-4 h-4 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -805,7 +805,7 @@ export function AdminRekapSlide({
           </div>
 
           {/* Matriks Pembayaran 12 Bulan (Jan – Des 2026) */}
-          <section className="glass-card rounded-3xl overflow-hidden">
+          <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
             <div className="px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-[#0F172A]">
