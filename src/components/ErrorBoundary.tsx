@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { recordCapturedError } from '../lib/bugReportService';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -21,6 +22,7 @@ export class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error) {
     console.error('Terjadi kesalahan tampilan aplikasi:', error);
+    recordCapturedError('react_error_boundary', error.message || 'React render error', error.stack);
   }
 
   render() {

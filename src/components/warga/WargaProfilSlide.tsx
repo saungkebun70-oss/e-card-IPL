@@ -18,6 +18,7 @@ import { PanduanAplikasiModal } from './PanduanAplikasiModal';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import { ThemePicker } from '../ThemePicker';
 import { NotificationSettingsCard } from '../NotificationSettingsCard';
+import { BugReportCard } from '../BugReportCard';
 
 interface WargaProfilSlideProps {
   session: SessionUser;
@@ -114,6 +115,14 @@ export function WargaProfilSlide({
           className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6"
         >
           <NotificationSettingsCard session={session} onToast={onToast} />
+        </section>
+
+        {/* Pelaporan Bug Cepat */}
+        <section
+          aria-label="Pelaporan Bug Cepat"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6"
+        >
+          <BugReportCard session={session} onToast={onToast} />
         </section>
       </div>
 
