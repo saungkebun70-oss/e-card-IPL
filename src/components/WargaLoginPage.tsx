@@ -1,16 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Eye,
   EyeOff,
+  Fingerprint,
   Home,
+  Loader2,
   Lock,
+  ScanFace,
   ArrowRight,
   AlertCircle,
   ShieldCheck,
   Shield,
+  Trash2,
 } from 'lucide-react';
 import { type SessionUser } from '../types';
-import { loginWargaAccount } from '../lib/dataService';
+import { loginWargaAccount, loginWargaWithBiometric } from '../lib/dataService';
+import {
+  authenticateWargaBiometric,
+  checkDeviceBiometryAvailability,
+  clearWargaBiometricEnrollment,
+  enrollWargaBiometric,
+  loadWargaBiometricEnrollment,
+  subscribeBiometryResume,
+  type BiometricAvailability,
+  type WargaBiometricEnrollmentProfile,
+} from '../lib/biometricAuth';
 import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
@@ -27,25 +41,151 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+
+  const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
+    null
+  );
+  const [enrolledProfile, setEnrolledProfile] = useState<WargaBiometricEnrollmentProfile | null>(
+    () => loadWargaBiometricEnrollment()
+  );
+  const [enableBiometricAfterPin, setEnableBiometricAfterPin] = useState<boolean>(
+    () => !loadWargaBiometricEnrollment()
+  );
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+
+    const init = async () => {
+      try {
+        const avail = await checkDeviceBiometryAvailability();
+        if (!active) return;
+        setBiometryAvailability(avail);
+        const stored = loadWargaBiometricEnrollment();
+        setEnrolledProfile(stored);
+        if (stored?.blok_rumah) {
+          setUsername((prev) => prev || stored.blok_rumah);
+        }
+
+        unsubscribe = await subscribeBiometryResume((nextAvail) => {
+          if (!active) return;
+          setBiometryAvailability(nextAvail);
+        });
+      } catch {
+        // Biometrik opsional — abaikan jika tidak tersedia
+      }
+    };
+
+    void init();
+    return () => {
+      active = false;
+      try {
+        unsubscribe();
+      } catch {
+        // Abaikan
+      }
+    };
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    if (!enrolledProfile || !biometryAvailability?.isAvailable) return;
+    setErrorMsg(null);
+    setInfoMsg(null);
+    setBiometricLoading(true);
+    try {
+      const authRes = await authenticateWargaBiometric(enrolledProfile, biometryAvailability);
+      if (!authRes?.ok) {
+        if (authRes?.cancelled) {
+          setInfoMsg('Verifikasi biometrik dibatalkan. Anda tetap bisa masuk dengan PIN 6 digit.');
+        } else {
+          setErrorMsg(
+            authRes?.error || 'Gagal memverifikasi biometrik. Silakan masuk menggunakan PIN 6 digit.'
+          );
+        }
+        return;
+      }
+
+      const sessionRes = await loginWargaWithBiometric(enrolledProfile);
+      if (sessionRes?.error || !sessionRes?.data) {
+        const msg = sessionRes?.error || 'Akun warga tidak aktif atau perlu verifikasi PIN ulang.';
+        if (msg.toLowerCase().includes('dinonaktifkan') || msg.toLowerCase().includes('tidak ditemukan')) {
+          clearWargaBiometricEnrollment();
+          setEnrolledProfile(null);
+        }
+        setErrorMsg(msg);
+        return;
+      }
+
+      onLoginSuccess(sessionRes.data);
+    } catch {
+      setErrorMsg('Gagal memverifikasi biometrik. Silakan masuk menggunakan PIN 6 digit.');
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const handleClearBiometricProfile = () => {
+    clearWargaBiometricEnrollment();
+    setEnrolledProfile(null);
+    setEnableBiometricAfterPin(true);
+    setErrorMsg(null);
+    setInfoMsg('Akses cepat biometrik di perangkat ini dihapus. Silakan masuk dengan PIN 6 digit.');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setInfoMsg(null);
     setLoading(true);
     try {
       const result = await loginWargaAccount(username, pin);
       if (result?.error || !result?.data) {
         setErrorMsg(result?.error || 'Blok rumah atau PIN 6 digit tidak sesuai.');
-      } else {
-        onLoginSuccess(result.data);
+        return;
       }
+
+      const loggedInSession = result.data;
+
+      // Jika unit rumah lain masuk pada perangkat yang sama, bersihkan profil biometrik lama
+      if (
+        enrolledProfile &&
+        enrolledProfile.blok_rumah.toLowerCase() !== loggedInSession.blok_rumah.toLowerCase()
+      ) {
+        clearWargaBiometricEnrollment();
+        setEnrolledProfile(null);
+      }
+
+      // Aktifkan biometrik otomatis pasca login PIN jika dicentang dan perangkat mendukung
+      if (enableBiometricAfterPin && biometryAvailability?.isAvailable) {
+        try {
+          const enrollRes = await enrollWargaBiometric(loggedInSession, biometryAvailability);
+          if (enrollRes?.ok && enrollRes?.profile) {
+            setEnrolledProfile(enrollRes.profile);
+          }
+        } catch {
+          // Tetap lanjutkan masuk portal meskipun aktivasi biometrik dilewati
+        }
+      }
+
+      onLoginSuccess(loggedInSession);
     } catch {
       setErrorMsg('Terjadi kendala koneksi saat memverifikasi akun. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
   };
+
+  const canQuickUnlock = Boolean(
+    enrolledProfile &&
+      biometryAvailability?.isAvailable &&
+      (biometryAvailability.provider === 'capacitor' ||
+        (biometryAvailability.provider === 'webauthn' && enrolledProfile.webauthn_credential_id))
+  );
+  const BiometricIcon = biometryAvailability?.isFace ? ScanFace : Fingerprint;
+  const biometryLabel = biometryAvailability?.label || 'Sidik Jari / Face ID';
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#F8FAFC] flex flex-col lg:flex-row overflow-y-auto overflow-x-clip touch-pan-y">
@@ -91,6 +231,17 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 atau tagihan unit warga lainnya.
               </p>
             </div>
+            <div className="flex items-start gap-3">
+              <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-white">Masuk Cepat Face ID / Sidik Jari</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Aktifkan autentikasi biometrik perangkat agar masuk portal warga berikutnya cukup
+                  pakai Sidik Jari / Face ID tanpa mengetik ulang PIN (PIN tidak disimpan di
+                  perangkat).
+                </p>
+              </div>
+            </div>
             <div>
               <p className="text-sm font-semibold text-white">Siklus Tagihan Bulanan</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -118,14 +269,82 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               Masuk ke Portal Warga
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              Masukkan Blok/No. Rumah dan PIN 6 digit resmi rumah Anda.
+              {canQuickUnlock
+                ? `Gunakan ${biometryLabel} untuk masuk cepat atau ketik PIN 6 digit unit Anda.`
+                : 'Masukkan Blok/No. Rumah dan PIN 6 digit resmi rumah Anda.'}
             </p>
           </div>
+
+          {/* Kartu Masuk Cepat Biometrik (Face ID / Sidik Jari) */}
+          {canQuickUnlock && enrolledProfile && (
+            <section
+              aria-label="Masuk Cepat Biometrik Warga"
+              className="mb-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 via-white to-slate-50 p-5 shadow-xs space-y-3.5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
+                    <BiometricIcon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                      Masuk Cepat Aktif
+                    </p>
+                    <p className="text-sm font-bold text-[#0F172A] truncate">
+                      {enrolledProfile.nama}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">
+                      Blok {enrolledProfile.blok_rumah}
+                      {enrolledProfile.status_hunian ? ` · ${enrolledProfile.status_hunian}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearBiometricProfile}
+                  title="Hapus akses biometrik di perangkat ini"
+                  aria-label="Hapus akses biometrik di perangkat ini"
+                  className="min-h-[38px] min-w-[38px] rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-500 hover:text-red-600 flex items-center justify-center transition cursor-pointer shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                disabled={biometricLoading || loading}
+                onClick={() => void handleBiometricLogin()}
+                className="w-full min-h-[52px] rounded-xl bg-[#0F172A] hover:bg-slate-800 active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-sm"
+              >
+                {biometricLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span>Memverifikasi {biometryLabel}...</span>
+                  </>
+                ) : (
+                  <>
+                    <BiometricIcon className="w-5 h-5 text-emerald-400" />
+                    <span>Masuk dengan {biometryLabel}</span>
+                  </>
+                )}
+              </button>
+            </section>
+          )}
 
           <form
             onSubmit={handleSubmit}
             className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 space-y-5"
           >
+            {canQuickUnlock && (
+              <div className="flex items-center gap-3 -mt-1">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Atau Masuk dengan PIN
+                </span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            )}
+
             {errorMsg && (
               <div
                 role="alert"
@@ -133,6 +352,16 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               >
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {infoMsg && !errorMsg && (
+              <div
+                role="status"
+                className="flex items-start gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-3 text-xs text-emerald-800"
+              >
+                <BiometricIcon className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
+                <span>{infoMsg}</span>
               </div>
             )}
 
@@ -192,9 +421,46 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               </div>
             </div>
 
+            {biometryAvailability?.isAvailable ? (
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 cursor-pointer hover:border-emerald-300 transition">
+                <input
+                  type="checkbox"
+                  checked={enableBiometricAfterPin}
+                  onChange={(e) => setEnableBiometricAfterPin(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#059669] focus:ring-emerald-600/30 cursor-pointer"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[#0F172A] flex items-center gap-1.5">
+                    <BiometricIcon className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                    <span>Aktifkan masuk cepat dengan {biometryLabel}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                    Masuk portal warga berikutnya cukup pakai {biometryLabel} tanpa mengetik ulang
+                    PIN (PIN tidak disimpan di perangkat).
+                  </p>
+                </div>
+              </label>
+            ) : (
+              biometryAvailability !== null && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">
+                  <BiometricIcon className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#0F172A]">
+                      Aktifkan masuk cepat dengan {biometryLabel}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                      Masuk portal warga berikutnya cukup pakai {biometryLabel} tanpa mengetik ulang
+                      PIN (PIN tidak disimpan di perangkat). Aktifkan kunci biometrik di Pengaturan
+                      HP untuk menggunakan fitur ini.
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || biometricLoading}
               aria-busy={loading}
               className="w-full min-h-[48px] rounded-xl bg-[#059669] hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-70 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer"
             >

@@ -751,6 +751,271 @@ export async function loginAdminAccount(
   return { data: session };
 }
 
+/**
+ * Memulihkan sesi Portal Warga setelah verifikasi biometrik perangkat (Sidik Jari / Face ID) berhasil.
+ * Memverifikasi ulang status aktif unit warga langsung ke Supabase tanpa pernah menyimpan PIN di perangkat.
+ */
+export async function loginWargaWithBiometric(enrolled: {
+  blok_rumah: string;
+  nama: string;
+}): Promise<ServiceResult<SessionUser>> {
+  const blokCandidates = buildWargaBlokCandidates(enrolled.blok_rumah);
+  const primaryBlok = blokCandidates[0] || enrolled.blok_rumah.trim();
+  if (!primaryBlok) {
+    return { error: 'Profil biometrik warga tidak valid. Silakan masuk menggunakan PIN 6 digit.' };
+  }
+
+  const candidateSession: SessionUser = {
+    role: 'warga',
+    blok_rumah: primaryBlok,
+    nama_warga: enrolled.nama.trim() || primaryBlok,
+    login_at: new Date().toISOString(),
+  };
+
+  const supabase = getSupabaseClient(candidateSession);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      let matchedRow: Record<string, unknown> | null = null;
+
+      for (const candidateBlok of blokCandidates) {
+        const { data, error } = await supabase
+          .from('users_warga')
+          .select('*')
+          .eq('blok_rumah', candidateBlok)
+          .maybeSingle();
+
+        if (error) {
+          return {
+            error: parseFriendlyError(
+              error,
+              'Gagal memverifikasi status aktif akun warga di server. Silakan masuk dengan PIN.'
+            ),
+          };
+        }
+
+        if (data && typeof data.blok_rumah === 'string') {
+          matchedRow = data as Record<string, unknown>;
+          break;
+        }
+      }
+
+      if (!matchedRow || matchedRow.aktif !== true || matchedRow.role === 'admin') {
+        return {
+          error:
+            'Akun warga ini sudah dinonaktifkan atau tidak ditemukan. Hubungi Pengurus Lingkungan.',
+        };
+      }
+
+      const blokRes = String(matchedRow.blok_rumah);
+      const resolvedAvatar =
+        (typeof matchedRow.avatar_url === 'string' && matchedRow.avatar_url.trim()) ||
+        getCachedAvatarUrl('warga', blokRes) ||
+        null;
+      if (resolvedAvatar) {
+        cacheAccountAvatars([{ key: buildAvatarKey('warga', blokRes), url: resolvedAvatar }]);
+      }
+
+      const verifiedSession: SessionUser = {
+        role: 'warga',
+        blok_rumah: blokRes,
+        nama_warga:
+          (typeof matchedRow.nama_warga === 'string' && matchedRow.nama_warga) ||
+          enrolled.nama ||
+          blokRes,
+        status_hunian: matchedRow.status_hunian as StatusHunian | undefined,
+        no_wa: typeof matchedRow.no_wa === 'string' ? matchedRow.no_wa : undefined,
+        nominal_iuran:
+          typeof matchedRow.nominal_iuran === 'number'
+            ? matchedRow.nominal_iuran
+            : NOMINAL_IPL_STANDAR,
+        avatar_url: resolvedAvatar,
+        login_at: new Date().toISOString(),
+      };
+
+      saveStoredSession(verifiedSession);
+      await recordAuditLog({
+        session: verifiedSession,
+        action: 'LOGIN_WARGA_BIOMETRIC_SUCCESS',
+        entity: 'auth',
+        entity_id: verifiedSession.blok_rumah,
+        summary: `Warga ${verifiedSession.nama_warga} (${verifiedSession.blok_rumah}) masuk ke Portal Warga via Biometrik.`,
+      });
+      return { data: verifiedSession };
+    } catch {
+      return {
+        error:
+          'Koneksi ke server terganggu saat memverifikasi akun. Coba lagi atau gunakan PIN 6 digit.',
+      };
+    }
+  }
+
+  // Fallback Mode Lokal
+  ensureLocalStoreInitialized();
+  const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
+  const matched = wargaList.find(
+    (w) => w.aktif && blokCandidates.includes(normalizeBlok(w.blok_rumah))
+  );
+  if (!matched) {
+    return {
+      error: 'Akun warga tidak aktif atau tidak ditemukan. Silakan masuk menggunakan PIN 6 digit.',
+    };
+  }
+
+  const localSession: SessionUser = {
+    role: 'warga',
+    blok_rumah: matched.blok_rumah,
+    nama_warga: matched.nama_warga,
+    status_hunian: matched.status_hunian,
+    no_wa: matched.no_wa,
+    nominal_iuran: matched.nominal_iuran,
+    avatar_url: matched.avatar_url || getCachedAvatarUrl('warga', matched.blok_rumah) || null,
+    login_at: new Date().toISOString(),
+  };
+
+  saveStoredSession(localSession);
+  await recordAuditLog({
+    session: localSession,
+    action: 'LOGIN_WARGA_BIOMETRIC_SUCCESS',
+    entity: 'auth',
+    entity_id: localSession.blok_rumah,
+    summary: `Warga ${localSession.nama_warga} (${localSession.blok_rumah}) masuk ke Portal Warga via Biometrik.`,
+  });
+  return { data: localSession };
+}
+
+/**
+ * Memulihkan sesi Portal Admin / Pengurus setelah verifikasi biometrik perangkat (Sidik Jari / Face ID) berhasil.
+ * Memverifikasi ulang status aktif pengurus langsung ke Supabase tanpa pernah menyimpan PIN di perangkat.
+ */
+export async function loginAdminWithBiometric(enrolled: {
+  username: string;
+  nama: string;
+  jabatan?: string;
+}): Promise<ServiceResult<SessionUser>> {
+  const cleanUsername = resolvePengurusAdminUsername(enrolled.username);
+  if (!cleanUsername) {
+    return { error: 'Profil biometrik pengurus tidak valid. Silakan masuk menggunakan PIN 6 digit.' };
+  }
+
+  const candidateSession: SessionUser = {
+    role: 'admin',
+    blok_rumah: cleanUsername,
+    nama_warga: enrolled.nama.trim() || cleanUsername,
+    login_at: new Date().toISOString(),
+  };
+
+  const supabase = getSupabaseClient(candidateSession);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('users_warga')
+        .select('*')
+        .eq('blok_rumah', cleanUsername)
+        .maybeSingle();
+
+      if (error) {
+        return {
+          error: parseFriendlyError(
+            error,
+            'Gagal memverifikasi status aktif akun pengurus di server. Silakan masuk dengan PIN.'
+          ),
+        };
+      }
+
+      const row = data as Record<string, unknown> | null;
+      const isAdminRole = row && (row.role === 'admin' || row.role === 'bendahara');
+      if (!row || row.aktif !== true || !isAdminRole) {
+        return {
+          error:
+            'Akun pengurus ini sudah dinonaktifkan atau tidak ditemukan. Silakan masuk dengan PIN 6 digit.',
+        };
+      }
+
+      const blokRes = String(row.blok_rumah);
+      const pengurusMeta = SUSUNAN_PENGURUS.find(
+        (p) => p.username.toLowerCase() === blokRes.toLowerCase()
+      );
+      const resolvedJabatan =
+        (row.jabatan as AdminJabatan | undefined) || pengurusMeta?.jabatan || 'Bendahara';
+      const resolvedPerm: AdminPermission =
+        (row.admin_permission as AdminPermission | undefined) ||
+        pengurusMeta?.permission ||
+        (resolvedJabatan === 'Bendahara' ? 'full' : 'add_only');
+
+      const resolvedAdminAvatar =
+        (typeof row.avatar_url === 'string' && row.avatar_url.trim()) ||
+        getCachedAvatarUrl('admin', blokRes) ||
+        null;
+      if (resolvedAdminAvatar) {
+        cacheAccountAvatars([{ key: buildAvatarKey('admin', blokRes), url: resolvedAdminAvatar }]);
+      }
+
+      const verifiedSession: SessionUser = {
+        role: 'admin',
+        blok_rumah: blokRes,
+        nama_warga:
+          (typeof row.nama_warga === 'string' && row.nama_warga) ||
+          pengurusMeta?.nama ||
+          enrolled.nama ||
+          'Pengurus Lingkungan',
+        jabatan: resolvedJabatan,
+        admin_permission: resolvedPerm,
+        status_hunian: row.status_hunian as StatusHunian | undefined,
+        no_wa: typeof row.no_wa === 'string' ? row.no_wa : undefined,
+        nominal_iuran: 0,
+        avatar_url: resolvedAdminAvatar,
+        login_at: new Date().toISOString(),
+      };
+
+      saveStoredSession(verifiedSession);
+      await recordAuditLog({
+        session: verifiedSession,
+        action: 'LOGIN_ADMIN_BIOMETRIC_SUCCESS',
+        entity: 'auth',
+        entity_id: verifiedSession.blok_rumah,
+        summary: `Login Pengurus via Biometrik berhasil (${resolvedJabatan} — ${
+          resolvedPerm === 'full' ? 'Akses Penuh' : 'Tambah Data'
+        }) untuk ${verifiedSession.nama_warga} [${verifiedSession.blok_rumah}].`,
+      });
+      return { data: verifiedSession };
+    } catch {
+      return {
+        error:
+          'Koneksi ke server terganggu saat memverifikasi akun pengurus. Coba lagi atau gunakan PIN 6 digit.',
+      };
+    }
+  }
+
+  // Fallback Mode Lokal
+  ensureLocalStoreInitialized();
+  const matchedAdmin = LOCAL_ADMIN_ACCOUNTS.find((acc) => acc.username === cleanUsername);
+  if (!matchedAdmin) {
+    return {
+      error: 'Akun pengurus tidak aktif atau tidak ditemukan. Silakan masuk menggunakan PIN 6 digit.',
+    };
+  }
+
+  const localSession: SessionUser = {
+    role: 'admin',
+    blok_rumah: matchedAdmin.username,
+    nama_warga: matchedAdmin.nama,
+    jabatan: matchedAdmin.jabatan,
+    admin_permission: matchedAdmin.permission,
+    avatar_url: getCachedAvatarUrl('admin', matchedAdmin.username) || null,
+    login_at: new Date().toISOString(),
+  };
+
+  saveStoredSession(localSession);
+  await recordAuditLog({
+    session: localSession,
+    action: 'LOGIN_ADMIN_BIOMETRIC_SUCCESS',
+    entity: 'auth',
+    entity_id: matchedAdmin.username,
+    summary: `${matchedAdmin.nama} (${matchedAdmin.jabatan}) masuk ke Portal Admin via Biometrik.`,
+  });
+  return { data: localSession };
+}
+
 export async function loginPortal(
   mode: 'warga' | 'admin',
   usernameInput: string,

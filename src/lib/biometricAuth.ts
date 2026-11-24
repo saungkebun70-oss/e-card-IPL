@@ -10,6 +10,8 @@ import {
 import type { SessionUser } from '../types';
 
 const PETUGAS_BIOMETRIC_STORAGE_KEY = 'saungkebun_petugas_biometric_v1';
+const WARGA_BIOMETRIC_STORAGE_KEY = 'saungkebun_warga_biometric_v1';
+const ADMIN_BIOMETRIC_STORAGE_KEY = 'saungkebun_admin_biometric_v1';
 const BIOMETRIC_ENROLLMENT_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 hari sebelum wajib verifikasi PIN ulang
 
 export type BiometricProvider = 'capacitor' | 'webauthn' | 'none';
@@ -29,6 +31,27 @@ export interface BiometricEnrollmentProfile {
   username: string;
   nama: string;
   shift: string;
+  enrolled_at: string;
+  expires_at: string;
+  provider: Exclude<BiometricProvider, 'none'>;
+  webauthn_credential_id?: string;
+}
+
+export interface WargaBiometricEnrollmentProfile {
+  blok_rumah: string;
+  nama: string;
+  status_hunian?: string;
+  enrolled_at: string;
+  expires_at: string;
+  provider: Exclude<BiometricProvider, 'none'>;
+  webauthn_credential_id?: string;
+}
+
+export interface AdminBiometricEnrollmentProfile {
+  username: string;
+  nama: string;
+  jabatan?: string;
+  admin_permission?: 'full' | 'add_only';
   enrolled_at: string;
   expires_at: string;
   provider: Exclude<BiometricProvider, 'none'>;
@@ -176,6 +199,8 @@ export async function checkPetugasBiometryAvailability(): Promise<BiometricAvail
     reason: 'Gunakan aplikasi Android/iOS atau perangkat dengan sensor biometrik aktif.',
   };
 }
+
+export const checkDeviceBiometryAvailability = checkPetugasBiometryAvailability;
 
 export async function subscribeBiometryResume(
   callback: (availability: BiometricAvailability) => void
@@ -348,7 +373,7 @@ function formatBiometryError(err: unknown): { cancelled: boolean; message: strin
 async function createWebAuthnCredential(session: SessionUser): Promise<string> {
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const userIdBytes = new TextEncoder().encode(
-    `${session.petugas_id || session.blok_rumah}`.slice(0, 64)
+    `${session.role}:${session.petugas_id || session.blok_rumah}`.slice(0, 64)
   );
   const rpId = window.location.hostname;
 
@@ -488,6 +513,369 @@ export async function authenticatePetugasBiometric(
         iosFallbackTitle: 'Gunakan Kode Sandi HP',
         androidTitle: 'Masuk Portal Keamanan',
         androidSubtitle: `${profile.nama}${profile.shift ? ` · ${profile.shift}` : ''}`,
+        androidConfirmationRequired: false,
+        androidBiometryStrength: AndroidBiometryStrength.weak,
+      });
+      return { ok: true };
+    }
+
+    if (!profile.webauthn_credential_id) {
+      return {
+        ok: false,
+        error: 'Profil biometrik browser perlu didaftarkan ulang menggunakan PIN 6 digit.',
+      };
+    }
+
+    await verifyWebAuthnCredential(profile.webauthn_credential_id);
+    return { ok: true };
+  } catch (err) {
+    const parsed = formatBiometryError(err);
+    return { ok: false, cancelled: parsed.cancelled, error: parsed.message };
+  }
+}
+
+// =========================================================================
+// Biometrik Portal Warga (Terisolasi dari Petugas & Admin, TANPA simpan PIN)
+// =========================================================================
+
+export function loadWargaBiometricEnrollment(): WargaBiometricEnrollmentProfile | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(WARGA_BIOMETRIC_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<WargaBiometricEnrollmentProfile>;
+    if (
+      !parsed ||
+      typeof parsed.blok_rumah !== 'string' ||
+      !parsed.blok_rumah.trim() ||
+      typeof parsed.nama !== 'string' ||
+      !parsed.nama.trim() ||
+      typeof parsed.expires_at !== 'string'
+    ) {
+      clearWargaBiometricEnrollment();
+      return null;
+    }
+
+    const expiresAtMs = Date.parse(parsed.expires_at);
+    if (Number.isNaN(expiresAtMs) || Date.now() > expiresAtMs) {
+      clearWargaBiometricEnrollment();
+      return null;
+    }
+
+    const provider: Exclude<BiometricProvider, 'none'> =
+      parsed.provider === 'webauthn' ? 'webauthn' : 'capacitor';
+
+    if (isSafeNativePlatform() && provider === 'webauthn') {
+      return {
+        blok_rumah: parsed.blok_rumah,
+        nama: parsed.nama,
+        status_hunian: typeof parsed.status_hunian === 'string' ? parsed.status_hunian : undefined,
+        enrolled_at: parsed.enrolled_at || new Date().toISOString(),
+        expires_at: parsed.expires_at,
+        provider: 'capacitor',
+      };
+    }
+
+    return {
+      blok_rumah: parsed.blok_rumah,
+      nama: parsed.nama,
+      status_hunian: typeof parsed.status_hunian === 'string' ? parsed.status_hunian : undefined,
+      enrolled_at: parsed.enrolled_at || new Date().toISOString(),
+      expires_at: parsed.expires_at,
+      provider,
+      webauthn_credential_id:
+        typeof parsed.webauthn_credential_id === 'string'
+          ? parsed.webauthn_credential_id
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearWargaBiometricEnrollment(): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(WARGA_BIOMETRIC_STORAGE_KEY);
+    }
+  } catch {
+    // Abaikan jika storage diblokir
+  }
+}
+
+function saveWargaBiometricEnrollment(profile: WargaBiometricEnrollmentProfile): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(WARGA_BIOMETRIC_STORAGE_KEY, JSON.stringify(profile));
+    }
+  } catch {
+    // Abaikan jika kuota penuh
+  }
+}
+
+export async function enrollWargaBiometric(
+  session: SessionUser,
+  availability: BiometricAvailability
+): Promise<{
+  ok: boolean;
+  cancelled?: boolean;
+  profile?: WargaBiometricEnrollmentProfile;
+  error?: string;
+}> {
+  if (session.role !== 'warga' || !session.blok_rumah) {
+    return { ok: false, error: 'Hanya akun Warga yang dapat mengaktifkan fitur ini.' };
+  }
+  if (!availability.isAvailable || availability.provider === 'none') {
+    return {
+      ok: false,
+      error: availability.reason || 'Perangkat belum mendukung autentikasi biometrik.',
+    };
+  }
+
+  try {
+    let webAuthnCredentialId: string | undefined;
+
+    if (availability.provider === 'capacitor') {
+      await BiometricAuth.authenticate({
+        reason: `Aktifkan masuk cepat ${availability.label} untuk Blok ${session.blok_rumah}`,
+        cancelTitle: 'Batal',
+        allowDeviceCredential: true,
+        iosFallbackTitle: 'Gunakan Kode Sandi HP',
+        androidTitle: 'Aktifkan Masuk Cepat Portal Warga',
+        androidSubtitle: `Konfirmasi ${availability.label} · ${session.nama_warga} (${session.blok_rumah})`,
+        androidConfirmationRequired: false,
+        androidBiometryStrength: AndroidBiometryStrength.weak,
+      });
+    } else {
+      webAuthnCredentialId = await createWebAuthnCredential(session);
+    }
+
+    const now = Date.now();
+    const profile: WargaBiometricEnrollmentProfile = {
+      blok_rumah: session.blok_rumah,
+      nama: session.nama_warga || session.blok_rumah,
+      status_hunian: session.status_hunian,
+      enrolled_at: new Date(now).toISOString(),
+      expires_at: new Date(now + BIOMETRIC_ENROLLMENT_TTL_MS).toISOString(),
+      provider: availability.provider,
+      webauthn_credential_id: webAuthnCredentialId,
+    };
+
+    saveWargaBiometricEnrollment(profile);
+    return { ok: true, profile };
+  } catch (err) {
+    const parsed = formatBiometryError(err);
+    return { ok: false, cancelled: parsed.cancelled, error: parsed.message };
+  }
+}
+
+export async function authenticateWargaBiometric(
+  profile: WargaBiometricEnrollmentProfile,
+  availability: BiometricAvailability
+): Promise<{ ok: boolean; cancelled?: boolean; error?: string }> {
+  if (!availability.isAvailable || availability.provider === 'none') {
+    return {
+      ok: false,
+      error: availability.reason || 'Sensor biometrik tidak tersedia di perangkat ini.',
+    };
+  }
+
+  try {
+    if (availability.provider === 'capacitor') {
+      await BiometricAuth.authenticate({
+        reason: `Verifikasi ${availability.label} untuk masuk Portal Warga (${profile.blok_rumah})`,
+        cancelTitle: 'Gunakan PIN',
+        allowDeviceCredential: true,
+        iosFallbackTitle: 'Gunakan Kode Sandi HP',
+        androidTitle: 'Masuk Portal Warga',
+        androidSubtitle: `${profile.nama} · Blok ${profile.blok_rumah}`,
+        androidConfirmationRequired: false,
+        androidBiometryStrength: AndroidBiometryStrength.weak,
+      });
+      return { ok: true };
+    }
+
+    if (!profile.webauthn_credential_id) {
+      return {
+        ok: false,
+        error: 'Profil biometrik browser perlu didaftarkan ulang menggunakan PIN 6 digit.',
+      };
+    }
+
+    await verifyWebAuthnCredential(profile.webauthn_credential_id);
+    return { ok: true };
+  } catch (err) {
+    const parsed = formatBiometryError(err);
+    return { ok: false, cancelled: parsed.cancelled, error: parsed.message };
+  }
+}
+
+// =========================================================================
+// Biometrik Portal Admin / Pengurus (Terisolasi, TANPA simpan PIN)
+// =========================================================================
+
+export function loadAdminBiometricEnrollment(): AdminBiometricEnrollmentProfile | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(ADMIN_BIOMETRIC_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<AdminBiometricEnrollmentProfile>;
+    if (
+      !parsed ||
+      typeof parsed.username !== 'string' ||
+      !parsed.username.trim() ||
+      typeof parsed.nama !== 'string' ||
+      !parsed.nama.trim() ||
+      typeof parsed.expires_at !== 'string'
+    ) {
+      clearAdminBiometricEnrollment();
+      return null;
+    }
+
+    const expiresAtMs = Date.parse(parsed.expires_at);
+    if (Number.isNaN(expiresAtMs) || Date.now() > expiresAtMs) {
+      clearAdminBiometricEnrollment();
+      return null;
+    }
+
+    const provider: Exclude<BiometricProvider, 'none'> =
+      parsed.provider === 'webauthn' ? 'webauthn' : 'capacitor';
+
+    if (isSafeNativePlatform() && provider === 'webauthn') {
+      return {
+        username: parsed.username,
+        nama: parsed.nama,
+        jabatan: typeof parsed.jabatan === 'string' ? parsed.jabatan : undefined,
+        admin_permission:
+          parsed.admin_permission === 'full' || parsed.admin_permission === 'add_only'
+            ? parsed.admin_permission
+            : undefined,
+        enrolled_at: parsed.enrolled_at || new Date().toISOString(),
+        expires_at: parsed.expires_at,
+        provider: 'capacitor',
+      };
+    }
+
+    return {
+      username: parsed.username,
+      nama: parsed.nama,
+      jabatan: typeof parsed.jabatan === 'string' ? parsed.jabatan : undefined,
+      admin_permission:
+        parsed.admin_permission === 'full' || parsed.admin_permission === 'add_only'
+          ? parsed.admin_permission
+          : undefined,
+      enrolled_at: parsed.enrolled_at || new Date().toISOString(),
+      expires_at: parsed.expires_at,
+      provider,
+      webauthn_credential_id:
+        typeof parsed.webauthn_credential_id === 'string'
+          ? parsed.webauthn_credential_id
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearAdminBiometricEnrollment(): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(ADMIN_BIOMETRIC_STORAGE_KEY);
+    }
+  } catch {
+    // Abaikan jika storage diblokir
+  }
+}
+
+function saveAdminBiometricEnrollment(profile: AdminBiometricEnrollmentProfile): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(ADMIN_BIOMETRIC_STORAGE_KEY, JSON.stringify(profile));
+    }
+  } catch {
+    // Abaikan jika kuota penuh
+  }
+}
+
+export async function enrollAdminBiometric(
+  session: SessionUser,
+  availability: BiometricAvailability
+): Promise<{
+  ok: boolean;
+  cancelled?: boolean;
+  profile?: AdminBiometricEnrollmentProfile;
+  error?: string;
+}> {
+  if (session.role !== 'admin' || !session.blok_rumah) {
+    return { ok: false, error: 'Hanya akun Pengurus / Admin yang dapat mengaktifkan fitur ini.' };
+  }
+  if (!availability.isAvailable || availability.provider === 'none') {
+    return {
+      ok: false,
+      error: availability.reason || 'Perangkat belum mendukung autentikasi biometrik.',
+    };
+  }
+
+  try {
+    let webAuthnCredentialId: string | undefined;
+
+    if (availability.provider === 'capacitor') {
+      await BiometricAuth.authenticate({
+        reason: `Aktifkan masuk cepat ${availability.label} untuk ${session.nama_warga}`,
+        cancelTitle: 'Batal',
+        allowDeviceCredential: true,
+        iosFallbackTitle: 'Gunakan Kode Sandi HP',
+        androidTitle: 'Aktifkan Masuk Cepat Pengurus',
+        androidSubtitle: `Konfirmasi ${availability.label} · ${session.nama_warga}${session.jabatan ? ` (${session.jabatan})` : ''}`,
+        androidConfirmationRequired: false,
+        androidBiometryStrength: AndroidBiometryStrength.weak,
+      });
+    } else {
+      webAuthnCredentialId = await createWebAuthnCredential(session);
+    }
+
+    const now = Date.now();
+    const profile: AdminBiometricEnrollmentProfile = {
+      username: session.blok_rumah,
+      nama: session.nama_warga || session.blok_rumah,
+      jabatan: session.jabatan,
+      admin_permission: session.admin_permission,
+      enrolled_at: new Date(now).toISOString(),
+      expires_at: new Date(now + BIOMETRIC_ENROLLMENT_TTL_MS).toISOString(),
+      provider: availability.provider,
+      webauthn_credential_id: webAuthnCredentialId,
+    };
+
+    saveAdminBiometricEnrollment(profile);
+    return { ok: true, profile };
+  } catch (err) {
+    const parsed = formatBiometryError(err);
+    return { ok: false, cancelled: parsed.cancelled, error: parsed.message };
+  }
+}
+
+export async function authenticateAdminBiometric(
+  profile: AdminBiometricEnrollmentProfile,
+  availability: BiometricAvailability
+): Promise<{ ok: boolean; cancelled?: boolean; error?: string }> {
+  if (!availability.isAvailable || availability.provider === 'none') {
+    return {
+      ok: false,
+      error: availability.reason || 'Sensor biometrik tidak tersedia di perangkat ini.',
+    };
+  }
+
+  try {
+    if (availability.provider === 'capacitor') {
+      await BiometricAuth.authenticate({
+        reason: `Verifikasi ${availability.label} untuk masuk Portal Pengurus sebagai ${profile.nama}`,
+        cancelTitle: 'Gunakan PIN',
+        allowDeviceCredential: true,
+        iosFallbackTitle: 'Gunakan Kode Sandi HP',
+        androidTitle: 'Masuk Portal Pengurus / Admin',
+        androidSubtitle: `${profile.nama}${profile.jabatan ? ` · ${profile.jabatan}` : ''}`,
         androidConfirmationRequired: false,
         androidBiometryStrength: AndroidBiometryStrength.weak,
       });
