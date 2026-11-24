@@ -52,6 +52,7 @@ export interface AdminTestPushResult {
 
 const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
 const LAST_FCM_TOKEN_KEY = 'ecard_last_fcm_token_v1';
+const PUSH_DEVICE_ID_KEY = 'ecard_push_device_id_v1';
 const BG_POLL_SEEN_PREFIX = 'ecard_bg_poll_seen_v1:';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
 const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
@@ -229,6 +230,30 @@ function writeCachedFcmToken(token: string | null): void {
   } catch {
     // Abaikan keterbatasan storage
   }
+}
+
+function getOrCreatePushDeviceId(): string {
+  const platform = getNativePlatformName();
+  try {
+    if (typeof window === 'undefined') return `${platform}-ssr`;
+    const existing = window.localStorage.getItem(PUSH_DEVICE_ID_KEY)?.trim() || '';
+    if (existing) return existing;
+    const generated = `${platform}-${createNotificationUuid()}`;
+    window.localStorage.setItem(PUSH_DEVICE_ID_KEY, generated);
+    return generated;
+  } catch {
+    return `${platform}-${createNotificationUuid()}`;
+  }
+}
+
+/**
+ * Mengembalikan `true` jika perangkat sudah memiliki token FCM aktif (Android/iOS/Web dengan GMS)
+ * sehingga polling/Realtime tidak perlu menembakkan LocalNotifications / OS popup duplikat
+ * di atas push notification yang sudah dikirim oleh FCM.
+ */
+export function shouldSuppressOsPopupWhenFcmActive(): boolean {
+  if (fcmFallbackActive) return false;
+  return Boolean(readCachedFcmToken());
 }
 
 function resolvePendingTokenWaiters(token: string | null): void {
@@ -783,8 +808,10 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
 
 /**
  * Menyimpan/memperbarui token FCM/APNs/Web Push ke tabel Supabase `user_push_tokens`
- * menggunakan upsert berdasarkan komposit `(user_id, token)` agar 1 akun yang login
- * di HP dan Web sekaligus tetap menerima notifikasi di kedua perangkat tanpa saling menimpa.
+ * dengan deduplikasi ketat:
+ * - Menghapus token usang milik `device_id` yang sama saat rotasi token / ganti akun.
+ * - Upsert berdasarkan `token` (UNIQUE per perangkat fisik) agar 1 HP tidak pernah memiliki
+ *   lebih dari 1 token atau baris akun ganda di database.
  */
 async function persistFcmTokenToSupabase(
   session: SessionUser,
@@ -799,7 +826,8 @@ async function persistFcmTokenToSupabase(
   const role = resolvePushRole(session);
   const blokVal = session.blok_rumah?.trim() || null;
   const platform = getNativePlatformName();
-  const signature = `${userId}::${role}::${blokVal || ''}::${platform}::${cleanToken}`;
+  const deviceId = getOrCreatePushDeviceId();
+  const signature = `${userId}::${role}::${blokVal || ''}::${platform}::${deviceId}::${cleanToken}`;
 
   if (signature === lastSyncedTokenSignature) {
     return { synced: true };
@@ -817,11 +845,21 @@ async function persistFcmTokenToSupabase(
     blok: blokVal,
     blok_rumah: blokVal,
     platform,
+    device_id: deviceId,
     token: cleanToken,
     updated_at: nowIso,
   };
 
-  // Fallback payload untuk skema lama yang belum memiliki kolom `blok` atau belum mengizinkan role='keamanan'
+  const v8Payload = {
+    user_id: userId,
+    role,
+    blok: blokVal,
+    blok_rumah: blokVal,
+    platform,
+    token: cleanToken,
+    updated_at: nowIso,
+  };
+
   const legacyPayload = {
     user_id: userId,
     role: role === 'keamanan' ? 'petugas' : role,
@@ -832,29 +870,77 @@ async function persistFcmTokenToSupabase(
   };
 
   try {
-    // 1. Prioritas utama: Upsert berdasarkan kombinasi (user_id, token)
-    const { error: upsertErr } = await supabase
-      .from('user_push_tokens')
-      .upsert(fullPayload, { onConflict: 'user_id,token' });
+    // Langkah 1: Bersihkan token lama pada device_id ini (jika kolom device_id tersedia)
+    try {
+      await supabase
+        .from('user_push_tokens')
+        .delete()
+        .eq('device_id', deviceId)
+        .neq('token', cleanToken);
+    } catch {
+      // Abaikan jika kolom device_id belum dimigrasi
+    }
 
-    if (!upsertErr) {
+    // Langkah 2: Hapus baris akun lain yang masih menempel pada token fisik yang sama
+    try {
+      await supabase
+        .from('user_push_tokens')
+        .delete()
+        .eq('token', cleanToken)
+        .neq('user_id', userId);
+    } catch {
+      // Abaikan bila gagal
+    }
+
+    // Langkah 3a: Upsert berdasarkan `token` dengan `device_id` (skema v11)
+    const { error: upsertTokenV11Err } = await supabase
+      .from('user_push_tokens')
+      .upsert(fullPayload, { onConflict: 'token' });
+
+    if (!upsertTokenV11Err) {
       lastSyncedTokenSignature = signature;
       return { synced: true };
     }
 
-    // 2. Coba cek eksistensi berdasarkan (user_id, token) lalu update/insert
-    const { data: existingPair } = await supabase
+    // Langkah 3b: Upsert berdasarkan `(user_id, token)` dengan `device_id` bila constraint DB masih v8
+    const { error: upsertCompositeV11Err } = await supabase
+      .from('user_push_tokens')
+      .upsert(fullPayload, { onConflict: 'user_id,token' });
+
+    if (!upsertCompositeV11Err) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+
+    // Langkah 3c: Fallback skema v8 (tanpa kolom `device_id`)
+    const { error: upsertV8TokenErr } = await supabase
+      .from('user_push_tokens')
+      .upsert(v8Payload, { onConflict: 'token' });
+    if (!upsertV8TokenErr) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+
+    const { error: upsertV8CompositeErr } = await supabase
+      .from('user_push_tokens')
+      .upsert(v8Payload, { onConflict: 'user_id,token' });
+    if (!upsertV8CompositeErr) {
+      lastSyncedTokenSignature = signature;
+      return { synced: true };
+    }
+
+    // Langkah 4: Cek eksistensi token secara manual lalu update/insert
+    const { data: existingRows } = await supabase
       .from('user_push_tokens')
       .select('id')
-      .eq('user_id', userId)
       .eq('token', cleanToken)
       .limit(1);
 
-    if (Array.isArray(existingPair) && existingPair.length > 0 && existingPair[0]?.id) {
+    if (Array.isArray(existingRows) && existingRows.length > 0 && existingRows[0]?.id) {
       const { error: updateErr } = await supabase
         .from('user_push_tokens')
-        .update(fullPayload)
-        .eq('id', existingPair[0].id);
+        .update(v8Payload)
+        .eq('id', existingRows[0].id);
       if (!updateErr) {
         lastSyncedTokenSignature = signature;
         return { synced: true };
@@ -862,7 +948,7 @@ async function persistFcmTokenToSupabase(
       const { error: legacyUpdateErr } = await supabase
         .from('user_push_tokens')
         .update(legacyPayload)
-        .eq('id', existingPair[0].id);
+        .eq('id', existingRows[0].id);
       if (!legacyUpdateErr) {
         lastSyncedTokenSignature = signature;
         return { synced: true };
@@ -870,8 +956,7 @@ async function persistFcmTokenToSupabase(
       return { synced: false, error: legacyUpdateErr.message };
     }
 
-    // 3. Coba insert fullPayload; bila gagal karena constraint token lama atau kolom blok belum dimigrasi, gunakan fallback aman
-    const { error: insertErr } = await supabase.from('user_push_tokens').insert(fullPayload);
+    const { error: insertErr } = await supabase.from('user_push_tokens').insert(v8Payload);
     if (!insertErr) {
       lastSyncedTokenSignature = signature;
       return { synced: true };
@@ -897,29 +982,38 @@ async function persistFcmTokenToSupabase(
  */
 export async function removeCurrentDevicePushToken(session?: SessionUser | null): Promise<void> {
   const token = readCachedFcmToken();
+  const deviceId = getOrCreatePushDeviceId();
   const targetSession = session || activePushSession;
   activePushSession = null;
   lastSyncedTokenSignature = '';
   void syncServiceWorkerPollingContext(null);
 
-  if (!token || !targetSession) return;
+  if (!targetSession) return;
 
   const supabase = getSupabaseClient(targetSession);
   if (!supabase || !isSupabaseConfigured()) return;
 
   const userId = resolveCanonicalUserIdForPush(targetSession);
   try {
+    if (token) {
+      await supabase
+        .from('user_push_tokens')
+        .delete()
+        .eq('token', token)
+        .eq('user_id', userId);
+    }
     await supabase
       .from('user_push_tokens')
       .delete()
-      .eq('token', token)
+      .eq('device_id', deviceId)
       .eq('user_id', userId);
   } catch {
-    // Fallback hapus berdasarkan token perangkat saja jika user_id berbeda format lama
-    try {
-      await supabase.from('user_push_tokens').delete().eq('token', token);
-    } catch {
-      // Abaikan jika offline saat logout
+    if (token) {
+      try {
+        await supabase.from('user_push_tokens').delete().eq('token', token);
+      } catch {
+        // Abaikan jika offline saat logout
+      }
     }
   }
 }
@@ -1290,6 +1384,7 @@ export async function pollUnreadNotificationsNow(
           window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
         }
 
+        const suppressOsPopup = shouldSuppressOsPopupWhenFcmActive();
         for (const item of freshUnreadRows.slice(0, 3)) {
           if (alertedIds.has(item.id)) continue;
           emitForegroundPushToast({
@@ -1303,6 +1398,7 @@ export async function pollUnreadNotificationsNow(
             id: item.id,
             dedupKey: item.dedup_key || undefined,
             targetUrl: item.target_url,
+            skipOsPopup: suppressOsPopup,
           });
         }
       }
@@ -1716,11 +1812,13 @@ async function ensureNativePushListeners(): Promise<boolean> {
         });
 
         const isIos = getNativePlatformName() === 'ios';
+        const hasFcmNotificationPayload = Boolean(notification?.title || notification?.body);
         void triggerDeviceAlert(title, body, {
           id: notifId || undefined,
           dedupKey: dedupKey || undefined,
           targetUrl,
-          skipOsPopup: isIos,
+          // Jika payload FCM sudah membawa objek `notification`, JANGAN panggil LocalNotifications lagi
+          skipOsPopup: isIos || hasFcmNotificationPayload,
         });
       });
 

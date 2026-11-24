@@ -50,6 +50,7 @@ import {
   initNotificationAudioUnlock,
   registerOsNotificationTapListener,
   requestOsNotificationPermission,
+  shouldSuppressOsPopupWhenFcmActive,
   subscribeBellShakeEvent,
   syncAppIconBadge,
   syncNativePushTokenForSession,
@@ -583,11 +584,13 @@ export function NotificationBell({
 
         if (newlyArrivedUnread.length > 0) {
           triggerBellShake();
+          const suppressOsPopup = shouldSuppressOsPopupWhenFcmActive();
           for (const notif of newlyArrivedUnread.slice(0, 3)) {
             void triggerDeviceAlert(notif.title, notif.message, {
               id: notif.id,
               dedupKey: notif.dedup_key || undefined,
               targetUrl: notif.target_url,
+              skipOsPopup: suppressOsPopup,
             });
           }
         }
@@ -670,6 +673,7 @@ export function NotificationBell({
             id: insertedNotif.id,
             dedupKey: insertedNotif.dedup_key || undefined,
             targetUrl: insertedNotif.target_url,
+            skipOsPopup: shouldSuppressOsPopupWhenFcmActive(),
           });
         }
       }

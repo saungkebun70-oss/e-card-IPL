@@ -28,6 +28,8 @@ interface UserPushTokenRow {
   blok_rumah?: string | null;
   token: string;
   platform: string;
+  device_id?: string | null;
+  updated_at?: string | null;
 }
 
 interface ServiceAccountCredentials {
@@ -47,6 +49,7 @@ const ANDROID_CHANNEL_ID = 'saung_kebun_notif';
 const DEFAULT_PUBLIC_APP_URL = 'https://e-card-ipl.vercel.app';
 const RECENT_FCM_TTL_MS = 30_000;
 const RECENT_FCM_DELIVERIES = new Map<string, number>();
+let pushDispatchLogTableMissing = false;
 
 function resolveRecordDedupKey(record: IncomingNotificationRecord): string {
   const direct = String(record.dedup_key || '').trim();
@@ -62,7 +65,7 @@ function sanitizeCollapseKey(raw: string): string {
   const cleaned = String(raw || '')
     .trim()
     .replace(/[^a-zA-Z0-9._:-]/g, '_');
-  if (!cleaned) return `notif-${Date.now()}`;
+  if (!cleaned) return 'sk_notif_default';
   if (cleaned.length <= 60) return cleaned;
   let hash = 2166136261;
   for (let i = 0; i < cleaned.length; i += 1) {
@@ -70,6 +73,20 @@ function sanitizeCollapseKey(raw: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return `${cleaned.slice(0, 44)}_${(hash >>> 0).toString(36)}`;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function isValidUuid(raw?: string | null): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(raw || '').trim()
+  );
 }
 
 function claimRecentFcmDelivery(token: string, dedupKey: string, sigKey: string): boolean {
@@ -99,6 +116,72 @@ function claimRecentFcmDelivery(token: string, dedupKey: string, sigKey: string)
   if (dkEntry) RECENT_FCM_DELIVERIES.set(dkEntry, now);
   RECENT_FCM_DELIVERIES.set(sigEntry, now);
   return true;
+}
+
+async function claimPersistentFcmDelivery(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  cleanToken: string,
+  dedupKey: string,
+  sigKey: string,
+  notificationId: string
+): Promise<boolean> {
+  if (pushDispatchLogTableMissing) return true;
+  try {
+    const sigHash = await sha256Hex(`${cleanToken}::${sigKey}`);
+    const recentCutoffIso = new Date(Date.now() - 45_000).toISOString();
+
+    // 1. Cek duplikat signature dalam 45 detik terakhir (menangkap kasus DB webhook + client invoke)
+    const { data: recentMatch, error: checkErr } = await supabaseAdmin
+      .from('push_dispatch_logs')
+      .select('dispatch_key')
+      .eq('sig_hash', sigHash)
+      .gte('created_at', recentCutoffIso)
+      .limit(1);
+
+    if (checkErr) {
+      const code = String((checkErr as { code?: string }).code || '');
+      const msg = String(checkErr.message || '').toLowerCase();
+      if (code === '42P01' || msg.includes('push_dispatch_logs')) {
+        pushDispatchLogTableMissing = true;
+      }
+      return true;
+    }
+
+    if (Array.isArray(recentMatch) && recentMatch.length > 0) {
+      return false;
+    }
+
+    // 2. Klaim lock atomik di Postgres berdasarkan dispatch_key
+    const eventIdentity = dedupKey
+      ? `dk:${dedupKey}`
+      : isValidUuid(notificationId)
+        ? `id:${notificationId}`
+        : `sig:${sigKey}:${Math.floor(Date.now() / 45_000)}`;
+    const dispatchKey = await sha256Hex(`${cleanToken}::${eventIdentity}`);
+    const tokenHash = await sha256Hex(cleanToken);
+
+    const { error: insertErr } = await supabaseAdmin.from('push_dispatch_logs').insert({
+      dispatch_key: dispatchKey,
+      sig_hash: sigHash,
+      notification_id: notificationId || null,
+      dedup_key: dedupKey || null,
+      token_hash: tokenHash,
+    });
+
+    if (!insertErr) return true;
+
+    const code = String((insertErr as { code?: string }).code || '');
+    const msg = String(insertErr.message || '').toLowerCase();
+    if (code === '23505' || msg.includes('duplicate key')) {
+      return false;
+    }
+    if (code === '42P01' || msg.includes('push_dispatch_logs')) {
+      pushDispatchLogTableMissing = true;
+    }
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 function normalizeToken(raw?: string | null): string {
@@ -477,11 +560,16 @@ async function sendSingleFcmMessage(
   const body = String(
     record.body || record.message || 'Ketuk untuk melihat detail aktivitas terbaru.'
   ).trim();
-  const notificationId = String(record.id || `notif-${Date.now()}`);
-  const dedupKey = resolveRecordDedupKey(record);
-  const collapseTag = sanitizeCollapseKey(dedupKey || notificationId);
-  const targetUrl = String(record.target_url || '');
   const category = String(record.category || 'system');
+  const notificationId = String(record.id || '').trim();
+  const dedupKey = resolveRecordDedupKey(record);
+  const collapseTag = sanitizeCollapseKey(
+    dedupKey ||
+      (isValidUuid(notificationId) ? notificationId : '') ||
+      `${category}_${title}_${body}`
+  );
+  const effectiveNotifId = notificationId || collapseTag;
+  const targetUrl = String(record.target_url || '');
   const userId = String(record.user_id || device.user_id || '');
   const clickPath = resolveClickPathForDevice(device);
   const publicOrigin = getPublicAppOrigin();
@@ -501,7 +589,8 @@ async function sendSingleFcmMessage(
     },
     data: {
       ...extraData,
-      notification_id: notificationId,
+      notification_id: effectiveNotifId,
+      collapse_tag: collapseTag,
       ...(dedupKey ? { dedup_key: dedupKey } : {}),
       target_url: targetUrl,
       click_action: clickPath,
@@ -665,22 +754,32 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Baca user_push_tokens (mendukung tabel dengan kolom `blok` baru maupun tabel lama `blok_rumah`)
+    // Baca user_push_tokens terurut terbaru (mendukung kolom device_id & blok baru maupun skema lama)
     let tokenRows: UserPushTokenRow[] | null = null;
     let tokenErr: { message: string } | null = null;
 
-    const primaryQuery = await supabaseAdmin
+    const fullQuery = await supabaseAdmin
       .from('user_push_tokens')
-      .select('id, user_id, role, blok, blok_rumah, token, platform');
+      .select('id, user_id, role, blok, blok_rumah, token, platform, device_id, updated_at')
+      .order('updated_at', { ascending: false });
 
-    if (primaryQuery.error) {
-      const legacyQuery = await supabaseAdmin
-        .from('user_push_tokens')
-        .select('id, user_id, role, blok_rumah, token, platform');
-      tokenRows = (legacyQuery.data || null) as UserPushTokenRow[] | null;
-      tokenErr = legacyQuery.error;
+    if (!fullQuery.error) {
+      tokenRows = (fullQuery.data || null) as UserPushTokenRow[] | null;
     } else {
-      tokenRows = (primaryQuery.data || null) as UserPushTokenRow[] | null;
+      const v8Query = await supabaseAdmin
+        .from('user_push_tokens')
+        .select('id, user_id, role, blok, blok_rumah, token, platform, updated_at')
+        .order('updated_at', { ascending: false });
+
+      if (!v8Query.error) {
+        tokenRows = (v8Query.data || null) as UserPushTokenRow[] | null;
+      } else {
+        const legacyQuery = await supabaseAdmin
+          .from('user_push_tokens')
+          .select('id, user_id, role, blok_rumah, token, platform');
+        tokenRows = (legacyQuery.data || null) as UserPushTokenRow[] | null;
+        tokenErr = legacyQuery.error;
+      }
     }
 
     if (tokenErr) {
@@ -691,7 +790,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const allDevices = (tokenRows || []).filter((d) => Boolean(d.token && d.token.trim()));
+    // Deduplikasi DISTINCT pada string `token` & `(user_id, device_id)` agar 1 perangkat fisik
+    // hanya muncul tepat 1 kali meskipun ada baris lama/multi-akun di DB.
+    const uniqueByToken = new Map<string, UserPushTokenRow>();
+    const seenUserDevice = new Set<string>();
+    for (const row of tokenRows || []) {
+      const cleanTok = String(row.token || '').trim();
+      if (!cleanTok) continue;
+      if (uniqueByToken.has(cleanTok)) continue;
+
+      const cleanDeviceId = String(row.device_id || '').trim();
+      if (cleanDeviceId) {
+        const devKey = `${normalizeToken(row.user_id)}::${cleanDeviceId}`;
+        if (seenUserDevice.has(devKey)) continue;
+        seenUserDevice.add(devKey);
+      }
+      uniqueByToken.set(cleanTok, { ...row, token: cleanTok });
+    }
+
+    const allDevices = Array.from(uniqueByToken.values());
     if (allDevices.length === 0) {
       return new Response(
         JSON.stringify({
@@ -730,12 +847,23 @@ Deno.serve(async (req: Request) => {
       });
 
       for (const device of matchedDevices) {
-        // Deduplikasi ketat dalam request DAN antar-request berdekatan (30 detik) per token perangkat
+        // 1. Deduplikasi dalam request & cache memori isolate
         const pairKey = dedupKey
           ? `${device.token}::dk:${dedupKey}`
           : `${device.token}::${sigKey}`;
         if (deliveredPairs.has(pairKey)) continue;
         if (!claimRecentFcmDelivery(device.token, dedupKey, sigKey)) continue;
+
+        // 2. Deduplikasi persisten lintas isolate/webhook/trigger di tabel push_dispatch_logs
+        const claimedDb = await claimPersistentFcmDelivery(
+          supabaseAdmin,
+          device.token,
+          dedupKey,
+          sigKey,
+          String(record.id || '').trim()
+        );
+        if (!claimedDb) continue;
+
         deliveredPairs.add(pairKey);
         sendQueue.push({ device, record });
       }
