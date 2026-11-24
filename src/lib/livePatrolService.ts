@@ -545,6 +545,7 @@ export async function completeLivePatrolSession(
           emitLivePatrolEvent();
           const pushTitle = 'Update dari Petugas Keamanan';
           const pushBody = `${session.nama_warga} telah mengirim laporan keamanan (Sesi Patroli Live selesai).`;
+          const livePatrolDedup = `patrol-live:${sessionId}:completed`;
           void dispatchActivityNotifications(
             session,
             getAllAdminUserIds().map((uid) => ({
@@ -553,6 +554,7 @@ export async function completeLivePatrolSession(
               title: pushTitle,
               message: pushBody,
               target_url: 'tab:keamanan',
+              dedup_key: livePatrolDedup,
             })),
             {
               target_roles: ['admin'],
@@ -560,6 +562,7 @@ export async function completeLivePatrolSession(
               title: pushTitle,
               body: pushBody,
               target_url: 'tab:keamanan',
+              dedup_key: livePatrolDedup,
             }
           );
           return {
@@ -576,6 +579,7 @@ export async function completeLivePatrolSession(
   emitLivePatrolEvent();
   const fallbackTitle = 'Update dari Petugas Keamanan';
   const fallbackBody = `${session.nama_warga} telah mengirim laporan keamanan (Sesi Patroli Live selesai).`;
+  const fallbackLiveDedup = `patrol-live:${sessionId}:completed`;
   void dispatchActivityNotifications(
     session,
     getAllAdminUserIds().map((uid) => ({
@@ -584,6 +588,7 @@ export async function completeLivePatrolSession(
       title: fallbackTitle,
       message: fallbackBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackLiveDedup,
     })),
     {
       target_roles: ['admin'],
@@ -591,6 +596,7 @@ export async function completeLivePatrolSession(
       title: fallbackTitle,
       body: fallbackBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackLiveDedup,
     }
   );
   return {

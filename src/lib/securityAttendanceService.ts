@@ -782,6 +782,7 @@ export async function clockInSecurityOfficer(
             emitAttendanceChangeEvent();
             const pushTitle = 'Update dari Petugas Keamanan';
             const pushBody = `${officerName} telah mengirim laporan keamanan (Absen Masuk ${shiftName} · ${formatWibTime(created.clock_in_at)}).`;
+            const attInDedup = `att-in:${created.id}`;
             void dispatchActivityNotifications(
               session,
               getAllAdminUserIds().map((uid) => ({
@@ -790,6 +791,7 @@ export async function clockInSecurityOfficer(
                 title: pushTitle,
                 message: pushBody,
                 target_url: 'tab:keamanan',
+                dedup_key: attInDedup,
               })),
               {
                 target_roles: ['admin'],
@@ -797,6 +799,7 @@ export async function clockInSecurityOfficer(
                 title: pushTitle,
                 body: pushBody,
                 target_url: 'tab:keamanan',
+                dedup_key: attInDedup,
               }
             );
             return {
@@ -829,6 +832,7 @@ export async function clockInSecurityOfficer(
   emitAttendanceChangeEvent();
   const fallbackClockInTitle = 'Update dari Petugas Keamanan';
   const fallbackClockInBody = `${officerName} telah mengirim laporan keamanan (Absen Masuk ${shiftName} · ${formatWibTime(nowIso)}).`;
+  const fallbackAttInDedup = `att-in:${fallbackRecord.id}`;
   void dispatchActivityNotifications(
     session,
     getAllAdminUserIds().map((uid) => ({
@@ -837,6 +841,7 @@ export async function clockInSecurityOfficer(
       title: fallbackClockInTitle,
       message: fallbackClockInBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackAttInDedup,
     })),
     {
       target_roles: ['admin'],
@@ -844,6 +849,7 @@ export async function clockInSecurityOfficer(
       title: fallbackClockInTitle,
       body: fallbackClockInBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackAttInDedup,
     }
   );
 
@@ -909,6 +915,7 @@ export async function clockOutSecurityOfficer(
           const evalRes = evaluateAttendance(saved);
           const pushTitle = 'Update dari Petugas Keamanan';
           const pushBody = `${saved.officer_name} telah mengirim laporan keamanan (Absen Pulang ${saved.shift_name} · Durasi ${evalRes.durationLabel}).`;
+          const attOutDedup = `att-out:${saved.id}`;
           void dispatchActivityNotifications(
             session,
             getAllAdminUserIds().map((uid) => ({
@@ -917,6 +924,7 @@ export async function clockOutSecurityOfficer(
               title: pushTitle,
               message: pushBody,
               target_url: 'tab:keamanan',
+              dedup_key: attOutDedup,
             })),
             {
               target_roles: ['admin'],
@@ -924,6 +932,7 @@ export async function clockOutSecurityOfficer(
               title: pushTitle,
               body: pushBody,
               target_url: 'tab:keamanan',
+              dedup_key: attOutDedup,
             }
           );
           return {
@@ -948,6 +957,7 @@ export async function clockOutSecurityOfficer(
   const evalRes = evaluateAttendance(updatedLocal);
   const fallbackOutTitle = 'Update dari Petugas Keamanan';
   const fallbackOutBody = `${updatedLocal.officer_name} telah mengirim laporan keamanan (Absen Pulang ${updatedLocal.shift_name} · Durasi ${evalRes.durationLabel}).`;
+  const fallbackOutDedup = `att-out:${updatedLocal.id}`;
   void dispatchActivityNotifications(
     session,
     getAllAdminUserIds().map((uid) => ({
@@ -956,6 +966,7 @@ export async function clockOutSecurityOfficer(
       title: fallbackOutTitle,
       message: fallbackOutBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackOutDedup,
     })),
     {
       target_roles: ['admin'],
@@ -963,6 +974,7 @@ export async function clockOutSecurityOfficer(
       title: fallbackOutTitle,
       body: fallbackOutBody,
       target_url: 'tab:keamanan',
+      dedup_key: fallbackOutDedup,
     }
   );
   return {

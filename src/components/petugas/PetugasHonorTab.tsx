@@ -109,6 +109,7 @@ export function PetugasHonorTab({
         const pushTitle = 'Update dari Petugas Keamanan';
         const pushBody = `${officerName} telah mengonfirmasi penerimaan honor (${periodeLabel} · ${formatRupiah(nominal)}).`;
 
+        const honorConfirmDedup = `honor-confirm:${confirmKey}`;
         await dispatchActivityNotifications(
           session,
           getAllAdminUserIds().map((uid) => ({
@@ -117,6 +118,7 @@ export function PetugasHonorTab({
             title: pushTitle,
             message: pushBody,
             target_url: 'tab:keuangan',
+            dedup_key: honorConfirmDedup,
           })),
           {
             target_roles: ['admin'],
@@ -124,6 +126,7 @@ export function PetugasHonorTab({
             title: pushTitle,
             body: pushBody,
             target_url: 'tab:keuangan',
+            dedup_key: honorConfirmDedup,
           }
         );
 

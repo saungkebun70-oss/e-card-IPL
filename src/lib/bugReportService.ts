@@ -1,10 +1,10 @@
 import { Capacitor } from '@capacitor/core';
-import { SUSUNAN_PENGURUS, type SessionUser } from '../types';
+import type { SessionUser } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { compressProofImage } from './imageCompressor';
 import {
-  buildAdminUserId,
   dispatchActivityNotifications,
+  getAllAdminUserIds,
   getCanonicalUserId,
 } from './notificationService';
 
@@ -690,12 +690,8 @@ export async function submitBugReport(
   const notifTitle = 'Laporan Bug Baru';
   const notifMsg = `${reporterBadge} melaporkan "${title}" (${BUG_CATEGORY_LABELS[input.category]}).`;
 
-  const adminRecipientIds = Array.from(
-    new Set([
-      'role:admin',
-      ...SUSUNAN_PENGURUS.map((p) => buildAdminUserId(p.username)),
-    ])
-  );
+  const adminRecipientIds = getAllAdminUserIds();
+  const bugNotifDedupKey = `bug-report:${reportRecord.id}:created`;
 
   void dispatchActivityNotifications(
     session,
@@ -705,8 +701,10 @@ export async function submitBugReport(
       title: notifTitle,
       message: notifMsg,
       target_url: 'tab:laporan_bug',
+      dedup_key: bugNotifDedupKey,
     })),
     {
+      dedup_key: bugNotifDedupKey,
       title: notifTitle,
       body: notifMsg,
       target_roles: ['admin'],

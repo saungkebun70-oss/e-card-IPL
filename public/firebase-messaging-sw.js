@@ -21,8 +21,39 @@ const PERIODIC_SYNC_TAG = 'ecard-notif-periodic-sync';
 const ONE_OFF_SYNC_TAG = 'ecard-notif-bg-sync';
 
 let firebaseInitialized = false;
-let lastNotifKey = '';
-let lastNotifAt = 0;
+const RECENT_SW_NOTIF_TTL_MS = 20000;
+const recentSwNotifMap = new Map();
+
+function normalizeSwText(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function claimSwNotifKeys(keys) {
+  const now = Date.now();
+  for (const [k, ts] of recentSwNotifMap.entries()) {
+    if (now - ts > RECENT_SW_NOTIF_TTL_MS) {
+      recentSwNotifMap.delete(k);
+    }
+  }
+  for (const key of keys) {
+    if (!key) continue;
+    const prev = recentSwNotifMap.get(key);
+    if (prev && now - prev < RECENT_SW_NOTIF_TTL_MS) {
+      return false;
+    }
+  }
+  for (const key of keys) {
+    if (key) recentSwNotifMap.set(key, now);
+  }
+  if (recentSwNotifMap.size > 120) {
+    const oldest = recentSwNotifMap.keys().next().value;
+    if (oldest) recentSwNotifMap.delete(oldest);
+  }
+  return true;
+}
 
 function readFirebaseConfigFromLocation() {
   try {
@@ -63,24 +94,28 @@ function showSaungKebunNotification(payload) {
   const body =
     String(notif.body || data.body || data.message || DEFAULT_BODY).trim() || DEFAULT_BODY;
   const targetUrl = String(data.target_url || data.url || '').trim();
+  const dedupKey = String(data.dedup_key || '').trim();
   const notifId = String(
-    data.notification_id || notif.tag || `sk-web-${Date.now()}`
+    data.notification_id || notif.tag || dedupKey || `sk-web-${Date.now()}`
   ).trim();
-
-  // Deduplikasi singkat (3 detik) agar tidak muncul ganda bila FCM + push event sama-sama terpicu
-  const dedupeKey = `${notifId}::${title}::${body}`;
+  const tag = dedupKey || notifId;
   const now = Date.now();
-  if (dedupeKey === lastNotifKey && now - lastNotifAt < 3000) {
+
+  // Deduplikasi lintas jalur (FCM onBackgroundMessage, push event, dan Periodic Sync) dalam 20 detik
+  const keysToClaim = [
+    dedupKey ? `dk:${dedupKey}` : '',
+    data.notification_id ? `id:${String(data.notification_id).trim()}` : '',
+    `sig:${normalizeSwText(title)}::${normalizeSwText(body)}`,
+  ];
+  if (!claimSwNotifKeys(keysToClaim)) {
     return Promise.resolve();
   }
-  lastNotifKey = dedupeKey;
-  lastNotifAt = now;
 
   const options = {
     body,
     icon: notif.icon || APP_ICON_URL,
     badge: APP_ICON_URL,
-    tag: notifId,
+    tag,
     renotify: true,
     requireInteraction: true,
     silent: false,
@@ -90,6 +125,7 @@ function showSaungKebunNotification(payload) {
       target_url: targetUrl,
       url: data.click_action || '/',
       notification_id: notifId,
+      dedup_key: dedupKey || undefined,
       category: data.category || 'system',
       requireInteraction: true,
       vibrate: [200, 100, 200],
@@ -224,6 +260,7 @@ async function pollSupabaseUnreadNotifications() {
     const freshThresholdMs = 5 * 60 * 1000;
 
     const freshToShow = [];
+    const batchContentSigs = new Set();
     for (const row of rows) {
       const id = String((row && row.id) || '').trim();
       if (!id || seenSet.has(id)) continue;
@@ -233,6 +270,13 @@ async function pollSupabaseUnreadNotifications() {
         seenSet.add(id);
         continue;
       }
+
+      const contentSig = `${normalizeSwText(row && row.category)}::${normalizeSwText(row && row.title)}::${normalizeSwText(row && row.message)}`;
+      if (batchContentSigs.has(contentSig)) {
+        seenSet.add(id);
+        continue;
+      }
+      batchContentSigs.add(contentSig);
 
       const createdAtMs = row && row.created_at ? Date.parse(String(row.created_at)) : now;
       const isRecent = !Number.isNaN(createdAtMs) && now - createdAtMs <= freshThresholdMs;

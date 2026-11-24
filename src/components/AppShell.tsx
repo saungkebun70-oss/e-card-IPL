@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Bug,
   ChevronRight,
@@ -20,6 +20,7 @@ import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
 import {
   fetchUnreadNotificationCount,
+  getCanonicalUserId,
   subscribeActivityNotificationsRealtime,
 } from '../lib/notificationService';
 import {
@@ -77,18 +78,22 @@ export function AppShell({
   const isBugReportsActive = activeTab === 'laporan_bug';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
+  const sessionRef = useRef<SessionUser>(session);
+  sessionRef.current = session;
+  const sessionKey = getCanonicalUserId(session);
+
   // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari tabel `notifications` untuk badge Lonceng Header
   useEffect(() => {
     let active = true;
     const syncUnreadCount = async () => {
-      const count = await fetchUnreadNotificationCount(session);
+      const count = await fetchUnreadNotificationCount(sessionRef.current);
       if (active) {
         setUnreadNotificationCount(count);
       }
     };
 
     void syncUnreadCount();
-    const unsub = subscribeActivityNotificationsRealtime(session, () => {
+    const unsub = subscribeActivityNotificationsRealtime(sessionRef.current, () => {
       void syncUnreadCount();
     });
     const pollTimer = window.setInterval(() => {
@@ -111,7 +116,7 @@ export function AppShell({
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
-  }, [session]);
+  }, [sessionKey]);
 
   // Sinkronisasi jumlah Laporan Bug yang masih Pending khusus Admin
   useEffect(() => {

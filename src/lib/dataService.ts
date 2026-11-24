@@ -1544,6 +1544,7 @@ export async function submitSetoranWarga(
       const bulanLabel = formatDaftarBulan(sortedBulan, true);
       const pushTitle = 'Pembayaran IPL Baru';
       const pushBody = `Warga Blok ${effectiveBlok} mengirim pembayaran IPL sebesar ${formatRupiah(payload.nominal)} untuk bulan ${bulanLabel}. Menunggu verifikasi.`;
+      const iplSubmitDedup = `ipl:${inserted.id}:submitted`;
       void dispatchActivityNotifications(
         effectiveSession,
         getAllAdminUserIds().map((uid) => ({
@@ -1552,6 +1553,7 @@ export async function submitSetoranWarga(
           title: pushTitle,
           message: pushBody,
           target_url: 'tab:dashboard',
+          dedup_key: iplSubmitDedup,
         })),
         {
           target_roles: ['admin'],
@@ -1559,6 +1561,7 @@ export async function submitSetoranWarga(
           title: pushTitle,
           body: pushBody,
           target_url: 'tab:dashboard',
+          dedup_key: iplSubmitDedup,
         }
       );
 
@@ -1612,6 +1615,7 @@ export async function submitSetoranWarga(
     const bulanLabelLocal = formatDaftarBulan(sortedBulan, true);
     const pushTitleLocal = 'Pembayaran IPL Baru';
     const pushBodyLocal = `Warga Blok ${effectiveBlok} mengirim pembayaran IPL sebesar ${formatRupiah(payload.nominal)} untuk bulan ${bulanLabelLocal}. Menunggu verifikasi.`;
+    const iplSubmitLocalDedup = `ipl:${newTrx.id}:submitted`;
     void dispatchActivityNotifications(
       effectiveSession,
       getAllAdminUserIds().map((uid) => ({
@@ -1620,6 +1624,7 @@ export async function submitSetoranWarga(
         title: pushTitleLocal,
         message: pushBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: iplSubmitLocalDedup,
       })),
       {
         target_roles: ['admin'],
@@ -1627,6 +1632,7 @@ export async function submitSetoranWarga(
         title: pushTitleLocal,
         body: pushBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: iplSubmitLocalDedup,
       }
     );
 
@@ -2349,6 +2355,8 @@ export async function verifyTransaksiAdmin(
           ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${bulanVerifLabel}). Menunggu verifikasi final Anda.`
           : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`;
 
+      const benWargaDedup = `ipl:${trx.id}:bendahara:${effectiveStatus}:warga`;
+      const benKetuaDedup = `ipl:${trx.id}:bendahara:${effectiveStatus}:ketua`;
       void dispatchActivityNotifications(
         session,
         [
@@ -2358,6 +2366,7 @@ export async function verifyTransaksiAdmin(
             title: wargaTitle,
             message: wargaBody,
             target_url: 'tab:riwayat',
+            dedup_key: benWargaDedup,
           },
           ...getKetuaUserIds().map((uid) => ({
             user_id: uid,
@@ -2365,6 +2374,7 @@ export async function verifyTransaksiAdmin(
             title: ketuaTitle,
             message: ketuaBody,
             target_url: 'tab:dashboard',
+            dedup_key: benKetuaDedup,
           })),
         ],
         [
@@ -2374,6 +2384,7 @@ export async function verifyTransaksiAdmin(
             title: wargaTitle,
             body: wargaBody,
             target_url: 'tab:riwayat',
+            dedup_key: benWargaDedup,
           },
           {
             target_user_ids: getKetuaUserIds(),
@@ -2381,6 +2392,7 @@ export async function verifyTransaksiAdmin(
             title: ketuaTitle,
             body: ketuaBody,
             target_url: 'tab:dashboard',
+            dedup_key: benKetuaDedup,
           },
         ]
       );
@@ -2455,6 +2467,8 @@ export async function verifyTransaksiAdmin(
       ? `Bendahara ${approverName} menyetujui setoran ${formatRupiah(trx.nominal)} (${bulanVerifLocal}).`
       : `Bendahara ${approverName} menolak setoran ${formatRupiah(trx.nominal)}: ${cleanNote || '-'}`;
 
+  const benWargaLocalDedup = `ipl:${trx.id}:bendahara:${effectiveStatus}:warga`;
+  const benKetuaLocalDedup = `ipl:${trx.id}:bendahara:${effectiveStatus}:ketua`;
   void dispatchActivityNotifications(
     session,
     [
@@ -2464,6 +2478,7 @@ export async function verifyTransaksiAdmin(
         title: wargaTitleLocal,
         message: wargaBodyLocal,
         target_url: 'tab:riwayat',
+        dedup_key: benWargaLocalDedup,
       },
       ...getKetuaUserIds().map((uid) => ({
         user_id: uid,
@@ -2471,6 +2486,7 @@ export async function verifyTransaksiAdmin(
         title: ketuaTitleLocal,
         message: ketuaBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: benKetuaLocalDedup,
       })),
     ],
     [
@@ -2480,6 +2496,7 @@ export async function verifyTransaksiAdmin(
         title: wargaTitleLocal,
         body: wargaBodyLocal,
         target_url: 'tab:riwayat',
+        dedup_key: benWargaLocalDedup,
       },
       {
         target_user_ids: getKetuaUserIds(),
@@ -2487,6 +2504,7 @@ export async function verifyTransaksiAdmin(
         title: ketuaTitleLocal,
         body: ketuaBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: benKetuaLocalDedup,
       },
     ]
   );
@@ -2649,6 +2667,8 @@ export async function verifyTransaksiKetuaAdmin(
           ? `Setoran ${formatRupiah(trx.nominal)} (${bulanFinalLabel}) resmi Lunas dan masuk saldo kas.`
           : `Catatan Ketua: ${cleanKetuaNote}`;
 
+      const ketuaWargaDedup = `ipl:${trx.id}:ketua:${decision}:warga`;
+      const ketuaBenDedup = `ipl:${trx.id}:ketua:${decision}:bendahara`;
       void dispatchActivityNotifications(
         session,
         [
@@ -2658,6 +2678,7 @@ export async function verifyTransaksiKetuaAdmin(
             title: wargaFinalTitle,
             message: wargaFinalBody,
             target_url: 'tab:riwayat',
+            dedup_key: ketuaWargaDedup,
           },
           ...getBendaharaUserIds().map((uid) => ({
             user_id: uid,
@@ -2665,6 +2686,7 @@ export async function verifyTransaksiKetuaAdmin(
             title: bendaharaTitle,
             message: bendaharaBody,
             target_url: 'tab:dashboard',
+            dedup_key: ketuaBenDedup,
           })),
         ],
         [
@@ -2674,6 +2696,7 @@ export async function verifyTransaksiKetuaAdmin(
             title: wargaFinalTitle,
             body: wargaFinalBody,
             target_url: 'tab:riwayat',
+            dedup_key: ketuaWargaDedup,
           },
           {
             target_user_ids: getBendaharaUserIds(),
@@ -2681,6 +2704,7 @@ export async function verifyTransaksiKetuaAdmin(
             title: bendaharaTitle,
             body: bendaharaBody,
             target_url: 'tab:dashboard',
+            dedup_key: ketuaBenDedup,
           },
         ]
       );
@@ -2764,6 +2788,8 @@ export async function verifyTransaksiKetuaAdmin(
       ? `Setoran ${formatRupiah(trx.nominal)} (${bulanFinalLocal}) resmi Lunas.`
       : `Catatan Ketua: ${cleanKetuaNote}`;
 
+  const ketuaWargaLocalDedup = `ipl:${trx.id}:ketua:${decision}:warga`;
+  const ketuaBenLocalDedup = `ipl:${trx.id}:ketua:${decision}:bendahara`;
   void dispatchActivityNotifications(
     session,
     [
@@ -2773,6 +2799,7 @@ export async function verifyTransaksiKetuaAdmin(
         title: wargaFinalTitleLocal,
         message: wargaFinalBodyLocal,
         target_url: 'tab:riwayat',
+        dedup_key: ketuaWargaLocalDedup,
       },
       ...getBendaharaUserIds().map((uid) => ({
         user_id: uid,
@@ -2780,6 +2807,7 @@ export async function verifyTransaksiKetuaAdmin(
         title: bendaharaTitleLocal,
         message: bendaharaBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: ketuaBenLocalDedup,
       })),
     ],
     [
@@ -2789,6 +2817,7 @@ export async function verifyTransaksiKetuaAdmin(
         title: wargaFinalTitleLocal,
         body: wargaFinalBodyLocal,
         target_url: 'tab:riwayat',
+        dedup_key: ketuaWargaLocalDedup,
       },
       {
         target_user_ids: getBendaharaUserIds(),
@@ -2796,6 +2825,7 @@ export async function verifyTransaksiKetuaAdmin(
         title: bendaharaTitleLocal,
         body: bendaharaBodyLocal,
         target_url: 'tab:dashboard',
+        dedup_key: ketuaBenLocalDedup,
       },
     ]
   );
@@ -4548,6 +4578,7 @@ export async function sendBulkSystemNotificationAdmin(
   // Kirim notifikasi lonceng real-time & Broadcast FCM ke SELURUH perangkat (Warga, Pengurus, Keamanan)
   const broadcastSummary =
     cleanMessage.length > 180 ? `${cleanMessage.slice(0, 177).trim()}...` : cleanMessage;
+  const bulkBroadcastDedup = `announcement:${saved.id}`;
   void dispatchActivityNotifications(
     session,
     [
@@ -4557,6 +4588,7 @@ export async function sendBulkSystemNotificationAdmin(
         title: cleanTitle,
         message: cleanMessage,
         target_url: 'tab:beranda',
+        dedup_key: bulkBroadcastDedup,
       },
       {
         user_id: 'broadcast:petugas',
@@ -4564,6 +4596,7 @@ export async function sendBulkSystemNotificationAdmin(
         title: cleanTitle,
         message: cleanMessage,
         target_url: 'tab:info',
+        dedup_key: bulkBroadcastDedup,
       },
       ...getAllAdminUserIds().map((uid) => ({
         user_id: uid,
@@ -4571,6 +4604,7 @@ export async function sendBulkSystemNotificationAdmin(
         title: cleanTitle,
         message: `${cleanMessage} (Dikirim oleh ${session.nama_warga} ke ${recipients.length} unit warga)`,
         target_url: 'tab:dashboard',
+        dedup_key: bulkBroadcastDedup,
       })),
     ],
     {
@@ -4579,6 +4613,7 @@ export async function sendBulkSystemNotificationAdmin(
       title: cleanTitle,
       body: broadcastSummary,
       target_url: 'tab:beranda',
+      dedup_key: bulkBroadcastDedup,
     }
   );
 
@@ -5503,6 +5538,8 @@ export async function createTransaksiKasAdmin(
             ? `Pengeluaran Kas: ${persisted.kategori}`
             : `Pemasukan Non-IPL: ${persisted.kategori}`;
         const adminKasBody = `${session.nama_warga} mencatat ${formatRupiah(persisted.nominal)} (${persisted.penerima_atau_sumber}).`;
+        const kasCreateAdminDedup = `kas:${persisted.id}:created:admin`;
+        const kasCreatePetugasDedup = `kas:${persisted.id}:created:petugas`;
         const kasNotifs = [
           ...getBendaharaAndKetuaUserIds().map((uid) => ({
             user_id: uid,
@@ -5510,6 +5547,7 @@ export async function createTransaksiKasAdmin(
             title: adminKasTitle,
             message: adminKasBody,
             target_url: 'tab:keuangan',
+            dedup_key: kasCreateAdminDedup,
           })),
           ...(persisted.petugas_id
             ? [
@@ -5519,6 +5557,7 @@ export async function createTransaksiKasAdmin(
                   title: honorTitle,
                   message: honorBody,
                   target_url: 'tab:honor',
+                  dedup_key: kasCreatePetugasDedup,
                 },
               ]
             : []),
@@ -5530,6 +5569,7 @@ export async function createTransaksiKasAdmin(
             title: adminKasTitle,
             body: adminKasBody,
             target_url: 'tab:keuangan',
+            dedup_key: kasCreateAdminDedup,
           },
           ...(persisted.petugas_id
             ? [
@@ -5542,6 +5582,7 @@ export async function createTransaksiKasAdmin(
                   title: honorTitle,
                   body: honorBody,
                   target_url: 'tab:honor',
+                  dedup_key: kasCreatePetugasDedup,
                 },
               ]
             : []),
@@ -5584,6 +5625,8 @@ export async function createTransaksiKasAdmin(
       ? `Pengeluaran Kas: ${newEntry.kategori}`
       : `Pemasukan Non-IPL: ${newEntry.kategori}`;
   const adminKasBodyLocal = `${session.nama_warga} mencatat ${formatRupiah(newEntry.nominal)} (${newEntry.penerima_atau_sumber}).`;
+  const kasCreateAdminLocalDedup = `kas:${newEntry.id}:created:admin`;
+  const kasCreatePetugasLocalDedup = `kas:${newEntry.id}:created:petugas`;
   void dispatchActivityNotifications(
     session,
     [
@@ -5593,6 +5636,7 @@ export async function createTransaksiKasAdmin(
         title: adminKasTitleLocal,
         message: adminKasBodyLocal,
         target_url: 'tab:keuangan',
+        dedup_key: kasCreateAdminLocalDedup,
       })),
       ...(newEntry.petugas_id
         ? [
@@ -5602,6 +5646,7 @@ export async function createTransaksiKasAdmin(
               title: honorTitleLocal,
               message: honorBodyLocal,
               target_url: 'tab:honor',
+              dedup_key: kasCreatePetugasLocalDedup,
             },
           ]
         : []),
@@ -5613,6 +5658,7 @@ export async function createTransaksiKasAdmin(
         title: adminKasTitleLocal,
         body: adminKasBodyLocal,
         target_url: 'tab:keuangan',
+        dedup_key: kasCreateAdminLocalDedup,
       },
       ...(newEntry.petugas_id
         ? [
@@ -5625,6 +5671,7 @@ export async function createTransaksiKasAdmin(
               title: honorTitleLocal,
               body: honorBodyLocal,
               target_url: 'tab:honor',
+              dedup_key: kasCreatePetugasLocalDedup,
             },
           ]
         : []),
@@ -5706,6 +5753,7 @@ export async function verifyTransaksiKasBendaharaAdmin(
     } kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}).`,
   });
 
+  const kasBenDedup = `kas:${kas.id}:bendahara:${decision}`;
   void dispatchActivityNotifications(
     session,
     getKetuaUserIds().map((uid) => ({
@@ -5717,6 +5765,7 @@ export async function verifyTransaksiKasBendaharaAdmin(
           : `Transaksi Kas Ditolak (${kas.no_bukti})`,
       message: `Bendahara ${approverName} ${decision === 'ACC Bendahara' ? 'memberikan ACC Tahap 1' : 'menolak'} transaksi ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`,
       target_url: 'tab:keuangan',
+      dedup_key: kasBenDedup,
     }))
   );
 
@@ -5816,6 +5865,8 @@ export async function verifyTransaksiKasKetuaAdmin(
       : `Ketua Mengembalikan Kas ${kas.no_bukti}`;
   const kasBendaharaBody = `${ketuaName} ${decision === 'Terverifikasi' ? 'mensahkan final' : 'mengembalikan'} ${kas.kategori} sebesar ${formatRupiah(kas.nominal)}.`;
 
+  const kasKetuaBenDedup = `kas:${kas.id}:ketua:${decision}:bendahara`;
+  const kasKetuaPetugasDedup = `kas:${kas.id}:ketua:${decision}:petugas`;
   void dispatchActivityNotifications(
     session,
     [
@@ -5825,6 +5876,7 @@ export async function verifyTransaksiKasKetuaAdmin(
         title: kasBendaharaTitle,
         message: kasBendaharaBody,
         target_url: 'tab:keuangan',
+        dedup_key: kasKetuaBenDedup,
       })),
       ...(decision === 'Terverifikasi' && kas.petugas_id
         ? [
@@ -5834,6 +5886,7 @@ export async function verifyTransaksiKasKetuaAdmin(
               title: kasHonorTitle,
               message: kasHonorBody,
               target_url: 'tab:honor',
+              dedup_key: kasKetuaPetugasDedup,
             },
           ]
         : []),
@@ -5845,6 +5898,7 @@ export async function verifyTransaksiKasKetuaAdmin(
         title: kasBendaharaTitle,
         body: kasBendaharaBody,
         target_url: 'tab:keuangan',
+        dedup_key: kasKetuaBenDedup,
       },
       ...(decision === 'Terverifikasi' && kas.petugas_id
         ? [
@@ -5857,6 +5911,7 @@ export async function verifyTransaksiKasKetuaAdmin(
               title: kasHonorTitle,
               body: kasHonorBody,
               target_url: 'tab:honor',
+              dedup_key: kasKetuaPetugasDedup,
             },
           ]
         : []),
@@ -6199,6 +6254,8 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
           ? [buildKeamananUserId(cleanPetugasId), buildPetugasUserId(cleanPetugasId)]
           : [buildKeamananUserId(cleanOfficer), buildPetugasUserId(cleanOfficer)];
 
+        const lemburAdminDedup = `kas-overtime:${persisted.id}:admin`;
+        const lemburPetugasDedup = `kas-overtime:${persisted.id}:petugas`;
         void dispatchActivityNotifications(
           session,
           [
@@ -6208,6 +6265,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
               title: lemburAdminTitle,
               message: lemburAdminBody,
               target_url: 'tab:keuangan',
+              dedup_key: lemburAdminDedup,
             })),
             {
               user_id: buildPetugasUserId(cleanPetugasId || cleanOfficer),
@@ -6215,6 +6273,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
               title: lemburHonorTitle,
               message: lemburHonorBody,
               target_url: 'tab:honor',
+              dedup_key: lemburPetugasDedup,
             },
           ],
           [
@@ -6224,6 +6283,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
               title: lemburAdminTitle,
               body: lemburAdminBody,
               target_url: 'tab:keuangan',
+              dedup_key: lemburAdminDedup,
             },
             {
               target_user_ids: lemburOfficerTargetIds,
@@ -6231,6 +6291,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
               title: lemburHonorTitle,
               body: lemburHonorBody,
               target_url: 'tab:honor',
+              dedup_key: lemburPetugasDedup,
             },
           ]
         );
@@ -6266,6 +6327,8 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
     ? [buildKeamananUserId(cleanPetugasId), buildPetugasUserId(cleanPetugasId)]
     : [buildKeamananUserId(cleanOfficer), buildPetugasUserId(cleanOfficer)];
 
+  const lemburAdminLocalDedup = `kas-overtime:${localEntry.id}:admin`;
+  const lemburPetugasLocalDedup = `kas-overtime:${localEntry.id}:petugas`;
   void dispatchActivityNotifications(
     session,
     [
@@ -6275,6 +6338,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
         title: lemburAdminTitleLocal,
         message: lemburAdminBodyLocal,
         target_url: 'tab:keuangan',
+        dedup_key: lemburAdminLocalDedup,
       })),
       {
         user_id: buildPetugasUserId(cleanPetugasId || cleanOfficer),
@@ -6282,6 +6346,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
         title: lemburHonorTitleLocal,
         message: lemburHonorBodyLocal,
         target_url: 'tab:honor',
+        dedup_key: lemburPetugasLocalDedup,
       },
     ],
     [
@@ -6291,6 +6356,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
         title: lemburAdminTitleLocal,
         body: lemburAdminBodyLocal,
         target_url: 'tab:keuangan',
+        dedup_key: lemburAdminLocalDedup,
       },
       {
         target_user_ids: lemburOfficerTargetIdsLocal,
@@ -6298,6 +6364,7 @@ export async function createVerifiedOvertimeCashExpenseAdmin(
         title: lemburHonorTitleLocal,
         body: lemburHonorBodyLocal,
         target_url: 'tab:honor',
+        dedup_key: lemburPetugasLocalDedup,
       },
     ]
   );
@@ -7067,6 +7134,8 @@ export async function submitLogPatroliPetugas(
         const isAlert = saved.status_kondisi !== 'Aman';
         const patrolAdminTitle = 'Update dari Petugas Keamanan';
         const patrolAdminBody = `${saved.nama_petugas} telah mengirim laporan keamanan di ${saved.nama_lokasi} (Kondisi: ${saved.status_kondisi}${saved.catatan ? ` — ${saved.catatan}` : ''}).`;
+        const patrolAdminDedup = `patrol:${saved.id}:admin`;
+        const patrolWargaDedup = `patrol:${saved.id}:warga`;
         void dispatchActivityNotifications(
           session,
           [
@@ -7076,6 +7145,7 @@ export async function submitLogPatroliPetugas(
               title: patrolAdminTitle,
               message: patrolAdminBody,
               target_url: 'tab:keamanan',
+              dedup_key: patrolAdminDedup,
             })),
             ...(isAlert
               ? [
@@ -7085,6 +7155,7 @@ export async function submitLogPatroliPetugas(
                     title: `Info Keamanan di ${saved.nama_lokasi}`,
                     message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
                     target_url: 'tab:keamanan',
+                    dedup_key: patrolWargaDedup,
                   },
                 ]
               : []),
@@ -7096,6 +7167,7 @@ export async function submitLogPatroliPetugas(
               title: patrolAdminTitle,
               body: patrolAdminBody,
               target_url: 'tab:keamanan',
+              dedup_key: patrolAdminDedup,
             },
             ...(isAlert
               ? [
@@ -7105,6 +7177,7 @@ export async function submitLogPatroliPetugas(
                     title: `Info Keamanan di ${saved.nama_lokasi}`,
                     body: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
                     target_url: 'tab:keamanan',
+                    dedup_key: patrolWargaDedup,
                   },
                 ]
               : []),
@@ -7127,6 +7200,8 @@ export async function submitLogPatroliPetugas(
   const isAlertLocal = localEntry.status_kondisi !== 'Aman';
   const patrolAdminTitleLocal = 'Update dari Petugas Keamanan';
   const patrolAdminBodyLocal = `${localEntry.nama_petugas} telah mengirim laporan keamanan di ${localEntry.nama_lokasi} (Kondisi: ${localEntry.status_kondisi}${localEntry.catatan ? ` — ${localEntry.catatan}` : ''}).`;
+  const patrolAdminLocalDedup = `patrol:${localEntry.id}:admin`;
+  const patrolWargaLocalDedup = `patrol:${localEntry.id}:warga`;
   void dispatchActivityNotifications(
     session,
     [
@@ -7136,6 +7211,7 @@ export async function submitLogPatroliPetugas(
         title: patrolAdminTitleLocal,
         message: patrolAdminBodyLocal,
         target_url: 'tab:keamanan',
+        dedup_key: patrolAdminLocalDedup,
       })),
       ...(isAlertLocal
         ? [
@@ -7145,6 +7221,7 @@ export async function submitLogPatroliPetugas(
               title: `Info Keamanan di ${localEntry.nama_lokasi}`,
               message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
               target_url: 'tab:keamanan',
+              dedup_key: patrolWargaLocalDedup,
             },
           ]
         : []),
@@ -7156,6 +7233,7 @@ export async function submitLogPatroliPetugas(
         title: patrolAdminTitleLocal,
         body: patrolAdminBodyLocal,
         target_url: 'tab:keamanan',
+        dedup_key: patrolAdminLocalDedup,
       },
       ...(isAlertLocal
         ? [
@@ -7165,6 +7243,7 @@ export async function submitLogPatroliPetugas(
               title: `Info Keamanan di ${localEntry.nama_lokasi}`,
               body: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
               target_url: 'tab:keamanan',
+              dedup_key: patrolWargaLocalDedup,
             },
           ]
         : []),
@@ -7237,6 +7316,8 @@ export async function submitLogPatroliAdmin(
         const existing = readLocalLogPatroli().filter((l) => l.id !== saved.id);
         writeLocalLogPatroli([saved, ...existing]);
         const isAlert = saved.status_kondisi !== 'Aman';
+        const patrolAdmDedup = `patrol:${saved.id}:admin`;
+        const patrolAdmWargaDedup = `patrol:${saved.id}:warga`;
         void dispatchActivityNotifications(session, [
           ...getAllAdminUserIds().map((uid) => ({
             user_id: uid,
@@ -7246,6 +7327,7 @@ export async function submitLogPatroliAdmin(
               : `Log Patroli: ${saved.nama_lokasi}`,
             message: `${saved.nama_petugas} (${saved.metode_scan}) — ${saved.status_kondisi}${saved.catatan ? `: ${saved.catatan}` : '.'}`,
             target_url: 'tab:keamanan',
+            dedup_key: patrolAdmDedup,
           })),
           ...(isAlert
             ? [
@@ -7255,6 +7337,7 @@ export async function submitLogPatroliAdmin(
                   title: `Info Keamanan di ${saved.nama_lokasi}`,
                   message: `${saved.nama_petugas} mencatat: ${saved.catatan || 'Kondisi perlu perhatian keamanan.'}`,
                   target_url: 'tab:keamanan',
+                  dedup_key: patrolAdmWargaDedup,
                 },
               ]
             : []),
@@ -7274,6 +7357,8 @@ export async function submitLogPatroliAdmin(
 
   writeLocalLogPatroli([localEntry, ...readLocalLogPatroli()]);
   const isAlertAdmin = localEntry.status_kondisi !== 'Aman';
+  const patrolAdmLocalDedup = `patrol:${localEntry.id}:admin`;
+  const patrolAdmWargaLocalDedup = `patrol:${localEntry.id}:warga`;
   void dispatchActivityNotifications(session, [
     ...getAllAdminUserIds().map((uid) => ({
       user_id: uid,
@@ -7283,6 +7368,7 @@ export async function submitLogPatroliAdmin(
         : `Log Patroli: ${localEntry.nama_lokasi}`,
       message: `${localEntry.nama_petugas} (${localEntry.metode_scan}) — ${localEntry.status_kondisi}${localEntry.catatan ? `: ${localEntry.catatan}` : '.'}`,
       target_url: 'tab:keamanan',
+      dedup_key: patrolAdmLocalDedup,
     })),
     ...(isAlertAdmin
       ? [
@@ -7292,6 +7378,7 @@ export async function submitLogPatroliAdmin(
             title: `Info Keamanan di ${localEntry.nama_lokasi}`,
             message: `${localEntry.nama_petugas} mencatat: ${localEntry.catatan || 'Kondisi perlu perhatian keamanan.'}`,
             target_url: 'tab:keamanan',
+            dedup_key: patrolAdmWargaLocalDedup,
           },
         ]
       : []),

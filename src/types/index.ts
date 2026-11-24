@@ -612,6 +612,7 @@ export interface ActivityNotification {
   message: string;
   is_read: boolean;
   target_url: string;
+  dedup_key?: string | null;
   created_at: string;
 }
 

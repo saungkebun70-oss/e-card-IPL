@@ -27,6 +27,8 @@ import type {
   SessionUser,
 } from '../types';
 import {
+  buildNotificationContentSignature,
+  deduplicateNotifications,
   deleteAllNotifications,
   deleteNotification,
   fetchActivityNotifications,
@@ -34,6 +36,7 @@ import {
   formatRelativeTimeId,
   getCanonicalUserId,
   getSessionSeenNotificationIds,
+  getSessionSeenNotificationSignatures,
   isNotificationMatchingSession,
   markActivityNotificationRead,
   markAllActivityNotificationsRead,
@@ -471,11 +474,15 @@ export function NotificationBell({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shakeTimerRef = useRef<number | null>(null);
 
-  // Menyimpan seluruh ID notifikasi yang sudah pernah dilihat dalam useRef Set (bukan state)
+  // Menyimpan seluruh ID & signature notifikasi yang sudah pernah dilihat dalam useRef Set (bukan state)
   // serta flag isInitialLoadDone agar notifikasi lama tidak pernah dibunyikan saat mount.
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadDoneRef = useRef<boolean>(false);
   const activeSessionKeyRef = useRef<string>('');
+  const loadSeqRef = useRef<number>(0);
+  const sessionRef = useRef<SessionUser>(session);
+  sessionRef.current = session;
+  const sessionKey = getCanonicalUserId(session);
 
   const triggerBellShake = useCallback(() => {
     setBellShaking(false);
@@ -490,30 +497,65 @@ export function NotificationBell({
     });
   }, []);
 
-  const markIdAsSeen = useCallback(
-    (id: string) => {
-      if (!id) return;
-      seenNotificationIdsRef.current.add(id);
-      getSessionSeenNotificationIds(session).add(id);
+  const hasNotificationBeenSeen = useCallback(
+    (notif: ActivityNotification): boolean => {
+      const currentSession = sessionRef.current;
+      const sessionSeen = getSessionSeenNotificationIds(currentSession);
+      if (seenNotificationIdsRef.current.has(notif.id) || sessionSeen.has(notif.id)) {
+        return true;
+      }
+      const sessionSigs = getSessionSeenNotificationSignatures(currentSession);
+      const now = Date.now();
+      if (notif.dedup_key) {
+        const dkKey = `dk:${notif.dedup_key.trim().toLowerCase()}`;
+        const dkTs = sessionSigs.get(dkKey);
+        if (dkTs && now - dkTs < 90_000) return true;
+      }
+      const sigKey = `sig:${buildNotificationContentSignature(notif)}`;
+      const sigTs = sessionSigs.get(sigKey);
+      if (sigTs && now - sigTs < 90_000) return true;
+      return false;
     },
-    [session]
+    []
   );
+
+  const markNotificationAsSeen = useCallback((notif: ActivityNotification) => {
+    if (!notif?.id) return;
+    const currentSession = sessionRef.current;
+    seenNotificationIdsRef.current.add(notif.id);
+    getSessionSeenNotificationIds(currentSession).add(notif.id);
+
+    const sessionSigs = getSessionSeenNotificationSignatures(currentSession);
+    const now = Date.now();
+    if (sessionSigs.size > 250) {
+      for (const [k, ts] of sessionSigs.entries()) {
+        if (now - ts > 120_000) sessionSigs.delete(k);
+      }
+    }
+    if (notif.dedup_key) {
+      sessionSigs.set(`dk:${notif.dedup_key.trim().toLowerCase()}`, now);
+    }
+    sessionSigs.set(`sig:${buildNotificationContentSignature(notif)}`, now);
+  }, []);
 
   const loadNotifications = useCallback(
     async (silent = false) => {
+      const seq = ++loadSeqRef.current;
+      const currentSession = sessionRef.current;
       if (!silent) setLoading(true);
       try {
-        const [list, unreadTotal] = await Promise.all([
-          fetchActivityNotifications(session),
-          fetchUnreadNotificationCount(session),
+        const [rawList, unreadTotal] = await Promise.all([
+          fetchActivityNotifications(currentSession),
+          fetchUnreadNotificationCount(currentSession),
         ]);
-        const sessionSeen = getSessionSeenNotificationIds(session);
+        if (seq !== loadSeqRef.current) return;
 
-        // Pada pemuatan pertama: catat seluruh ID notifikasi lama tanpa membunyikan alert
+        const list = deduplicateNotifications(rawList);
+
+        // Pada pemuatan pertama: catat seluruh ID & signature notifikasi lama tanpa membunyikan alert
         if (!isInitialLoadDoneRef.current) {
           for (const notif of list) {
-            seenNotificationIdsRef.current.add(notif.id);
-            sessionSeen.add(notif.id);
+            markNotificationAsSeen(notif);
           }
           isInitialLoadDoneRef.current = true;
           setItems(list);
@@ -521,21 +563,18 @@ export function NotificationBell({
           return;
         }
 
-        // Pada pemuatan berikutnya (polling 5 detik / realtime refresh):
+        // Pada pemuatan berikutnya (polling / realtime refresh):
         // deteksi notifikasi baru yang belum pernah dilihat, belum dibaca, & cocok dengan sesi aktif
         const newlyArrivedUnread: ActivityNotification[] = [];
         for (const notif of list) {
-          const alreadySeen =
-            seenNotificationIdsRef.current.has(notif.id) || sessionSeen.has(notif.id);
-          if (!alreadySeen) {
-            seenNotificationIdsRef.current.add(notif.id);
-            sessionSeen.add(notif.id);
-            if (
-              notif.is_read === false &&
-              isNotificationMatchingSession(notif, session, { excludeSelfActor: true })
-            ) {
-              newlyArrivedUnread.push(notif);
-            }
+          const alreadySeen = hasNotificationBeenSeen(notif);
+          markNotificationAsSeen(notif);
+          if (
+            !alreadySeen &&
+            notif.is_read === false &&
+            isNotificationMatchingSession(notif, currentSession, { excludeSelfActor: true })
+          ) {
+            newlyArrivedUnread.push(notif);
           }
         }
 
@@ -544,19 +583,19 @@ export function NotificationBell({
 
         if (newlyArrivedUnread.length > 0) {
           triggerBellShake();
-          // Picu suara, getaran, & notifikasi status bar Android/Web melalui fungsi tunggal triggerDeviceAlert
           for (const notif of newlyArrivedUnread.slice(0, 3)) {
             void triggerDeviceAlert(notif.title, notif.message, {
               id: notif.id,
+              dedupKey: notif.dedup_key || undefined,
               targetUrl: notif.target_url,
             });
           }
         }
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent && seq === loadSeqRef.current) setLoading(false);
       }
     },
-    [session, triggerBellShake]
+    [hasNotificationBeenSeen, markNotificationAsSeen, triggerBellShake]
   );
 
   // Inisialisasi Web Audio unlock, Android Notification Channel, cek izin, & listener ketukan OS notification
@@ -566,7 +605,7 @@ export function NotificationBell({
 
     let mounted = true;
     const initPerm = async () => {
-      const perm = await initNativeNotificationsOnLaunch(session);
+      const perm = await initNativeNotificationsOnLaunch(sessionRef.current);
       if (!mounted) return;
       setOsPermission(perm);
       if (perm === 'prompt' && !prefs.permissionPromptDismissed) {
@@ -597,53 +636,45 @@ export function NotificationBell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onNavigateTarget, triggerBellShake]);
 
-  // Sinkronisasi Realtime Supabase + Polling cepat setiap 5 detik (keduanya memicu triggerDeviceAlert)
+  // Sinkronisasi Realtime Supabase (via hub singleton) + Polling cadangan
   useEffect(() => {
-    const nextSessionKey = getCanonicalUserId(session);
-    if (activeSessionKeyRef.current !== nextSessionKey) {
-      activeSessionKeyRef.current = nextSessionKey;
-      const persistedSeen = getSessionSeenNotificationIds(session);
+    const currentSession = sessionRef.current;
+    if (activeSessionKeyRef.current !== sessionKey) {
+      activeSessionKeyRef.current = sessionKey;
+      const persistedSeen = getSessionSeenNotificationIds(currentSession);
       seenNotificationIdsRef.current = new Set(persistedSeen);
-      // Jika belum pernah memuat sesi ini sebelumnya, tunggu initial load selesai sebelum membunyikan alert
       isInitialLoadDoneRef.current = persistedSeen.size > 0;
     }
 
     void loadNotifications(false);
 
     const unsub = subscribeActivityNotificationsRealtime(
-      session,
+      currentSession,
       () => {
         void loadNotifications(true);
       },
       (insertedNotif) => {
-        const sessionSeen = getSessionSeenNotificationIds(session);
-        const alreadySeen =
-          seenNotificationIdsRef.current.has(insertedNotif.id) ||
-          sessionSeen.has(insertedNotif.id);
+        const activeSess = sessionRef.current;
+        const alreadySeen = hasNotificationBeenSeen(insertedNotif);
+        markNotificationAsSeen(insertedNotif);
 
-        markIdAsSeen(insertedNotif.id);
-
-        setItems((prev) => {
-          if (prev.some((n) => n.id === insertedNotif.id)) return prev;
-          return [insertedNotif, ...prev].slice(0, 80);
-        });
+        setItems((prev) => deduplicateNotifications([insertedNotif, ...prev]).slice(0, 80));
 
         if (
           !alreadySeen &&
           insertedNotif.is_read === false &&
-          isNotificationMatchingSession(insertedNotif, session, { excludeSelfActor: true })
+          isNotificationMatchingSession(insertedNotif, activeSess, { excludeSelfActor: true })
         ) {
           triggerBellShake();
           void triggerDeviceAlert(insertedNotif.title, insertedNotif.message, {
             id: insertedNotif.id,
+            dedupKey: insertedNotif.dedup_key || undefined,
             targetUrl: insertedNotif.target_url,
           });
         }
       }
     );
 
-    // Polling setiap 5 detik agar notifikasi sungguhan tetap langsung berbunyi, bergetar,
-    // & muncul di status bar Android meski koneksi WebSocket Realtime terputus/dibatasi RLS.
     const pollTimer = window.setInterval(() => {
       if (document.visibilityState !== 'hidden') {
         void loadNotifications(true);
@@ -664,7 +695,7 @@ export function NotificationBell({
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
-  }, [session, loadNotifications, markIdAsSeen, triggerBellShake]);
+  }, [sessionKey, loadNotifications, hasNotificationBeenSeen, markNotificationAsSeen, triggerBellShake]);
 
   // Tutup panel saat klik luar (desktop), tekan Escape, atau tekan tombol Back HP/Browser
   useEffect(() => {
@@ -694,7 +725,10 @@ export function NotificationBell({
     };
   }, [open]);
 
-  const unreadCount = useMemo(() => items.filter((n) => !n.is_read).length, [items]);
+  const unreadCount = useMemo(
+    () => deduplicateNotifications(items).filter((n) => !n.is_read).length,
+    [items]
+  );
   const displayUnreadCount = useMemo(() => {
     if (loading) {
       if (typeof dbUnreadCount === 'number') return dbUnreadCount;

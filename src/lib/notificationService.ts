@@ -10,6 +10,14 @@ import {
   safeCheckFirebaseMessagingSupported,
   syncNativePushTokenForSession,
 } from './notificationAlertService';
+import {
+  buildNotificationContentSignature,
+  buildNotificationDedupKey,
+  createNotificationUuid,
+  deduplicateNotifications,
+  isValidUuid,
+  normalizeNotifRecipientToken,
+} from './notificationDedup';
 export {
   triggerDeviceAlert,
   initNativeNotificationsOnLaunch as initializeAndroidNotificationsOnLaunch,
@@ -22,6 +30,11 @@ export {
   syncNativePushTokenForSession,
   isLikelyHuaweiDevice,
 } from './notificationAlertService';
+export {
+  buildNotificationContentSignature,
+  buildNotificationDedupKey,
+  deduplicateNotifications,
+} from './notificationDedup';
 
 /**
  * Inisialisasi & pengambilan token FCM secara aman (try-catch `isSupported()` & `getToken()`).
@@ -73,10 +86,15 @@ const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
 const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
 const NOTIF_EVENT = 'ecard-activity-notifications-changed';
 const MAX_LOCAL_NOTIFICATIONS = 250;
+const DISPATCH_IDEMPOTENCY_TTL_MS = 20_000;
 
-// Penyimpanan module-level ID notifikasi yang sudah pernah dilihat per sesi akun
+let dedupKeyColumnMissing = false;
+const recentDispatchTimestamps = new Map<string, number>();
+
+// Penyimpanan module-level ID & signature notifikasi yang sudah pernah dilihat per sesi akun
 // agar tidak berbunyi ulang saat komponen NotificationBell remount antar halaman/tab.
 const sessionSeenNotificationIdsMap = new Map<string, Set<string>>();
+const sessionSeenNotificationSigsMap = new Map<string, Map<string, number>>();
 
 export function getSessionSeenNotificationIds(session: SessionUser): Set<string> {
   const key = getCanonicalUserId(session);
@@ -88,12 +106,23 @@ export function getSessionSeenNotificationIds(session: SessionUser): Set<string>
   return set;
 }
 
+export function getSessionSeenNotificationSignatures(session: SessionUser): Map<string, number> {
+  const key = getCanonicalUserId(session);
+  let map = sessionSeenNotificationSigsMap.get(key);
+  if (!map) {
+    map = new Map<string, number>();
+    sessionSeenNotificationSigsMap.set(key, map);
+  }
+  return map;
+}
+
 export interface CreateActivityNotificationInput {
   user_id: string;
   category: ActivityNotificationCategory;
   title: string;
   message: string;
   target_url: string;
+  dedup_key?: string | null;
   actor_id?: string | null;
   actor_name?: string | null;
   actor_avatar_url?: string | null;
@@ -101,6 +130,7 @@ export interface CreateActivityNotificationInput {
 
 export interface DirectPushDispatchInput {
   id?: string;
+  dedup_key?: string | null;
   title: string;
   body: string;
   target_user_ids?: string[];
@@ -114,10 +144,42 @@ export interface DirectPushDispatchInput {
 }
 
 function normalizeIdToken(raw?: string | null): string {
-  return String(raw || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '');
+  return normalizeNotifRecipientToken(raw);
+}
+
+function isMissingColumnError(err: unknown, columnName: string): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: string; message?: string; details?: string; hint?: string };
+  const code = String(e.code || '').toUpperCase();
+  const text = `${e.message || ''} ${e.details || ''} ${e.hint || ''}`.toLowerCase();
+  return (
+    (code === '42703' || code === 'PGRST204' || text.includes('column')) &&
+    text.includes(columnName.toLowerCase())
+  );
+}
+
+function isUniqueViolationError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: string; message?: string };
+  return (
+    String(e.code || '') === '23505' ||
+    String(e.message || '').toLowerCase().includes('duplicate key')
+  );
+}
+
+function pruneAndCheckRecentDispatch(key: string, ttlMs = DISPATCH_IDEMPOTENCY_TTL_MS): boolean {
+  const now = Date.now();
+  if (recentDispatchTimestamps.size > 400) {
+    for (const [k, ts] of recentDispatchTimestamps.entries()) {
+      if (now - ts > ttlMs) recentDispatchTimestamps.delete(k);
+    }
+  }
+  const prev = recentDispatchTimestamps.get(key);
+  if (prev && now - prev < ttlMs) {
+    return true;
+  }
+  recentDispatchTimestamps.set(key, now);
+  return false;
 }
 
 export function buildWargaUserId(blokRumah: string): string {
@@ -257,9 +319,16 @@ export function isNotificationMatchingSession(
 
   if (options?.excludeSelfActor !== false) {
     const actor = normalizeIdToken(notif.actor_id);
-    const selfCanonicalId = normalizeIdToken(getCanonicalUserId(session));
-    if (actor && actor === selfCanonicalId) {
-      return false;
+    if (actor) {
+      const selfPersonalIds = new Set(
+        getUserNotificationMatchIds(session)
+          .map((id) => normalizeIdToken(id))
+          .filter((id) => !id.startsWith('broadcast:') && !id.startsWith('role:'))
+      );
+      selfPersonalIds.add(normalizeIdToken(getCanonicalUserId(session)));
+      if (selfPersonalIds.has(actor)) {
+        return false;
+      }
     }
   }
 
@@ -390,7 +459,7 @@ function normalizeNotificationRow(
   row: Record<string, unknown>,
   broadcastReadSet: Set<string>
 ): ActivityNotification {
-  const id = String(row.id || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const id = String(row.id || createNotificationUuid());
   const userId = String(row.user_id || '');
   const isBroadcast = userId.toLowerCase().startsWith('broadcast:');
   const rawCategory = String(row.category || 'system').toLowerCase();
@@ -418,23 +487,14 @@ function normalizeNotificationRow(
     message: String(row.message || ''),
     is_read: isBroadcast ? broadcastReadSet.has(id) : Boolean(row.is_read),
     target_url: String(row.target_url || ''),
+    dedup_key: typeof row.dedup_key === 'string' ? row.dedup_key : null,
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
   };
 }
 
-function createUuidFallback(): string {
-  try {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-  } catch {
-    // Fallback manual
-  }
-  return `notif-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 /**
- * Mengambil seluruh notifikasi milik sesi aktif (terisolasi ketat per role/unit).
+ * Mengambil seluruh notifikasi milik sesi aktif (terisolasi ketat per role/unit)
+ * dan menerapkan deduplikasi terpusat agar 1 event tidak pernah tampil ganda.
  */
 export async function fetchActivityNotifications(
   session: SessionUser
@@ -453,109 +513,143 @@ export async function fetchActivityNotifications(
 
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) {
-    return localFiltered.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    return deduplicateNotifications(localFiltered).slice(0, 80);
   }
 
   try {
     const matchArray = getQueryMatchUserIds(session);
-    const { data, error } = await supabase
-      .from('notifications')
-      .select(
-        'id, user_id, actor_id, actor_name, actor_avatar_url, category, title, message, is_read, target_url, created_at'
-      )
-      .in('user_id', matchArray)
-      .order('created_at', { ascending: false })
-      .limit(80);
+    let data: Record<string, unknown>[] | null = null;
+    let error: unknown = null;
+
+    if (!dedupKeyColumnMissing) {
+      const res = await supabase
+        .from('notifications')
+        .select(
+          'id, user_id, actor_id, actor_name, actor_avatar_url, category, title, message, is_read, target_url, dedup_key, created_at'
+        )
+        .in('user_id', matchArray)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      data = (res.data as Record<string, unknown>[] | null) ?? null;
+      error = res.error;
+    }
+
+    if (dedupKeyColumnMissing || (error && isMissingColumnError(error, 'dedup_key'))) {
+      dedupKeyColumnMissing = true;
+      const retry = await supabase
+        .from('notifications')
+        .select(
+          'id, user_id, actor_id, actor_name, actor_avatar_url, category, title, message, is_read, target_url, created_at'
+        )
+        .in('user_id', matchArray)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      data = (retry.data as Record<string, unknown>[] | null) ?? null;
+      error = retry.error;
+    }
 
     if (error || !Array.isArray(data)) {
-      return localFiltered.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      return deduplicateNotifications(localFiltered).slice(0, 80);
     }
 
     const remoteRows = data
       .map((row) => normalizeNotificationRow(row as Record<string, unknown>, broadcastReadSet))
       .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)) && !dismissedSet.has(n.id));
 
-    // Gabungkan fallback lokal yang belum ada di server (mis. jika tabel baru saja dibuat)
     const remoteIds = new Set(remoteRows.map((r) => r.id));
     const merged = [
       ...remoteRows,
-      ...localFiltered.filter((l) => !remoteIds.has(l.id) && l.id.startsWith('notif-')),
+      ...localFiltered.filter((l) => !remoteIds.has(l.id)),
     ];
 
-    return merged
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 80);
+    return deduplicateNotifications(merged).slice(0, 80);
   } catch {
-    return localFiltered.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    return deduplicateNotifications(localFiltered).slice(0, 80);
   }
 }
 
 /**
  * Mengambil jumlah notifikasi yang belum dibaca (`is_read = false`) langsung dari tabel `notifications`
- * di database Supabase (beserta fallback lokal saat offline) untuk badge counter Lonceng di Header.
+ * dengan deduplikasi yang identik dengan daftar notifikasi agar badge selalu sinkron 1:1.
  */
 export async function fetchUnreadNotificationCount(session: SessionUser): Promise<number> {
   const allowedIds = new Set(getUserNotificationMatchIds(session));
   const broadcastReadSet = getBroadcastReadSet(session);
   const dismissedSet = getDismissedNotificationSet(session);
 
-  const localUnread = readLocalNotifications().filter((n) => {
-    if (!allowedIds.has(normalizeIdToken(n.user_id)) || dismissedSet.has(n.id)) return false;
-    const isRead = n.user_id.toLowerCase().startsWith('broadcast:')
-      ? broadcastReadSet.has(n.id)
-      : Boolean(n.is_read);
-    return !isRead;
-  });
+  const localUnread = readLocalNotifications()
+    .filter((n) => allowedIds.has(normalizeIdToken(n.user_id)) && !dismissedSet.has(n.id))
+    .map((n) => ({
+      ...n,
+      is_read: n.user_id.toLowerCase().startsWith('broadcast:')
+        ? broadcastReadSet.has(n.id)
+        : Boolean(n.is_read),
+    }))
+    .filter((n) => !n.is_read);
 
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) {
-    return localUnread.length;
+    return deduplicateNotifications(localUnread).length;
   }
 
   try {
     const matchArray = getQueryMatchUserIds(session);
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('id, user_id, is_read')
-      .in('user_id', matchArray)
-      .eq('is_read', false)
-      .limit(120);
+    let data: Record<string, unknown>[] | null = null;
+    let error: unknown = null;
+
+    if (!dedupKeyColumnMissing) {
+      const res = await supabase
+        .from('notifications')
+        .select('id, user_id, category, title, message, is_read, dedup_key, created_at')
+        .in('user_id', matchArray)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(120);
+      data = (res.data as Record<string, unknown>[] | null) ?? null;
+      error = res.error;
+    }
+
+    if (dedupKeyColumnMissing || (error && isMissingColumnError(error, 'dedup_key'))) {
+      dedupKeyColumnMissing = true;
+      const retry = await supabase
+        .from('notifications')
+        .select('id, user_id, category, title, message, is_read, created_at')
+        .in('user_id', matchArray)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(120);
+      data = (retry.data as Record<string, unknown>[] | null) ?? null;
+      error = retry.error;
+    }
 
     if (error || !Array.isArray(data)) {
-      return localUnread.length;
+      return deduplicateNotifications(localUnread).length;
     }
 
-    const remoteUnreadIds = new Set<string>();
+    const remoteUnread: ActivityNotification[] = [];
     for (const raw of data) {
-      const row = raw as Record<string, unknown>;
-      const id = String(row.id || '');
-      const userId = String(row.user_id || '');
-      if (!id || dismissedSet.has(id) || !allowedIds.has(normalizeIdToken(userId))) continue;
-      if (userId.toLowerCase().startsWith('broadcast:') && broadcastReadSet.has(id)) continue;
-      remoteUnreadIds.add(id);
+      const normalized = normalizeNotificationRow(raw as Record<string, unknown>, broadcastReadSet);
+      if (!normalized.id || dismissedSet.has(normalized.id)) continue;
+      if (!allowedIds.has(normalizeIdToken(normalized.user_id))) continue;
+      if (normalized.is_read) continue;
+      remoteUnread.push(normalized);
     }
 
-    let extraLocal = 0;
-    for (const item of localUnread) {
-      if (item.id.startsWith('notif-') && !remoteUnreadIds.has(item.id)) {
-        extraLocal += 1;
-      }
-    }
+    const remoteIds = new Set(remoteUnread.map((r) => r.id));
+    const mergedUnread = [
+      ...remoteUnread,
+      ...localUnread.filter((l) => !remoteIds.has(l.id)),
+    ];
 
-    return remoteUnreadIds.size + extraLocal;
+    return deduplicateNotifications(mergedUnread).filter((n) => !n.is_read).length;
   } catch {
-    return localUnread.length;
+    return deduplicateNotifications(localUnread).length;
   }
 }
 
 /**
- * Memanggil Supabase Edge Function `send-push-notification` secara langsung dan non-blocking.
+ * Memanggil Supabase Edge Function `send-push-notification` secara langsung dan non-blocking
+ * dengan proteksi idempotency `dedup_key` agar tidak memicu push ganda.
  */
 export async function sendDirectPushNotification(
   actorSession: SessionUser | null | undefined,
@@ -568,20 +662,33 @@ export async function sendDirectPushNotification(
   const items = Array.isArray(payload) ? payload : [payload];
   const validItems = items
     .filter((item) => Boolean(item && (item.title || item.body)))
-    .map((item) => ({
-      id: item.id || createUuidFallback(),
-      title: item.title.trim(),
-      body: item.body.trim(),
-      message: item.body.trim(),
-      target_user_ids: item.target_user_ids,
-      target_roles: item.target_roles,
-      broadcast: item.broadcast,
-      include_self: item.include_self,
-      target_url: item.target_url || '',
-      category: item.category || 'system',
-      actor_id: item.actor_id ?? actorId,
-      data: item.data,
-    }));
+    .map((item) => {
+      const dedupKey = buildNotificationDedupKey({
+        dedupKey: item.dedup_key,
+        category: item.category || 'system',
+        title: item.title,
+        message: item.body,
+        targetUrl: item.target_url,
+      });
+      return {
+        id: item.id && isValidUuid(item.id) ? item.id : createNotificationUuid(),
+        dedup_key: dedupKey,
+        title: item.title.trim(),
+        body: item.body.trim(),
+        message: item.body.trim(),
+        target_user_ids: item.target_user_ids,
+        target_roles: item.target_roles,
+        broadcast: item.broadcast,
+        include_self: item.include_self,
+        target_url: item.target_url || '',
+        category: item.category || 'system',
+        actor_id: item.actor_id ?? actorId,
+        data: {
+          ...(item.data || {}),
+          dedup_key: dedupKey,
+        },
+      };
+    });
 
   if (validItems.length === 0) return;
 
@@ -596,8 +703,7 @@ export async function sendDirectPushNotification(
 
 /**
  * Mengirim 1 atau banyak notifikasi aktivitas sekaligus secara real-time ke Supabase + cache lokal,
- * sekaligus memicu Edge Function `send-push-notification` untuk Android/iOS/Web (foreground, background, killed).
- * Aman dipanggil dari aktivitas apa pun tanpa melempar error ke alur utama.
+ * dengan idempotency `dedup_key`, kesamaan UUID antara client dan DB, dan deduplikasi batch.
  */
 export async function dispatchActivityNotifications(
   actorSession: SessionUser | null | undefined,
@@ -611,73 +717,119 @@ export async function dispatchActivityNotifications(
     return;
   }
 
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
   const actorId = actorSession ? getCanonicalUserId(actorSession) : 'system';
   const actorName = actorSession?.nama_warga || 'Sistem';
   const actorAvatar = actorSession?.avatar_url || null;
 
-  // Deduplikasi berdasarkan (user_id + title + message) dalam batch yang sama
-  const seen = new Set<string>();
+  // Deduplikasi batch sekaligus guard idempotency jangka pendek per (penerima + dedup_key)
+  const seenInBatch = new Set<string>();
   const rows: ActivityNotification[] = [];
+
   for (const item of inputs) {
     const cleanRecipient = normalizeIdToken(item.user_id);
     if (!cleanRecipient) continue;
-    const dedupeKey = `${cleanRecipient}::${item.title}::${item.message}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
+
+    const cleanTitle = item.title.trim();
+    const cleanMessage = item.message.trim();
+    const dedupKey = buildNotificationDedupKey({
+      dedupKey: item.dedup_key,
+      category: item.category,
+      title: cleanTitle,
+      message: cleanMessage,
+      targetUrl: item.target_url,
+      timestampMs: nowMs,
+    });
+
+    const batchKey = `${cleanRecipient}::${dedupKey}`;
+    if (seenInBatch.has(batchKey)) continue;
+    seenInBatch.add(batchKey);
+
+    // Cegah pemanggilan ganda beruntun (double-click / fallback retry) untuk event & penerima sama
+    if (pruneAndCheckRecentDispatch(batchKey)) {
+      continue;
+    }
 
     rows.push({
-      id: createUuidFallback(),
+      id: createNotificationUuid(),
       user_id: cleanRecipient,
       actor_id: item.actor_id ?? actorId,
       actor_name: item.actor_name ?? actorName,
       actor_avatar_url: item.actor_avatar_url ?? actorAvatar,
       category: item.category,
-      title: item.title.trim(),
-      message: item.message.trim(),
+      title: cleanTitle,
+      message: cleanMessage,
       is_read: false,
       target_url: item.target_url || '',
+      dedup_key: dedupKey,
       created_at: nowIso,
     });
   }
 
   if (rows.length === 0) {
-    if (pushOverride) {
-      void sendDirectPushNotification(actorSession, pushOverride);
-    }
     return;
   }
 
-  // Langkah (a): Simpan baris ke tabel `notifications` Supabase (TANPA .select() agar tidak
-  // terkena blokir RLS SELECT saat pengirim berbeda peran dengan penerima, mis. Warga -> Admin)
+  // Langkah (a): Simpan baris ke tabel `notifications` Supabase dengan menyertakan `id` UUID klien
+  // agar event lokal & Postgres Realtime `INSERT` memiliki ID identik 100% (TANPA .select() karena RLS).
   let savedToRemote = false;
+  let rejectedAsDuplicate = false;
   const supabase = getSupabaseClient(actorSession || null);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const dbPayload = rows.map((r) => ({
-        user_id: r.user_id,
-        actor_id: r.actor_id,
-        actor_name: r.actor_name,
-        actor_avatar_url: r.actor_avatar_url,
-        category: r.category,
-        title: r.title,
-        message: r.message,
-        is_read: false,
-        target_url: r.target_url,
-        created_at: r.created_at,
-      }));
-      const { error } = await supabase.from('notifications').insert(dbPayload);
+      const buildPayload = (includeDedupKey: boolean) =>
+        rows.map((r) => ({
+          id: r.id,
+          user_id: r.user_id,
+          actor_id: r.actor_id,
+          actor_name: r.actor_name,
+          actor_avatar_url: r.actor_avatar_url,
+          category: r.category,
+          title: r.title,
+          message: r.message,
+          is_read: false,
+          target_url: r.target_url,
+          created_at: r.created_at,
+          ...(includeDedupKey && r.dedup_key ? { dedup_key: r.dedup_key } : {}),
+        }));
+
+      let { error } = await supabase
+        .from('notifications')
+        .insert(buildPayload(!dedupKeyColumnMissing));
+
+      if (error && !dedupKeyColumnMissing && isMissingColumnError(error, 'dedup_key')) {
+        dedupKeyColumnMissing = true;
+        const retry = await supabase.from('notifications').insert(buildPayload(false));
+        error = retry.error;
+      }
+
       if (!error) {
         savedToRemote = true;
+      } else if (isUniqueViolationError(error)) {
+        // DB unique index (user_id, dedup_key) mendeteksi duplikat: hentikan agar push tidak terkirim dua kali
+        savedToRemote = true;
+        rejectedAsDuplicate = true;
       }
     } catch {
       // Lanjut fallback lokal
     }
 
-    // Langkah (b): Wajib panggil langsung Edge Function `send-push-notification` secara non-blocking
-    // tanpa bergantung pada database webhook agar push FCM langsung masuk ke HP/browser.
+    if (rejectedAsDuplicate) {
+      return;
+    }
+
+    // Langkah (b): Panggil Edge Function `send-push-notification` secara non-blocking
+    // dengan menyertakan `dedup_key` yang identik pada override maupun baris notifikasi.
     if (pushOverride) {
-      void sendDirectPushNotification(actorSession, pushOverride);
+      const baseDedup = rows[0]?.dedup_key || undefined;
+      const normalizedOverride = (Array.isArray(pushOverride) ? pushOverride : [pushOverride]).map(
+        (p) => ({
+          ...p,
+          dedup_key: p.dedup_key || baseDedup,
+        })
+      );
+      void sendDirectPushNotification(actorSession, normalizedOverride);
     } else {
       void supabase.functions
         .invoke('send-push-notification', {
@@ -692,14 +844,14 @@ export async function dispatchActivityNotifications(
   // Jika mode lokal atau tabel notifications belum dimigrasi di Supabase, simpan di cache lokal
   if (!savedToRemote) {
     const existing = readLocalNotifications();
-    writeLocalNotifications([...rows, ...existing]);
+    writeLocalNotifications(deduplicateNotifications([...rows, ...existing]));
   }
 
   emitNotificationsChanged(rows);
 }
 
 /**
- * Menandai 1 notifikasi sebagai sudah dibaca.
+ * Menandai 1 notifikasi sebagai sudah dibaca (termasuk salinan alias / dedup_key yang tergabung).
  */
 export async function markActivityNotificationRead(
   session: SessionUser,
@@ -714,18 +866,44 @@ export async function markActivityNotificationRead(
     return;
   }
 
-  // Update cache lokal
+  const targetSig = buildNotificationContentSignature(notif);
+  const targetMs = Date.parse(notif.created_at) || 0;
+
+  // Update cache lokal untuk ID maupun salinan dedup_key/konten yang sama
   const local = readLocalNotifications();
-  if (local.some((item) => item.id === notif.id)) {
-    writeLocalNotifications(
-      local.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
-    );
+  let localModified = false;
+  const nextLocal = local.map((item) => {
+    const sameId = item.id === notif.id;
+    const sameDedup =
+      Boolean(notif.dedup_key && item.dedup_key) && item.dedup_key === notif.dedup_key;
+    const sameSig =
+      buildNotificationContentSignature(item) === targetSig &&
+      Math.abs((Date.parse(item.created_at) || 0) - targetMs) <= 90_000;
+    if ((sameId || sameDedup || sameSig) && !item.is_read) {
+      localModified = true;
+      return { ...item, is_read: true };
+    }
+    return item;
+  });
+  if (localModified) {
+    writeLocalNotifications(nextLocal);
   }
 
   const supabase = getSupabaseClient(session);
+  const directMatchIds = getQueryMatchUserIds(session).filter(
+    (id) => !id.toLowerCase().startsWith('broadcast:')
+  );
   if (supabase && isSupabaseConfigured() && !notif.id.startsWith('notif-')) {
     try {
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
+      if (notif.dedup_key && !dedupKeyColumnMissing && directMatchIds.length > 0) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('dedup_key', notif.dedup_key)
+          .in('user_id', directMatchIds)
+          .eq('is_read', false);
+      }
     } catch {
       // Abaikan jika offline
     }
@@ -756,10 +934,15 @@ export async function markAllActivityNotificationsRead(
 
   // Update cache lokal
   const local = readLocalNotifications();
+  const allowedIds = new Set(getUserNotificationMatchIds(session).map((id) => normalizeIdToken(id)));
   const unreadSet = new Set(unread.map((u) => u.id));
-  if (local.some((item) => unreadSet.has(item.id))) {
+  if (local.some((item) => unreadSet.has(item.id) || allowedIds.has(normalizeIdToken(item.user_id)))) {
     writeLocalNotifications(
-      local.map((item) => (unreadSet.has(item.id) ? { ...item, is_read: true } : item))
+      local.map((item) =>
+        unreadSet.has(item.id) || allowedIds.has(normalizeIdToken(item.user_id))
+          ? { ...item, is_read: true }
+          : item
+      )
     );
   }
 
@@ -790,8 +973,6 @@ export async function markAllActivityNotificationsRead(
 
 /**
  * Menghapus 1 notifikasi (mendukung Swipe-to-Delete & tombol Trash).
- * Notifikasi personal dihapus langsung dari Supabase + cache lokal;
- * notifikasi broadcast disembunyikan permanen khusus untuk akun aktif agar tidak menghapus milik warga lain.
  */
 export async function deleteNotification(
   session: SessionUser,
@@ -802,21 +983,36 @@ export async function deleteNotification(
 
   const isBroadcast =
     typeof notifOrId !== 'string' && notifOrId.user_id.toLowerCase().startsWith('broadcast:');
+  const dedupKey = typeof notifOrId !== 'string' ? notifOrId.dedup_key : null;
 
-  // Catat di daftar dismissed per akun agar langsung hilang secara persisten (offline/broadcast/fallback)
   addDismissedNotificationIds(session, [id]);
 
   // Hapus dari cache lokal jika ada
   const local = readLocalNotifications();
-  if (local.some((item) => item.id === id)) {
-    writeLocalNotifications(local.filter((item) => item.id !== id));
+  const nextLocal = local.filter((item) => {
+    if (item.id === id) return false;
+    if (dedupKey && item.dedup_key === dedupKey) return false;
+    return true;
+  });
+  if (nextLocal.length !== local.length) {
+    writeLocalNotifications(nextLocal);
   }
 
-  // Hapus baris personal di Supabase
+  // Hapus baris personal di Supabase (beserta duplikat alias dengan dedup_key sama bila ada)
   const supabase = getSupabaseClient(session);
+  const directMatchIds = getQueryMatchUserIds(session).filter(
+    (uid) => !uid.toLowerCase().startsWith('broadcast:')
+  );
   if (supabase && isSupabaseConfigured() && !isBroadcast && !id.startsWith('notif-')) {
     try {
       await supabase.from('notifications').delete().eq('id', id);
+      if (dedupKey && !dedupKeyColumnMissing && directMatchIds.length > 0) {
+        await supabase
+          .from('notifications')
+          .delete()
+          .eq('dedup_key', dedupKey)
+          .in('user_id', directMatchIds);
+      }
     } catch {
       // Tetap aman karena sudah masuk daftar dismissed lokal
     }
@@ -846,11 +1042,19 @@ export async function deleteAllNotifications(
   const remoteDirectIds = currentList
     .filter((n) => !n.user_id.toLowerCase().startsWith('broadcast:') && !n.id.startsWith('notif-'))
     .map((n) => n.id);
+  const directMatchIds = getQueryMatchUserIds(session).filter(
+    (uid) => !uid.toLowerCase().startsWith('broadcast:')
+  );
 
   const supabase = getSupabaseClient(session);
-  if (supabase && isSupabaseConfigured() && remoteDirectIds.length > 0) {
+  if (supabase && isSupabaseConfigured()) {
     try {
-      await supabase.from('notifications').delete().in('id', remoteDirectIds);
+      if (remoteDirectIds.length > 0) {
+        await supabase.from('notifications').delete().in('id', remoteDirectIds);
+      }
+      if (directMatchIds.length > 0) {
+        await supabase.from('notifications').delete().in('user_id', directMatchIds);
+      }
     } catch {
       // Tetap aman karena sudah masuk daftar dismissed lokal
     }
@@ -859,110 +1063,205 @@ export async function deleteAllNotifications(
   emitNotificationsChanged();
 }
 
+// =========================================================================
+// Singleton Reference-Counted Realtime Hub per Sesi Pengguna
+// Mencegah channel WebSocket / listener window ganda saat berpindah tab atau
+// ketika AppShell & NotificationBell berlangganan secara bersamaan.
+// =========================================================================
+interface RealtimeSubscriber {
+  onChange: () => void;
+  onInsert?: (notif: ActivityNotification) => void;
+}
+
+interface RealtimeHubEntry {
+  session: SessionUser;
+  subscribers: Set<RealtimeSubscriber>;
+  recentInsertIds: Set<string>;
+  recentInsertSignatures: Map<string, number>;
+  teardown: () => void;
+}
+
+const realtimeHubBySessionKey = new Map<string, RealtimeHubEntry>();
+
+function pruneHubMap(map: Map<string, number>, maxAgeMs: number): void {
+  if (map.size <= 120) return;
+  const now = Date.now();
+  for (const [k, ts] of map.entries()) {
+    if (now - ts > maxAgeMs) map.delete(k);
+  }
+}
+
 /**
- * Berlangganan pembaruan notifikasi secara real-time via Supabase Realtime + event lokal.
- * Callback opsional `onInsert` dipanggil tepat saat ada notifikasi BARU yang ditujukan ke akun/role ini
- * (untuk memicu bunyi lonceng, getaran, animasi shake, dan pop-up sistem HP).
+ * Berlangganan pembaruan notifikasi secara real-time melalui hub singleton terkelola.
  */
 export function subscribeActivityNotificationsRealtime(
   session: SessionUser,
   onChange: () => void,
   onInsert?: (notif: ActivityNotification) => void
 ): () => void {
-  const cleanups: Array<() => void> = [];
-  const allowedIds = new Set(getUserNotificationMatchIds(session).map((id) => normalizeIdToken(id)));
-  const broadcastReadSet = getBroadcastReadSet(session);
+  const sessionKey = getCanonicalUserId(session);
+  const subscriber: RealtimeSubscriber = { onChange, onInsert };
 
-  const handleCandidateInsert = (notif: ActivityNotification) => {
-    if (!onInsert) return;
-    if (!isNotificationMatchingSession(notif, session, { excludeSelfActor: true })) return;
-    if (notif.is_read) return;
-    onInsert(notif);
-  };
+  let entry = realtimeHubBySessionKey.get(sessionKey);
+  if (!entry) {
+    const subscribers = new Set<RealtimeSubscriber>();
+    const recentInsertIds = new Set<string>();
+    const recentInsertSignatures = new Map<string, number>();
+    const cleanups: Array<() => void> = [];
 
-  const onLocalEvent = (e: Event) => {
-    onChange();
-    const detail = (e as CustomEvent<{ inserted?: ActivityNotification[] }>).detail;
-    if (detail?.inserted && Array.isArray(detail.inserted)) {
-      detail.inserted.forEach((item) => handleCandidateInsert(item));
-    }
-  };
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === LOCAL_NOTIF_KEY) {
-      onChange();
-      try {
-        if (e.newValue) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const latest = parsed[0] as ActivityNotification;
-            if (latest?.created_at && Date.now() - Date.parse(latest.created_at) < 15000) {
-              handleCandidateInsert(latest);
-            }
+    const hub: RealtimeHubEntry = {
+      session,
+      subscribers,
+      recentInsertIds,
+      recentInsertSignatures,
+      teardown: () => {
+        cleanups.forEach((fn) => {
+          try {
+            fn();
+          } catch {
+            // Abaikan
           }
-        }
-      } catch {
-        // Abaikan
+        });
+      },
+    };
+
+    const dispatchInsertOnce = (notif: ActivityNotification) => {
+      const currentSession = hub.session;
+      if (!isNotificationMatchingSession(notif, currentSession, { excludeSelfActor: true })) return;
+      if (notif.is_read) return;
+
+      const sig = notif.dedup_key
+        ? `dk:${notif.dedup_key.trim().toLowerCase()}`
+        : `sig:${buildNotificationContentSignature(notif)}`;
+      const now = Date.now();
+      pruneHubMap(recentInsertSignatures, 60_000);
+
+      if (recentInsertIds.has(notif.id)) return;
+      const lastSigTs = recentInsertSignatures.get(sig);
+      if (lastSigTs && now - lastSigTs < 30_000) return;
+
+      recentInsertIds.add(notif.id);
+      if (recentInsertIds.size > 250) {
+        const first = recentInsertIds.values().next().value;
+        if (first) recentInsertIds.delete(first);
       }
-    }
-  };
+      recentInsertSignatures.set(sig, now);
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener(NOTIF_EVENT, onLocalEvent);
-    window.addEventListener('storage', onStorage);
-    cleanups.push(() => {
-      window.removeEventListener(NOTIF_EVENT, onLocalEvent);
-      window.removeEventListener('storage', onStorage);
-    });
-  }
+      hub.subscribers.forEach((sub) => {
+        try {
+          sub.onInsert?.(notif);
+        } catch {
+          // Abaikan error callback
+        }
+      });
+    };
 
-  const supabase = getSupabaseClient(session);
-  if (supabase && isSupabaseConfigured()) {
-    try {
-      const channelName = `notifications-${getCanonicalUserId(session).replace(/[^a-z0-9]/gi, '_')}-${Date.now()}`;
-      const channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'notifications' },
-          (payload) => {
-            const nextRow = (payload.new || payload.old) as Record<string, unknown> | undefined;
-            const targetUserId = normalizeIdToken(
-              typeof nextRow?.user_id === 'string' ? nextRow.user_id : ''
-            );
-            if (!targetUserId || allowedIds.has(targetUserId)) {
-              onChange();
-              if (payload.eventType === 'INSERT' && payload.new && onInsert) {
-                const normalized = normalizeNotificationRow(
-                  payload.new as Record<string, unknown>,
-                  broadcastReadSet
-                );
-                handleCandidateInsert(normalized);
+    const notifyChange = () => {
+      hub.subscribers.forEach((sub) => {
+        try {
+          sub.onChange();
+        } catch {
+          // Abaikan error callback
+        }
+      });
+    };
+
+    const onLocalEvent = (e: Event) => {
+      notifyChange();
+      const detail = (e as CustomEvent<{ inserted?: ActivityNotification[] }>).detail;
+      if (detail?.inserted && Array.isArray(detail.inserted)) {
+        detail.inserted.forEach((item) => dispatchInsertOnce(item));
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCAL_NOTIF_KEY) {
+        notifyChange();
+        try {
+          if (e.newValue) {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const latest = parsed[0] as ActivityNotification;
+              if (latest?.created_at && Date.now() - Date.parse(latest.created_at) < 15_000) {
+                dispatchInsertOnce(latest);
               }
             }
           }
-        )
-        .subscribe();
-
-      cleanups.push(() => {
-        try {
-          void supabase.removeChannel(channel);
         } catch {
           // Abaikan
         }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(NOTIF_EVENT, onLocalEvent);
+      window.addEventListener('storage', onStorage);
+      cleanups.push(() => {
+        window.removeEventListener(NOTIF_EVENT, onLocalEvent);
+        window.removeEventListener('storage', onStorage);
       });
-    } catch {
-      // Abaikan bila WebSocket realtime dibatasi
     }
+
+    const supabase = getSupabaseClient(session);
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        const channelName = `notifications-hub-${sessionKey.replace(/[^a-z0-9]/gi, '_')}`;
+        const channel = supabase
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'notifications' },
+            (payload) => {
+              const allowedIds = new Set(
+                getUserNotificationMatchIds(hub.session).map((id) => normalizeIdToken(id))
+              );
+              const nextRow = (payload.new || payload.old) as Record<string, unknown> | undefined;
+              const targetUserId = normalizeIdToken(
+                typeof nextRow?.user_id === 'string' ? nextRow.user_id : ''
+              );
+              if (!targetUserId || allowedIds.has(targetUserId)) {
+                notifyChange();
+                if (payload.eventType === 'INSERT' && payload.new) {
+                  const broadcastReadSet = getBroadcastReadSet(hub.session);
+                  const normalized = normalizeNotificationRow(
+                    payload.new as Record<string, unknown>,
+                    broadcastReadSet
+                  );
+                  dispatchInsertOnce(normalized);
+                }
+              }
+            }
+          )
+          .subscribe();
+
+        cleanups.push(() => {
+          try {
+            void supabase.removeChannel(channel);
+          } catch {
+            // Abaikan
+          }
+        });
+      } catch {
+        // Abaikan bila WebSocket realtime dibatasi
+      }
+    }
+
+    entry = hub;
+    realtimeHubBySessionKey.set(sessionKey, entry);
+  } else {
+    entry.session = session;
   }
 
+  entry.subscribers.add(subscriber);
+
   return () => {
-    cleanups.forEach((fn) => {
-      try {
-        fn();
-      } catch {
-        // Abaikan
-      }
-    });
+    const activeEntry = realtimeHubBySessionKey.get(sessionKey);
+    if (!activeEntry) return;
+    activeEntry.subscribers.delete(subscriber);
+    if (activeEntry.subscribers.size === 0) {
+      realtimeHubBySessionKey.delete(sessionKey);
+      activeEntry.teardown();
+    }
   };
 }
 

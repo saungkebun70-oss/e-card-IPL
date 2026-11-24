@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { ActivityNotification, SessionUser } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import {
+  buildNotificationContentSignature,
+  buildNotificationDedupKey,
+  createNotificationUuid,
+  deduplicateNotifications,
+} from './notificationDedup';
 
 export interface NotificationPreferences {
   soundEnabled: boolean;
@@ -78,6 +84,12 @@ interface FirebaseWebConfig {
 }
 
 const alertedIds = new Set<string>();
+const alertedSignatures = new Map<string, number>();
+const toastedSignatures = new Map<string, number>();
+const ALERT_SIG_STORAGE_KEY = 'ecard_recent_alert_sigs_v1';
+const ALERT_DEDUP_TTL_MS = 25_000;
+const TOAST_DEDUP_TTL_MS = 20_000;
+let pollDedupColMissing = false;
 let sharedAudioContext: AudioContext | null = null;
 let audioUnlockInstalled = false;
 let androidChannelInitialized = false;
@@ -232,11 +244,106 @@ function resolvePendingTokenWaiters(token: string | null): void {
   }
 }
 
-export function emitForegroundPushToast(payload: ForegroundPushToastPayload): void {
+function readRecentAlertSigMap(): Record<string, number> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = window.localStorage.getItem(ALERT_SIG_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function claimAlertDedupKeys(keys: string[], ttlMs: number): boolean {
+  const cleanKeys = keys.filter(Boolean);
+  if (cleanKeys.length === 0) return true;
+  const now = Date.now();
+
+  if (alertedSignatures.size > 300) {
+    for (const [k, ts] of alertedSignatures.entries()) {
+      if (now - ts > ttlMs) alertedSignatures.delete(k);
+    }
+  }
+
+  for (const k of cleanKeys) {
+    const memTs = alertedSignatures.get(k);
+    if (memTs && now - memTs < ttlMs) {
+      return false;
+    }
+  }
+
+  const stored = readRecentAlertSigMap();
+  const pruned: Record<string, number> = {};
+  for (const [k, ts] of Object.entries(stored)) {
+    if (typeof ts === 'number' && now - ts < ttlMs) {
+      pruned[k] = ts;
+    }
+  }
+
+  for (const k of cleanKeys) {
+    if (typeof pruned[k] === 'number' && now - pruned[k] < ttlMs) {
+      alertedSignatures.set(k, pruned[k]);
+      return false;
+    }
+  }
+
+  for (const k of cleanKeys) {
+    alertedSignatures.set(k, now);
+    pruned[k] = now;
+  }
+
   try {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(FOREGROUND_PUSH_TOAST_EVENT, { detail: payload }));
+      const entries = Object.entries(pruned).slice(-80);
+      window.localStorage.setItem(ALERT_SIG_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
     }
+  } catch {
+    // Abaikan keterbatasan storage
+  }
+  return true;
+}
+
+export function emitForegroundPushToast(
+  payload: ForegroundPushToastPayload & { id?: string; dedupKey?: string }
+): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const now = Date.now();
+    const contentSig = buildNotificationContentSignature({
+      category: 'system',
+      title: payload.title,
+      message: payload.body,
+    });
+    const keys = [
+      payload.id ? `id:${payload.id}` : '',
+      payload.dedupKey ? `dk:${payload.dedupKey.toLowerCase()}` : '',
+      `sig:${contentSig}`,
+    ].filter(Boolean);
+
+    if (toastedSignatures.size > 200) {
+      for (const [k, ts] of toastedSignatures.entries()) {
+        if (now - ts > TOAST_DEDUP_TTL_MS) toastedSignatures.delete(k);
+      }
+    }
+    if (keys.some((k) => {
+      const prev = toastedSignatures.get(k);
+      return Boolean(prev && now - prev < TOAST_DEDUP_TTL_MS);
+    })) {
+      return;
+    }
+    keys.forEach((k) => toastedSignatures.set(k, now));
+
+    window.dispatchEvent(
+      new CustomEvent(FOREGROUND_PUSH_TOAST_EVENT, {
+        detail: {
+          title: payload.title,
+          body: payload.body,
+          targetUrl: payload.targetUrl,
+        },
+      })
+    );
   } catch {
     // Abaikan
   }
@@ -1070,19 +1177,51 @@ export async function pollUnreadNotificationsNow(
       }
 
       const matchIds = buildSessionMatchUserIdsForPolling(targetSession);
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id, user_id, actor_id, category, title, message, is_read, target_url, created_at')
-        .in('user_id', matchIds)
-        .eq('is_read', false)
-        .order('created_at', { ascending: false })
-        .limit(25);
+      let data: Record<string, unknown>[] | null = null;
+      let error: { message?: string } | null = null;
+
+      if (!pollDedupColMissing) {
+        const res = await supabase
+          .from('notifications')
+          .select(
+            'id, user_id, actor_id, category, title, message, is_read, target_url, dedup_key, created_at'
+          )
+          .in('user_id', matchIds)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        data = (res.data as Record<string, unknown>[] | null) ?? null;
+        error = res.error;
+      }
+
+      if (
+        pollDedupColMissing ||
+        (error && String(error.message || '').toLowerCase().includes('dedup_key'))
+      ) {
+        pollDedupColMissing = true;
+        const retry = await supabase
+          .from('notifications')
+          .select('id, user_id, actor_id, category, title, message, is_read, target_url, created_at')
+          .in('user_id', matchIds)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        data = (retry.data as Record<string, unknown>[] | null) ?? null;
+        error = retry.error;
+      }
 
       if (error || !Array.isArray(data)) {
         return { checked: false, unreadCount: 0, newCount: 0 };
       }
 
       const canonicalActorId = resolveCanonicalNotificationActorId(targetSession);
+      const selfPersonalIds = new Set(
+        matchIds
+          .map((m) => normalizeIdPart(m))
+          .filter((m) => !m.startsWith('broadcast:') && !m.startsWith('role:'))
+      );
+      selfPersonalIds.add(normalizeIdPart(canonicalActorId));
+
       const broadcastReadSet =
         readStoredIdSet(`${LOCAL_BROADCAST_READ_PREFIX}${canonicalActorId}`) || new Set<string>();
       const dismissedSet =
@@ -1093,25 +1232,7 @@ export async function pollUnreadNotificationsNow(
       const hasSeededBefore = existingSeen !== null;
       const seenSet = existingSeen || new Set<string>();
 
-      const activeUnreadRows: Array<{
-        id: string;
-        title: string;
-        message: string;
-        target_url: string;
-        created_at: string;
-        actor_id: string;
-      }> = [];
-
-      const freshUnreadRows: Array<{
-        id: string;
-        title: string;
-        message: string;
-        target_url: string;
-      }> = [];
-
-      const freshWindowMs = 3 * 60 * 1000;
-      const currentMs = Date.now();
-
+      const normalizedCandidates: ActivityNotification[] = [];
       for (const raw of data) {
         const row = raw as Record<string, unknown>;
         const id = String(row.id || '').trim();
@@ -1119,21 +1240,37 @@ export async function pollUnreadNotificationsNow(
         if (!id || dismissedSet.has(id)) continue;
         if (userId.toLowerCase().startsWith('broadcast:') && broadcastReadSet.has(id)) continue;
 
-        const actorId = normalizeIdPart(typeof row.actor_id === 'string' ? row.actor_id : '');
-        const item = {
+        normalizedCandidates.push({
           id,
+          user_id: userId,
+          actor_id: typeof row.actor_id === 'string' ? row.actor_id : null,
+          category: (typeof row.category === 'string'
+            ? row.category
+            : 'system') as ActivityNotification['category'],
           title: String(row.title || 'Aktivitas Baru · Saung Kebun'),
           message: String(row.message || 'Ketuk untuk melihat detail aktivitas terbaru.'),
+          is_read: false,
           target_url: String(row.target_url || ''),
-          created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
-          actor_id: actorId,
-        };
-        activeUnreadRows.push(item);
+          dedup_key: typeof row.dedup_key === 'string' ? row.dedup_key : null,
+          created_at:
+            typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        });
+      }
 
-        if (seenSet.has(id)) continue;
-        seenSet.add(id);
+      const deduplicatedUnread = deduplicateNotifications(normalizedCandidates);
+      const freshUnreadRows: ActivityNotification[] = [];
+      const freshWindowMs = 3 * 60 * 1000;
+      const currentMs = Date.now();
 
-        if (actorId && actorId === normalizeIdPart(canonicalActorId)) {
+      for (const item of deduplicatedUnread) {
+        if (seenSet.has(item.id)) continue;
+        seenSet.add(item.id);
+        if (item.dedup_key) {
+          seenSet.add(`dk:${item.dedup_key.toLowerCase()}`);
+        }
+
+        const actorId = normalizeIdPart(item.actor_id);
+        if (actorId && selfPersonalIds.has(actorId)) {
           continue;
         }
 
@@ -1146,7 +1283,7 @@ export async function pollUnreadNotificationsNow(
 
       writeStoredIdSet(seenStorageKey, seenSet, 250);
       lastBackgroundPollAt = Date.now();
-      void syncAppIconBadge(activeUnreadRows.length);
+      void syncAppIconBadge(deduplicatedUnread.length);
 
       if (freshUnreadRows.length > 0) {
         if (typeof window !== 'undefined') {
@@ -1156,12 +1293,15 @@ export async function pollUnreadNotificationsNow(
         for (const item of freshUnreadRows.slice(0, 3)) {
           if (alertedIds.has(item.id)) continue;
           emitForegroundPushToast({
+            id: item.id,
+            dedupKey: item.dedup_key || undefined,
             title: item.title,
             body: item.message,
             targetUrl: item.target_url,
           });
           void triggerDeviceAlert(item.title, item.message, {
             id: item.id,
+            dedupKey: item.dedup_key || undefined,
             targetUrl: item.target_url,
           });
         }
@@ -1170,7 +1310,7 @@ export async function pollUnreadNotificationsNow(
       emitPushRuntimeChanged();
       return {
         checked: true,
-        unreadCount: activeUnreadRows.length,
+        unreadCount: deduplicatedUnread.length,
         newCount: freshUnreadRows.length,
       };
     } catch {
@@ -1426,15 +1566,23 @@ async function syncWebPushTokenForSession(
             data.body ||
             'Ketuk untuk melihat detail aktivitas terbaru.';
           const targetUrl = data.target_url || '';
-          const notifId = data.notification_id || `web-fcm-${Date.now()}`;
+          const notifId = data.notification_id || '';
+          const dedupKey = data.dedup_key || notifId || '';
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
           }
 
-          emitForegroundPushToast({ title, body, targetUrl });
+          emitForegroundPushToast({
+            id: notifId || undefined,
+            dedupKey: dedupKey || undefined,
+            title,
+            body,
+            targetUrl,
+          });
           void triggerDeviceAlert(title, body, {
-            id: notifId,
+            id: notifId || undefined,
+            dedupKey: dedupKey || undefined,
             targetUrl,
           });
         });
@@ -1540,7 +1688,11 @@ async function ensureNativePushListeners(): Promise<boolean> {
             ? data.notification_id.trim()
             : notification?.id
               ? String(notification.id)
-              : `fcm-${Date.now()}`;
+              : '';
+        const dedupKey =
+          typeof data.dedup_key === 'string' && data.dedup_key.trim()
+            ? data.dedup_key.trim()
+            : notifId;
         const title =
           notification?.title ||
           (typeof data.title === 'string' ? data.title : '') ||
@@ -1555,11 +1707,18 @@ async function ensureNativePushListeners(): Promise<boolean> {
           window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
         }
 
-        emitForegroundPushToast({ title, body, targetUrl });
+        emitForegroundPushToast({
+          id: notifId || undefined,
+          dedupKey: dedupKey || undefined,
+          title,
+          body,
+          targetUrl,
+        });
 
         const isIos = getNativePlatformName() === 'ios';
         void triggerDeviceAlert(title, body, {
-          id: notifId,
+          id: notifId || undefined,
+          dedupKey: dedupKey || undefined,
           targetUrl,
           skipOsPopup: isIos,
         });
@@ -2137,6 +2296,7 @@ export interface TestNotificationResult {
 
 export interface TriggerDeviceAlertOptions {
   id?: string;
+  dedupKey?: string;
   targetUrl?: string;
   requestPermissionIfPrompt?: boolean;
   skipDedupe?: boolean;
@@ -2148,9 +2308,18 @@ export async function triggerDeviceAlert(
   message: string,
   options?: TriggerDeviceAlertOptions
 ): Promise<TestNotificationResult> {
+  const safeTitle = title?.trim() || 'Aktivitas Baru · Saung Kebun';
+  const safeMessage = message?.trim() || 'Ketuk untuk melihat detail aktivitas terbaru.';
   const notifId = options?.id?.trim();
-  if (notifId && !options?.skipDedupe) {
-    if (alertedIds.has(notifId)) {
+  const dedupKey = options?.dedupKey?.trim();
+  const contentSig = buildNotificationContentSignature({
+    category: 'system',
+    title: safeTitle,
+    message: safeMessage,
+  });
+
+  if (!options?.skipDedupe) {
+    if (notifId && alertedIds.has(notifId)) {
       const currentPerm = await checkOsNotificationPermission();
       return {
         soundPlayed: false,
@@ -2159,10 +2328,29 @@ export async function triggerDeviceAlert(
         permission: currentPerm,
       };
     }
-    alertedIds.add(notifId);
-    if (alertedIds.size > 300) {
-      const first = alertedIds.values().next().value;
-      if (first) alertedIds.delete(first);
+
+    const keysToClaim = [
+      notifId ? `id:${notifId}` : '',
+      dedupKey ? `dk:${dedupKey.toLowerCase()}` : '',
+      `sig:${contentSig}`,
+    ].filter(Boolean);
+
+    if (!claimAlertDedupKeys(keysToClaim, ALERT_DEDUP_TTL_MS)) {
+      const currentPerm = await checkOsNotificationPermission();
+      return {
+        soundPlayed: false,
+        vibrated: false,
+        osPopupShown: false,
+        permission: currentPerm,
+      };
+    }
+
+    if (notifId) {
+      alertedIds.add(notifId);
+      if (alertedIds.size > 300) {
+        const first = alertedIds.values().next().value;
+        if (first) alertedIds.delete(first);
+      }
     }
   }
 
@@ -2176,17 +2364,18 @@ export async function triggerDeviceAlert(
     permission = await requestOsNotificationPermission();
   }
 
-  const safeTitle = title?.trim() || 'Aktivitas Baru · Saung Kebun';
-  const safeMessage = message?.trim() || 'Ketuk untuk melihat detail aktivitas terbaru.';
-
   const shouldShowOsPopup = !options?.skipOsPopup && permission === 'granted';
+  const stableTag =
+    dedupKey ||
+    notifId ||
+    `sk-${hashToSafeNotificationId(`${safeTitle}::${safeMessage}`)}`;
 
   const [soundPlayed, vibrated, osPopupShown] = await Promise.all([
     prefs.soundEnabled ? playNotificationChime() : Promise.resolve(false),
     prefs.vibrationEnabled ? triggerNotificationVibration() : Promise.resolve(false),
     shouldShowOsPopup
       ? showOsNotification({
-          id: notifId || `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: stableTag,
           title: safeTitle,
           body: safeMessage,
           targetUrl: options?.targetUrl,
@@ -2208,6 +2397,7 @@ export async function triggerIncomingNotificationAlert(
     notif.message || 'Ketuk untuk melihat detail aktivitas terbaru.',
     {
       id: notif.id,
+      dedupKey: notif.dedup_key || undefined,
       targetUrl: notif.target_url,
     }
   );
@@ -2267,11 +2457,16 @@ export async function sendAdminTestPushNotification(
 
   const canonicalAdminId = resolveCanonicalUserIdForPush(session);
   const senderLabel = `${session.nama_warga || 'Pengurus'}${session.jabatan ? ` (${session.jabatan})` : ''}`;
+  const testNotifId = createNotificationUuid();
+  const testDedupKey = buildNotificationDedupKey({
+    dedupKey: `fcm-test:${mode}:${testNotifId}`,
+  });
 
   const bodyPayload =
     mode === 'broadcast'
       ? {
-          id: `admin-broadcast-test-${Date.now()}`,
+          id: testNotifId,
+          dedup_key: testDedupKey,
           broadcast: true,
           include_self: true,
           actor_id: canonicalAdminId,
@@ -2281,10 +2476,12 @@ export async function sendAdminTestPushNotification(
           target_url: 'tab:beranda',
           data: {
             test_mode: 'broadcast',
+            dedup_key: testDedupKey,
           },
         }
       : {
-          id: `admin-self-test-${Date.now()}`,
+          id: testNotifId,
+          dedup_key: testDedupKey,
           target_user_ids: [canonicalAdminId],
           include_self: true,
           actor_id: canonicalAdminId,
@@ -2294,13 +2491,15 @@ export async function sendAdminTestPushNotification(
           target_url: 'tab:dashboard',
           data: {
             test_mode: 'self',
+            dedup_key: testDedupKey,
           },
         };
 
-  // Simpan juga 1 riwayat tes ke tabel `notifications` agar langsung terlihat di menu Lonceng aplikasi
+  // Simpan juga 1 riwayat tes ke tabel `notifications` dengan ID & dedup_key yang sama
   const notifTargetUserId = mode === 'broadcast' ? 'broadcast:all' : canonicalAdminId;
   try {
-    await supabase.from('notifications').insert({
+    const baseRow: Record<string, unknown> = {
+      id: testNotifId,
       user_id: notifTargetUserId,
       actor_id: 'system:fcm-test',
       actor_name: session.nama_warga || 'Pengurus',
@@ -2311,7 +2510,19 @@ export async function sendAdminTestPushNotification(
       is_read: false,
       target_url: bodyPayload.target_url,
       created_at: new Date().toISOString(),
-    });
+    };
+    const payloadRow: Record<string, unknown> = pollDedupColMissing
+      ? baseRow
+      : { ...baseRow, dedup_key: testDedupKey };
+    const { error: insErr } = await supabase.from('notifications').insert(payloadRow);
+    if (
+      insErr &&
+      !pollDedupColMissing &&
+      String(insErr.message || '').toLowerCase().includes('dedup_key')
+    ) {
+      pollDedupColMissing = true;
+      await supabase.from('notifications').insert(baseRow);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
     }

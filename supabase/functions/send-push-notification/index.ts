@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface IncomingNotificationRecord {
   id?: string;
+  dedup_key?: string | null;
   user_id?: string;
   actor_id?: string | null;
   actor_name?: string | null;
@@ -44,6 +45,61 @@ const CORS_HEADERS: Record<string, string> = {
 
 const ANDROID_CHANNEL_ID = 'saung_kebun_notif';
 const DEFAULT_PUBLIC_APP_URL = 'https://e-card-ipl.vercel.app';
+const RECENT_FCM_TTL_MS = 30_000;
+const RECENT_FCM_DELIVERIES = new Map<string, number>();
+
+function resolveRecordDedupKey(record: IncomingNotificationRecord): string {
+  const direct = String(record.dedup_key || '').trim();
+  if (direct) return direct;
+  if (record.data && typeof record.data === 'object') {
+    const fromData = String((record.data as Record<string, unknown>).dedup_key || '').trim();
+    if (fromData) return fromData;
+  }
+  return '';
+}
+
+function sanitizeCollapseKey(raw: string): string {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._:-]/g, '_');
+  if (!cleaned) return `notif-${Date.now()}`;
+  if (cleaned.length <= 60) return cleaned;
+  let hash = 2166136261;
+  for (let i = 0; i < cleaned.length; i += 1) {
+    hash ^= cleaned.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${cleaned.slice(0, 44)}_${(hash >>> 0).toString(36)}`;
+}
+
+function claimRecentFcmDelivery(token: string, dedupKey: string, sigKey: string): boolean {
+  const now = Date.now();
+  if (RECENT_FCM_DELIVERIES.size > 600) {
+    for (const [k, ts] of RECENT_FCM_DELIVERIES.entries()) {
+      if (now - ts > RECENT_FCM_TTL_MS) {
+        RECENT_FCM_DELIVERIES.delete(k);
+      }
+    }
+  }
+
+  const dkEntry = dedupKey ? `${token}::dk:${dedupKey}` : '';
+  const sigEntry = `${token}::sig:${sigKey}`;
+
+  if (dkEntry) {
+    const prevDk = RECENT_FCM_DELIVERIES.get(dkEntry);
+    if (prevDk && now - prevDk < RECENT_FCM_TTL_MS) {
+      return false;
+    }
+  }
+  const prevSig = RECENT_FCM_DELIVERIES.get(sigEntry);
+  if (prevSig && now - prevSig < RECENT_FCM_TTL_MS) {
+    return false;
+  }
+
+  if (dkEntry) RECENT_FCM_DELIVERIES.set(dkEntry, now);
+  RECENT_FCM_DELIVERIES.set(sigEntry, now);
+  return true;
+}
 
 function normalizeToken(raw?: string | null): string {
   return String(raw || '')
@@ -422,6 +478,8 @@ async function sendSingleFcmMessage(
     record.body || record.message || 'Ketuk untuk melihat detail aktivitas terbaru.'
   ).trim();
   const notificationId = String(record.id || `notif-${Date.now()}`);
+  const dedupKey = resolveRecordDedupKey(record);
+  const collapseTag = sanitizeCollapseKey(dedupKey || notificationId);
   const targetUrl = String(record.target_url || '');
   const category = String(record.category || 'system');
   const userId = String(record.user_id || device.user_id || '');
@@ -444,6 +502,7 @@ async function sendSingleFcmMessage(
     data: {
       ...extraData,
       notification_id: notificationId,
+      ...(dedupKey ? { dedup_key: dedupKey } : {}),
       target_url: targetUrl,
       click_action: clickPath,
       category,
@@ -456,13 +515,14 @@ async function sendSingleFcmMessage(
   if (platform === 'android' || !platform) {
     message.android = {
       priority: 'HIGH',
+      collapse_key: collapseTag,
       notification: {
         channel_id: ANDROID_CHANNEL_ID,
         notification_priority: 'PRIORITY_MAX',
         sound: 'default',
         default_vibrate_timings: true,
         color: '#059669',
-        tag: notificationId,
+        tag: collapseTag,
       },
     };
   } else if (platform === 'ios') {
@@ -470,6 +530,7 @@ async function sendSingleFcmMessage(
       headers: {
         'apns-priority': '10',
         'apns-push-type': 'alert',
+        'apns-collapse-id': collapseTag,
       },
       payload: {
         aps: {
@@ -494,7 +555,7 @@ async function sendSingleFcmMessage(
         body,
         icon: `${publicOrigin}/app-icon.jpg`,
         badge: `${publicOrigin}/app-icon.jpg`,
-        tag: notificationId,
+        tag: collapseTag,
       },
       fcm_options: {
         // WAJIB URL HTTPS absolut untuk FCM HTTP v1 webpush.fcm_options.link!
@@ -555,6 +616,7 @@ Deno.serve(async (req: Request) => {
     ) {
       records.push({
         id: body.id,
+        dedup_key: body.dedup_key,
         user_id: body.user_id,
         actor_id: body.actor_id,
         category: body.category,
@@ -655,8 +717,11 @@ Deno.serve(async (req: Request) => {
 
     for (const record of records) {
       if (record.is_read) continue;
-      const titleKey = String(record.title || '').trim();
-      const bodyKey = String(record.body || record.message || '').trim();
+      const categoryKey = String(record.category || 'system').trim().toLowerCase();
+      const titleKey = String(record.title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const bodyKey = String(record.body || record.message || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const dedupKey = resolveRecordDedupKey(record);
+      const sigKey = `${categoryKey}::${titleKey}::${bodyKey}`;
 
       const matchedDevices = allDevices.filter((device) => {
         if (!doesDeviceMatchRecord(device, record)) return false;
@@ -665,9 +730,12 @@ Deno.serve(async (req: Request) => {
       });
 
       for (const device of matchedDevices) {
-        // Deduplikasi ketat berdasarkan token perangkat agar 1 HP/Browser tidak menerima push ganda
-        const pairKey = `${device.token}::${titleKey}::${bodyKey}`;
+        // Deduplikasi ketat dalam request DAN antar-request berdekatan (30 detik) per token perangkat
+        const pairKey = dedupKey
+          ? `${device.token}::dk:${dedupKey}`
+          : `${device.token}::${sigKey}`;
         if (deliveredPairs.has(pairKey)) continue;
+        if (!claimRecentFcmDelivery(device.token, dedupKey, sigKey)) continue;
         deliveredPairs.add(pairKey);
         sendQueue.push({ device, record });
       }
