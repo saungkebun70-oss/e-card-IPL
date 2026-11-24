@@ -45,6 +45,7 @@ import {
   updateTransaksiKasAdmin,
   verifyTransaksiKasBendaharaAdmin,
   verifyTransaksiKasKetuaAdmin,
+  type AdminSnapshot,
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { LoadingSpinner } from '../LoadingSpinner';
@@ -80,6 +81,7 @@ interface AdminKeuanganSlideProps {
   transaksiKasList: TransaksiKas[];
   petugasList?: PetugasKeamanan[];
   onRefresh: () => Promise<void>;
+  onOptimisticMutate?: (updater: (prev: AdminSnapshot) => AdminSnapshot) => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -89,6 +91,7 @@ export function AdminKeuanganSlide({
   transaksiKasList,
   petugasList = [],
   onRefresh,
+  onOptimisticMutate,
   onToast,
 }: AdminKeuanganSlideProps) {
   const canEditDelete = isBendaharaFullAccess(session);
@@ -321,6 +324,13 @@ export function AdminKeuanganSlide({
       const res = await verifyTransaksiKasBendaharaAdmin(session, item, 'ACC Bendahara');
       if (res.error) onToast('error', res.error);
       else {
+        const updatedKas = res.data;
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiKasList: prev.transaksiKasList.map((k) =>
+            k.id === item.id ? updatedKas || { ...k, status_verifikasi: 'ACC Bendahara' } : k
+          ),
+        }));
         onToast(
           'success',
           `ACC Bendahara untuk ${item.no_bukti} berhasil — diteruskan ke Antrean Verifikasi Ketua.`
@@ -338,6 +348,13 @@ export function AdminKeuanganSlide({
       const res = await verifyTransaksiKasKetuaAdmin(session, item, 'Terverifikasi');
       if (res.error) onToast('error', res.error);
       else {
+        const updatedKas = res.data;
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiKasList: prev.transaksiKasList.map((k) =>
+            k.id === item.id ? updatedKas || { ...k, status_verifikasi: 'Terverifikasi' } : k
+          ),
+        }));
         onToast(
           'success',
           `Transaksi kas ${item.no_bukti} disahkan final oleh Ketua & memperbarui Saldo Kas.`
@@ -351,30 +368,33 @@ export function AdminKeuanganSlide({
 
   const handleConfirmActionNote = async () => {
     if (!actionNoteModal || !actionNoteText.trim()) return;
-    setVerifyingId(actionNoteModal.item.id);
+    const modalItem = actionNoteModal.item;
+    const modalMode = actionNoteModal.mode;
+    const cleanNote = actionNoteText.trim();
+    setVerifyingId(modalItem.id);
     try {
       const res =
-        actionNoteModal.mode === 'bendahara_reject'
-          ? await verifyTransaksiKasBendaharaAdmin(
-              session,
-              actionNoteModal.item,
-              'Ditolak',
-              actionNoteText.trim()
-            )
-          : await verifyTransaksiKasKetuaAdmin(
-              session,
-              actionNoteModal.item,
-              'Kembalikan',
-              actionNoteText.trim()
-            );
+        modalMode === 'bendahara_reject'
+          ? await verifyTransaksiKasBendaharaAdmin(session, modalItem, 'Ditolak', cleanNote)
+          : await verifyTransaksiKasKetuaAdmin(session, modalItem, 'Kembalikan', cleanNote);
       if (res.error) {
         onToast('error', res.error);
       } else {
+        const updatedKas = res.data;
+        const nextStatus: StatusVerifikasi = modalMode === 'bendahara_reject' ? 'Ditolak' : 'Pending';
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiKasList: prev.transaksiKasList.map((k) =>
+            k.id === modalItem.id
+              ? updatedKas || { ...k, status_verifikasi: nextStatus, ketua_catatan: cleanNote }
+              : k
+          ),
+        }));
         onToast(
           'info',
-          actionNoteModal.mode === 'bendahara_reject'
-            ? `Transaksi kas ${actionNoteModal.item.no_bukti} ditolak.`
-            : `Transaksi kas ${actionNoteModal.item.no_bukti} dikembalikan ke Bendahara.`
+          modalMode === 'bendahara_reject'
+            ? `Transaksi kas ${modalItem.no_bukti} ditolak.`
+            : `Transaksi kas ${modalItem.no_bukti} dikembalikan ke Bendahara.`
         );
         setActionNoteModal(null);
         setActionNoteText('');
@@ -393,6 +413,10 @@ export function AdminKeuanganSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiKasList: prev.transaksiKasList.filter((k) => k.id !== item.id),
+        }));
         // Sinkronisasi Hapus 2-Arah: kembalikan status lembur terkait di Kelola Shift & Lembur menjadi Belum Dibayar
         const revertRes = await revertShiftOverridesByCashTransactionAdmin(
           session,

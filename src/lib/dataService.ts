@@ -989,10 +989,17 @@ function stripInternalMarkers(text: string | null): string | null {
 
 function normalizeStatusVerifikasi(raw: unknown): StatusVerifikasi {
   const val = String(raw || '').trim().toLowerCase();
-  if (val === 'terverifikasi' || val === 'approved' || val === 'lunas' || val === 'verified') {
+  if (val === 'terverifikasi' || val === 'approved' || val === 'lunas' || val === 'verified' || val === 'sah') {
     return 'Terverifikasi';
   }
-  if (val === 'acc bendahara' || val === 'acc_bendahara' || val === 'bendahara_acc') {
+  if (
+    val === 'acc bendahara' ||
+    val === 'acc_bendahara' ||
+    val === 'bendahara_acc' ||
+    val === 'menunggu_ketua' ||
+    val === 'menunggu ketua' ||
+    val === 'waiting_ketua'
+  ) {
     return 'ACC Bendahara';
   }
   if (val === 'ditolak' || val === 'rejected') {
@@ -1029,11 +1036,18 @@ function normalizeTransaksiRow(row: Record<string, unknown>): TransaksiIPL {
     bendaharaApprovedAt = bendaharaApprovedAt || markerMatch[2];
   }
 
-  // Merge sidecar overlay untuk kompatibilitas sebelum migrasi SQL v3 dijalankan
+  // Merge sidecar overlay HANYA jika DB masih berada di skema lama (belum menyimpan status terbaru).
+  // Jangan pernah biarkan overlay lama menimpa status DB yang sudah Terverifikasi, Ditolak, atau ACC Bendahara.
   const overlay = id ? readApprovalOverlay()[`ipl::${id}`] : undefined;
   if (overlay) {
-    if (status === 'Terverifikasi' && overlay.status_verifikasi === 'ACC Bendahara') {
-      // DB sudah final, bersihkan overlay lama
+    const dbAlreadyFinal = status === 'Terverifikasi' || status === 'Ditolak';
+    const overlayStaleVsAcc =
+      status === 'ACC Bendahara' &&
+      (overlay.status_verifikasi === 'Pending' || overlay.status_verifikasi === 'ACC Bendahara');
+    const overlayMatchesDb = status === overlay.status_verifikasi;
+
+    if (dbAlreadyFinal || overlayStaleVsAcc || overlayMatchesDb) {
+      writeApprovalOverlayEntry(`ipl::${id}`, null);
     } else {
       status = overlay.status_verifikasi;
       if (overlay.bendahara_approved_at !== undefined) {
@@ -1929,6 +1943,7 @@ export async function verifyTransaksiAdmin(
               bendahara_approved_by: null,
             };
 
+      let usedLegacyFallback = false;
       let { data, error } = await supabase
         .from('transaksi_ipl')
         .update(fullPatch)
@@ -1948,6 +1963,7 @@ export async function verifyTransaksiAdmin(
           msg.includes('23514');
 
         if (isSchemaMismatch) {
+          usedLegacyFallback = true;
           const fallbackPatch =
             effectiveStatus === 'ACC Bendahara'
               ? {
@@ -1973,17 +1989,22 @@ export async function verifyTransaksiAdmin(
 
       if (error) throw error;
 
-      writeApprovalOverlayEntry(`ipl::${trx.id}`, {
-        status_verifikasi: effectiveStatus,
-        bendahara_approved_at: effectiveStatus === 'ACC Bendahara' ? nowIso : null,
-        bendahara_approved_by: effectiveStatus === 'ACC Bendahara' ? approverName : null,
-        ketua_approved_at: null,
-        ketua_approved_by: null,
-        ketua_catatan: null,
-        catatan_admin: cleanNote,
-        verified_at: effectiveStatus === 'Ditolak' ? nowIso : null,
-        verified_by: effectiveStatus === 'Ditolak' ? session.blok_rumah : null,
-      });
+      if (usedLegacyFallback) {
+        writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+          status_verifikasi: effectiveStatus,
+          bendahara_approved_at: effectiveStatus === 'ACC Bendahara' ? nowIso : null,
+          bendahara_approved_by: effectiveStatus === 'ACC Bendahara' ? approverName : null,
+          ketua_approved_at: null,
+          ketua_approved_by: null,
+          ketua_catatan: null,
+          catatan_admin: cleanNote,
+          verified_at: effectiveStatus === 'Ditolak' ? nowIso : null,
+          verified_by: effectiveStatus === 'Ditolak' ? session.blok_rumah : null,
+        });
+      } else {
+        // DB berhasil menyimpan status terbaru — hapus overlay lama agar tidak pernah stale
+        writeApprovalOverlayEntry(`ipl::${trx.id}`, null);
+      }
 
       // Sinkronkan status_ecard_bulanan (Tahap 1 ACC Bendahara tetap 'Menunggu Verifikasi', belum Lunas)
       for (const bulan of trx.bulan_dibayar) {
@@ -2264,23 +2285,28 @@ export async function verifyTransaksiKetuaAdmin(
         error = retry.error;
       }
 
-      // Simpan overlay agar tetap tersinkron di browser meski RLS migrasi v3 belum dijalankan
-      writeApprovalOverlayEntry(`ipl::${trx.id}`, {
-        status_verifikasi: nextStatus,
-        bendahara_approved_at:
-          decision === 'Terverifikasi' ? trx.bendahara_approved_at || nowIso : null,
-        bendahara_approved_by:
-          decision === 'Terverifikasi' ? trx.bendahara_approved_by || 'Andriansyah' : null,
-        ketua_approved_at: decision === 'Terverifikasi' ? nowIso : null,
-        ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
-        ketua_catatan: cleanKetuaNote,
-        catatan_admin:
-          decision === 'Terverifikasi'
-            ? cleanKetuaNote
-            : `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
-        verified_at: decision === 'Terverifikasi' ? nowIso : null,
-        verified_by: decision === 'Terverifikasi' ? ketuaName : null,
-      });
+      // Hanya simpan overlay bila DB gagal diperbarui (mis. RLS migrasi v3 belum dijalankan).
+      // Jika DB berhasil menyimpan status terbaru, bersihkan overlay lama agar tidak nyangkut.
+      if (error) {
+        writeApprovalOverlayEntry(`ipl::${trx.id}`, {
+          status_verifikasi: nextStatus,
+          bendahara_approved_at:
+            decision === 'Terverifikasi' ? trx.bendahara_approved_at || nowIso : null,
+          bendahara_approved_by:
+            decision === 'Terverifikasi' ? trx.bendahara_approved_by || 'Andriansyah' : null,
+          ketua_approved_at: decision === 'Terverifikasi' ? nowIso : null,
+          ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
+          ketua_catatan: cleanKetuaNote,
+          catatan_admin:
+            decision === 'Terverifikasi'
+              ? cleanKetuaNote
+              : `Dikembalikan Ketua (${ketuaName}): ${cleanKetuaNote}`,
+          verified_at: decision === 'Terverifikasi' ? nowIso : null,
+          verified_by: decision === 'Terverifikasi' ? ketuaName : null,
+        });
+      } else {
+        writeApprovalOverlayEntry(`ipl::${trx.id}`, null);
+      }
 
       if (!error) {
         for (const bulan of trx.bulan_dibayar) {
@@ -4778,12 +4804,25 @@ function normalizeTransaksiKasRow(row: Record<string, unknown>): TransaksiKas {
 
   const overlay = readApprovalOverlay()[`kas::${id}`];
   if (overlay) {
-    statusVerifikasi = overlay.status_verifikasi;
-    if (overlay.bendahara_approved_at !== undefined) bendaharaApprovedAt = overlay.bendahara_approved_at;
-    if (overlay.bendahara_approved_by !== undefined) bendaharaApprovedBy = overlay.bendahara_approved_by;
-    if (overlay.ketua_approved_at !== undefined) ketuaApprovedAt = overlay.ketua_approved_at;
-    if (overlay.ketua_approved_by !== undefined) ketuaApprovedBy = overlay.ketua_approved_by;
-    if (overlay.ketua_catatan !== undefined) ketuaCatatan = overlay.ketua_catatan;
+    const dbAlreadyFinal =
+      hasExplicitStatus &&
+      (statusVerifikasi === 'Terverifikasi' || statusVerifikasi === 'Ditolak');
+    const overlayStaleVsAcc =
+      hasExplicitStatus &&
+      statusVerifikasi === 'ACC Bendahara' &&
+      (overlay.status_verifikasi === 'Pending' || overlay.status_verifikasi === 'ACC Bendahara');
+    const overlayMatchesDb = hasExplicitStatus && statusVerifikasi === overlay.status_verifikasi;
+
+    if (dbAlreadyFinal || overlayStaleVsAcc || overlayMatchesDb) {
+      writeApprovalOverlayEntry(`kas::${id}`, null);
+    } else {
+      statusVerifikasi = overlay.status_verifikasi;
+      if (overlay.bendahara_approved_at !== undefined) bendaharaApprovedAt = overlay.bendahara_approved_at;
+      if (overlay.bendahara_approved_by !== undefined) bendaharaApprovedBy = overlay.bendahara_approved_by;
+      if (overlay.ketua_approved_at !== undefined) ketuaApprovedAt = overlay.ketua_approved_at;
+      if (overlay.ketua_approved_by !== undefined) ketuaApprovedBy = overlay.ketua_approved_by;
+      if (overlay.ketua_catatan !== undefined) ketuaCatatan = overlay.ketua_catatan;
+    }
   }
 
   return {
@@ -5000,6 +5039,7 @@ export async function createTransaksiKasAdmin(
         shift_override_id: uuidShiftOverrideId,
       };
 
+      let usedBaseKasFallback = false;
       let { data, error } = await supabase
         .from('transaksi_kas')
         .insert(fullInsert)
@@ -5024,6 +5064,7 @@ export async function createTransaksiKasAdmin(
           data = retryMid.data;
           error = null;
         } else {
+          usedBaseKasFallback = true;
           const retry = await supabase
             .from('transaksi_kas')
             .insert(baseInsert)
@@ -5036,14 +5077,18 @@ export async function createTransaksiKasAdmin(
 
       if (!error && data) {
         const rawId = String((data as Record<string, unknown>).id || newEntry.id);
-        writeApprovalOverlayEntry(`kas::${rawId}`, {
-          status_verifikasi: initialStatus,
-          bendahara_approved_at: newEntry.bendahara_approved_at,
-          bendahara_approved_by: newEntry.bendahara_approved_by,
-          ketua_approved_at: newEntry.ketua_approved_at,
-          ketua_approved_by: newEntry.ketua_approved_by,
-          ketua_catatan: null,
-        });
+        if (usedBaseKasFallback) {
+          writeApprovalOverlayEntry(`kas::${rawId}`, {
+            status_verifikasi: initialStatus,
+            bendahara_approved_at: newEntry.bendahara_approved_at,
+            bendahara_approved_by: newEntry.bendahara_approved_by,
+            ketua_approved_at: newEntry.ketua_approved_at,
+            ketua_approved_by: newEntry.ketua_approved_by,
+            ketua_catatan: null,
+          });
+        } else {
+          writeApprovalOverlayEntry(`kas::${rawId}`, null);
+        }
         const persistedRaw = normalizeTransaksiKasRow(data as Record<string, unknown>);
         const persisted: TransaksiKas = {
           ...persistedRaw,
@@ -5226,12 +5271,11 @@ export async function verifyTransaksiKasBendaharaAdmin(
     ketua_approved_by: null,
     ketua_catatan: decision === 'Ditolak' ? catatan?.trim() || null : null,
   };
-  writeApprovalOverlayEntry(`kas::${kas.id}`, overlayEntry);
-
   const supabase = getSupabaseClient(session);
+  let persistedInDb = false;
   if (supabase && isSupabaseConfigured() && !kas.id.startsWith('kas-')) {
     try {
-      await supabase
+      const { error } = await supabase
         .from('transaksi_kas')
         .update({
           status_verifikasi: nextStatus,
@@ -5241,10 +5285,12 @@ export async function verifyTransaksiKasBendaharaAdmin(
           updated_at: nowIso,
         })
         .eq('id', kas.id);
+      if (!error) persistedInDb = true;
     } catch {
       // Tetap sinkron via overlay jika kolom migrasi v3 belum dijalankan
     }
   }
+  writeApprovalOverlayEntry(`kas::${kas.id}`, persistedInDb ? null : overlayEntry);
 
   const updated: TransaksiKas = {
     ...kas,
@@ -5324,12 +5370,11 @@ export async function verifyTransaksiKasKetuaAdmin(
     ketua_approved_by: decision === 'Terverifikasi' ? ketuaName : null,
     ketua_catatan: cleanNote,
   };
-  writeApprovalOverlayEntry(`kas::${kas.id}`, overlayEntry);
-
   const supabase = getSupabaseClient(session);
+  let persistedInDb = false;
   if (supabase && isSupabaseConfigured() && !kas.id.startsWith('kas-')) {
     try {
-      await supabase
+      const { error } = await supabase
         .from('transaksi_kas')
         .update({
           status_verifikasi: nextStatus,
@@ -5341,10 +5386,12 @@ export async function verifyTransaksiKasKetuaAdmin(
           updated_at: nowIso,
         })
         .eq('id', kas.id);
+      if (!error) persistedInDb = true;
     } catch {
       // Tetap sinkron via overlay jika kolom migrasi v3 belum dijalankan
     }
   }
+  writeApprovalOverlayEntry(`kas::${kas.id}`, persistedInDb ? null : overlayEntry);
 
   const updated: TransaksiKas = {
     ...kas,
@@ -5567,6 +5614,7 @@ export async function deleteTransaksiKasAdmin(
     }
   }
 
+  writeApprovalOverlayEntry(`kas::${trxKas.id}`, null);
   writeLocalTransaksiKas(readLocalTransaksiKas().filter((item) => item.id !== trxKas.id));
   await recordAuditLog({
     session,

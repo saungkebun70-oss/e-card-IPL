@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CreditCard,
   Upload,
@@ -14,7 +14,6 @@ import {
   Shield,
 } from 'lucide-react';
 import {
-  isKetuaRole,
   type LogPatroli,
   type PatrolMapConfig,
   type PaymentConfig,
@@ -26,6 +25,7 @@ import {
   type TransaksiIPL,
   type Warga,
 } from './types';
+import { computeVerificationQueue } from './lib/verificationQueue';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import {
   clearStoredSession,
@@ -81,9 +81,9 @@ interface WargaPortalData {
   patrolMapConfig?: PatrolMapConfig;
 }
 
-const REALTIME_DEBOUNCE_MS = 2000;
-const REALTIME_THROTTLE_MS = 2000;
-const REALTIME_MAX_WAIT_MS = 5000;
+const REALTIME_DEBOUNCE_MS = 450;
+const REALTIME_THROTTLE_MS = 800;
+const REALTIME_MAX_WAIT_MS = 2000;
 
 /**
  * Menghasilkan sidik jari ringkas (O(n)) dari data Admin agar pembaruan state
@@ -94,10 +94,16 @@ function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
     .map((w) => `${w.id}|${w.blok_rumah}|${w.aktif ? 1 : 0}|${w.nominal_iuran}|${w.status_hunian}|${w.avatar_url || ''}`)
     .join(',')}`;
   const trxSig = `${data.transaksiList.length}:${data.transaksiList
-    .map((t) => `${t.id}|${t.status_verifikasi}|${t.nominal}|${t.verified_at || ''}`)
+    .map(
+      (t) =>
+        `${t.id}|${t.status_verifikasi}|${t.nominal}|${t.bendahara_approved_at || ''}|${t.ketua_approved_at || ''}|${t.verified_at || ''}`
+    )
     .join(',')}`;
   const kasSig = `${data.transaksiKasList.length}:${data.transaksiKasList
-    .map((k) => `${k.id}|${k.status_verifikasi || ''}|${k.nominal}|${k.tanggal}`)
+    .map(
+      (k) =>
+        `${k.id}|${k.status_verifikasi || ''}|${k.nominal}|${k.tanggal}|${k.bendahara_approved_at || ''}|${k.ketua_approved_at || ''}`
+    )
     .join(',')}`;
   const statusSig = `${data.statusList.length}:${data.statusList
     .map((s) => `${s.blok_rumah}|${s.tahun}|${s.bulan}|${s.status}`)
@@ -278,6 +284,7 @@ export default function App() {
   const lastAdminFingerprintRef = useRef<string | null>(null);
   const lastWargaFingerprintRef = useRef<string | null>(null);
   const syncInFlightRef = useRef<boolean>(false);
+  const pendingResyncRef = useRef<boolean>(false);
 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -294,13 +301,27 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const handleOptimisticAdminMutate = useCallback(
+    (updater: (prev: AdminSnapshot) => AdminSnapshot) => {
+      setAdminData((prev) => {
+        if (!prev) return prev;
+        const next = updater(prev);
+        lastAdminFingerprintRef.current = computeAdminSnapshotFingerprint(next);
+        return next;
+      });
+    },
+    []
+  );
+
   const loadPortalData = useCallback(
     async (activeSession: SessionUser, options?: { silent?: boolean; force?: boolean }) => {
       const silent = Boolean(options?.silent);
       const force = Boolean(options?.force);
 
-      // Cegah fetch silent bertumpuk saat sinkronisasi sebelumnya masih berjalan
+      // Jika sinkronisasi sebelumnya masih berjalan, tandai untuk langsung diulang sekali setelah selesai
+      // agar event realtime / pindah tab tidak pernah hilang (anti stale badge).
       if (silent && syncInFlightRef.current) {
+        pendingResyncRef.current = true;
         return;
       }
 
@@ -342,6 +363,17 @@ export default function App() {
       } finally {
         syncInFlightRef.current = false;
         if (!silent) setLoadingData(false);
+        if (pendingResyncRef.current) {
+          pendingResyncRef.current = false;
+          const latestSession = sessionRef.current;
+          if (
+            latestSession &&
+            latestSession.role === portalRouteRef.current &&
+            latestSession.role !== 'petugas'
+          ) {
+            void loadPortalData(latestSession, { silent: true, force: true });
+          }
+        }
       }
     },
     []
@@ -588,10 +620,10 @@ export default function App() {
       }
     };
 
-    const handleFocus = () => scheduleDebouncedSync();
+    const handleFocus = () => runThrottledSync();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        scheduleDebouncedSync();
+        runThrottledSync();
       }
     };
 
@@ -601,7 +633,7 @@ export default function App() {
     let unsubscribeRealtime = () => {};
     let intervalId: number | null = null;
 
-    // Jeda debounce (2 detik) & throttle (2 detik) dikoordinasikan terpusat di App.tsx
+    // Jeda debounce & throttle dikoordinasikan terpusat di App.tsx
     // agar event realtime, focus, dan visibility digabung tanpa double-delay.
     const passthroughOptions = {
       debounceMs: 0,
@@ -648,11 +680,24 @@ export default function App() {
     (nextTab: string) => {
       setActiveTab(nextTab);
       if (session && session.role === portalRoute && session.role !== 'petugas') {
-        void loadPortalData(session, { silent: true });
+        void loadPortalData(session, { silent: true, force: true });
       }
     },
     [session, portalRoute, loadPortalData]
   );
+
+  // Single Source of Truth — perhitungan badge menu "Verifikasi" 100% identik dengan AdminDashboardSlide
+  const verificationQueue = useMemo(
+    () =>
+      computeVerificationQueue(
+        session,
+        adminData?.wargaList,
+        adminData?.transaksiList,
+        adminData?.transaksiKasList
+      ),
+    [session, adminData?.wargaList, adminData?.transaksiList, adminData?.transaksiKasList]
+  );
+  const pendingCount = verificationQueue.actionableBadgeCount;
 
   const handleAvatarUpdated = useCallback(
     (nextAvatarUrl: string | null) => {
@@ -818,19 +863,6 @@ export default function App() {
   }
 
   // Konfigurasi Navigasi 6 Slide Warga & 5 Menu Utama Simetris Admin (LPJ & Pengaturan di Sidebar)
-  const isKetuaSession = isKetuaRole(session);
-  const pendingCount = isKetuaSession
-    ? (adminData?.transaksiList.filter((t) => t.status_verifikasi === 'ACC Bendahara').length ||
-        0) +
-      (adminData?.transaksiKasList.filter((k) => k.status_verifikasi === 'ACC Bendahara').length ||
-        0)
-    : (adminData?.transaksiList.filter(
-        (t) => String(t.status_verifikasi || '').trim().toLowerCase() === 'pending'
-      ).length || 0) +
-      (adminData?.transaksiKasList.filter(
-        (k) => String(k.status_verifikasi || '').trim().toLowerCase() === 'pending'
-      ).length || 0);
-
   const navItems: NavItem[] =
     session.role === 'warga'
       ? [
@@ -847,7 +879,7 @@ export default function App() {
             label: 'Dashboard & Verifikasi',
             shortLabel: 'Verifikasi',
             icon: LayoutDashboard,
-            badgeCount: pendingCount,
+            badgeCount: pendingCount > 0 ? pendingCount : undefined,
           },
           { id: 'warga', label: 'Master Warga & PIN', shortLabel: 'Warga', icon: Users },
           {
@@ -995,7 +1027,8 @@ export default function App() {
               statusList={adminData.statusList}
               notifications={adminData.notifications}
               isRefreshing={loadingData}
-              onRefresh={() => loadPortalData(session)}
+              onRefresh={() => loadPortalData(session, { force: true })}
+              onOptimisticMutate={handleOptimisticAdminMutate}
               onToast={pushToast}
             />
           );
@@ -1005,7 +1038,7 @@ export default function App() {
               session={session}
               wargaList={adminData.wargaList}
               botConfig={adminData.botConfig}
-              onRefresh={() => loadPortalData(session)}
+              onRefresh={() => loadPortalData(session, { force: true })}
               onToast={pushToast}
             />
           );
@@ -1016,7 +1049,8 @@ export default function App() {
               transaksiList={adminData.transaksiList}
               transaksiKasList={adminData.transaksiKasList}
               petugasList={adminData.petugasList}
-              onRefresh={() => loadPortalData(session)}
+              onRefresh={() => loadPortalData(session, { force: true })}
+              onOptimisticMutate={handleOptimisticAdminMutate}
               onToast={pushToast}
             />
           );

@@ -56,8 +56,10 @@ import {
   verifyTransaksiAdmin,
   verifyTransaksiKasKetuaAdmin,
   verifyTransaksiKetuaAdmin,
+  type AdminSnapshot,
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
+import { computeVerificationQueue } from '../../lib/verificationQueue';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
@@ -79,6 +81,7 @@ interface AdminDashboardSlideProps {
   notifications: SystemNotification[];
   isRefreshing?: boolean;
   onRefresh: () => Promise<void>;
+  onOptimisticMutate?: (updater: (prev: AdminSnapshot) => AdminSnapshot) => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -91,6 +94,7 @@ export function AdminDashboardSlide({
   notifications,
   isRefreshing = false,
   onRefresh,
+  onOptimisticMutate,
   onToast,
 }: AdminDashboardSlideProps) {
   const canManageFull = isBendaharaFullAccess(session);
@@ -173,28 +177,19 @@ export function AdminDashboardSlide({
     )
     .reduce((sum, t) => sum + t.nominal, 0);
 
-  const pendingList = useMemo(
-    () => transaksiList.filter((t) => t.status_verifikasi === 'Pending'),
-    [transaksiList]
+  // Single Source of Truth — identik dengan perhitungan badge bottom navigation "Verifikasi"
+  const verificationQueue = useMemo(
+    () => computeVerificationQueue(session, wargaList, transaksiList, transaksiKasList),
+    [session, wargaList, transaksiList, transaksiKasList]
   );
-  const accBendaharaList = useMemo(
-    () => transaksiList.filter((t) => t.status_verifikasi === 'ACC Bendahara'),
-    [transaksiList]
-  );
-  const accBendaharaKasList = useMemo(
-    () => transaksiKasList.filter((k) => k.status_verifikasi === 'ACC Bendahara'),
-    [transaksiKasList]
-  );
-  const totalKetuaQueueCount = accBendaharaList.length + accBendaharaKasList.length;
 
-  const verifiedList = useMemo(
-    () => transaksiList.filter((t) => t.status_verifikasi === 'Terverifikasi'),
-    [transaksiList]
-  );
-  const rejectedList = useMemo(
-    () => transaksiList.filter((t) => t.status_verifikasi === 'Ditolak'),
-    [transaksiList]
-  );
+  const validTransaksiList = verificationQueue.validTransaksiList;
+  const pendingList = verificationQueue.pendingIplList;
+  const accBendaharaList = verificationQueue.accBendaharaIplList;
+  const accBendaharaKasList = verificationQueue.accBendaharaKasList;
+  const totalKetuaQueueCount = verificationQueue.totalKetuaQueueCount;
+  const verifiedList = verificationQueue.verifiedIplList;
+  const rejectedList = verificationQueue.rejectedIplList;
 
   const filteredTransaksi = useMemo(() => {
     const base =
@@ -206,7 +201,7 @@ export function AdminDashboardSlide({
             ? verifiedList
             : trxFilter === 'Ditolak'
               ? rejectedList
-              : transaksiList;
+              : validTransaksiList;
     const q = trxSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter(
@@ -223,7 +218,7 @@ export function AdminDashboardSlide({
     accBendaharaList,
     verifiedList,
     rejectedList,
-    transaksiList,
+    validTransaksiList,
   ]);
 
   const handleOpenDeleteIplModal = (trx: TransaksiIPL) => {
@@ -263,6 +258,11 @@ export function AdminDashboardSlide({
         'success',
         `Setoran IPL ${deleteTarget.blok_rumah} (${deleteTarget.no_kwitansi}) berhasil dihapus dan status e-Card telah diperbarui.`
       );
+      const deletedId = deleteTarget.id;
+      onOptimisticMutate?.((prev) => ({
+        ...prev,
+        transaksiList: prev.transaksiList.filter((t) => t.id !== deletedId),
+      }));
       setDeleteTarget(null);
       setDeletePin('');
       setShowDeletePin(false);
@@ -280,6 +280,23 @@ export function AdminDashboardSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
+        const updatedTrx = res.data;
+        const nowIso = new Date().toISOString();
+        // Perbarui state & badge secara instan tanpa menunggu refresh penuh
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiList: prev.transaksiList.map((item) =>
+            item.id === trx.id
+              ? updatedTrx || {
+                  ...item,
+                  status_verifikasi: 'ACC Bendahara',
+                  bendahara_approved_at: nowIso,
+                  bendahara_approved_by: session.nama_warga || 'Andriansyah',
+                  ketua_catatan: null,
+                }
+              : item
+          ),
+        }));
         onToast(
           'success',
           `ACC Tahap 1 Bendahara untuk ${trx.blok_rumah} (${formatRupiah(trx.nominal)}) berhasil — diteruskan ke Antrean Verifikasi Ketua.`
@@ -298,6 +315,22 @@ export function AdminDashboardSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
+        const updatedTrx = res.data;
+        const nowIso = new Date().toISOString();
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiList: prev.transaksiList.map((item) =>
+            item.id === trx.id
+              ? updatedTrx || {
+                  ...item,
+                  status_verifikasi: 'Terverifikasi',
+                  verified_at: nowIso,
+                  ketua_approved_at: nowIso,
+                  ketua_approved_by: session.nama_warga || 'Erlangga',
+                }
+              : item
+          ),
+        }));
         onToast(
           'success',
           `Disahkan final oleh Ketua! Setoran ${trx.blok_rumah} (${formatRupiah(trx.nominal)}) resmi Lunas & masuk Saldo Kas.`
@@ -316,6 +349,21 @@ export function AdminDashboardSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
+        const updatedKas = res.data;
+        const nowIso = new Date().toISOString();
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiKasList: prev.transaksiKasList.map((item) =>
+            item.id === kas.id
+              ? updatedKas || {
+                  ...item,
+                  status_verifikasi: 'Terverifikasi',
+                  ketua_approved_at: nowIso,
+                  ketua_approved_by: session.nama_warga || 'Erlangga',
+                }
+              : item
+          ),
+        }));
         onToast(
           'success',
           `Transaksi kas ${kas.no_bukti} (${formatRupiah(kas.nominal)}) disahkan final & memperbarui Saldo Kas.`
@@ -335,6 +383,7 @@ export function AdminDashboardSlide({
     }
     const targetId =
       ketuaReturnTarget.kind === 'ipl' ? ketuaReturnTarget.trx.id : ketuaReturnTarget.kas.id;
+    const cleanNote = ketuaReturnNote.trim();
     setProcessingId(targetId);
     try {
       if (ketuaReturnTarget.kind === 'ipl') {
@@ -342,11 +391,26 @@ export function AdminDashboardSlide({
           session,
           ketuaReturnTarget.trx,
           'Kembalikan',
-          ketuaReturnNote.trim()
+          cleanNote
         );
         if (res.error) {
           onToast('error', res.error);
         } else {
+          const updatedTrx = res.data;
+          onOptimisticMutate?.((prev) => ({
+            ...prev,
+            transaksiList: prev.transaksiList.map((item) =>
+              item.id === targetId
+                ? updatedTrx || {
+                    ...item,
+                    status_verifikasi: 'Pending',
+                    bendahara_approved_at: null,
+                    bendahara_approved_by: null,
+                    ketua_catatan: cleanNote,
+                  }
+                : item
+            ),
+          }));
           onToast(
             'info',
             `Setoran ${ketuaReturnTarget.trx.blok_rumah} dikembalikan ke Bendahara dengan catatan Ketua.`
@@ -360,11 +424,26 @@ export function AdminDashboardSlide({
           session,
           ketuaReturnTarget.kas,
           'Kembalikan',
-          ketuaReturnNote.trim()
+          cleanNote
         );
         if (res.error) {
           onToast('error', res.error);
         } else {
+          const updatedKas = res.data;
+          onOptimisticMutate?.((prev) => ({
+            ...prev,
+            transaksiKasList: prev.transaksiKasList.map((item) =>
+              item.id === targetId
+                ? updatedKas || {
+                    ...item,
+                    status_verifikasi: 'Pending',
+                    bendahara_approved_at: null,
+                    bendahara_approved_by: null,
+                    ketua_catatan: cleanNote,
+                  }
+                : item
+            ),
+          }));
           onToast(
             'info',
             `Transaksi kas ${ketuaReturnTarget.kas.no_bukti} dikembalikan ke Bendahara dengan catatan Ketua.`
@@ -385,13 +464,31 @@ export function AdminDashboardSlide({
       onToast('error', 'Mohon isi alasan penolakan terlebih dahulu.');
       return;
     }
-    setProcessingId(rejectTarget.id);
+    const cleanReason = rejectReason.trim();
+    const targetTrx = rejectTarget;
+    setProcessingId(targetTrx.id);
     try {
-      const res = await verifyTransaksiAdmin(session, rejectTarget, 'Ditolak', rejectReason.trim());
+      const res = await verifyTransaksiAdmin(session, targetTrx, 'Ditolak', cleanReason);
       if (res.error) {
         onToast('error', res.error);
       } else {
-        onToast('info', `Setoran ${rejectTarget.blok_rumah} ditolak dengan catatan untuk warga.`);
+        const updatedTrx = res.data;
+        const nowIso = new Date().toISOString();
+        onOptimisticMutate?.((prev) => ({
+          ...prev,
+          transaksiList: prev.transaksiList.map((item) =>
+            item.id === targetTrx.id
+              ? updatedTrx || {
+                  ...item,
+                  status_verifikasi: 'Ditolak',
+                  catatan_admin: cleanReason,
+                  verified_at: nowIso,
+                  verified_by: session.blok_rumah,
+                }
+              : item
+          ),
+        }));
+        onToast('info', `Setoran ${targetTrx.blok_rumah} ditolak dengan catatan untuk warga.`);
         setRejectTarget(null);
         setRejectReason('');
         await onRefresh();
@@ -843,7 +940,7 @@ export function AdminDashboardSlide({
                   { id: 'ACC Bendahara', label: `ACC Bendahara (${accBendaharaList.length})` },
                   { id: 'Terverifikasi', label: `Sah Lunas (${verifiedList.length})` },
                   { id: 'Ditolak', label: `Ditolak (${rejectedList.length})` },
-                  { id: 'Semua', label: `Semua (${transaksiList.length})` },
+                  { id: 'Semua', label: `Semua (${validTransaksiList.length})` },
                 ] as const
               ).map((tab) => (
                 <button
@@ -890,13 +987,13 @@ export function AdminDashboardSlide({
                 ? 'Tidak ada transaksi berstatus Pending saat ini. Anda dapat klik tab "Semua" di atas untuk melihat seluruh riwayat kiriman warga.'
                 : 'Coba ubah filter status atau kata kunci pencarian, atau tekan Muat Ulang Data untuk sinkronisasi terbaru.'}
             </p>
-            {trxFilter === 'Pending' && transaksiList.length > 0 && (
+            {trxFilter === 'Pending' && validTransaksiList.length > 0 && (
               <button
                 type="button"
                 onClick={() => setTrxFilter('Semua')}
                 className="mt-4 min-h-[38px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer"
               >
-                Lihat Semua Setoran ({transaksiList.length})
+                Lihat Semua Setoran ({validTransaksiList.length})
               </button>
             )}
           </div>
