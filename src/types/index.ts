@@ -11,6 +11,8 @@ export type AdminPermission = 'full' | 'add_only';
 
 export type StatusHunian = 'Tetap' | 'Kontrak' | 'Kosong';
 
+export type OccupancyStatus = 'aktif' | 'kosong';
+
 export type StatusBulanEcard =
   | 'Lunas'
   | 'Menunggu Verifikasi'
@@ -146,12 +148,34 @@ export interface Warga {
   no_wa: string;
   secondary_whatsapp?: string | null;
   status_hunian: StatusHunian;
+  occupancy_status?: OccupancyStatus;
   nominal_iuran: number;
   pin_akses: string;
   bot_role?: BotAccessRole | null;
   avatar_url?: string | null;
   aktif: boolean;
   created_at: string;
+}
+
+export function isOccupantNameEmpty(nama?: string | null): boolean {
+  const clean = String(nama || '').trim();
+  if (!clean || clean === '-' || clean === '—' || clean === '--') return true;
+  return /^unit\s+kosong\b/i.test(clean);
+}
+
+export function resolveOccupancyStatus(
+  warga?: Pick<Warga, 'occupancy_status' | 'status_hunian' | 'nama_warga'> | null
+): OccupancyStatus {
+  if (!warga) return 'aktif';
+  if (warga.occupancy_status === 'aktif' || warga.occupancy_status === 'kosong') {
+    return warga.occupancy_status;
+  }
+  const rawStatus = String(warga.status_hunian || '').trim().toLowerCase();
+  if (rawStatus === 'kosong') return 'kosong';
+  if (rawStatus === 'tetap' || rawStatus === 'kontrak' || rawStatus === 'aktif') {
+    return 'aktif';
+  }
+  return isOccupantNameEmpty(warga.nama_warga) ? 'kosong' : 'aktif';
 }
 
 export interface StatusEcardBulanan {

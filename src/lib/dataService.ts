@@ -4,7 +4,9 @@ import {
   isBendaharaFullAccess,
   isBendaharaOnly,
   isKetuaRole,
+  isOccupantNameEmpty,
   NOMINAL_IPL_STANDAR,
+  resolveOccupancyStatus,
   SEED_PETUGAS_KEAMANAN,
   SEED_TITIK_PATROLI,
   SUSUNAN_PENGURUS,
@@ -22,6 +24,7 @@ import {
   type MetodeScanPatroli,
   type NotificationCategory,
   type NotificationTargetScope,
+  type OccupancyStatus,
   type PatrolMapConfig,
   type PatrolPinCoordinate,
   type PaymentConfig,
@@ -248,6 +251,26 @@ function readLocal<T>(key: string, fallback: T): T {
 
 function writeLocal<T>(key: string, value: T) {
   safeStorageSet(key, JSON.stringify(value));
+}
+
+function normalizeWargaRecord(raw: Warga): Warga {
+  const rawStatus = String(raw.status_hunian || '').trim();
+  let normalizedStatus: StatusHunian;
+  if (rawStatus === 'Tetap' || rawStatus === 'Kontrak' || rawStatus === 'Kosong') {
+    normalizedStatus = rawStatus;
+  } else {
+    normalizedStatus = isOccupantNameEmpty(raw.nama_warga) ? 'Kosong' : 'Tetap';
+  }
+  const occupancy = resolveOccupancyStatus({
+    occupancy_status: raw.occupancy_status,
+    status_hunian: normalizedStatus,
+    nama_warga: raw.nama_warga,
+  });
+  return {
+    ...raw,
+    status_hunian: normalizedStatus,
+    occupancy_status: occupancy,
+  };
 }
 
 function syncLocalStatusForHouse(blokRumah: string) {
@@ -1116,11 +1139,11 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
       });
 
       const rawProfil = profilRes.data as Warga;
-      const profil: Warga = {
+      const profil: Warga = normalizeWargaRecord({
         ...rawProfil,
         avatar_url:
           rawProfil.avatar_url || getCachedAvatarUrl('warga', rawProfil.blok_rumah) || null,
-      };
+      });
       if (profil.avatar_url) {
         cacheAccountAvatars([{ key: buildAvatarKey('warga', profil.blok_rumah), url: profil.avatar_url }]);
       }
@@ -1757,10 +1780,12 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       })();
       const remoteBotLogs = !botLogRes.error ? ((botLogRes.data || []) as BotWaLog[]) : [];
 
-      const wargaList = ((wargaRes.data || []) as Warga[]).map((w) => ({
-        ...w,
-        avatar_url: w.avatar_url || getCachedAvatarUrl('warga', w.blok_rumah) || null,
-      }));
+      const wargaList = ((wargaRes.data || []) as Warga[]).map((w) =>
+        normalizeWargaRecord({
+          ...w,
+          avatar_url: w.avatar_url || getCachedAvatarUrl('warga', w.blok_rumah) || null,
+        })
+      );
       const pengurusAccounts = buildPengurusAccountsList(
         session,
         !adminAccRes.error
@@ -1815,9 +1840,11 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   }
 
   ensureLocalStoreInitialized();
-  const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA).sort((a, b) =>
-    a.blok_rumah.localeCompare(b.blok_rumah, undefined, { numeric: true })
-  );
+  const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA)
+    .map(normalizeWargaRecord)
+    .sort((a, b) =>
+      a.blok_rumah.localeCompare(b.blok_rumah, undefined, { numeric: true })
+    );
   for (const w of wargaList) {
     syncLocalStatusForHouse(w.blok_rumah);
   }
@@ -3145,7 +3172,7 @@ export async function saveWargaAdmin(
           entity_id: data.id,
           summary: `Memperbarui data warga ${cleanBlok} — ${payload.nama_warga.trim()} (WA: ${cleanWa || '-'}, Bot Role: ${cleanBotRole}).`,
         });
-        return { data: data as Warga };
+        return { data: normalizeWargaRecord(data as Warga) };
       }
 
       const insertFullPayload = {
@@ -3199,7 +3226,7 @@ export async function saveWargaAdmin(
         entity_id: data.id,
         summary: `Menambahkan warga baru ${cleanBlok} — ${payload.nama_warga.trim()} (WA: ${cleanWa || '-'}).`,
       });
-      return { data: data as Warga };
+      return { data: normalizeWargaRecord(data as Warga) };
     } catch (err) {
       return { error: parseFriendlyError(err, 'Gagal menyimpan data warga ke Supabase.') };
     }
@@ -3241,18 +3268,19 @@ export async function saveWargaAdmin(
     let updated: Warga | undefined;
     const next = list.map((w) => {
       if (w.id !== payload.id) return w;
-      updated = {
+      updated = normalizeWargaRecord({
         ...w,
         blok_rumah: cleanBlok,
         nama_warga: payload.nama_warga.trim(),
         no_wa: cleanWa,
         secondary_whatsapp: cleanSecondaryWa,
         status_hunian: payload.status_hunian,
+        occupancy_status: payload.status_hunian === 'Kosong' ? 'kosong' : 'aktif',
         nominal_iuran: payload.nominal_iuran,
         pin_akses: cleanPin,
         bot_role: cleanBotRole,
         aktif: payload.aktif ?? w.aktif,
-      };
+      });
       return updated;
     });
     if (!updated) return { error: 'Data warga tidak ditemukan.' };
@@ -3268,19 +3296,20 @@ export async function saveWargaAdmin(
     return { data: updated };
   }
 
-  const created: Warga = {
+  const created = normalizeWargaRecord({
     id: `warga-${Date.now()}`,
     blok_rumah: cleanBlok,
     nama_warga: payload.nama_warga.trim(),
     no_wa: cleanWa,
     secondary_whatsapp: cleanSecondaryWa,
     status_hunian: payload.status_hunian,
+    occupancy_status: payload.status_hunian === 'Kosong' ? 'kosong' : 'aktif',
     nominal_iuran: payload.nominal_iuran,
     pin_akses: cleanPin,
     bot_role: cleanBotRole,
     aktif: true,
     created_at: new Date().toISOString(),
-  };
+  });
 
   writeLocal(STORAGE_KEYS.WARGA, [...list, created]);
   syncLocalStatusForHouse(cleanBlok);
@@ -3292,6 +3321,102 @@ export async function saveWargaAdmin(
     summary: `Menambahkan warga baru ${cleanBlok} — ${created.nama_warga}.`,
   });
   return { data: created };
+}
+
+/**
+ * Mengubah status hunian unit rumah secara cepat (Dihuni / Aktif <-> Rumah Kosong)
+ * tanpa menyentuh atau menghapus riwayat transaksi IPL yang pernah tercatat.
+ */
+export async function toggleWargaOccupancyAdmin(
+  session: SessionUser,
+  warga: Warga,
+  nextOccupancy: OccupancyStatus
+): Promise<ServiceResult<Warga>> {
+  if (!isBendaharaFullAccess(session)) {
+    return {
+      error: 'Akses ditolak: perubahan status hunian unit hanya dapat dilakukan oleh Bendahara.',
+    };
+  }
+
+  const nextStatusHunian: StatusHunian =
+    nextOccupancy === 'kosong'
+      ? 'Kosong'
+      : warga.status_hunian === 'Kontrak'
+        ? 'Kontrak'
+        : 'Tetap';
+
+  const nextNominal =
+    nextOccupancy === 'aktif' && (!warga.nominal_iuran || warga.nominal_iuran <= 0)
+      ? NOMINAL_IPL_STANDAR
+      : warga.nominal_iuran;
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('users_warga')
+        .update({
+          status_hunian: nextStatusHunian,
+          nominal_iuran: nextNominal,
+        })
+        .eq('id', warga.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const normalized = normalizeWargaRecord({
+        ...(data as Warga),
+        occupancy_status: nextOccupancy,
+      });
+
+      await recordAuditLog({
+        session,
+        action: 'UPDATE_STATUS_HUNIAN',
+        entity: 'users_warga',
+        entity_id: normalized.id,
+        summary: `Mengubah status hunian Blok ${warga.blok_rumah} (${warga.nama_warga}) menjadi ${
+          nextOccupancy === 'kosong' ? 'Rumah Kosong' : `Dihuni / Aktif (${nextStatusHunian})`
+        }.`,
+      });
+
+      return { data: normalized };
+    } catch (err) {
+      return {
+        error: parseFriendlyError(err, 'Gagal memperbarui status hunian unit ke Supabase.'),
+      };
+    }
+  }
+
+  const list = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
+  let updated: Warga | undefined;
+  const nextList = list.map((item) => {
+    if (item.id !== warga.id) return item;
+    updated = normalizeWargaRecord({
+      ...item,
+      status_hunian: nextStatusHunian,
+      occupancy_status: nextOccupancy,
+      nominal_iuran: nextNominal,
+    });
+    return updated;
+  });
+
+  if (!updated) {
+    return { error: 'Data unit rumah tidak ditemukan.' };
+  }
+
+  writeLocal(STORAGE_KEYS.WARGA, nextList);
+  await recordAuditLog({
+    session,
+    action: 'UPDATE_STATUS_HUNIAN',
+    entity: 'users_warga',
+    entity_id: updated.id,
+    summary: `Mengubah status hunian Blok ${warga.blok_rumah} (${warga.nama_warga}) menjadi ${
+      nextOccupancy === 'kosong' ? 'Rumah Kosong' : `Dihuni / Aktif (${nextStatusHunian})`
+    }.`,
+  });
+
+  return { data: updated };
 }
 
 export async function resetPinWargaAdmin(

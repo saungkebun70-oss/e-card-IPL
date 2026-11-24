@@ -17,13 +17,18 @@ import {
   Loader2,
   AlertTriangle,
   ShieldCheck,
+  Home,
+  Building,
+  ArrowLeftRight,
 } from 'lucide-react';
 import {
   isBendaharaFullAccess,
   isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
+  resolveOccupancyStatus,
   type BotAccessRole,
   type BotWaConfig,
+  type OccupancyStatus,
   type SessionUser,
   type StatusHunian,
   type Warga,
@@ -47,6 +52,7 @@ import {
   resetPinWargaAdmin,
   saveWargaAdmin,
   sendWargaBotActivationWaAdmin,
+  toggleWargaOccupancyAdmin,
 } from '../../lib/dataService';
 import { SEED_WARGA } from '../../lib/seedData';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
@@ -99,7 +105,11 @@ export function AdminWargaSlide({
   const hasGatewayToken = Boolean(botConfig?.api_token?.trim());
   const avatarMap = useAvatarMap();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Semua' | StatusHunian>('Semua');
+  const [occupancyFilter, setOccupancyFilter] = useState<'all' | OccupancyStatus>('all');
+  const [optimisticStatusMap, setOptimisticStatusMap] = useState<
+    Record<string, { status_hunian: StatusHunian; occupancy_status: OccupancyStatus; nominal_iuran?: number }>
+  >({});
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<WargaFormState>(EMPTY_FORM);
@@ -112,8 +122,45 @@ export function AdminWargaSlide({
   const [importingMaster, setImportingMaster] = useState(false);
   const [syncExistingNames, setSyncExistingNames] = useState(false);
 
+  // Sinkronkan optimistic override setiap kali data utama dari parent/Supabase diperbarui
+  useEffect(() => {
+    setOptimisticStatusMap({});
+  }, [wargaList]);
+
+  const effectiveWargaList = useMemo(() => {
+    const hasOverrides = Object.keys(optimisticStatusMap).length > 0;
+    if (!hasOverrides) return wargaList;
+    return wargaList.map((w) => {
+      const ov = optimisticStatusMap[w.id];
+      if (!ov) return w;
+      return {
+        ...w,
+        status_hunian: ov.status_hunian,
+        occupancy_status: ov.occupancy_status,
+        nominal_iuran: ov.nominal_iuran ?? w.nominal_iuran,
+      };
+    });
+  }, [wargaList, optimisticStatusMap]);
+
+  const unitCounts = useMemo(() => {
+    let aktif = 0;
+    let kosong = 0;
+    for (const w of effectiveWargaList) {
+      if (resolveOccupancyStatus(w) === 'kosong') {
+        kosong += 1;
+      } else {
+        aktif += 1;
+      }
+    }
+    return {
+      total: effectiveWargaList.length,
+      aktif,
+      kosong,
+    };
+  }, [effectiveWargaList]);
+
   const rosterStats = useMemo(() => {
-    const existingKeys = new Set(wargaList.map((w) => canonicalizeBlokKey(w.blok_rumah)));
+    const existingKeys = new Set(effectiveWargaList.map((w) => canonicalizeBlokKey(w.blok_rumah)));
     let alreadyRegistered = 0;
     let missingCount = 0;
     for (const seed of SEED_WARGA) {
@@ -132,13 +179,14 @@ export function AdminWargaSlide({
       tetapCount,
       kosongCount,
     };
-  }, [wargaList]);
+  }, [effectiveWargaList]);
 
   const filteredWarga = useMemo(() => {
     const q = search.trim().toLowerCase();
     const qNormPhone = normalizePhoneNumber(search);
-    return wargaList.filter((w) => {
-      const matchStatus = statusFilter === 'Semua' || w.status_hunian === statusFilter;
+    return effectiveWargaList.filter((w) => {
+      const occupancy = resolveOccupancyStatus(w);
+      const matchOccupancy = occupancyFilter === 'all' || occupancy === occupancyFilter;
       const matchSearch =
         !q ||
         w.blok_rumah.toLowerCase().includes(q) ||
@@ -148,13 +196,13 @@ export function AdminWargaSlide({
         (qNormPhone.length >= 4 &&
           (normalizePhoneNumber(w.no_wa).includes(qNormPhone) ||
             normalizePhoneNumber(w.secondary_whatsapp).includes(qNormPhone)));
-      return matchStatus && matchSearch;
+      return matchOccupancy && matchSearch;
     });
-  }, [wargaList, search, statusFilter]);
+  }, [effectiveWargaList, search, occupancyFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter]);
+  }, [search, occupancyFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredWarga.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -255,9 +303,16 @@ export function AdminWargaSlide({
       return;
     }
 
+    const cleanBlok = normalizeBlockCode(form.blok_rumah) || form.blok_rumah.trim().toUpperCase();
+    const fallbackKosongName =
+      form.status_hunian === 'Kosong' && !form.nama_warga.trim()
+        ? `UNIT KOSONG ${cleanBlok}`
+        : form.nama_warga;
+
     const normalizedPayload: WargaFormState = {
       ...form,
-      blok_rumah: normalizeBlockCode(form.blok_rumah) || form.blok_rumah.trim().toUpperCase(),
+      blok_rumah: cleanBlok,
+      nama_warga: fallbackKosongName,
       no_wa: normalizePhoneNumber(form.no_wa),
       secondary_whatsapp: normalizePhoneNumber(form.secondary_whatsapp),
     };
@@ -279,6 +334,53 @@ export function AdminWargaSlide({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleQuickToggleOccupancy = async (warga: Warga) => {
+    if (!canManageFull || togglingId) return;
+    const currentOccupancy = resolveOccupancyStatus(warga);
+    const nextOccupancy: OccupancyStatus = currentOccupancy === 'kosong' ? 'aktif' : 'kosong';
+    const nextStatusHunian: StatusHunian =
+      nextOccupancy === 'kosong'
+        ? 'Kosong'
+        : warga.status_hunian === 'Kontrak'
+          ? 'Kontrak'
+          : 'Tetap';
+
+    setTogglingId(warga.id);
+    setOptimisticStatusMap((prev) => ({
+      ...prev,
+      [warga.id]: {
+        status_hunian: nextStatusHunian,
+        occupancy_status: nextOccupancy,
+        nominal_iuran:
+          nextOccupancy === 'aktif' && (!warga.nominal_iuran || warga.nominal_iuran <= 0)
+            ? NOMINAL_IPL_STANDAR
+            : warga.nominal_iuran,
+      },
+    }));
+
+    try {
+      const res = await toggleWargaOccupancyAdmin(session, warga, nextOccupancy);
+      if (res.error || !res.data) {
+        setOptimisticStatusMap((prev) => {
+          const copy = { ...prev };
+          delete copy[warga.id];
+          return copy;
+        });
+        onToast('error', res.error || 'Gagal memperbarui status hunian unit.');
+      } else {
+        onToast(
+          'success',
+          nextOccupancy === 'kosong'
+            ? `Unit ${warga.blok_rumah} ditandai Rumah Kosong (riwayat IPL tetap tersimpan).`
+            : `Unit ${warga.blok_rumah} diaktifkan sebagai Dihuni / Aktif.`
+        );
+        await onRefresh();
+      }
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -376,36 +478,17 @@ export function AdminWargaSlide({
 
   return (
     <div className="space-y-5">
-      {/* Toolbar Pencarian, Filter & Tombol Tambah */}
+      {/* Toolbar Pencarian & Tombol Aksi */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari Blok, Nama Warga, atau WA..."
-              className="w-full min-h-[42px] rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl w-fit">
-            {(['Semua', 'Tetap', 'Kontrak', 'Kosong'] as const).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                  statusFilter === st
-                    ? 'bg-white text-[#0F172A] shadow-sm'
-                    : 'text-slate-600 hover:text-[#0F172A]'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari Blok / No. Rumah, Nama Warga, atau WA..."
+            className="w-full min-h-[42px] rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -435,19 +518,244 @@ export function AdminWargaSlide({
         </div>
       </div>
 
+      {/* Bar Filter Status Hunian & Counter Unit Real-Time */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:p-3 space-y-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          <button
+            type="button"
+            onClick={() => setOccupancyFilter('all')}
+            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              occupancyFilter === 'all'
+                ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            <Home className="w-3.5 h-3.5 shrink-0" />
+            <span>Semua Unit (Total: {unitCounts.total})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOccupancyFilter('aktif')}
+            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              occupancyFilter === 'aktif'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/80'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                occupancyFilter === 'aktif' ? 'bg-white' : 'bg-emerald-600'
+              }`}
+            />
+            <span>Dihuni / Aktif ({unitCounts.aktif})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOccupancyFilter('kosong')}
+            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              occupancyFilter === 'kosong'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-amber-50/80 text-amber-800 border-amber-200 hover:bg-amber-100/70'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                occupancyFilter === 'kosong' ? 'bg-white' : 'bg-amber-600'
+              }`}
+            />
+            <span>Rumah Kosong ({unitCounts.kosong})</span>
+          </button>
+        </div>
+
+        {search.trim() !== '' && (
+          <p className="text-[11px] text-slate-500 px-1 tabular-nums">
+            Menampilkan <span className="font-semibold text-[#0F172A]">{filteredWarga.length}</span>{' '}
+            unit yang cocok dengan pencarian &ldquo;{search.trim()}&rdquo; pada tab ini.
+          </p>
+        )}
+      </div>
+
       {!canManageFull && (
         <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-700">
           <span className="font-semibold text-[#0F172A]">
             Hak Akses {session.jabatan || 'Pengurus'}:
           </span>{' '}
           Anda dapat menambahkan data warga baru dan menyalin info login warga. Pengubahan data
-          (Edit), Reset PIN, Hapus unit, dan fitur Bot WA hanya tersedia untuk akun{' '}
-          <span className="font-semibold">Bendahara</span>.
+          (Edit), Reset PIN, Hapus unit, ubah status hunian cepat, dan fitur Bot WA hanya tersedia
+          untuk akun <span className="font-semibold">Bendahara</span>.
         </div>
       )}
 
-      {/* Daftar / Tabel Master Data Warga */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      {/* Tampilan Kartu Mobile (< md) agar Status Hunian & Quick Toggle nyaman di HP */}
+      <div className="md:hidden space-y-3">
+        {pagedWarga.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-sm text-slate-500">
+            Tidak ada unit rumah yang cocok dengan filter pencarian.
+          </div>
+        ) : (
+          pagedWarga.map((w) => {
+            const occupancy = resolveOccupancyStatus(w);
+            const isKosong = occupancy === 'kosong';
+            const hasPrimaryWa = isRealRegisteredPhone(w.no_wa);
+            const hasSecondaryWa = isRealRegisteredPhone(w.secondary_whatsapp);
+            const hasAnyRealWa = hasPrimaryWa || hasSecondaryWa;
+            const primaryLinkNumber = hasPrimaryWa
+              ? normalizePhoneNumber(w.no_wa)
+              : hasSecondaryWa
+                ? normalizePhoneNumber(w.secondary_whatsapp)
+                : '';
+            const isPrivilegedBot = w.bot_role === 'admin' || w.bot_role === 'bendahara';
+
+            return (
+              <article
+                key={w.id}
+                className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <UserAvatar
+                      name={w.nama_warga}
+                      src={
+                        w.avatar_url ||
+                        avatarMap[buildAvatarKey('warga', w.blok_rumah)] ||
+                        null
+                      }
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#0F172A]">
+                          {w.blok_rumah}
+                        </span>
+                        {isKosong ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                            Kosong
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                            Dihuni{w.status_hunian === 'Kontrak' ? ' · Kontrak' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-[#0F172A] truncate mt-0.5">
+                        {w.nama_warga}
+                      </p>
+                      {isPrivilegedBot && (
+                        <span className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-semibold">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          {w.bot_role === 'bendahara' ? 'Bendahara Bot' : 'Pengurus Bot'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="font-mono text-xs font-bold text-emerald-700 tracking-wider">
+                      {w.pin_akses}
+                    </p>
+                    <p className="font-mono text-xs font-semibold text-slate-600 tabular-nums mt-0.5">
+                      {formatRupiah(w.nominal_iuran)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  {hasAnyRealWa ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono font-semibold tabular-nums">
+                      {formatPhoneDisplay(primaryLinkNumber)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 font-medium">
+                      Belum Ada WA
+                    </span>
+                  )}
+
+                  {canManageFull && (
+                    <button
+                      type="button"
+                      disabled={togglingId === w.id}
+                      onClick={() => void handleQuickToggleOccupancy(w)}
+                      className={`min-h-[32px] px-2.5 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 ${
+                        isKosong
+                          ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                          : 'border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-200 text-slate-700 hover:text-amber-800'
+                      }`}
+                    >
+                      {togglingId === w.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <ArrowLeftRight className="w-3 h-3" />
+                      )}
+                      <span>{isKosong ? 'Tandai Dihuni' : 'Tandai Kosong'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+                  {hasAnyRealWa ? (
+                    <a
+                      href={buildWhatsAppLink(primaryLinkNumber, buildWargaAccessWaMessage(w))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Kirim WA</span>
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyLoginInfo(w)}
+                      className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedId === w.id ? 'Tersalin' : 'Salin PIN'}</span>
+                    </button>
+                  )}
+
+                  {canManageFull && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleResetPin(w)}
+                        className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Reset PIN</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(w)}
+                        className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(w)}
+                        aria-label={`Hapus ${w.blok_rumah}`}
+                        className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg border border-slate-200 bg-white text-red-600 cursor-pointer ml-auto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
+
+      {/* Daftar / Tabel Master Data Warga (Desktop & Tablet >= md) */}
+      <section className="hidden md:block bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -455,7 +763,7 @@ export function AdminWargaSlide({
                 <th className="py-3.5 px-4 whitespace-nowrap">Blok / Username</th>
                 <th className="py-3.5 px-4">Nama Warga</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">No. WhatsApp Terdaftar</th>
-                <th className="py-3.5 px-4 whitespace-nowrap">Hunian</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Status Hunian</th>
                 <th className="py-3.5 px-4 text-right whitespace-nowrap">Iuran Wajib</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">PIN (6 Digit)</th>
                 <th className="py-3.5 px-4 text-right whitespace-nowrap">Aksi</th>
@@ -470,6 +778,8 @@ export function AdminWargaSlide({
                 </tr>
               ) : (
                 pagedWarga.map((w) => {
+                  const occupancy = resolveOccupancyStatus(w);
+                  const isKosong = occupancy === 'kosong';
                   const hasPrimaryWa = isRealRegisteredPhone(w.no_wa);
                   const hasSecondaryWa = isRealRegisteredPhone(w.secondary_whatsapp);
                   const hasAnyRealWa = hasPrimaryWa || hasSecondaryWa;
@@ -532,8 +842,46 @@ export function AdminWargaSlide({
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-xs font-medium text-slate-700 whitespace-nowrap">
-                        {w.status_hunian}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {isKosong ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                              Kosong
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                              Dihuni
+                              {w.status_hunian === 'Kontrak' && (
+                                <span className="text-[10px] font-medium text-emerald-600">
+                                  (Kontrak)
+                                </span>
+                              )}
+                            </span>
+                          )}
+
+                          {canManageFull && (
+                            <button
+                              type="button"
+                              disabled={togglingId === w.id}
+                              onClick={() => void handleQuickToggleOccupancy(w)}
+                              title={
+                                isKosong
+                                  ? 'Ubah cepat menjadi Dihuni / Aktif'
+                                  : 'Ubah cepat menjadi Rumah Kosong'
+                              }
+                              className="min-h-[28px] px-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-600 hover:text-[#0F172A] inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {togglingId === w.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <ArrowLeftRight className="w-3 h-3" />
+                              )}
+                              <span>{isKosong ? 'Aktifkan' : 'Kosongkan'}</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono font-semibold text-[#0F172A] tabular-nums whitespace-nowrap">
                         {formatRupiah(w.nominal_iuran)}
@@ -670,9 +1018,10 @@ export function AdminWargaSlide({
             </tbody>
           </table>
         </div>
+      </section>
 
-        {filteredWarga.length > PAGE_SIZE && (
-          <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3 text-xs text-slate-600">
+      {filteredWarga.length > PAGE_SIZE && (
+        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-slate-600">
             <span className="tabular-nums">
               Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
               {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
@@ -701,8 +1050,7 @@ export function AdminWargaSlide({
               </button>
             </div>
           </div>
-        )}
-      </section>
+      )}
 
       {/* Modal Tambah / Edit Warga */}
       {modalOpen && (
@@ -755,32 +1103,91 @@ export function AdminWargaSlide({
 
                 <div>
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                    Status Hunian
+                    Kategori Hunian
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          status_hunian: prev.status_hunian === 'Kontrak' ? 'Kontrak' : 'Tetap',
+                          nominal_iuran:
+                            prev.nominal_iuran <= 0 ? NOMINAL_IPL_STANDAR : prev.nominal_iuran,
+                        }))
+                      }
+                      className={`min-h-[36px] px-2.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                        form.status_hunian !== 'Kosong'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-[#0F172A]'
+                      }`}
+                    >
+                      <Home className="w-3.5 h-3.5" />
+                      <span>Dihuni / Aktif</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          status_hunian: 'Kosong',
+                        }))
+                      }
+                      className={`min-h-[36px] px-2.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                        form.status_hunian === 'Kosong'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-[#0F172A]'
+                      }`}
+                    >
+                      <Building className="w-3.5 h-3.5" />
+                      <span>Rumah Kosong</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {form.status_hunian !== 'Kosong' && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    Tipe Penghuni Aktif
                   </label>
                   <select
                     value={form.status_hunian}
                     onChange={(e) =>
                       setForm({ ...form, status_hunian: e.target.value as StatusHunian })
                     }
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                    className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                   >
-                    <option value="Tetap">Tetap</option>
-                    <option value="Kontrak">Kontrak</option>
-                    <option value="Kosong">Kosong</option>
+                    <option value="Tetap">Penghuni Tetap (Dihuni / Aktif)</option>
+                    <option value="Kontrak">Kontrak / Sewa (Dihuni / Aktif)</option>
                   </select>
                 </div>
-              </div>
+              )}
+
+              {form.id && (
+                <p className="text-[11px] text-slate-500 -mt-1">
+                  Perubahan status hunian tetap mempertahankan seluruh riwayat transaksi IPL unit
+                  ini.
+                </p>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                  Nama Kepala Keluarga / Penghuni
+                  Nama Kepala Keluarga / Penghuni{' '}
+                  {form.status_hunian === 'Kosong' && (
+                    <span className="font-normal text-slate-400">(opsional untuk rumah kosong)</span>
+                  )}
                 </label>
                 <input
                   type="text"
-                  required
+                  required={form.status_hunian !== 'Kosong'}
                   value={form.nama_warga}
                   onChange={(e) => setForm({ ...form, nama_warga: e.target.value })}
-                  placeholder="Nama lengkap warga"
+                  placeholder={
+                    form.status_hunian === 'Kosong'
+                      ? 'Kosongkan atau isi UNIT KOSONG'
+                      : 'Nama lengkap warga'
+                  }
                   className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
               </div>
