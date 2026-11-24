@@ -429,7 +429,7 @@ export function AppShell({
 
       {/* Floating Glass Header Bar (Mobile, Tablet & Desktop) */}
       <div className="fixed top-0 left-0 right-0 z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto glass-header rounded-2xl px-3.5 sm:px-5 h-14 sm:h-16 flex flex-nowrap items-center justify-between gap-3 sm:gap-6 pointer-events-auto">
+        <header className="max-w-7xl mx-auto glass-header rounded-2xl px-3.5 sm:px-5 min-h-14 sm:min-h-16 py-2 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 sm:gap-4 pointer-events-auto">
           {/* Zona 1: Brand Lockup (Kiri) */}
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 shrink-0">
             {isAdmin && (
@@ -457,10 +457,10 @@ export function AppShell({
               <BrandLogo size="xs" className="shrink-0 sm:hidden" />
               <BrandLogo size="sm" className="shrink-0 hidden sm:flex" />
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-extrabold tracking-tight text-[var(--theme-text)] uppercase leading-tight whitespace-nowrap truncate max-w-[145px] sm:max-w-[200px]">
+                <p className="text-[11px] sm:text-xs font-extrabold tracking-tight text-[var(--theme-text)] uppercase leading-tight whitespace-nowrap truncate max-w-[140px] sm:max-w-[185px]">
                   {brand.app_name || 'Perumahan Saung Kebun'}
                 </p>
-                <p className="text-[10px] sm:text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight whitespace-nowrap truncate max-w-[145px] sm:max-w-[200px]">
+                <p className="text-[10px] sm:text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight whitespace-nowrap truncate max-w-[140px] sm:max-w-[185px]">
                   {isAdmin
                     ? activePageTitle
                     : isPetugas
@@ -474,7 +474,7 @@ export function AppShell({
           {/* Zona 2: Navigasi Horizontal Single-Line Desktop (>= 1024px) */}
           <nav
             aria-label="Navigasi Utama"
-            className="hidden lg:flex items-center justify-center gap-6 min-w-0"
+            className="hidden lg:flex items-center justify-center gap-4 xl:gap-6 min-w-0"
           >
             {desktopHeaderNavItems.map((item) => {
               const isActive = item.id === activeTab;
@@ -581,7 +581,7 @@ export function AppShell({
       </div>
 
       {/* Area Konten Utama */}
-      <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.25rem)] sm:pt-[5.75rem] pb-24 md:pb-28 min-w-0 overflow-x-hidden">
+      <main className="relative z-10 flex-1 px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:pt-[6rem] pb-[100px] md:pb-[108px] min-w-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -590,6 +590,7 @@ export function AppShell({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full min-w-0"
             >
               {children}
             </motion.div>
