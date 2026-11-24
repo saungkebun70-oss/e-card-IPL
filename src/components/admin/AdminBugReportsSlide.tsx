@@ -192,7 +192,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
   return (
     <div className="space-y-5">
       {/* Header & Tombol Refresh */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+      <section className="glass-card rounded-3xl p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
@@ -213,9 +213,9 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
             type="button"
             onClick={() => void loadBugReports(true)}
             disabled={refreshing || loading}
-            className="min-h-[40px] px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 self-start sm:self-center shrink-0"
+            className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#4C1D95] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 self-start sm:self-center shrink-0"
           >
-            <RefreshCw className={`w-4 h-4 text-[#059669] ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[#4C1D95] ${refreshing ? 'animate-spin' : ''}`} />
             <span>Muat Ulang</span>
           </button>
         </div>
@@ -225,10 +225,10 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`text-left rounded-xl border p-3.5 transition-colors cursor-pointer ${
+            className={`text-left rounded-2xl border p-3.5 transition-colors cursor-pointer ${
               statusFilter === 'all'
-                ? 'border-[#0F172A] bg-slate-50'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
+                ? 'border-[#4C1D95] bg-indigo-50/70'
+                : 'border-indigo-100 bg-white/80 hover:bg-indigo-50/40'
             }`}
           >
             <p className="text-[11px] font-semibold text-slate-500">Total Laporan</p>
@@ -240,14 +240,14 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           <button
             type="button"
             onClick={() => setStatusFilter('pending')}
-            className={`text-left rounded-xl border p-3.5 transition-colors cursor-pointer ${
+            className={`text-left rounded-2xl border p-3.5 transition-colors cursor-pointer ${
               statusFilter === 'pending'
-                ? 'border-amber-400 bg-amber-50/70'
-                : 'border-amber-200/80 bg-amber-50/30 hover:bg-amber-50/60'
+                ? 'border-amber-400 bg-[#FEF3C7]/90'
+                : 'border-amber-200/80 bg-amber-50/40 hover:bg-[#FEF3C7]/60'
             }`}
           >
-            <p className="text-[11px] font-semibold text-amber-800">Pending</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-amber-700 mt-1 tabular-nums">
+            <p className="text-[11px] font-semibold text-[#B45309]">Pending</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono text-[#B45309] mt-1 tabular-nums">
               {stats.pending}
             </p>
           </button>
@@ -255,14 +255,14 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           <button
             type="button"
             onClick={() => setStatusFilter('resolved')}
-            className={`text-left rounded-xl border p-3.5 transition-colors cursor-pointer ${
+            className={`text-left rounded-2xl border p-3.5 transition-colors cursor-pointer ${
               statusFilter === 'resolved'
-                ? 'border-emerald-500 bg-emerald-50/70'
-                : 'border-emerald-200/80 bg-emerald-50/30 hover:bg-emerald-50/60'
+                ? 'border-emerald-500 bg-[#D1FAE5]/90'
+                : 'border-emerald-200/80 bg-emerald-50/40 hover:bg-[#D1FAE5]/60'
             }`}
           >
-            <p className="text-[11px] font-semibold text-emerald-800">Selesai (Resolved)</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-emerald-700 mt-1 tabular-nums">
+            <p className="text-[11px] font-semibold text-[#047857]">Selesai (Resolved)</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono text-[#047857] mt-1 tabular-nums">
               {stats.resolved}
             </p>
           </button>
@@ -270,10 +270,10 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
       </section>
 
       {/* Filter & Pencarian */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+      <section className="glass-card rounded-3xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           {/* Tab Status */}
-          <div className="inline-flex rounded-xl bg-slate-100 p-1 shrink-0 self-start">
+          <div className="inline-flex rounded-2xl bg-indigo-50/80 p-1 shrink-0 self-start">
             {(
               [
                 { id: 'all', label: `Semua (${stats.total})` },
@@ -285,10 +285,10 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                 key={tab.id}
                 type="button"
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                   statusFilter === tab.id
-                    ? 'bg-white text-[#0F172A] shadow-xs'
-                    : 'text-slate-600 hover:text-[#0F172A]'
+                    ? 'bg-[#4C1D95] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-[#4C1D95]'
                 }`}
               >
                 {tab.label}
@@ -299,23 +299,23 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           {/* Pencarian & Kategori */}
           <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari judul, deskripsi, nama pelapor, atau blok..."
-                className="w-full min-h-[40px] pl-9 pr-3.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                className="w-full min-h-[40px] pl-9 pr-3.5 rounded-2xl border border-indigo-100 bg-white/95 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
             </div>
 
             <div className="relative shrink-0">
-              <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Filter className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
                 aria-label="Filter kategori laporan bug"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value as 'all' | BugReportCategory)}
-                className="w-full sm:w-auto min-h-[40px] pl-8 pr-8 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                className="w-full sm:w-auto min-h-[40px] pl-8 pr-8 rounded-2xl border border-indigo-100 bg-white/95 text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               >
                 {CATEGORY_FILTER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -330,17 +330,17 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
 
       {/* Daftar Laporan Bug */}
       {loading ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
-          <Loader2 className="w-6 h-6 animate-spin text-[#059669]" />
+        <div className="glass-card rounded-3xl p-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
+          <Loader2 className="w-6 h-6 animate-spin text-[#4C1D95]" />
           <p className="text-sm font-medium">Memuat laporan bug dari database...</p>
         </div>
       ) : filteredReports.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto">
+        <div className="glass-card rounded-3xl p-10 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto">
             {statusFilter === 'pending' ? (
               <CheckCircle2 className="w-6 h-6 text-emerald-600" />
             ) : (
-              <Bug className="w-6 h-6 text-slate-400" />
+              <Bug className="w-6 h-6 text-indigo-400" />
             )}
           </div>
           <h3 className="text-sm font-bold text-[#0F172A] mt-3">
@@ -368,8 +368,8 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
             return (
               <article
                 key={item.id}
-                className={`bg-white border rounded-2xl p-4 sm:p-5 space-y-3.5 transition-colors ${
-                  resolved ? 'border-slate-200/90' : 'border-amber-200/90 shadow-xs'
+                className={`glass-card rounded-3xl p-4 sm:p-5 space-y-3.5 transition-colors ${
+                  resolved ? '' : 'ring-1 ring-amber-300/70'
                 }`}
               >
                 {/* Header Item */}
@@ -487,7 +487,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                         type="button"
                         disabled={isUpdating}
                         onClick={() => void handleUpdateStatus(item, 'selesai', draftNote)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                        className="px-4 py-1.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                       >
                         {isUpdating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -501,13 +501,13 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                 )}
 
                 {/* Footer Aksi Admin & Snapshot Toggle */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-indigo-100/80">
                   <button
                     type="button"
                     onClick={() => toggleSnapshot(item.id)}
-                    className="text-xs font-semibold text-slate-600 hover:text-[#0F172A] inline-flex items-center gap-1.5 self-start cursor-pointer"
+                    className="text-xs font-semibold text-slate-600 hover:text-[#4C1D95] inline-flex items-center gap-1.5 self-start cursor-pointer"
                   >
-                    <FileCode2 className="w-4 h-4 text-slate-400" />
+                    <FileCode2 className="w-4 h-4 text-indigo-400" />
                     <span>
                       Snapshot Error &amp; Perangkat ({errorCount} error)
                     </span>
@@ -526,7 +526,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                             type="button"
                             disabled={isUpdating}
                             onClick={() => void handleUpdateStatus(item, 'diproses')}
-                            className="min-h-[36px] px-3 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                            className="min-h-[36px] px-3.5 rounded-full border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
                           >
                             <span>Tandai Diproses</span>
                           </button>
@@ -538,9 +538,9 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                           onClick={() =>
                             setOpenNoteInputId(isNoteOpen ? null : item.id)
                           }
-                          className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                          className="min-h-[36px] px-3.5 rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
                         >
-                          <MessageSquareText className="w-3.5 h-3.5 text-slate-400" />
+                          <MessageSquareText className="w-3.5 h-3.5 text-indigo-400" />
                           <span>Catatan</span>
                         </button>
 
@@ -548,7 +548,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                           type="button"
                           disabled={isUpdating}
                           onClick={() => void handleUpdateStatus(item, 'selesai')}
-                          className="min-h-[36px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                          className="min-h-[36px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
                         >
                           {isUpdating ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -563,7 +563,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                         type="button"
                         disabled={isUpdating}
                         onClick={() => void handleUpdateStatus(item, 'baru')}
-                        className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                        className="min-h-[36px] px-3.5 rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-slate-600 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
                       >
                         {isUpdating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -644,17 +644,17 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           onClick={() => setLightboxImageUrl(null)}
         >
           <div
-            className="relative max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-xl"
+            className="relative max-w-4xl w-full bg-white/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/90"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-indigo-100 flex items-center justify-between">
               <span className="text-xs sm:text-sm font-bold text-[#0F172A]">
                 Screenshot Laporan Bug
               </span>
               <button
                 type="button"
                 onClick={() => setLightboxImageUrl(null)}
-                className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-500 hover:bg-indigo-50 cursor-pointer"
                 aria-label="Tutup pratinjau screenshot"
               >
                 <X className="w-4 h-4" />
@@ -664,7 +664,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
               <img
                 src={lightboxImageUrl}
                 alt="Screenshot laporan bug"
-                className="max-w-full max-h-[70dvh] rounded-lg object-contain"
+                className="max-w-full max-h-[70dvh] rounded-2xl object-contain"
               />
             </div>
           </div>

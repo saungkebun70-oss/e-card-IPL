@@ -198,7 +198,7 @@ export function NotificationSettingsCard({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[var(--theme-primary-soft)] border border-[var(--theme-primary-soft-border)] text-[var(--theme-primary)] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50/90 border border-indigo-100 text-[#4C1D95] flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -213,11 +213,11 @@ export function NotificationSettingsCard({
       </div>
 
       {/* Daftar Sakelar Pengaturan */}
-      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/60 overflow-hidden">
+      <div className="divide-y divide-indigo-100/70 rounded-2xl border border-indigo-100/80 bg-indigo-50/40 overflow-hidden">
         {/* 1. Suara Notifikasi */}
         <div className="px-3.5 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[var(--theme-primary)] shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-white/95 border border-indigo-100 flex items-center justify-center text-[#4C1D95] shrink-0">
               {prefs.soundEnabled ? (
                 <Volume2 className="w-4 h-4" />
               ) : (
@@ -245,7 +245,7 @@ export function NotificationSettingsCard({
               );
             }}
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-              prefs.soundEnabled ? 'bg-[var(--theme-primary)]' : 'bg-slate-300'
+              prefs.soundEnabled ? 'bg-[#4C1D95]' : 'bg-slate-300'
             }`}
           >
             <span
@@ -259,7 +259,7 @@ export function NotificationSettingsCard({
         {/* 2. Getaran Notifikasi */}
         <div className="px-3.5 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[var(--theme-primary)] shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-white/95 border border-indigo-100 flex items-center justify-center text-[#4C1D95] shrink-0">
               <Vibrate className={`w-4 h-4 ${prefs.vibrationEnabled ? '' : 'text-slate-400'}`} />
             </div>
             <div className="min-w-0">
@@ -283,7 +283,7 @@ export function NotificationSettingsCard({
               );
             }}
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-              prefs.vibrationEnabled ? 'bg-[var(--theme-primary)]' : 'bg-slate-300'
+              prefs.vibrationEnabled ? 'bg-[#4C1D95]' : 'bg-slate-300'
             }`}
           >
             <span
@@ -297,7 +297,7 @@ export function NotificationSettingsCard({
         {/* 3. Status Izin Pop-up Sistem HP */}
         <div className="px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[var(--theme-primary)] shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-white/95 border border-indigo-100 flex items-center justify-center text-[#4C1D95] shrink-0">
               <Smartphone className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -306,7 +306,7 @@ export function NotificationSettingsCard({
                   Pop-up Status Bar &amp; Push FCM
                 </p>
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${permBadge.className}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${permBadge.className}`}
                 >
                   {permission === 'granted' ? (
                     <CheckCircle2 className="w-3 h-3" />
@@ -316,7 +316,7 @@ export function NotificationSettingsCard({
                   {permBadge.label}
                 </span>
                 {pushInfo.isBackgroundSyncFallback && (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                     <RefreshCw className="w-3 h-3" />
                     Background Sync Fallback
                   </span>
@@ -345,7 +345,7 @@ export function NotificationSettingsCard({
               type="button"
               disabled={requestingPerm}
               onClick={() => void handleRequestPermission()}
-              className="min-h-[36px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shrink-0 whitespace-nowrap"
+              className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shrink-0 whitespace-nowrap shadow-xs"
             >
               {requestingPerm ? (
                 <LoadingSpinner size="xs" tone="white" />
@@ -361,7 +361,7 @@ export function NotificationSettingsCard({
         {pushInfo.isBackgroundSyncFallback && (
           <div className="px-3.5 py-3 bg-amber-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-white border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-white border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
                 <RefreshCw className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -381,7 +381,7 @@ export function NotificationSettingsCard({
               type="button"
               disabled={syncingFallback}
               onClick={() => void handleManualBackgroundSync()}
-              className="min-h-[34px] px-3 rounded-xl border border-amber-300 bg-white hover:bg-amber-100/70 disabled:opacity-60 text-amber-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+              className="min-h-[36px] px-3.5 rounded-full border border-amber-300 bg-white hover:bg-amber-100/70 disabled:opacity-60 text-amber-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
             >
               {syncingFallback ? (
                 <LoadingSpinner size="xs" />
@@ -399,7 +399,7 @@ export function NotificationSettingsCard({
         type="button"
         disabled={testing}
         onClick={() => void handleTestNotification()}
-        className="w-full min-h-[44px] px-4 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] disabled:opacity-70 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer shadow-xs"
+        className="w-full min-h-[44px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-70 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer shadow-sm"
       >
         {testing ? (
           <LoadingSpinner size="xs" tone="white" />
@@ -411,9 +411,9 @@ export function NotificationSettingsCard({
 
       {/* Panel Khusus Admin: Tes Kirim Notifikasi Server FCM (Perangkat Sendiri / Broadcast) */}
       {session.role === 'admin' && (
-        <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
+        <div className="glass-card rounded-2xl border border-indigo-100/80 p-4 space-y-3">
           <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0">
               <Radio className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -422,7 +422,7 @@ export function NotificationSettingsCard({
               </p>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                 Uji pengiriman Push Notification asli melalui Edge Function{' '}
-                <span className="font-mono text-slate-700">send-push-notification</span> tanpa
+                <span className="font-mono text-[#4C1D95]">send-push-notification</span> tanpa
                 membuat transaksi palsu.
               </p>
             </div>
@@ -433,7 +433,7 @@ export function NotificationSettingsCard({
               type="button"
               disabled={sendingServerPush !== null}
               onClick={() => void handleAdminServerPushTest('self')}
-              className="min-h-[40px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs"
             >
               {sendingServerPush === 'self' ? (
                 <LoadingSpinner size="xs" tone="white" />
@@ -449,7 +449,7 @@ export function NotificationSettingsCard({
               type="button"
               disabled={sendingServerPush !== null}
               onClick={() => void handleAdminServerPushTest('broadcast')}
-              className="min-h-[40px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 text-emerald-800 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="min-h-[42px] px-4 rounded-full border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 disabled:opacity-60 text-[#4C1D95] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
             >
               {sendingServerPush === 'broadcast' ? (
                 <LoadingSpinner size="xs" />
@@ -466,7 +466,7 @@ export function NotificationSettingsCard({
 
           {lastServerResult && (
             <p
-              className={`text-[11px] leading-relaxed rounded-lg border px-2.5 py-2 ${
+              className={`text-[11px] leading-relaxed rounded-2xl border px-3 py-2 ${
                 lastServerResult.ok
                   ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
                   : 'bg-amber-50/80 border-amber-200 text-amber-800'

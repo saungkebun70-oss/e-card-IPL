@@ -25,14 +25,14 @@ export const APP_THEMES: AppThemeOption[] = [
   {
     id: 'emerald',
     name: 'Saung Kebun',
-    tagline: 'Emerald Fresh · Default',
-    description: 'Hijau emerald segar dengan aksen hutan gelap dan latar putih bersih.',
+    tagline: 'Lavender Frosted · Default',
+    description: 'Gradien lavender biru pastel dengan kartu frosted glass dan hero ungu indigo modern.',
     isDark: false,
-    metaThemeColor: '#ffffff',
+    metaThemeColor: '#ede9fe',
     previewColors: {
-      primary: '#059669',
-      background: '#f8fafc',
-      accent: '#064e3b',
+      primary: '#4c1d95',
+      background: '#eef2ff',
+      accent: '#a7f3d0',
     },
   },
   {

@@ -108,15 +108,16 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="kwitansi-digital-title"
-      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto animate-modal-backdrop"
+      className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-modal-backdrop"
       onClick={props.onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col animate-modal-pop"
+        className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-2xl w-full border border-white/90 shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-indigo-200 no-print" aria-hidden="true" />
         {/* Header Modal (Disembunyikan saat cetak) */}
-        <div className="px-4 sm:px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50 no-print shrink-0">
+        <div className="px-4 sm:px-5 py-3 border-b border-indigo-100/70 flex items-center justify-between gap-3 bg-indigo-50/40 no-print shrink-0">
           <div className="min-w-0">
             <h3 id="kwitansi-digital-title" className="text-sm font-bold text-[#0F172A] truncate">
               {judulDokumen}
@@ -127,7 +128,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
             type="button"
             onClick={props.onClose}
             aria-label="Tutup kwitansi"
-            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 cursor-pointer shrink-0"
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-full text-slate-500 hover:text-[#4C1D95] hover:bg-indigo-50 cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -370,11 +371,11 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
         </div>
 
         {/* Footer Tombol Aksi — Rapi 1 Baris di Tablet/Desktop & Simetris di Mobile */}
-        <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 no-print shrink-0">
+        <div className="px-4 sm:px-5 py-3 bg-indigo-50/40 border-t border-indigo-100/70 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 no-print shrink-0">
           <button
             type="button"
             onClick={props.onClose}
-            className="w-full sm:w-auto min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="w-full sm:w-auto min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-indigo-50 cursor-pointer"
           >
             Tutup
           </button>
@@ -384,12 +385,12 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               type="button"
               disabled={printing || downloading}
               onClick={() => void handlePrintA4()}
-              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+              className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
               {printing ? (
                 <LoadingSpinner size="xs" tone="current" />
               ) : (
-                <Printer className="w-4 h-4 shrink-0" />
+                <Printer className="w-4 h-4 shrink-0 text-[#4C1D95]" />
               )}
               <span>{printing ? 'Menyiapkan...' : 'Cetak A4'}</span>
             </button>
@@ -397,7 +398,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               type="button"
               disabled={downloading || printing}
               onClick={() => void handleDownloadPdf()}
-              className="min-h-[42px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+              className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
               {downloading ? (
                 <LoadingSpinner size="xs" tone="white" />

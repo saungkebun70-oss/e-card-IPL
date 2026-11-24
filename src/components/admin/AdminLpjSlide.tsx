@@ -138,13 +138,13 @@ export function AdminLpjSlide({
   return (
     <div className="space-y-5">
       {/* Toolbar Kontrol Filter Triwulan & Tombol Ekspor PDF/Cetak A4 */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 no-print">
+      <section className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 no-print">
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500">
             Pilih Periode Laporan Pertanggungjawaban (Per 3 Bulan)
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl flex-1 sm:flex-none">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-indigo-50/80 rounded-2xl flex-1 sm:flex-none">
               {TRIWULAN_LIST.map((tw) => {
                 const active = triwulanId === tw.id;
                 return (
@@ -152,10 +152,10 @@ export function AdminLpjSlide({
                     key={tw.id}
                     type="button"
                     onClick={() => setTriwulanId(tw.id as 1 | 2 | 3 | 4)}
-                    className={`min-h-[38px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`min-h-[38px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                       active
-                        ? 'bg-[#0F172A] text-white shadow-sm'
-                        : 'text-slate-600 hover:text-[#0F172A]'
+                        ? 'bg-[#4C1D95] text-white shadow-sm'
+                        : 'text-slate-600 hover:text-[#4C1D95]'
                     }`}
                   >
                     {tw.label}
@@ -168,7 +168,7 @@ export function AdminLpjSlide({
               aria-label="Pilih Tahun LPJ"
               value={tahun}
               onChange={(e) => setTahun(Number(e.target.value))}
-              className="min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono font-bold text-[#0F172A]"
+              className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-mono font-bold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
             >
               {[TAHUN_AKTIF - 1, TAHUN_AKTIF, TAHUN_AKTIF + 1].map((y) => (
                 <option key={y} value={y}>
@@ -184,7 +184,7 @@ export function AdminLpjSlide({
             type="button"
             disabled={printingPdf || downloadingPdf}
             onClick={() => void handlePrintA4()}
-            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+            className="min-h-[44px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
           >
             {printingPdf ? (
               <LoadingSpinner size="xs" tone="current" />
@@ -197,7 +197,7 @@ export function AdminLpjSlide({
             type="button"
             disabled={downloadingPdf || printingPdf}
             onClick={() => void handleDownloadPdf()}
-            className="min-h-[44px] px-3.5 sm:px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+            className="min-h-[44px] px-4 sm:px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
           >
             {downloadingPdf ? (
               <LoadingSpinner size="xs" tone="white" />
@@ -213,7 +213,7 @@ export function AdminLpjSlide({
       <article
         ref={reportRef}
         id="printable-report"
-        className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
+        className="bg-white border border-indigo-100/90 rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
       >
         {/* Kop Resmi Pengurus — Proporsional Tanpa Memanjang ke Bawah */}
         <header className="flex items-center gap-3 sm:gap-4 border-b-2 border-[#0F172A] pb-3.5 print:pb-2.5">

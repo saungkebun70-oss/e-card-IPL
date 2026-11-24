@@ -328,18 +328,18 @@ export function AdminAttendanceMonitorPanel({
       {/* 1. STATUS LIVE HARI INI */}
       <section
         aria-label="Status Live Petugas Bertugas Hari Ini"
-        className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+        className="glass-card rounded-3xl overflow-hidden"
       >
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-[#0F172A] text-white">
+        <div className="px-4 sm:px-5 py-4 border-b border-white/15 flex flex-wrap items-center justify-between gap-3 glass-hero text-white">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/25 text-emerald-200 flex items-center justify-center shrink-0">
               <UserCheck className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold leading-tight">
                 Status Live Petugas Jaga Hari Ini
               </h2>
-              <p className="text-[11px] text-slate-300 mt-0.5 truncate">
+              <p className="text-[11px] text-indigo-100/90 mt-0.5 truncate">
                 Pembaruan real-time absen masuk, foto pos jaga &amp; progres patroli NFC terakhir
               </p>
             </div>
@@ -349,7 +349,7 @@ export function AdminAttendanceMonitorPanel({
             type="button"
             disabled={refreshing}
             onClick={() => void loadAttendance(true)}
-            className="min-h-[38px] px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="min-h-[38px] px-3.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Segarkan</span>
@@ -358,10 +358,10 @@ export function AdminAttendanceMonitorPanel({
 
         <div className="p-4 sm:p-5">
           {loading ? (
-            <div className="h-28 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-28 rounded-2xl bg-indigo-50/70 animate-pulse" />
           ) : liveOnDutyRecords.length === 0 ? (
-            <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-6 text-center space-y-1">
-              <ShieldCheck className="w-7 h-7 text-slate-300 mx-auto" />
+            <div className="rounded-2xl bg-indigo-50/45 border border-indigo-100/80 px-4 py-6 text-center space-y-1">
+              <ShieldCheck className="w-7 h-7 text-indigo-300 mx-auto" />
               <p className="text-sm font-semibold text-slate-700">
                 Belum Ada Petugas Berstatus ON DUTY Saat Ini
               </p>
@@ -478,7 +478,7 @@ export function AdminAttendanceMonitorPanel({
                       <button
                         type="button"
                         onClick={() => openEditModal(rec)}
-                        className="min-h-[36px] px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>
@@ -496,32 +496,32 @@ export function AdminAttendanceMonitorPanel({
 
       {/* 2. RINGKASAN KPI REKAP BULANAN (ACUAN HONOR & LEMBUR) */}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-white border border-slate-200 rounded-2xl p-3.5">
+        <div className="glass-card rounded-3xl p-4">
           <p className="text-[11px] font-medium text-slate-500">Total Kehadiran</p>
           <p className="text-xl font-mono font-bold text-[#0F172A] tabular-nums mt-1">
             {recapSummary.totalSessions}{' '}
             <span className="text-xs font-sans font-normal text-slate-500">shift</span>
           </p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-3.5">
+        <div className="glass-card rounded-3xl p-4">
           <p className="text-[11px] font-medium text-slate-500">Total Jam Kerja</p>
-          <p className="text-xl font-mono font-bold text-[#059669] tabular-nums mt-1">
+          <p className="text-xl font-mono font-bold text-[#4C1D95] tabular-nums mt-1">
             {formatHoursDecimal(recapSummary.totalMinutes)}
           </p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-3.5">
+        <div className="glass-card rounded-3xl p-4">
           <p className="text-[11px] font-medium text-slate-500">Tepat Waktu</p>
           <p className="text-xl font-mono font-bold text-emerald-700 tabular-nums mt-1">
             {recapSummary.onTimeCount}
           </p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-3.5">
+        <div className="glass-card rounded-3xl p-4">
           <p className="text-[11px] font-medium text-slate-500">Terlambat (&gt;15m)</p>
           <p className="text-xl font-mono font-bold text-amber-600 tabular-nums mt-1">
             {recapSummary.lateCount}
           </p>
         </div>
-        <div className="col-span-2 lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-3.5">
+        <div className="col-span-2 lg:col-span-1 glass-card rounded-3xl p-4">
           <p className="text-[11px] font-medium text-slate-500">Lembur Minggu / Belum Pulang</p>
           <p className="text-base font-mono font-bold text-[#0F172A] tabular-nums mt-1.5">
             {recapSummary.lemburMingguCount} lembur{' '}
@@ -536,9 +536,9 @@ export function AdminAttendanceMonitorPanel({
       {/* 3. TABEL REKAP ABSENSI (FILTER BULAN & NAMA PETUGAS) */}
       <section
         aria-label="Tabel Rekap Absensi Keamanan"
-        className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+        className="glass-card rounded-3xl overflow-hidden"
       >
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-[#0F172A]">
               Rekap Absensi &amp; Lembur Keamanan
@@ -551,13 +551,13 @@ export function AdminAttendanceMonitorPanel({
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="month"
                 aria-label="Filter bulan absensi"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="min-h-[40px] pl-8 pr-3 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium text-[#0F172A] tabular-nums"
+                className="min-h-[40px] pl-8 pr-3 rounded-2xl border border-indigo-100 bg-white/95 text-xs sm:text-sm font-medium text-[#0F172A] tabular-nums"
               />
             </div>
 
@@ -565,7 +565,7 @@ export function AdminAttendanceMonitorPanel({
               aria-label="Filter nama petugas keamanan"
               value={selectedOfficer}
               onChange={(e) => setSelectedOfficer(e.target.value)}
-              className="min-h-[40px] px-3 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium text-[#0F172A]"
+              className="min-h-[40px] px-3 rounded-2xl border border-indigo-100 bg-white/95 text-xs sm:text-sm font-medium text-[#0F172A]"
             >
               <option value="semua">Semua Petugas</option>
               {officerFilterOptions.map((name) => (
@@ -579,8 +579,8 @@ export function AdminAttendanceMonitorPanel({
 
         {loading ? (
           <div className="p-5 space-y-3">
-            <div className="h-12 rounded-xl bg-slate-100 animate-pulse" />
-            <div className="h-12 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-12 rounded-2xl bg-indigo-50/70 animate-pulse" />
+            <div className="h-12 rounded-2xl bg-indigo-50/70 animate-pulse" />
           </div>
         ) : filteredRecapRecords.length === 0 ? (
           <div className="px-5 py-8 text-center text-xs text-slate-500">
@@ -592,7 +592,7 @@ export function AdminAttendanceMonitorPanel({
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600">
+                  <tr className="bg-indigo-50/70 border-b border-indigo-100/80 text-[11px] font-bold text-slate-600">
                     <th className="py-3 px-4">Tanggal</th>
                     <th className="py-3 px-4">Petugas &amp; Shift</th>
                     <th className="py-3 px-4">Masuk</th>
@@ -603,7 +603,7 @@ export function AdminAttendanceMonitorPanel({
                     <th className="py-3 px-4 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-indigo-100/50 text-xs">
                   {filteredRecapRecords.map((rec) => {
                     const ev = evaluateAttendance(rec, nowMs);
                     return (
@@ -674,7 +674,7 @@ export function AdminAttendanceMonitorPanel({
                           <button
                             type="button"
                             onClick={() => openEditModal(rec)}
-                            className="min-h-[34px] px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1 cursor-pointer"
+                            className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             <span>Koreksi</span>
@@ -688,7 +688,7 @@ export function AdminAttendanceMonitorPanel({
             </div>
 
             {/* Daftar Kartu Mobile */}
-            <div className="md:hidden divide-y divide-slate-100">
+            <div className="md:hidden divide-y divide-indigo-100/50">
               {filteredRecapRecords.map((rec) => {
                 const ev = evaluateAttendance(rec, nowMs);
                 return (
@@ -705,7 +705,7 @@ export function AdminAttendanceMonitorPanel({
                       <button
                         type="button"
                         onClick={() => openEditModal(rec)}
-                        className="min-h-[36px] px-2.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                        className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1 shrink-0 cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Koreksi</span>
@@ -736,7 +736,7 @@ export function AdminAttendanceMonitorPanel({
                           <button
                             type="button"
                             onClick={() => setLightboxRecord(rec)}
-                            className="font-semibold text-[#059669] underline cursor-pointer"
+                            className="font-semibold text-[#4C1D95] underline cursor-pointer"
                           >
                             Lihat Foto
                           </button>
@@ -744,7 +744,7 @@ export function AdminAttendanceMonitorPanel({
                     </div>
 
                     {rec.handover_notes && (
-                      <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                      <p className="text-xs text-slate-600 bg-indigo-50/45 border border-indigo-100/80 rounded-xl px-2.5 py-1.5 whitespace-pre-line">
                         {rec.handover_notes}
                       </p>
                     )}
@@ -754,12 +754,12 @@ export function AdminAttendanceMonitorPanel({
             </div>
 
             {/* Footer Total Jam Kerja */}
-            <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="px-4 sm:px-5 py-3 bg-indigo-50/50 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-slate-600">
                 Menampilkan <strong className="text-[#0F172A]">{recapSummary.totalSessions}</strong>{' '}
                 catatan absensi ({selectedOfficer === 'semua' ? 'Semua Petugas' : selectedOfficer})
               </span>
-              <span className="font-mono font-bold text-[#059669] tabular-nums">
+              <span className="font-mono font-bold text-[#4C1D95] tabular-nums">
                 Akumulasi Jam Kerja Selesai: {formatDurationMinutes(recapSummary.totalMinutes)} (
                 {formatHoursDecimal(recapSummary.totalMinutes)})
               </span>
@@ -771,13 +771,13 @@ export function AdminAttendanceMonitorPanel({
       {/* MODAL EDIT / KOREKSI DATA ABSENSI (ADMIN) */}
       {editingRecord && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Koreksi Data Absensi Petugas"
         >
-          <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col animate-modal-pop">
+            <div className="px-5 py-4 border-b border-indigo-100/70 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-[#0F172A]">
                   Edit / Koreksi Data Absensi
@@ -790,7 +790,7 @@ export function AdminAttendanceMonitorPanel({
                 type="button"
                 onClick={() => setEditingRecord(null)}
                 aria-label="Tutup modal koreksi absensi"
-                className="min-h-[40px] min-w-[40px] rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-500 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -891,10 +891,10 @@ export function AdminAttendanceMonitorPanel({
                         handleAutoFillScheduledEnd();
                       }
                     }}
-                    className={`min-h-[40px] rounded-xl border text-xs font-bold cursor-pointer transition ${
+                    className={`min-h-[40px] rounded-2xl border text-xs font-bold cursor-pointer transition ${
                       editStatus === 'completed'
-                        ? 'bg-[#0F172A] border-[#0F172A] text-white'
-                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                        ? 'bg-[#4C1D95] border-[#4C1D95] text-white'
+                        : 'bg-white border-slate-300 text-slate-700 hover:bg-indigo-50/50'
                     }`}
                   >
                     Selesai Bertugas
@@ -917,9 +917,9 @@ export function AdminAttendanceMonitorPanel({
               </div>
 
               {/* Opsi Hapus Catatan Salah / Duplikat */}
-              <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+              <div className="pt-2 border-t border-indigo-100/70 flex items-center justify-between gap-2">
                 {confirmDeleteId === editingRecord.id ? (
-                  <div className="w-full rounded-xl bg-red-50 border border-red-200 p-3 flex items-center justify-between gap-2">
+                  <div className="w-full rounded-2xl bg-red-50 border border-red-200 p-3 flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-red-900">
                       Hapus permanen baris absensi ini?
                     </span>
@@ -927,7 +927,7 @@ export function AdminAttendanceMonitorPanel({
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteId(null)}
-                        className="min-h-[34px] px-2.5 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-700 cursor-pointer"
+                        className="min-h-[34px] px-3 rounded-full bg-white border border-indigo-100 text-xs font-semibold text-slate-700 cursor-pointer"
                       >
                         Batal
                       </button>
@@ -935,7 +935,7 @@ export function AdminAttendanceMonitorPanel({
                         type="button"
                         disabled={deletingId === editingRecord.id}
                         onClick={() => void handleDeleteRecord(editingRecord.id)}
-                        className="min-h-[34px] px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        className="min-h-[34px] px-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
                       >
                         {deletingId === editingRecord.id && (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -957,12 +957,12 @@ export function AdminAttendanceMonitorPanel({
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={savingEdit}
                 onClick={() => setEditingRecord(null)}
-                className="min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm font-semibold cursor-pointer"
+                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer"
               >
                 Batal
               </button>
@@ -970,7 +970,7 @@ export function AdminAttendanceMonitorPanel({
                 type="button"
                 disabled={savingEdit}
                 onClick={() => void handleSaveEdit()}
-                className="min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="min-h-[44px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
               >
                 {savingEdit && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>{savingEdit ? 'Menyimpan...' : 'Simpan Koreksi'}</span>
@@ -985,17 +985,17 @@ export function AdminAttendanceMonitorPanel({
         lightboxRecord.clock_in_photo_url &&
         isSafeAttendanceImageUrl(lightboxRecord.clock_in_photo_url) && (
           <div
-            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
             role="dialog"
             aria-modal="true"
             aria-label="Foto Absen Petugas"
             onClick={() => setLightboxRecord(null)}
           >
             <div
-              className="max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
+              className="max-w-lg w-full bg-white/95 backdrop-blur-xl rounded-3xl border border-white/90 overflow-hidden shadow-2xl animate-modal-pop"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
+              <div className="px-4 py-3 border-b border-indigo-100/70 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-[#0F172A] truncate">
                     Foto Absen Masuk · {lightboxRecord.officer_name}
@@ -1008,7 +1008,7 @@ export function AdminAttendanceMonitorPanel({
                   type="button"
                   onClick={() => setLightboxRecord(null)}
                   aria-label="Tutup foto absen"
-                  className="min-h-[36px] min-w-[36px] rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-600 cursor-pointer shrink-0"
+                  className="min-h-[36px] min-w-[36px] rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-600 cursor-pointer shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>

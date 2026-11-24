@@ -5,8 +5,6 @@ import {
   FileCheck2,
   LogOut,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   X,
   type LucideIcon,
@@ -66,7 +64,6 @@ export function AppShell({
 }: AppShellProps) {
   const { brand } = useAppBrand();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [pendingBugCount, setPendingBugCount] = useState<number>(0);
 
@@ -77,6 +74,10 @@ export function AppShell({
   const isLpjActive = activeTab === 'lpj';
   const isBugReportsActive = activeTab === 'laporan_bug';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
+
+  const desktopHeaderNavItems = isAdmin
+    ? navItems.filter((item) => !item.isCenterFab)
+    : navItems.slice(0, 5);
 
   const sessionRef = useRef<SessionUser>(session);
   sessionRef.current = session;
@@ -194,305 +195,15 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-full bg-[#F8FAFC] text-[#0F172A] flex flex-col lg:flex-row overflow-x-hidden">
-      {/* Desktop Sidebar Tetap (>= 1024px) — Mendukung mode Collapsed tanpa menggeser Header */}
-      <aside
-        className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 bg-[#0F172A] text-white border-r border-slate-800 z-30 transition-[width] duration-200 ease-out no-print ${
-          sidebarCollapsed ? 'lg:w-20' : 'lg:w-72'
-        }`}
-      >
-        <div
-          className={`h-16 border-b border-slate-800 flex items-center shrink-0 ${
-            sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4 gap-2'
-          }`}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandLogo size="sm" variant="dark" className="shrink-0" />
-            {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <p className="text-sm font-bold tracking-tight text-white truncate">
-                  {brand.app_name}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">{brand.app_subtitle}</p>
-              </div>
-            )}
-          </div>
-          {!sidebarCollapsed && (
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(true)}
-              aria-label="Perkecil sidebar"
-              title="Perkecil sidebar"
-              className="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Info Akun Aktif (Klik untuk buka Profil & Foto Akun) */}
-        <button
-          type="button"
-          onClick={handleOpenProfileFromSidebar}
-          title="Buka Profil & Foto Akun"
-          className={`w-full text-left border-b border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 transition-colors cursor-pointer shrink-0 ${
-            sidebarCollapsed
-              ? 'py-3.5 px-2 flex flex-col items-center gap-2'
-              : 'px-4 py-3.5 flex items-center gap-3'
-          }`}
-        >
-          <UserAvatar
-            name={session.nama_warga}
-            src={effectiveAvatarUrl}
-            size="md"
-            ringClassName="ring-2 ring-emerald-500/35"
-          />
-          {!sidebarCollapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-slate-400 truncate">
-                {isAdmin
-                  ? 'Pengurus Aktif'
-                  : isPetugas
-                    ? 'Petugas Keamanan Aktif'
-                    : 'Unit Rumah Terverifikasi'}
-              </p>
-              <p className="text-sm font-bold text-white mt-0.5 leading-snug truncate">
-                {isAdmin ? adminIdentityLabel : session.nama_warga}
-              </p>
-              <p className="text-xs font-mono text-emerald-400 mt-0.5 truncate">
-                {isAdmin
-                  ? session.admin_permission === 'full'
-                    ? 'Bendahara · Akses Penuh'
-                    : `${session.jabatan || 'Pengurus'} · Akses Tambah Data`
-                  : isPetugas
-                    ? `Keamanan · ${session.jabatan || session.blok_rumah || 'Petugas'}`
-                    : `Blok ${session.blok_rumah}`}
-              </p>
-            </div>
-          )}
-        </button>
-
-        {/* Tombol Perluas saat Sidebar Collapsed */}
-        {sidebarCollapsed && (
-          <div className="px-2 pt-3 flex justify-center shrink-0">
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(false)}
-              aria-label="Perluas sidebar"
-              title="Perluas sidebar"
-              className="w-10 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <PanelLeftOpen className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Menu Navigasi Desktop */}
-        <nav aria-label="Navigasi Utama" className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-          <div className="space-y-1">
-            {!sidebarCollapsed && (
-              <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Utama</p>
-            )}
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === activeTab;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  title={sidebarCollapsed ? item.label : undefined}
-                  onClick={() => onTabChange(item.id)}
-                  className={`relative w-full min-h-[44px] flex items-center ${
-                    sidebarCollapsed ? 'justify-center px-2' : 'justify-between gap-3 px-3.5'
-                  } py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
-                    isActive
-                      ? 'bg-[#059669] text-white shadow-xs'
-                      : item.isCenterFab
-                        ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/70 hover:bg-emerald-900/70 hover:text-white'
-                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                  }`}
-                >
-                  <span className="flex items-center gap-3 min-w-0">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </span>
-                  {typeof item.badgeCount === 'number' &&
-                    item.badgeCount > 0 &&
-                    (sidebarCollapsed ? (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400" />
-                    ) : (
-                      <span
-                        className={`font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-md ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-300'
-                        }`}
-                      >
-                        {item.badgeCount}
-                      </span>
-                    ))}
-                </button>
-              );
-            })}
-          </div>
-
-          {isAdmin && (
-            <>
-              {/* Kelompok Menu Laporan (LPJ) */}
-              <div className="space-y-1 pt-2 border-t border-slate-800/80">
-                {!sidebarCollapsed && (
-                  <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">Menu Laporan</p>
-                )}
-                <button
-                  type="button"
-                  title={sidebarCollapsed ? 'Laporan Pertanggungjawaban (LPJ)' : undefined}
-                  onClick={handleOpenLpj}
-                  className={`w-full text-left rounded-xl flex ${
-                    sidebarCollapsed
-                      ? 'items-center justify-center min-h-[44px] px-2'
-                      : 'items-start gap-3 px-3.5 py-2.5'
-                  } transition-all duration-200 active:scale-[0.97] cursor-pointer ${
-                    isLpjActive
-                      ? 'bg-[#059669] text-white'
-                      : 'text-slate-200 hover:bg-slate-800/80'
-                  }`}
-                >
-                  <FileCheck2
-                    className={`w-4 h-4 shrink-0 ${!sidebarCollapsed ? 'mt-0.5' : ''} ${
-                      isLpjActive ? 'text-white' : 'text-emerald-400'
-                    }`}
-                  />
-                  {!sidebarCollapsed && (
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold leading-snug">
-                        Laporan Pertanggungjawaban (LPJ)
-                      </p>
-                      <p
-                        className={`text-[11px] mt-0.5 leading-snug ${
-                          isLpjActive ? 'text-emerald-100' : 'text-slate-400'
-                        }`}
-                      >
-                        Rekapitulasi &amp; Cetak PDF A4
-                      </p>
-                    </div>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  title={sidebarCollapsed ? 'Laporan Bug' : undefined}
-                  onClick={handleOpenBugReports}
-                  className={`relative w-full text-left rounded-xl flex ${
-                    sidebarCollapsed
-                      ? 'items-center justify-center min-h-[44px] px-2'
-                      : 'items-start gap-3 px-3.5 py-2.5'
-                  } transition-all duration-200 active:scale-[0.97] cursor-pointer ${
-                    isBugReportsActive
-                      ? 'bg-[#059669] text-white'
-                      : 'text-slate-200 hover:bg-slate-800/80'
-                  }`}
-                >
-                  <Bug
-                    className={`w-4 h-4 shrink-0 ${!sidebarCollapsed ? 'mt-0.5' : ''} ${
-                      isBugReportsActive ? 'text-white' : 'text-rose-400'
-                    }`}
-                  />
-                  {!sidebarCollapsed && (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold leading-snug truncate">
-                          Laporan Bug
-                        </p>
-                        {pendingBugCount > 0 && (
-                          <span
-                            className={`font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-md shrink-0 ${
-                              isBugReportsActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-rose-500/20 text-rose-300'
-                            }`}
-                          >
-                            {pendingBugCount}
-                          </span>
-                        )}
-                      </div>
-                      <p
-                        className={`text-[11px] mt-0.5 leading-snug ${
-                          isBugReportsActive ? 'text-emerald-100' : 'text-slate-400'
-                        }`}
-                      >
-                        Kendala &amp; Snapshot Error Pengguna
-                      </p>
-                    </div>
-                  )}
-                  {sidebarCollapsed && pendingBugCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-400" />
-                  )}
-                </button>
-              </div>
-
-              {/* Kelompok Menu Sistem (Pengaturan Terpusat) */}
-              {onOpenSettings && (
-                <div className="space-y-1 pt-2 border-t border-slate-800/80">
-                  {!sidebarCollapsed && (
-                    <p className="px-3 text-[11px] font-semibold text-slate-400 mb-1.5">
-                      Menu Sistem
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    title={sidebarCollapsed ? 'Pengaturan Sistem Terpusat' : undefined}
-                    onClick={handleOpenSettingsFromSidebar}
-                    className={`w-full text-left rounded-xl flex ${
-                      sidebarCollapsed
-                        ? 'items-center justify-center min-h-[44px] px-2'
-                        : 'items-start gap-3 px-3.5 py-2.5'
-                    } text-slate-200 hover:bg-slate-800/80 transition-all duration-200 active:scale-[0.97] cursor-pointer`}
-                  >
-                    <Settings
-                      className={`w-4 h-4 shrink-0 text-emerald-400 ${!sidebarCollapsed ? 'mt-0.5' : ''}`}
-                    />
-                    {!sidebarCollapsed && (
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-snug">
-                          Pengaturan Sistem Terpusat
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                          {canAccessBotWa
-                            ? 'Profil, Tema, Identitas, QRIS, Bot WA, Petugas & Log'
-                            : 'Profil, Tema, Identitas, QRIS, Petugas & Log'}
-                        </p>
-                      </div>
-                    )}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </nav>
-
-        {/* Footer Sidebar Desktop */}
-        <div className="p-3 border-t border-slate-800 space-y-2.5 shrink-0">
-          {!sidebarCollapsed && (
-            <p className="text-[11px] text-slate-400 leading-relaxed px-2">{brand.kop_resmi}</p>
-          )}
-          <button
-            type="button"
-            title={sidebarCollapsed ? 'Keluar / Logout' : undefined}
-            onClick={onLogout}
-            className="w-full min-h-[42px] flex items-center justify-center gap-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-200 hover:text-white text-sm font-semibold transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!sidebarCollapsed && <span>Keluar / Logout</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Slide-Over Sidebar Drawer (Mobile & Tablet < 1024px) — Overlay Penuh Tanpa Menggeser Header */}
+    <div className="min-h-[100dvh] w-full max-w-full glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
+      {/* Slide-Over Menu Drawer Admin (Mobile, Tablet & Desktop — Akses LPJ, Laporan Bug & Pengaturan Sistem) */}
       <AnimatePresence>
         {drawerOpen && isAdmin && (
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Menu Sidebar Pengurus"
-            className="lg:hidden fixed inset-0 z-[60] flex no-print"
+            aria-label="Menu Tambahan Pengurus"
+            className="fixed inset-0 z-[60] flex no-print"
           >
             {/* Backdrop Blur */}
             <motion.div
@@ -504,21 +215,18 @@ export function AppShell({
               className="fixed inset-0 bg-slate-950/55 backdrop-blur-sm"
             />
 
-            {/* Panel Sidebar Slide-Over Modern */}
+            {/* Panel Drawer Frosted Glass */}
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[324px] h-full bg-white/95 backdrop-blur-xl rounded-r-3xl border-r border-slate-200/80 shadow-2xl flex flex-col overflow-hidden"
+              className="relative z-10 w-[85vw] max-w-[336px] h-full bg-white/95 backdrop-blur-2xl rounded-r-3xl border-r border-white/90 shadow-2xl flex flex-col overflow-hidden"
             >
-              {/* Header Sidebar dengan Jarak Aman Atas & Gradasi Halus Sesuai Tema */}
+              {/* Header Drawer Gradasi Ungu-Indigo Tema Aktif */}
               <div
-                className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-5 text-white shrink-0"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-2) 100%)',
-                }}
+                className="px-5 pt-[calc(max(env(safe-area-inset-top,0px),20px)+1rem)] pb-5 text-white shrink-0"
+                style={{ backgroundImage: 'var(--theme-hero-gradient)' }}
               >
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
@@ -527,73 +235,97 @@ export function AppShell({
                       <p className="text-sm font-bold text-white leading-tight truncate">
                         {brand?.app_name || 'e-Card IPL Saung Kebun'}
                       </p>
-                      <p className="text-[11px] text-slate-300/80 truncate mt-0.5">
-                        Perumahan Saung Kebun
+                      <p className="text-[11px] text-purple-100/80 truncate mt-0.5">
+                        {brand?.app_subtitle || 'Perumahan Saung Kebun'}
                       </p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setDrawerOpen(false)}
-                    aria-label="Tutup menu sidebar"
-                    className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 flex items-center justify-center transition cursor-pointer shrink-0"
+                    aria-label="Tutup menu pengurus"
+                    className="h-9 w-9 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Kartu Profil Elegan — Avatar Foto / Inisial + Nama + Status */}
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="mt-4 w-full text-left p-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/10 flex items-center gap-3 transition-colors cursor-pointer"
+                  className="mt-4 w-full text-left p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center gap-3 transition-colors cursor-pointer"
                 >
                   <UserAvatar
                     name={session?.nama_warga || 'Pengurus'}
                     src={effectiveAvatarUrl}
                     size="md"
-                    ringClassName="ring-2 ring-emerald-400/40"
+                    ringClassName="ring-2 ring-emerald-300/50"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-white leading-tight truncate">
                       {session?.nama_warga || 'Pengurus'}
                     </p>
-                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 px-2.5 py-0.5 text-[11px] font-medium text-emerald-200 max-w-full">
-                      <span
-                        aria-hidden="true"
-                        className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"
-                      />
-                      <span className="truncate">
-                        {session.jabatan || 'Pengurus'} •{' '}
-                        {session.admin_permission === 'full' ? 'Akses Penuh' : 'Akses Pengurus'}
-                      </span>
-                    </span>
+                    <p className="mt-1 text-[11px] font-medium text-emerald-200 truncate">
+                      {session.jabatan || 'Pengurus'} ·{' '}
+                      {session.admin_permission === 'full' ? 'Akses Penuh' : 'Akses Pengurus'}
+                    </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-purple-100 shrink-0" />
                 </button>
               </div>
 
-              {/* Isi Kelompok Menu Sidebar */}
+              {/* Isi Kelompok Menu */}
               <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
-                {/* Kelompok 1: Menu Laporan */}
                 <div className="space-y-2">
                   <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Menu Laporan
+                    Navigasi Cepat
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = item.id === activeTab;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setDrawerOpen(false);
+                            onTabChange(item.id);
+                          }}
+                          className={`min-h-[42px] px-3 py-2 rounded-2xl border text-left flex items-center gap-2 text-xs font-semibold transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-sm'
+                              : 'bg-white/90 text-slate-700 border-slate-200/80 hover:bg-indigo-50/70'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="truncate">
+                            {item.id === 'dashboard' ? 'Dasbor' : item.shortLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Menu Laporan &amp; Dukungan
                   </p>
                   <button
                     type="button"
                     onClick={handleOpenLpj}
-                    className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-sm border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
+                    className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
                       isLpjActive
-                        ? 'bg-emerald-50/90 border-emerald-200'
-                        : 'bg-white border-slate-100 hover:bg-slate-50/80'
+                        ? 'bg-[#EDE9FE] border-[#DDD6FE]'
+                        : 'bg-white border-slate-100 hover:bg-indigo-50/50'
                     }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isLpjActive
-                          ? 'bg-[#059669] text-white'
-                          : 'bg-emerald-50 text-emerald-600'
+                          ? 'bg-[#4C1D95] text-white'
+                          : 'bg-indigo-50 text-[#4C1D95]'
                       }`}
                     >
                       <FileCheck2 className="w-5 h-5" />
@@ -612,16 +344,16 @@ export function AppShell({
                   <button
                     type="button"
                     onClick={handleOpenBugReports}
-                    className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-sm border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
+                    className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
                       isBugReportsActive
-                        ? 'bg-emerald-50/90 border-emerald-200'
-                        : 'bg-white border-slate-100 hover:bg-slate-50/80'
+                        ? 'bg-[#EDE9FE] border-[#DDD6FE]'
+                        : 'bg-white border-slate-100 hover:bg-indigo-50/50'
                     }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isBugReportsActive
-                          ? 'bg-[#059669] text-white'
+                          ? 'bg-[#4C1D95] text-white'
                           : 'bg-rose-50 text-rose-600'
                       }`}
                     >
@@ -633,7 +365,7 @@ export function AppShell({
                           Laporan Bug
                         </p>
                         {pendingBugCount > 0 && (
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 tabular-nums">
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 tabular-nums">
                             {pendingBugCount}
                           </span>
                         )}
@@ -646,7 +378,6 @@ export function AppShell({
                   </button>
                 </div>
 
-                {/* Kelompok 2: Menu Sistem */}
                 {onOpenSettings && (
                   <div className="space-y-2">
                     <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -655,9 +386,9 @@ export function AppShell({
                     <button
                       type="button"
                       onClick={handleOpenSettingsFromSidebar}
-                      className="w-full text-left px-3.5 py-3 rounded-2xl shadow-sm border border-slate-100 bg-white hover:bg-slate-50/80 active:scale-[0.98] flex items-center gap-3 transition-all cursor-pointer"
+                      className="w-full text-left px-3.5 py-3 rounded-2xl shadow-xs border border-slate-100 bg-white hover:bg-indigo-50/50 active:scale-[0.98] flex items-center gap-3 transition-all cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-sky-50 text-slate-700 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                         <Settings className="w-5 h-5" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -666,8 +397,8 @@ export function AppShell({
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
                           {canAccessBotWa
-                            ? 'Profil, Identitas, QRIS, Bot WA, Petugas & PIN'
-                            : 'Profil, Identitas, QRIS, Petugas & PIN'}
+                            ? 'Profil, Tema, Identitas, QRIS, Bot WA, Petugas & Log'
+                            : 'Profil, Tema, Identitas, QRIS, Petugas & Log'}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
@@ -676,7 +407,7 @@ export function AppShell({
                 )}
               </div>
 
-              {/* Footer Dasar Sidebar */}
+              {/* Footer Drawer */}
               <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-100 bg-slate-50/70 space-y-3 shrink-0">
                 <AppVersionFooter compact className="px-1" />
                 <p className="text-[11px] text-slate-400 leading-relaxed px-1">
@@ -685,7 +416,7 @@ export function AppShell({
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
-                  className="w-full py-2.5 px-4 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] font-medium text-sm border border-red-100/80 inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] font-semibold text-sm border border-red-100/80 inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>Keluar / Logout</span>
@@ -696,149 +427,214 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      {/* Area Kerja Utama */}
-      <div
-        className={`flex-1 flex flex-col min-w-0 overflow-x-hidden transition-[padding] duration-200 ease-out ${
-          sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'
-        }`}
-      >
-        {/* Header Tetap & Anti-Geser (Fixed Top-0, Tinggi Konstan h-16, Flex-Nowrap) */}
-        <header
-          className={`fixed top-0 left-0 right-0 z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] lg:h-16 pt-[env(safe-area-inset-top,0px)] lg:pt-0 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 sm:px-6 lg:px-8 flex items-center transition-[left] duration-200 ease-out no-print ${
-            sidebarCollapsed ? 'lg:left-20' : 'lg:left-72'
-          }`}
-        >
-          <div className="max-w-7xl w-full mx-auto flex flex-nowrap items-center justify-between gap-2 sm:gap-3 min-w-0">
-            {/* Kiri: Hamburger (Mobile Admin) + Logo Saung Kebun + Judul Halaman */}
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  aria-label="Buka Menu Sidebar"
-                  title="Buka Menu Sidebar"
-                  className="lg:hidden h-10 w-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-              )}
-
-              <BrandLogo size="xs" className="lg:hidden shrink-0" />
-
-              <div className="min-w-0 flex-1">
-                {isAdmin ? (
-                  <>
-                    <p className="text-[11px] sm:text-xs font-semibold text-emerald-700 leading-tight truncate">
-                      {adminIdentityLabel}
-                    </p>
-                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
-                      {activePageTitle}
-                    </h1>
-                  </>
-                ) : isPetugas ? (
-                  <>
-                    <div className="flex flex-nowrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight min-w-0">
-                      <span className="truncate">{brand.app_name}</span>
-                      <span aria-hidden="true" className="shrink-0">
-                        ·
-                      </span>
-                      <span className="font-semibold text-emerald-700 shrink-0 whitespace-nowrap">
-                        Keamanan
-                      </span>
-                    </div>
-                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
-                      {activePageTitle}
-                    </h1>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-nowrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight min-w-0">
-                      <span className="truncate">{brand.app_name}</span>
-                      <span aria-hidden="true" className="shrink-0">
-                        ·
-                      </span>
-                      <span className="font-mono font-semibold text-[var(--theme-primary-text)] shrink-0 whitespace-nowrap">
-                        Blok {session.blok_rumah}
-                      </span>
-                    </div>
-                    <h1 className="text-sm sm:text-base lg:text-lg font-bold text-[#0F172A] tracking-tight leading-tight truncate mt-0.5">
-                      {activePageTitle}
-                    </h1>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Kanan: Lonceng Semua Aktivitas (Wajib Tampil di Semua Peran & Ukuran Layar) + Foto Profil Akun + Aksi Tambahan */}
-            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
-              {headerAction && <div className="shrink-0">{headerAction}</div>}
-
-              <div className="inline-flex items-center visible opacity-100 shrink-0">
-                <NotificationBell
-                  session={session}
-                  variant="light"
-                  externalUnreadCount={unreadNotificationCount}
-                  onUnreadCountChange={setUnreadNotificationCount}
-                  onNavigateTarget={onNavigateTarget}
-                />
-              </div>
-
+      {/* Floating Glass Header Bar (Mobile, Tablet & Desktop) */}
+      <div className="fixed top-0 left-0 right-0 z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] pointer-events-none no-print">
+        <header className="max-w-7xl mx-auto glass-header rounded-2xl px-3.5 sm:px-5 h-14 sm:h-16 flex flex-nowrap items-center justify-between gap-3 sm:gap-6 pointer-events-auto">
+          {/* Zona 1: Brand Lockup (Kiri) */}
+          <div className="flex flex-nowrap items-center gap-2.5 min-w-0 shrink-0">
+            {isAdmin && (
               <button
                 type="button"
-                onClick={() => onOpenProfile?.()}
-                aria-label={`Profil ${session.nama_warga}`}
-                title="Profil & Foto Akun"
-                className="flex flex-nowrap items-center gap-2 p-0.5 sm:pr-2.5 rounded-full sm:rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition-colors cursor-pointer shrink-0"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Buka Menu Tambahan"
+                title="Menu LPJ, Laporan Bug & Pengaturan"
+                className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-indigo-200/70 bg-white/75 hover:bg-white text-[var(--theme-primary)] flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <UserAvatar
-                  name={session.nama_warga}
-                  src={effectiveAvatarUrl}
-                  size="sm"
-                  className="shrink-0"
-                />
-                <span className="hidden md:inline text-xs font-semibold text-[#0F172A] max-w-[112px] truncate">
-                  {session.nama_warga}
-                </span>
+                <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+                {pendingBugCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums">
+                    {pendingBugCount > 9 ? '9+' : pendingBugCount}
+                  </span>
+                )}
               </button>
+            )}
 
-              {isAdmin && !headerAction && (
+            <button
+              type="button"
+              onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
+              className="flex flex-nowrap items-center gap-2.5 min-w-0 text-left cursor-pointer group"
+            >
+              <BrandLogo size="xs" className="shrink-0 sm:hidden" />
+              <BrandLogo size="sm" className="shrink-0 hidden sm:flex" />
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs font-extrabold tracking-tight text-[var(--theme-text)] uppercase leading-tight whitespace-nowrap truncate max-w-[145px] sm:max-w-[200px]">
+                  {brand.app_name || 'Perumahan Saung Kebun'}
+                </p>
+                <p className="text-[10px] sm:text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight whitespace-nowrap truncate max-w-[145px] sm:max-w-[200px]">
+                  {isAdmin
+                    ? activePageTitle
+                    : isPetugas
+                      ? `Keamanan · ${activePageTitle}`
+                      : `Blok ${session.blok_rumah} · ${activePageTitle}`}
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Zona 2: Navigasi Horizontal Single-Line Desktop (>= 1024px) */}
+          <nav
+            aria-label="Navigasi Utama"
+            className="hidden lg:flex items-center justify-center gap-6 min-w-0"
+          >
+            {desktopHeaderNavItems.map((item) => {
+              const isActive = item.id === activeTab;
+              const shortHeading = item.id === 'dashboard' ? 'Dasbor' : item.shortLabel;
+              return (
                 <button
+                  key={item.id}
                   type="button"
-                  onClick={onLogout}
-                  aria-label="Keluar dari Portal Admin"
-                  title="Keluar"
-                  className="hidden sm:inline-flex h-10 px-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-semibold text-slate-700 items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  onClick={() => onTabChange(item.id)}
+                  className={`relative py-2 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 ${
+                    isActive
+                      ? 'text-[var(--theme-primary)]'
+                      : 'text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)]'
+                  }`}
                 >
-                  <LogOut className="w-3.5 h-3.5 shrink-0" />
-                  <span>Keluar</span>
+                  <span>{shortHeading}</span>
+                  {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
+                    <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 tabular-nums leading-none">
+                      {item.badgeCount}
+                    </span>
+                  )}
+                  {isActive && (
+                    <motion.span
+                      layoutId="desktop-top-nav-underline"
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      aria-hidden="true"
+                      className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-full bg-[var(--theme-primary)]"
+                    />
+                  )}
                 </button>
-              )}
+              );
+            })}
+          </nav>
+
+          {/* Zona 3: Identitas Pengguna + Lonceng + Profil + Pengaturan/Keluar (Kanan) */}
+          <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
+            {headerAction && <div className="shrink-0">{headerAction}</div>}
+
+            {isAdmin && (
+              <div className="hidden xl:flex flex-col items-end text-right mr-1 min-w-0 max-w-[200px]">
+                <span className="text-xs font-bold text-[var(--theme-text)] leading-tight truncate max-w-full">
+                  {session.nama_warga} —
+                </span>
+                <span className="text-[11px] font-medium text-[var(--theme-text-secondary)] leading-tight truncate max-w-full">
+                  {session.jabatan || 'Pengurus Lingkungan'}
+                </span>
+              </div>
+            )}
+
+            <div className="inline-flex items-center visible opacity-100 shrink-0">
+              <NotificationBell
+                session={session}
+                variant="light"
+                externalUnreadCount={unreadNotificationCount}
+                onUnreadCountChange={setUnreadNotificationCount}
+                onNavigateTarget={onNavigateTarget}
+              />
             </div>
+
+            {isAdmin && onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                aria-label="Pengaturan Sistem"
+                title="Pengaturan Sistem Terpusat"
+                className="hidden sm:inline-flex h-9 w-9 rounded-xl border border-indigo-200/70 bg-white/75 hover:bg-white text-[var(--theme-text-secondary)] hover:text-[var(--theme-primary)] items-center justify-center transition-colors cursor-pointer shrink-0"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onOpenProfile?.()}
+              aria-label={`Profil ${session.nama_warga}`}
+              title={isAdmin ? adminIdentityLabel : 'Profil & Foto Akun'}
+              className="flex flex-nowrap items-center gap-2 p-0.5 sm:pr-2.5 rounded-full border border-indigo-200/70 bg-white/80 hover:bg-white transition-colors cursor-pointer shrink-0"
+            >
+              <UserAvatar
+                name={session.nama_warga}
+                src={effectiveAvatarUrl}
+                size="sm"
+                className="shrink-0"
+              />
+              <span className="hidden md:inline xl:hidden text-xs font-semibold text-[var(--theme-text)] max-w-[100px] truncate">
+                {session.nama_warga}
+              </span>
+            </button>
+
+            {isAdmin && !headerAction && (
+              <button
+                type="button"
+                onClick={onLogout}
+                aria-label="Keluar dari Portal Admin"
+                title="Keluar"
+                className="hidden md:inline-flex h-9 px-3 rounded-xl border border-red-200/80 bg-white/80 hover:bg-red-50 text-xs font-semibold text-red-700 items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">Keluar</span>
+              </button>
+            )}
           </div>
         </header>
-
-        {/* Single-View Slide Content per Tab — Padding Atas Menyesuaikan Header Fixed h-16 */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:pt-[5.25rem] pb-28 lg:pb-10 min-w-0 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto w-full min-w-0">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
       </div>
 
-      {/* Bottom Navigation Bar Tetap untuk Mobile & Tablet (< 1024px) */}
+      {/* Area Konten Utama */}
+      <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.25rem)] sm:pt-[5.75rem] pb-24 md:pb-28 min-w-0 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto w-full min-w-0">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Floating Bottom Dock untuk Tablet & Desktop (>= 768px) */}
       <nav
-        aria-label="Navigasi Bawah"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe pb-[env(safe-area-inset-bottom)] no-print"
+        aria-label="Dock Navigasi Utama"
+        className="hidden md:flex fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass-dock rounded-2xl px-2.5 py-1.5 items-center gap-1.5 max-w-[94vw] no-print"
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = item.id === activeTab;
+          const dockLabel = item.id === 'dashboard' ? 'Dasbor' : item.shortLabel;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onTabChange(item.id)}
+              className={`relative min-w-[76px] px-3.5 py-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-150 active:scale-[0.96] cursor-pointer whitespace-nowrap shrink-0 ${
+                isActive
+                  ? 'bg-[var(--theme-primary-soft)] text-[var(--theme-primary)] shadow-xs'
+                  : 'text-[var(--theme-text-secondary)] hover:bg-white/70 hover:text-[var(--theme-text)]'
+              }`}
+            >
+              <div className="relative">
+                <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
+                {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold font-mono flex items-center justify-center tabular-nums">
+                    {item.badgeCount > 9 ? '9+' : item.badgeCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] font-semibold leading-none">{dockLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Bottom Navigation Bar Tetap untuk Mobile (< 768px) dengan Floating Center + Circle */}
+      <nav
+        aria-label="Navigasi Bawah Mobile"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/92 backdrop-blur-xl border-t border-white/90 shadow-[0_-8px_24px_-8px_rgba(79,70,229,0.14)] pb-safe pb-[env(safe-area-inset-bottom)] no-print"
       >
         <div
           className={`grid ${
@@ -847,12 +643,13 @@ export function AppShell({
               : navItems.length === 5
                 ? 'grid-cols-5'
                 : 'grid-cols-4'
-          } h-16 max-w-2xl mx-auto items-end`}
+          } h-[60px] max-w-md mx-auto items-end`}
         >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab;
             const isCompactSix = navItems.length >= 6;
+            const mobileLabel = item.id === 'dashboard' ? 'Dasbor' : item.shortLabel;
 
             if (item.isCenterFab) {
               return (
@@ -865,21 +662,21 @@ export function AppShell({
                 >
                   <span
                     className={`${
-                      isCompactSix ? 'w-12 h-12 -mt-5' : 'w-14 h-14 -mt-6'
-                    } rounded-full border-4 border-[var(--theme-surface)] shadow-lg flex items-center justify-center transition-all group-active:scale-95 ${
+                      isCompactSix ? 'w-11 h-11 -mt-5' : 'w-13 h-13 -mt-6'
+                    } rounded-full border-[3.5px] border-white shadow-[0_8px_20px_-4px_rgba(76,29,149,0.45)] flex items-center justify-center transition-all group-active:scale-95 ${
                       isActive
-                        ? 'bg-[#0F172A] text-white shadow-slate-900/25'
-                        : 'bg-[#059669] text-white shadow-black/20 hover:opacity-95'
+                        ? 'bg-[var(--theme-cta-indigo)] text-white'
+                        : 'bg-[var(--theme-primary)] text-white hover:opacity-95'
                     }`}
                   >
                     <Icon className={isCompactSix ? 'w-5 h-5' : 'w-6 h-6'} strokeWidth={2.5} />
                   </span>
                   <span
-                    className={`text-[11px] font-bold mt-1 leading-none truncate max-w-full ${
-                      isActive ? 'text-[var(--theme-text)]' : 'text-[var(--theme-primary)]'
+                    className={`text-[10px] font-bold mt-1 leading-none truncate max-w-full ${
+                      isActive ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-secondary)]'
                     }`}
                   >
-                    {item.shortLabel}
+                    {mobileLabel}
                   </span>
                 </button>
               );
@@ -890,35 +687,33 @@ export function AppShell({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`relative flex flex-col items-center justify-center h-16 px-0.5 transition-all duration-200 active:scale-[0.95] cursor-pointer min-w-0 ${
-                  isActive ? 'text-[#059669]' : 'text-slate-500 hover:text-slate-800'
+                className={`relative flex flex-col items-center justify-center h-[60px] px-0.5 transition-all duration-150 active:scale-[0.95] cursor-pointer min-w-0 ${
+                  isActive
+                    ? 'text-[var(--theme-primary)]'
+                    : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text)]'
                 }`}
               >
                 {isActive && (
                   <motion.span
                     layoutId="bottom-nav-active-bar"
-                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                     aria-hidden="true"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[#059669]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[var(--theme-primary)]"
                   />
                 )}
-                <div className="relative transition-transform duration-200">
+                <div className="relative transition-transform duration-150">
                   <Icon
-                    className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-105' : ''}`}
+                    className={`w-[19px] h-[19px] transition-transform duration-150 ${isActive ? 'scale-105' : ''}`}
                     strokeWidth={isActive ? 2.4 : 1.9}
                   />
                   {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white text-[10px] font-bold font-mono flex items-center justify-center tabular-nums">
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold font-mono flex items-center justify-center tabular-nums">
                       {item.badgeCount > 9 ? '9+' : item.badgeCount}
                     </span>
                   )}
                 </div>
-                <span
-                  className={`${
-                    isCompactSix ? 'text-[10px]' : 'text-[11px]'
-                  } font-semibold mt-1 leading-none truncate max-w-full`}
-                >
-                  {item.shortLabel}
+                <span className="text-[10px] font-semibold mt-1 leading-none truncate max-w-full">
+                  {mobileLabel}
                 </span>
               </button>
             );

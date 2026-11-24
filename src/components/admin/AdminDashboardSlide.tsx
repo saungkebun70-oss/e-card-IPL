@@ -191,6 +191,19 @@ export function AdminDashboardSlide({
   const verifiedList = verificationQueue.verifiedIplList;
   const rejectedList = verificationQueue.rejectedIplList;
 
+  const quickQueueList = isKetua ? accBendaharaList : pendingList;
+  const quickQueueBadgeCount = isKetua ? totalKetuaQueueCount : pendingList.length;
+
+  const scrollToVerificationSection = (targetTab: TrxFilterTab) => {
+    setTrxFilter(targetTab);
+    setVisiblePendingCount(15);
+    if (typeof document !== 'undefined') {
+      document
+        .getElementById('verifikasi-section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const filteredTransaksi = useMemo(() => {
     const base =
       trxFilter === 'Pending'
@@ -565,98 +578,252 @@ export function AdminDashboardSlide({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Header Periode + 2 Tombol Aksi Cepat Bersih (Grid 2 Kolom Sejajar) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-600">
-            Ringkasan Kas Periode{' '}
-            <span className="font-bold text-[#0F172A]">
-              {currentMonthName} {TAHUN_AKTIF}
+    <div className="space-y-5 sm:space-y-6">
+      {/* Hero Card Saldo Kas Lingkungan — Ungu-Indigo Gelap Bercahaya */}
+      <section className="glass-hero rounded-3xl text-white px-5 py-6 sm:px-8 sm:py-8 relative overflow-hidden">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <p className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-purple-100/85 inline-flex items-center gap-1.5">
+            <Wallet className="w-3.5 h-3.5 shrink-0 text-emerald-300" />
+            <span>
+              Saldo Kas Lingkungan · {currentMonthName} {TAHUN_AKTIF}
             </span>
           </p>
-        </div>
-
-        <div
-          className={
-            canAccessBotWa
-              ? 'grid grid-cols-2 gap-2.5 sm:w-auto sm:min-w-[330px]'
-              : 'flex items-center justify-end'
-          }
-        >
-          {canAccessBotWa && (
-            <button
-              type="button"
-              onClick={openBroadcastModal}
-              className="min-h-[44px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-xs sm:text-sm font-semibold text-white inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <Megaphone className="w-4 h-4 shrink-0" />
-              <span>Kirim Pengumuman</span>
-            </button>
-          )}
 
           <button
             type="button"
             disabled={isRefreshing}
             onClick={() => void onRefresh()}
-            className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            title="Muat Ulang Data"
+            className="min-h-[34px] px-3 rounded-full bg-white/12 hover:bg-white/22 border border-white/20 disabled:opacity-60 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Memuat...' : 'Muat Ulang Data'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>
         </div>
-      </div>
 
-      {/* Kartu Saldo Kas Real-Time Terintegrasi */}
-      <section className="rounded-2xl bg-[#0F172A] text-white p-4 sm:p-6 border border-slate-800">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-emerald-300 inline-flex items-center gap-1.5">
-              <Wallet className="w-4 h-4 shrink-0" />
-              <span>Saldo Kas Lingkungan Real-Time</span>
-            </p>
-            <p className="text-2xl sm:text-3xl font-mono font-bold tracking-tight tabular-nums mt-1.5">
-              {formatRupiah(globalCash.saldoKas)}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Otomatis tersinkronisasi: Pemasukan IPL Terverifikasi + Pemasukan Lain − Pengeluaran Anggaran
-            </p>
+        <div className="text-center py-1 sm:py-2">
+          <p className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight tabular-nums text-white">
+            {formatRupiah(globalCash.saldoKas)}
+          </p>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/25 border border-emerald-300/35 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-emerald-100 tabular-nums">
+              Pemasukan IPL: {formatRupiah(globalCash.totalIplMasuk)}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-400/20 border border-sky-200/30 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-sky-100 tabular-nums">
+              Kas Lain: {formatRupiah(globalCash.totalPemasukanLain)}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-purple-100 tabular-nums">
+              Pengeluaran: {formatRupiah(globalCash.totalPengeluaran)}
+            </span>
           </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 md:min-w-[390px]">
-            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">IPL Masuk</p>
-              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-emerald-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
-                {formatRupiah(globalCash.totalIplMasuk)}
+      {/* Baris Status Interaktif Terpusat */}
+      <section className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+        <button
+          type="button"
+          onClick={() => scrollToVerificationSection(isKetua ? 'ACC Bendahara' : 'Pending')}
+          className="min-h-[40px] px-4 py-2 rounded-full bg-[#FEF3C7] hover:bg-[#FDE68A] border border-amber-200/90 text-[#B45309] text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs tabular-nums"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>Perlu Verifikasi ({quickQueueBadgeCount})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollToVerificationSection('Terverifikasi')}
+          className="min-h-[40px] px-4 py-2 rounded-full bg-[#D1FAE5] hover:bg-[#A7F3D0] border border-emerald-200/90 text-[#047857] text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs tabular-nums"
+        >
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>
+            Lunas Bulan Ini ({rumahLunasBulanIni}/{activeWarga.length} KK)
+          </span>
+        </button>
+      </section>
+
+      {/* Dual-Column Bento Grid: Antrean Verifikasi Setoran & Pengumuman Sistem */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+        {/* Bento Kiri: Antrean Verifikasi Setoran */}
+        <div className="glass-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600">
+                Antrean Verifikasi Setoran
+              </h2>
+              <button
+                type="button"
+                onClick={() => scrollToVerificationSection(isKetua ? 'ACC Bendahara' : 'Pending')}
+                className="text-xs font-semibold text-[#4C1D95] hover:underline cursor-pointer shrink-0"
+              >
+                Lihat Semua ({quickQueueList.length})
+              </button>
+            </div>
+
+            {quickQueueList.length === 0 ? (
+              <div className="rounded-2xl border border-indigo-100/80 bg-white/60 p-6 text-center">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <p className="text-sm font-bold text-[#0F172A] mt-2">
+                  Antrean Verifikasi Bersih
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Seluruh setoran warga yang masuk sudah diproses.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {quickQueueList.slice(0, 4).map((trx) => {
+                  const isBusy = processingId === trx.id;
+                  const canVerifyQuick =
+                    (trx.status_verifikasi === 'Pending' && canAccessBotWa) ||
+                    (trx.status_verifikasi === 'ACC Bendahara' && isKetua);
+
+                  return (
+                    <div
+                      key={`quick-queue-${trx.id}`}
+                      className="rounded-2xl border border-indigo-100/90 bg-white/75 px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          aria-hidden="true"
+                          className="w-2 h-2 rounded-full bg-sky-500 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#0F172A] truncate">
+                            {trx.blok_rumah} · {trx.nama_warga}
+                          </p>
+                          <p className="text-xs text-slate-500 font-mono tabular-nums truncate">
+                            {formatRupiah(trx.nominal)} · {formatDaftarBulan(trx.bulan_dibayar)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTrx(trx)}
+                          className="min-h-[34px] px-3 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer whitespace-nowrap"
+                        >
+                          Lihat Bukti
+                        </button>
+                        {canVerifyQuick && (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() =>
+                              void (
+                                trx.status_verifikasi === 'ACC Bendahara'
+                                  ? handleKetuaApproveIpl(trx)
+                                  : handleBendaharaAcc(trx)
+                              )
+                            }
+                            className="min-h-[34px] px-3.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer whitespace-nowrap"
+                          >
+                            {isBusy ? 'Memproses...' : 'Verifikasi'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bento Kanan: Pengumuman Sistem ke Seluruh Warga */}
+        <div className="glass-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
+                Pengumuman Sistem ke Seluruh Warga
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pesan massal yang tampil langsung pada beranda Portal Warga.
               </p>
             </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">Kas Lain</p>
-              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-sky-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
-                {formatRupiah(globalCash.totalPemasukanLain)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-2 sm:px-3 py-2 sm:py-2.5 min-w-0">
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">Pengeluaran</p>
-              <p className="text-[11px] min-[390px]:text-xs sm:text-sm font-mono font-bold text-rose-300 tabular-nums tracking-tight leading-snug mt-1 break-words">
-                {formatRupiah(globalCash.totalPengeluaran)}
-              </p>
-            </div>
+
+            {canAccessBotWa && (
+              <button
+                type="button"
+                onClick={openBroadcastModal}
+                className="w-full min-h-[46px] px-4 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+              >
+                <Megaphone className="w-4 h-4 shrink-0" />
+                <span>Buat Pengumuman Baru</span>
+              </button>
+            )}
+
+            {notifications.length === 0 ? (
+              <div className="rounded-2xl border border-indigo-100/80 bg-white/60 p-5 text-center">
+                <p className="text-xs font-semibold text-slate-600">
+                  Belum ada pengumuman sistem terkirim.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-indigo-100/80">
+                {notifications.slice(0, 3).map((notif) => (
+                  <article
+                    key={notif.id}
+                    className="py-3 first:pt-1 last:pb-0 flex items-start justify-between gap-3"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-[11px] font-medium text-slate-500">
+                        <span className="font-semibold text-[#4C1D95]">{notif.category}</span>
+                        <span aria-hidden="true"> · </span>
+                        <span className="font-mono tabular-nums">
+                          {formatTanggalWaktu(notif.created_at)}
+                        </span>
+                        <span aria-hidden="true"> · </span>
+                        <span className="tabular-nums">{notif.recipient_count} warga</span>
+                      </p>
+                      <h3 className="text-xs sm:text-sm font-bold text-[#0F172A] truncate">
+                        {notif.title}
+                      </h3>
+                      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                        {notif.message}
+                      </p>
+                    </div>
+
+                    {canManageFull && (
+                      <button
+                        type="button"
+                        disabled={deletingNotifId === notif.id}
+                        aria-busy={deletingNotifId === notif.id}
+                        onClick={() => void handleDeleteNotification(notif)}
+                        aria-label={`Hapus pengumuman ${notif.title}`}
+                        className="min-h-[32px] px-2.5 rounded-full border border-slate-200 bg-white/90 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-[11px] font-semibold text-slate-500 inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                      >
+                        {deletingNotifId === notif.id ? (
+                          <LoadingSpinner size="xs" tone="danger" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        <span className="hidden sm:inline">Hapus</span>
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       {/* 4 KPI Ringkasan Kas Bulan Berjalan */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Pemasukan Terverifikasi</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-[#059669] tabular-nums mt-2 truncate">
             {formatRupiah(pemasukanBulanIni)}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">Periode {currentMonthName} {TAHUN_AKTIF}</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Periode {currentMonthName} {TAHUN_AKTIF}
+          </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Rumah Lunas</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-2">
             {rumahLunasBulanIni}{' '}
@@ -665,7 +832,7 @@ export function AdminDashboardSlide({
           <p className="text-[11px] text-emerald-700 mt-1 font-medium">Terverifikasi Lunas</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Belum Bayar</p>
           <p className="text-lg sm:text-2xl font-mono font-bold text-red-700 tabular-nums mt-2">
             {rumahBelumBayarBulanIni}
@@ -673,7 +840,7 @@ export function AdminDashboardSlide({
           <p className="text-[11px] text-slate-500 mt-1">Unit aktif belum setor</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">
             {isKetua ? 'Antrean Verifikasi Ketua' : 'Antrean Verifikasi'}
           </p>
@@ -703,10 +870,10 @@ export function AdminDashboardSlide({
 
       {/* PANEL KHUSUS KETUA (TAHAP 2): Antrean Verifikasi Final Transaksi ACC Bendahara */}
       {isKetua && (
-        <section className="bg-white border-2 border-sky-200 rounded-2xl overflow-hidden shadow-xs">
-          <div className="px-5 py-4 bg-sky-50/80 border-b border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <section className="glass-card rounded-3xl overflow-hidden border-sky-200/80">
+          <div className="px-5 py-4 bg-sky-50/75 border-b border-sky-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-start gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-2xl bg-[#3730A3] text-white flex items-center justify-center shrink-0 mt-0.5">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
@@ -719,7 +886,7 @@ export function AdminDashboardSlide({
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-600 text-white text-xs font-mono font-bold tabular-nums shrink-0 self-start sm:self-center">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3730A3] text-white text-xs font-mono font-bold tabular-nums shrink-0 self-start sm:self-center">
               {totalKetuaQueueCount} Menunggu Ketua
             </span>
           </div>
@@ -735,19 +902,19 @@ export function AdminDashboardSlide({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-indigo-100/70">
               {accBendaharaList.map((trx) => {
                 const isBusy = processingId === trx.id;
                 return (
                   <article
                     key={`ketua-ipl-${trx.id}`}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white"
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
                     <div className="flex items-start gap-3.5 min-w-0">
                       <button
                         type="button"
                         onClick={() => setPreviewTrx(trx)}
-                        className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 hover:border-sky-500 flex items-center justify-center cursor-pointer"
+                        className="w-16 h-16 rounded-2xl border border-indigo-100 bg-white/80 overflow-hidden shrink-0 hover:border-[#4C1D95] flex items-center justify-center cursor-pointer"
                       >
                         {trx.bukti_url ? (
                           <img
@@ -789,7 +956,7 @@ export function AdminDashboardSlide({
                         <button
                           type="button"
                           onClick={() => setPreviewTrx(trx)}
-                          className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[40px] px-3.5 rounded-full border border-slate-200 bg-white/90 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <ImageIcon className="w-4 h-4" />
                           <span>Periksa Bukti</span>
@@ -802,7 +969,7 @@ export function AdminDashboardSlide({
                           setKetuaReturnTarget({ kind: 'ipl', trx });
                           setKetuaReturnNote('');
                         }}
-                        className="min-h-[40px] px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        className="min-h-[40px] px-3.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                       >
                         <Undo2 className="w-4 h-4" />
                         <span>Kembalikan ke Bendahara</span>
@@ -811,7 +978,7 @@ export function AdminDashboardSlide({
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleKetuaApproveIpl(trx)}
-                        className="min-h-[40px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
                       >
                         <ShieldCheck className="w-4 h-4" />
                         <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
@@ -827,7 +994,7 @@ export function AdminDashboardSlide({
                 return (
                   <article
                     key={`ketua-kas-${kas.id}`}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/40"
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/40"
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
@@ -878,7 +1045,7 @@ export function AdminDashboardSlide({
                               url: kas.bukti_url || '',
                             })
                           }
-                          className="min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[40px] px-3.5 rounded-full border border-slate-200 bg-white/90 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <ImageIcon className="w-4 h-4" />
                           <span>Lihat Nota</span>
@@ -891,7 +1058,7 @@ export function AdminDashboardSlide({
                           setKetuaReturnTarget({ kind: 'kas', kas });
                           setKetuaReturnNote('');
                         }}
-                        className="min-h-[40px] px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        className="min-h-[40px] px-3.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                       >
                         <Undo2 className="w-4 h-4" />
                         <span>Kembalikan</span>
@@ -900,7 +1067,7 @@ export function AdminDashboardSlide({
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleKetuaApproveKas(kas)}
-                        className="min-h-[40px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
                       >
                         <ShieldCheck className="w-4 h-4" />
                         <span>{isBusy ? 'Mengesahkan...' : 'Setujui & Sahkan (Final)'}</span>
@@ -915,8 +1082,8 @@ export function AdminDashboardSlide({
       )}
 
       {/* Daftar Verifikasi & Riwayat Setoran Masuk Warga */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 space-y-3">
+      <section id="verifikasi-section" className="glass-card rounded-3xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-indigo-100/80 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">
@@ -933,7 +1100,7 @@ export function AdminDashboardSlide({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-indigo-50/70 border border-indigo-100/80 rounded-2xl w-fit">
               {(
                 [
                   { id: 'Pending', label: `Menunggu Bendahara (${pendingList.length})` },
@@ -950,9 +1117,9 @@ export function AdminDashboardSlide({
                     setTrxFilter(tab.id);
                     setVisiblePendingCount(15);
                   }}
-                  className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                     trxFilter === tab.id
-                      ? 'bg-white text-[#0F172A] shadow-sm'
+                      ? 'bg-white text-[#4C1D95] shadow-xs'
                       : 'text-slate-600 hover:text-[#0F172A]'
                   }`}
                 >
@@ -968,7 +1135,7 @@ export function AdminDashboardSlide({
                 value={trxSearch}
                 onChange={(e) => setTrxSearch(e.target.value)}
                 placeholder="Cari blok, nama, kwitansi..."
-                className="w-full min-h-[38px] rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[38px] rounded-2xl border border-slate-200 bg-white/85 pl-9 pr-3 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
               />
             </div>
           </div>
@@ -991,7 +1158,7 @@ export function AdminDashboardSlide({
               <button
                 type="button"
                 onClick={() => setTrxFilter('Semua')}
-                className="mt-4 min-h-[38px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer"
+                className="mt-4 min-h-[38px] px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer"
               >
                 Lihat Semua Setoran ({validTransaksiList.length})
               </button>
@@ -999,7 +1166,7 @@ export function AdminDashboardSlide({
           </div>
         ) : (
           <>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-indigo-100/70">
               {filteredTransaksi.slice(0, visiblePendingCount).map((trx) => {
                 const isBusy = processingId === trx.id;
                 const isPending = trx.status_verifikasi === 'Pending';
@@ -1008,14 +1175,14 @@ export function AdminDashboardSlide({
                 return (
                   <article
                     key={trx.id}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-white/40 transition-colors"
                   >
                     <div className="flex items-start gap-4 min-w-0">
                       {/* Thumbnail Bukti Foto */}
                       <button
                         type="button"
                         onClick={() => setPreviewTrx(trx)}
-                        className="w-20 h-20 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 hover:border-emerald-600 transition-colors cursor-pointer flex items-center justify-center"
+                        className="w-20 h-20 rounded-2xl border border-indigo-100 bg-white/80 overflow-hidden shrink-0 hover:border-[#4C1D95] transition-colors cursor-pointer flex items-center justify-center"
                         title="Perbesar bukti transaksi"
                       >
                         {trx.bukti_url ? (
@@ -1081,7 +1248,7 @@ export function AdminDashboardSlide({
                           <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
                         )}
                         {trx.ketua_catatan && isPending && (
-                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 inline-block">
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1 inline-block">
                             Catatan Ketua: {trx.ketua_catatan}
                           </p>
                         )}
@@ -1099,7 +1266,7 @@ export function AdminDashboardSlide({
                         <button
                           type="button"
                           onClick={() => setPreviewTrx(trx)}
-                          className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                          className="min-h-[40px] px-3.5 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                         >
                           <ImageIcon className="w-4 h-4" />
                           <span>Perbesar Bukti</span>
@@ -1110,7 +1277,7 @@ export function AdminDashboardSlide({
                         <button
                           type="button"
                           onClick={() => setReceiptTrx(trx)}
-                          className="min-h-[42px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                          className="min-h-[40px] px-3.5 rounded-full border border-emerald-200 bg-[#D1FAE5] hover:bg-[#A7F3D0] text-xs font-semibold text-[#064E3B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                         >
                           <ReceiptText className="w-4 h-4" />
                           <span>e-Kwitansi</span>
@@ -1127,7 +1294,7 @@ export function AdminDashboardSlide({
                                 setRejectTarget(trx);
                                 setRejectReason('');
                               }}
-                              className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                              className="min-h-[40px] px-3.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
                             >
                               <XCircle className="w-4 h-4" />
                               <span>Tolak</span>
@@ -1138,7 +1305,7 @@ export function AdminDashboardSlide({
                               disabled={isBusy}
                               onClick={() => void handleBendaharaAcc(trx)}
                               aria-busy={isBusy}
-                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                              className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap shadow-xs"
                             >
                               {isBusy ? (
                                 <LoadingSpinner size="xs" tone="white" />
@@ -1164,7 +1331,7 @@ export function AdminDashboardSlide({
                                 setKetuaReturnTarget({ kind: 'ipl', trx });
                                 setKetuaReturnNote('');
                               }}
-                              className="min-h-[42px] px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                              className="min-h-[40px] px-3.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                             >
                               <Undo2 className="w-4 h-4" />
                               <span>Kembalikan</span>
@@ -1175,7 +1342,7 @@ export function AdminDashboardSlide({
                               disabled={isBusy}
                               onClick={() => void handleKetuaApproveIpl(trx)}
                               aria-busy={isBusy}
-                              className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                              className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap shadow-xs"
                             >
                               {isBusy ? (
                                 <LoadingSpinner size="xs" tone="white" />
@@ -1186,7 +1353,7 @@ export function AdminDashboardSlide({
                             </button>
                           </>
                         ) : (
-                          <span className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2.5 py-1.5">
+                          <span className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-3 py-1.5">
                             Menunggu Pengesahan Ketua
                           </span>
                         ))}
@@ -1196,7 +1363,7 @@ export function AdminDashboardSlide({
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleOpenDeleteIplModal(trx)}
-                          className="min-h-[42px] px-3.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          className="min-h-[40px] px-3.5 rounded-full border border-red-200 bg-white/95 hover:bg-red-50 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
                           title="Hapus riwayat setoran IPL (wajib PIN 6 digit)"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1209,7 +1376,7 @@ export function AdminDashboardSlide({
               })}
             </div>
             {filteredTransaksi.length > visiblePendingCount && (
-              <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+              <div className="px-5 py-3 border-t border-indigo-100/80 bg-white/50 flex items-center justify-between gap-3">
                 <span className="text-xs text-slate-500 tabular-nums">
                   Menampilkan {Math.min(visiblePendingCount, filteredTransaksi.length)} dari{' '}
                   {filteredTransaksi.length} setoran
@@ -1217,102 +1384,13 @@ export function AdminDashboardSlide({
                 <button
                   type="button"
                   onClick={() => setVisiblePendingCount((c) => c + 15)}
-                  className="min-h-[36px] px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] cursor-pointer"
+                  className="min-h-[36px] px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer"
                 >
                   Tampilkan Lebih Banyak
                 </button>
               </div>
             )}
           </>
-        )}
-      </section>
-
-      {/* Riwayat Pengumuman / Pesan Sistem Massal ke Warga */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-[#0F172A]">
-              Pengumuman Sistem ke Seluruh Warga
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pesan massal yang tampil langsung pada beranda Portal Warga untuk informasi jadwal
-              perawatan, keamanan, atau rapat lingkungan.
-            </p>
-          </div>
-          {canAccessBotWa && (
-            <button
-              type="button"
-              onClick={openBroadcastModal}
-              className="min-h-[38px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Megaphone className="w-3.5 h-3.5 shrink-0" />
-              <span>Buat Pengumuman Baru</span>
-            </button>
-          )}
-        </div>
-
-        {notifications.length === 0 ? (
-          <div className="p-8 text-center">
-            <Megaphone className="w-9 h-9 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-[#0F172A] mt-3">
-              Belum Ada Pengumuman Sistem Terkirim
-            </h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              Gunakan fitur pengumuman massal untuk menyiarkan jadwal perawatan lingkungan, kerja
-              bakti, atau informasi penting ke seluruh akun warga sekaligus.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {notifications.slice(0, 6).map((notif) => (
-              <article
-                key={notif.id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-3"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                    <span className="font-semibold text-emerald-700">{notif.category}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono tabular-nums">
-                      {formatTanggalWaktu(notif.created_at)}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono font-semibold text-[#0F172A] tabular-nums">
-                      Terkirim ke {notif.recipient_count} akun warga
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">{notif.title}</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-                    {notif.message}
-                  </p>
-                  <p className="text-[11px] text-slate-400 pt-0.5">
-                    Dikirim oleh {notif.sender_name} ({notif.sender_jabatan}) · Target:{' '}
-                    {notif.target_scope === 'all_units'
-                      ? 'Seluruh unit terdaftar'
-                      : 'Semua rumah aktif dihuni'}
-                  </p>
-                </div>
-
-                {canManageFull && (
-                  <button
-                    type="button"
-                    disabled={deletingNotifId === notif.id}
-                    aria-busy={deletingNotifId === notif.id}
-                    onClick={() => void handleDeleteNotification(notif)}
-                    aria-label={`Hapus pengumuman ${notif.title}`}
-                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs font-medium text-slate-500 inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shrink-0 self-start disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {deletingNotifId === notif.id ? (
-                      <LoadingSpinner size="xs" tone="danger" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                    <span>{deletingNotifId === notif.id ? 'Menghapus...' : 'Hapus'}</span>
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
         )}
       </section>
 
@@ -1325,10 +1403,10 @@ export function AdminDashboardSlide({
           onClick={() => setPreviewTrx(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">
                   Bukti Setoran — {previewTrx.blok_rumah} ({previewTrx.nama_warga})
@@ -1352,7 +1430,7 @@ export function AdminDashboardSlide({
                   src={previewTrx.bukti_url}
                   alt={`Bukti ${previewTrx.blok_rumah}`}
                   referrerPolicy="no-referrer"
-                  className="max-h-[65vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
+                  className="max-h-[65vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
                 />
               ) : (
                 <p className="text-sm text-slate-500 py-8">Foto bukti tidak tersedia.</p>
@@ -1371,10 +1449,10 @@ export function AdminDashboardSlide({
           onClick={() => setRejectTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
                 <h3 className="text-base font-bold text-[#0F172A]">Tolak Setoran Warga</h3>
@@ -1415,7 +1493,7 @@ export function AdminDashboardSlide({
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Contoh: Foto bukti transfer buram / nominal belum masuk rekening kas."
-                  className="w-full rounded-xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
             </div>
@@ -1424,7 +1502,7 @@ export function AdminDashboardSlide({
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 Batal
               </button>
@@ -1433,7 +1511,7 @@ export function AdminDashboardSlide({
                 disabled={processingId === rejectTarget.id || !rejectReason.trim()}
                 aria-busy={processingId === rejectTarget.id}
                 onClick={() => void handleConfirmReject()}
-                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {processingId === rejectTarget.id && <LoadingSpinner size="xs" tone="white" />}
                 <span>{processingId === rejectTarget.id ? 'Memproses...' : 'Konfirmasi Tolak'}</span>
@@ -1452,10 +1530,10 @@ export function AdminDashboardSlide({
           onClick={() => setPreviewProofUrl(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-[#0F172A] truncate">{previewProofUrl.title}</h3>
               <button
                 type="button"
@@ -1471,7 +1549,7 @@ export function AdminDashboardSlide({
                 src={previewProofUrl.url}
                 alt={previewProofUrl.title}
                 referrerPolicy="no-referrer"
-                className="max-h-[65vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
+                className="max-h-[65vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
               />
             </div>
           </div>
@@ -1487,10 +1565,10 @@ export function AdminDashboardSlide({
           onClick={() => setKetuaReturnTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Undo2 className="w-5 h-5 text-amber-600" />
                 <h3 className="text-base font-bold text-[#0F172A]">
@@ -1533,7 +1611,7 @@ export function AdminDashboardSlide({
                   value={ketuaReturnNote}
                   onChange={(e) => setKetuaReturnNote(e.target.value)}
                   placeholder="Contoh: Mohon konfirmasi ulang nominal transfer / lampirkan foto nota yang lebih jelas."
-                  className="w-full rounded-xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
             </div>
@@ -1542,7 +1620,7 @@ export function AdminDashboardSlide({
               <button
                 type="button"
                 onClick={() => setKetuaReturnTarget(null)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 Batal
               </button>
@@ -1551,7 +1629,7 @@ export function AdminDashboardSlide({
                 disabled={!ketuaReturnNote.trim() || Boolean(processingId)}
                 aria-busy={Boolean(processingId)}
                 onClick={() => void handleConfirmKetuaReturn()}
-                className="min-h-[42px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {Boolean(processingId) && <LoadingSpinner size="xs" tone="white" />}
                 <span>{Boolean(processingId) ? 'Memproses...' : 'Kembalikan ke Bendahara'}</span>
@@ -1572,13 +1650,13 @@ export function AdminDashboardSlide({
         >
           <form
             onSubmit={handleSendBulkNotification}
-            className="bg-white rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full max-h-[88vh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-                  <Megaphone className="w-4 h-4 text-[#059669]" />
+                <div className="w-9 h-9 rounded-2xl bg-[#EDE9FE] border border-[#DDD6FE] flex items-center justify-center shrink-0">
+                  <Megaphone className="w-4 h-4 text-[#4C1D95]" />
                 </div>
                 <div className="min-w-0">
                   <h3 id="broadcast-modal-title" className="text-base font-bold text-[#0F172A]">
@@ -1613,7 +1691,7 @@ export function AdminDashboardSlide({
                       type="button"
                       disabled={sendingBroadcast}
                       onClick={() => handleApplyTemplate(tpl)}
-                      className="min-h-[34px] px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-medium text-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                      className="min-h-[34px] px-3 rounded-full border border-indigo-200/80 bg-indigo-50/50 hover:bg-[#EDE9FE] hover:border-[#4C1D95]/40 text-xs font-medium text-slate-700 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {tpl.label}
                     </button>
@@ -1633,9 +1711,9 @@ export function AdminDashboardSlide({
                         type="button"
                         disabled={sendingBroadcast}
                         onClick={() => setNotifCategory(cat)}
-                        className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold transition-colors cursor-pointer text-left ${
+                        className={`min-h-[40px] px-3 rounded-2xl border text-xs font-semibold transition-colors cursor-pointer text-left ${
                           active
-                            ? 'bg-[#0F172A] border-[#0F172A] text-white'
+                            ? 'bg-[#4C1D95] border-[#4C1D95] text-white'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -1654,15 +1732,15 @@ export function AdminDashboardSlide({
                     type="button"
                     disabled={sendingBroadcast}
                     onClick={() => setNotifScope('all_active')}
-                    className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                    className={`rounded-2xl border p-3 text-left transition-colors cursor-pointer ${
                       notifScope === 'all_active'
-                        ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]'
+                        ? 'border-[#4C1D95] bg-[#EDE9FE]/70 ring-1 ring-[#4C1D95]'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold text-[#0F172A]">Rumah Aktif Dihuni</span>
-                      <span className="text-xs font-mono font-bold text-emerald-700 tabular-nums">
+                      <span className="text-xs font-mono font-bold text-[#4C1D95] tabular-nums">
                         {activeWarga.length} akun
                       </span>
                     </div>
@@ -1675,15 +1753,15 @@ export function AdminDashboardSlide({
                     type="button"
                     disabled={sendingBroadcast}
                     onClick={() => setNotifScope('all_units')}
-                    className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                    className={`rounded-2xl border p-3 text-left transition-colors cursor-pointer ${
                       notifScope === 'all_units'
-                        ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]'
+                        ? 'border-[#4C1D95] bg-[#EDE9FE]/70 ring-1 ring-[#4C1D95]'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold text-[#0F172A]">Seluruh Unit Terdaftar</span>
-                      <span className="text-xs font-mono font-bold text-emerald-700 tabular-nums">
+                      <span className="text-xs font-mono font-bold text-[#4C1D95] tabular-nums">
                         {allRegisteredActiveCount} akun
                       </span>
                     </div>
@@ -1711,7 +1789,7 @@ export function AdminDashboardSlide({
                   value={notifTitle}
                   onChange={(e) => setNotifTitle(e.target.value)}
                   placeholder="Contoh: Jadwal Perawatan Saluran Air & Kerja Bakti Minggu Ini"
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full min-h-[44px] rounded-2xl border border-slate-300 bg-white disabled:bg-slate-100 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                 />
               </div>
 
@@ -1737,13 +1815,13 @@ export function AdminDashboardSlide({
                   value={notifMessage}
                   onChange={(e) => setNotifMessage(e.target.value)}
                   placeholder="Tuliskan detail tanggal, waktu, lokasi, atau imbauan yang perlu diketahui seluruh warga..."
-                  className="w-full rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full rounded-2xl border border-slate-300 bg-white disabled:bg-slate-100 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                 />
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs text-slate-600">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <Users className="w-4 h-4 text-[#4C1D95] shrink-0" />
                   <span>Penerima pesan sistem</span>
                 </span>
                 <span className="font-mono font-bold text-[#0F172A] tabular-nums">
@@ -1757,7 +1835,7 @@ export function AdminDashboardSlide({
                 type="button"
                 disabled={sendingBroadcast}
                 onClick={() => setBroadcastOpen(false)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                className="min-h-[42px] px-4 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 Batal
               </button>
@@ -1770,7 +1848,7 @@ export function AdminDashboardSlide({
                   targetRecipientCount === 0
                 }
                 aria-busy={sendingBroadcast}
-                className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:bg-slate-300 disabled:text-slate-500 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shadow-xs"
               >
                 {sendingBroadcast ? (
                   <>
@@ -1800,12 +1878,12 @@ export function AdminDashboardSlide({
         >
           <form
             onSubmit={(e) => void handleConfirmDeleteIpl(e)}
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-red-100 bg-red-50/70 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
                   <Trash2 className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -1822,7 +1900,7 @@ export function AdminDashboardSlide({
                 disabled={deletingIpl}
                 onClick={handleCloseDeleteIplModal}
                 aria-label="Tutup modal hapus"
-                className="min-h-[36px] min-w-[36px] rounded-lg flex items-center justify-center text-slate-500 hover:bg-red-100 hover:text-slate-800 cursor-pointer disabled:opacity-50"
+                className="min-h-[36px] min-w-[36px] rounded-xl flex items-center justify-center text-slate-500 hover:bg-red-100 hover:text-slate-800 cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1830,7 +1908,7 @@ export function AdminDashboardSlide({
 
             <div className="p-5 space-y-4">
               {/* Ringkasan Transaksi yang Akan Dihapus */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-bold text-[#0F172A]">
                     {deleteTarget.blok_rumah} · {deleteTarget.nama_warga}
@@ -1848,7 +1926,7 @@ export function AdminDashboardSlide({
               </div>
 
               {deleteTarget.status_verifikasi === 'Terverifikasi' && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 flex items-start gap-2 text-xs text-amber-900">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 flex items-start gap-2 text-xs text-amber-900">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <p className="leading-snug">
                     Setoran ini sudah berstatus <strong>Sah Lunas</strong>. Menghapusnya akan otomatis
@@ -1882,7 +1960,7 @@ export function AdminDashboardSlide({
                       if (deletePinError) setDeletePinError(null);
                     }}
                     placeholder="••••••"
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-10 pr-11 text-base font-mono tracking-[0.35em] text-[#0F172A] placeholder:tracking-widest placeholder:text-slate-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 disabled:bg-slate-100"
+                    className="w-full min-h-[44px] rounded-2xl border border-slate-300 bg-white pl-10 pr-11 text-base font-mono tracking-[0.35em] text-[#0F172A] placeholder:tracking-widest placeholder:text-slate-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 disabled:bg-slate-100"
                   />
                   <button
                     type="button"
@@ -1907,14 +1985,14 @@ export function AdminDashboardSlide({
                 type="button"
                 disabled={deletingIpl}
                 onClick={handleCloseDeleteIplModal}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                className="min-h-[42px] px-4 rounded-full border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={deletingIpl || deletePin.length !== 6}
-                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 {deletingIpl ? (
                   <>

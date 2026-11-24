@@ -252,11 +252,11 @@ export function WargaSetorSlide({
       {/* Kolom Kiri: Identitas Terkunci, Bulan & Metode */}
       <div className={`lg:col-span-7 space-y-6 transition-opacity ${submitting ? 'opacity-70 pointer-events-none' : ''}`}>
         {/* Identitas Terkunci (Read-only) */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+        <section className="glass-card rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-4">
             <h2 className="text-base font-bold text-[#0F172A]">Identitas Penyetor</h2>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3.5 h-3.5 text-[#4C1D95]" />
               Terkunci per Rumah
             </span>
           </div>
@@ -270,7 +270,7 @@ export function WargaSetorSlide({
                 type="text"
                 readOnly
                 value={profil.blok_rumah}
-                className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-mono font-bold text-slate-700 cursor-not-allowed"
+                className="w-full min-h-[44px] rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 text-sm font-mono font-bold text-slate-700 cursor-not-allowed"
               />
             </div>
             <div>
@@ -281,19 +281,19 @@ export function WargaSetorSlide({
                 type="text"
                 readOnly
                 value={profil.nama_warga}
-                className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700 cursor-not-allowed"
+                className="w-full min-h-[44px] rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 text-sm font-semibold text-slate-700 cursor-not-allowed"
               />
             </div>
           </div>
         </section>
 
         {/* Pilihan Multi-Bulan */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+        <section className="glass-card rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h2 className="text-base font-bold text-[#0F172A]">
               Pilih Bulan yang Dibayar ({TAHUN_AKTIF})
             </h2>
-            <span className="text-xs font-mono font-semibold text-emerald-700 tabular-nums">
+            <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
               {selectedMonths.length} bulan dipilih
             </span>
           </div>
@@ -310,12 +310,12 @@ export function WargaSetorSlide({
               return (
                 <label
                   key={b.angka}
-                  className={`relative flex flex-col justify-between rounded-xl border p-3 min-h-[64px] transition-all select-none ${
+                  className={`relative flex flex-col justify-between rounded-2xl border p-3 min-h-[64px] transition-all select-none ${
                     isLocked
-                      ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                      ? 'bg-indigo-50/35 border-indigo-100/70 text-slate-400 cursor-not-allowed'
                       : isChecked
-                        ? 'bg-emerald-50 border-[#059669] text-emerald-950 cursor-pointer ring-1 ring-[#059669]'
-                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 cursor-pointer'
+                        ? 'bg-indigo-50 border-[#4C1D95] text-[#3b0764] cursor-pointer ring-1 ring-[#4C1D95]'
+                        : 'bg-white/90 border-indigo-100/80 text-slate-700 hover:border-indigo-300 cursor-pointer'
                   }`}
                 >
                   <input
@@ -328,7 +328,7 @@ export function WargaSetorSlide({
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-sm font-semibold">{b.singkat}</span>
                     {isChecked && !isLocked && (
-                      <span className="w-4 h-4 rounded bg-[#059669] text-white flex items-center justify-center">
+                      <span className="w-4 h-4 rounded-full bg-[#4C1D95] text-white flex items-center justify-center">
                         <Check className="w-3 h-3" />
                       </span>
                     )}
@@ -347,7 +347,7 @@ export function WargaSetorSlide({
         </section>
 
         {/* Metode Pembayaran */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+        <section className="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
           <h2 className="text-base font-bold text-[#0F172A]">Metode Pembayaran</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -366,10 +366,10 @@ export function WargaSetorSlide({
                   key={opt.value}
                   type="button"
                   onClick={() => setMetodeBayar(opt.value)}
-                  className={`min-h-[46px] flex items-center justify-center gap-1.5 rounded-xl border px-2.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[46px] flex items-center justify-center gap-1.5 rounded-full border px-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     active
-                      ? 'bg-[#0F172A] border-[#0F172A] text-white'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-xs'
+                      : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -380,7 +380,7 @@ export function WargaSetorSlide({
           </div>
 
           {metodeBayar === 'QRIS' ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+            <div className="rounded-2xl border border-indigo-100/80 bg-indigo-50/50 p-4 space-y-3">
               {paymentConfig.qris_aktif && paymentConfig.qris_image_url ? (
                 <>
                   <div className="text-center">
@@ -391,18 +391,18 @@ export function WargaSetorSlide({
                       {paymentConfig.qris_catatan}
                     </p>
                   </div>
-                  <div className="flex justify-center bg-white rounded-xl border border-slate-200 p-4">
+                  <div className="flex justify-center bg-white rounded-2xl border border-indigo-100 p-4">
                     <img
                       src={paymentConfig.qris_image_url}
                       alt="QRIS Kas Lingkungan Perumahan Saung Kebun"
                       referrerPolicy="no-referrer"
-                      className="max-h-72 w-auto object-contain rounded-lg"
+                      className="max-h-72 w-auto object-contain rounded-xl"
                     />
                   </div>
                 </>
               ) : (
                 <div className="py-6 text-center space-y-1.5">
-                  <QrCode className="w-8 h-8 text-slate-400 mx-auto" />
+                  <QrCode className="w-8 h-8 text-indigo-300 mx-auto" />
                   <p className="text-sm font-semibold text-[#0F172A]">
                     Kode QRIS Belum Diaktifkan oleh Bendahara
                   </p>
@@ -424,13 +424,13 @@ export function WargaSetorSlide({
                 );
                 if (filteredRek.length === 0) {
                   return (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 text-center">
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs text-slate-500 text-center">
                       Belum ada nomor rekening {metodeBayar} yang terdaftar oleh Bendahara.
                     </div>
                   );
                 }
                 return (
-                  <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-slate-50/70">
+                  <div className="divide-y divide-indigo-100/80 border border-indigo-100/80 rounded-2xl overflow-hidden bg-indigo-50/40">
                     {filteredRek.map((rek) => (
                       <div
                         key={rek.id}
@@ -446,7 +446,7 @@ export function WargaSetorSlide({
                         <button
                           type="button"
                           onClick={() => handleCopyRek(rek.nomor, rek.bank)}
-                          className="min-h-[40px] px-3.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-600 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                          className="min-h-[40px] px-4 rounded-full bg-white/95 border border-indigo-200 hover:border-[#4C1D95] text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                         >
                           {copiedRek === rek.nomor ? (
                             <>
@@ -455,7 +455,7 @@ export function WargaSetorSlide({
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <Copy className="w-3.5 h-3.5 text-[#4C1D95]" />
                               <span>Salin Nomor</span>
                             </>
                           )}
@@ -478,7 +478,7 @@ export function WargaSetorSlide({
                 id="petugas-penerima"
                 value={petugasPenerima}
                 onChange={(e) => setPetugasPenerima(e.target.value)}
-                className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-medium text-[#0F172A] focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[46px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-medium text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
               >
                 {PETUGAS_PENERIMA.map((nama) => (
                   <option key={nama} value={nama}>
@@ -496,7 +496,7 @@ export function WargaSetorSlide({
 
       {/* Kolom Kanan: Nominal, Upload Bukti WAJIB & Submit */}
       <div className="lg:col-span-5 space-y-6">
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+        <section className="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
           <div>
             <label
               htmlFor="nominal-setoran"
@@ -519,7 +519,7 @@ export function WargaSetorSlide({
                   setNominalInput(e.target.value.replace(/\D/g, ''));
                 }}
                 placeholder="0"
-                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-500 pl-11 pr-4 text-lg font-mono font-bold text-[#0F172A] tabular-nums focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[48px] rounded-2xl border border-indigo-200/80 bg-white/90 disabled:bg-indigo-50/50 disabled:text-slate-500 pl-11 pr-4 text-lg font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
               />
             </div>
             <p className="text-xs text-slate-500 mt-1.5 tabular-nums">
@@ -530,7 +530,7 @@ export function WargaSetorSlide({
               . Dapat diedit manual untuk setoran khusus/dana darurat.
             </p>
             {isBelowStandard && (
-              <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+              <div className="mt-2.5 flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>
                   Nominal di bawah Rp 100.000/bulan akan dicatat pengurus pada pos alokasi dana
@@ -554,7 +554,7 @@ export function WargaSetorSlide({
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
               placeholder="Contoh: Transfer dari rekening a.n. pasangan"
-              className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-500 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 disabled:bg-indigo-50/50 disabled:text-slate-500 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
             />
           </div>
 
@@ -581,10 +581,10 @@ export function WargaSetorSlide({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-xl border border-emerald-200 bg-slate-50 overflow-hidden"
+                className="rounded-2xl border border-indigo-200 bg-indigo-50/50 overflow-hidden"
               >
-                <div className="h-44 flex flex-col items-center justify-center gap-2.5 bg-slate-100/90 motion-safe:animate-pulse px-4 text-center">
-                  <Loader2 className="w-6 h-6 text-[#059669] animate-spin" />
+                <div className="h-44 flex flex-col items-center justify-center gap-2.5 bg-indigo-50/70 motion-safe:animate-pulse px-4 text-center">
+                  <Loader2 className="w-6 h-6 text-[#4C1D95] animate-spin" />
                   <p className="text-sm font-semibold text-[#0F172A]">
                     Mengoptimalkan foto bukti transfer...
                   </p>
@@ -592,18 +592,18 @@ export function WargaSetorSlide({
                     Menyesuaikan resolusi agar unggahan cepat &amp; ringan
                   </p>
                 </div>
-                <div className="p-3 bg-white border-t border-slate-200 space-y-2">
-                  <div className="h-3 w-2/3 rounded bg-slate-200 motion-safe:animate-pulse" />
-                  <div className="h-2.5 w-1/3 rounded bg-slate-100 motion-safe:animate-pulse" />
+                <div className="p-3 bg-white/90 border-t border-indigo-100 space-y-2">
+                  <div className="h-3 w-2/3 rounded bg-indigo-100 motion-safe:animate-pulse" />
+                  <div className="h-2.5 w-1/3 rounded bg-indigo-50 motion-safe:animate-pulse" />
                 </div>
               </div>
             ) : !previewUrl ? (
               <label
                 htmlFor="upload-bukti-input"
-                className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-600 bg-slate-50 hover:bg-emerald-50/40 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
+                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-200 hover:border-[#4C1D95] bg-indigo-50/40 hover:bg-indigo-50/80 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
               >
-                <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center mb-3">
-                  <Upload className="w-5 h-5 text-emerald-700" />
+                <div className="w-11 h-11 rounded-full bg-white border border-indigo-100 flex items-center justify-center mb-3 shadow-2xs">
+                  <Upload className="w-5 h-5 text-[#4C1D95]" />
                 </div>
                 <p className="text-sm font-semibold text-[#0F172A]">
                   Pilih Foto Bukti Transfer / Kwitansi
@@ -613,7 +613,7 @@ export function WargaSetorSlide({
                 </p>
               </label>
             ) : (
-              <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
+              <div className="relative rounded-2xl border border-indigo-100 overflow-hidden bg-indigo-50/30">
                 <div className="relative">
                   <img
                     src={previewUrl}
@@ -630,7 +630,7 @@ export function WargaSetorSlide({
                     </div>
                   )}
                 </div>
-                <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2">
+                <div className="p-3 bg-white/95 border-t border-indigo-100 flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs text-slate-700 font-medium truncate">{buktiFile?.name}</p>
                     {sizeInfo && (
@@ -643,7 +643,7 @@ export function WargaSetorSlide({
                     <div className="flex items-center gap-2 shrink-0">
                       <label
                         htmlFor="upload-bukti-input"
-                        className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[#4C1D95] hover:underline cursor-pointer"
                       >
                         Ganti
                       </label>
@@ -651,7 +651,7 @@ export function WargaSetorSlide({
                         type="button"
                         onClick={clearFile}
                         aria-label="Hapus foto bukti"
-                        className="p-1 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        className="p-1 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -668,12 +668,12 @@ export function WargaSetorSlide({
               type="submit"
               disabled={!canSubmit}
               aria-busy={submitting || compressing}
-              className={`w-full min-h-[48px] px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap ${
+              className={`w-full min-h-[48px] px-4 rounded-full font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap shadow-sm ${
                 submitting
-                  ? 'bg-emerald-700 text-white cursor-wait'
+                  ? 'bg-[#312E81] text-white cursor-wait'
                   : compressing
-                    ? 'bg-slate-200 text-slate-600 cursor-wait'
-                    : 'bg-[#059669] hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white cursor-pointer'
+                    ? 'bg-indigo-100 text-slate-600 cursor-wait'
+                    : 'bg-[#3730A3] hover:bg-[#312E81] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white cursor-pointer'
               }`}
             >
               {submitting ? (
@@ -702,13 +702,13 @@ export function WargaSetorSlide({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-2.5"
+                className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3.5 space-y-2.5"
               >
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold text-emerald-950">
+                  <span className="font-semibold text-[#3b0764]">
                     Sedang memproses setoran Anda
                   </span>
-                  <span className="font-mono font-semibold text-emerald-700 tabular-nums">
+                  <span className="font-mono font-semibold text-[#4C1D95] tabular-nums">
                     {Math.max(1, activeStepIndex + 1)}/{SUBMIT_STEPS.length}
                   </span>
                 </div>
@@ -720,13 +720,13 @@ export function WargaSetorSlide({
                     return (
                       <div key={step.key} className="flex items-center gap-2.5 text-xs">
                         {isDone ? (
-                          <span className="w-4 h-4 rounded-full bg-[#059669] text-white flex items-center justify-center shrink-0">
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
                             <Check className="w-2.5 h-2.5" />
                           </span>
                         ) : isActive ? (
-                          <Loader2 className="w-4 h-4 text-[#059669] animate-spin shrink-0" />
+                          <Loader2 className="w-4 h-4 text-[#4C1D95] animate-spin shrink-0" />
                         ) : (
-                          <span className="w-4 h-4 rounded-full border border-slate-300 bg-white shrink-0" />
+                          <span className="w-4 h-4 rounded-full border border-indigo-200 bg-white shrink-0" />
                         )}
 
                         {isDone || isActive ? (
@@ -742,7 +742,7 @@ export function WargaSetorSlide({
                         ) : (
                           <span className="flex-1 flex items-center gap-2 text-slate-400">
                             <span>{step.label}</span>
-                            <span className="h-2 w-12 rounded bg-slate-200/80 motion-safe:animate-pulse" />
+                            <span className="h-2 w-12 rounded bg-indigo-100/80 motion-safe:animate-pulse" />
                           </span>
                         )}
                       </div>
@@ -750,7 +750,7 @@ export function WargaSetorSlide({
                   })}
                 </div>
 
-                <p className="text-[11px] text-slate-600 pt-1 border-t border-emerald-200/70">
+                <p className="text-[11px] text-slate-600 pt-1 border-t border-indigo-200/70">
                   Mohon tunggu sebentar dan jangan menutup halaman sampai proses selesai.
                 </p>
               </div>

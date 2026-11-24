@@ -43,11 +43,11 @@ export function EmergencySecurityContactCard({
   return (
     <section
       aria-label="Kontak Darurat Keamanan 24 Jam"
-      className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+      className="glass-card rounded-3xl overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2 bg-red-50/50">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2 bg-red-50/55">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
             <ShieldAlert className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -70,7 +70,7 @@ export function EmergencySecurityContactCard({
           Petugas &amp; NFC.
         </div>
       ) : (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-indigo-100/60">
           {validContacts.map((petugas, idx) => {
             const cleanWa = normalizePhoneNumber(petugas?.no_hp || '');
             const namaPetugas = petugas?.nama || 'Petugas Keamanan';
@@ -110,14 +110,14 @@ export function EmergencySecurityContactCard({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-h-[42px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
+                    className="min-h-[42px] px-4 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
                   >
                     <MessageCircle className="w-4 h-4 shrink-0" />
                     <span>Chat WA Darurat</span>
                   </a>
                   <a
                     href={`tel:+${cleanWa}`}
-                    className="min-h-[42px] px-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
+                    className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
                   >
                     <PhoneCall className="w-4 h-4 shrink-0" />
                     <span>Telepon</span>
@@ -176,11 +176,11 @@ export function SecurityPatrolFeedCard({
   return (
     <section
       aria-label="Info Keamanan dan Patroli Lingkungan"
-      className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+      className="glass-card rounded-3xl overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0">
             <Radio className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -192,14 +192,14 @@ export function SecurityPatrolFeedCard({
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-mono font-semibold text-emerald-700 shrink-0 tabular-nums">
+        <span className="text-[11px] font-mono font-semibold text-[#4C1D95] shrink-0 tabular-nums">
           {safeFeed.length} log
         </span>
       </div>
 
       {displayed.length === 0 ? (
         <div className="px-5 py-6 text-center space-y-1.5">
-          <Shield className="w-8 h-8 text-slate-300 mx-auto" />
+          <Shield className="w-8 h-8 text-indigo-300 mx-auto" />
           <p className="text-xs font-semibold text-slate-700">Belum Ada Laporan Patroli Tercatat</p>
           <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
             Setiap kali petugas melakukan tap NFC di titik pos/blok perumahan, laporan waktu dan
@@ -208,7 +208,7 @@ export function SecurityPatrolFeedCard({
         </div>
       ) : (
         <>
-          <div className="max-h-[360px] overflow-y-auto pr-1 divide-y divide-slate-100">
+          <div className="max-h-[360px] overflow-y-auto pr-1 divide-y divide-indigo-100/60">
             {displayed.map((log, idx) => {
               const isAman = (log?.status_kondisi || 'Aman') === 'Aman';
               const rawMethod = (log?.metode_scan || 'NFC').trim();
@@ -217,12 +217,12 @@ export function SecurityPatrolFeedCard({
               return (
                 <article
                   key={log?.id || `log-${idx}`}
-                  className="px-3.5 sm:px-4 py-2.5 hover:bg-slate-50/70 transition-colors"
+                  className="px-3.5 sm:px-4 py-2.5 hover:bg-indigo-50/40 transition-colors"
                 >
                   {/* Baris 1: Nama Pos + Badge Status di kiri, Jam/Tanggal ringkas di kanan */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <MapPin className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
                       <span className="text-xs sm:text-[13px] font-bold text-[#0F172A] truncate">
                         {log?.nama_lokasi || 'Titik Patroli'}
                       </span>
@@ -261,7 +261,7 @@ export function SecurityPatrolFeedCard({
                   </div>
 
                   {log?.catatan && (
-                    <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200/70 rounded-md px-2 py-1 mt-1.5 ml-5 leading-snug">
+                    <p className="text-[11px] text-slate-600 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1 mt-1.5 ml-5 leading-snug">
                       {log.catatan}
                     </p>
                   )}
@@ -271,11 +271,11 @@ export function SecurityPatrolFeedCard({
           </div>
 
           {hasMore && (
-            <div className="border-t border-slate-100 bg-slate-50/70 px-3.5 py-2 flex justify-center">
+            <div className="border-t border-indigo-100/70 bg-indigo-50/40 px-3.5 py-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => setExpanded((prev) => !prev)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/80 transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-[#4C1D95] hover:bg-indigo-100/70 transition-colors cursor-pointer"
               >
                 {expanded ? (
                   <>

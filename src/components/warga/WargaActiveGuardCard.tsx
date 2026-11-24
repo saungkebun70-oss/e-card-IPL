@@ -82,24 +82,24 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
   return (
     <section
       aria-label="Petugas Jaga Aktif Saat Ini"
-      className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+      className="glass-card rounded-3xl overflow-hidden"
     >
       {/* Header Kartu */}
-      <div className="bg-[#0F172A] text-white px-4 sm:px-5 py-4 flex flex-wrap items-center justify-between gap-2.5">
+      <div className="glass-hero text-white px-4 sm:px-5 py-4 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 text-[#A7F3D0] flex items-center justify-center shrink-0">
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-white leading-tight">
               Petugas Jaga Aktif Saat Ini
             </h2>
-            <p className="text-[11px] text-slate-300 mt-0.5 truncate">
+            <p className="text-[11px] text-indigo-100/80 mt-0.5 truncate">
               Status kehadiran petugas keamanan Perumahan Saung Kebun secara real-time
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-mono text-slate-300 tabular-nums shrink-0">
+        <span className="text-[11px] font-mono text-indigo-100/85 tabular-nums shrink-0">
           {formatWibDateStr(todayWib)}
         </span>
       </div>
@@ -107,7 +107,7 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
       {/* Status Petugas Aktif */}
       <div className="p-4 sm:p-5 space-y-4">
         {loading ? (
-          <div className="h-20 rounded-xl bg-slate-100 animate-pulse" />
+          <div className="h-20 rounded-2xl bg-indigo-50/70 animate-pulse" />
         ) : activeOfficers.length > 0 ? (
           <div className="space-y-2.5">
             {activeOfficers.map((officer) => {
@@ -115,7 +115,7 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
               return (
                 <div
                   key={officer.id}
-                  className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -157,12 +157,12 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
             })}
           </div>
         ) : (
-          <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-200/80 text-slate-500 flex items-center justify-center shrink-0">
+          <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 px-4 py-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-white border border-indigo-100 text-[#4C1D95] flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-700">
+              <p className="text-sm font-semibold text-[#0F172A]">
                 Menunggu konfirmasi absensi petugas shift berikutnya
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -173,10 +173,10 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
         )}
 
         {/* Ringkasan Log Aktivitas Jaga Hari Ini */}
-        <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
+        <div className="pt-3 border-t border-indigo-100/70 space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-bold text-[#0F172A] inline-flex items-center gap-1.5">
-              <ClipboardList className="w-3.5 h-3.5 text-[#059669]" />
+              <ClipboardList className="w-3.5 h-3.5 text-[#4C1D95]" />
               <span>Log Aktivitas Jaga Hari Ini</span>
             </h3>
             <span className="text-[11px] font-mono text-slate-500 tabular-nums">
@@ -189,12 +189,12 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
               Belum ada aktivitas masuk atau serah terima shift yang tercatat hari ini.
             </p>
           ) : (
-            <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-xl overflow-hidden">
+            <div className="divide-y divide-indigo-100/70 border border-indigo-100/80 rounded-2xl overflow-hidden">
               {todayLogs.map((log) => {
                 const isOnDuty = log.status === 'on_duty';
                 const ev = evaluateAttendance(log, nowMs);
                 return (
-                  <article key={log.id} className="px-3.5 py-3 bg-white space-y-1">
+                  <article key={log.id} className="px-3.5 py-3 bg-white/80 space-y-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-xs sm:text-sm font-bold text-[#0F172A]">
@@ -233,7 +233,7 @@ export function WargaActiveGuardCard({ session }: WargaActiveGuardCardProps) {
                     </p>
 
                     {log.handover_notes && (
-                      <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                      <p className="text-xs text-slate-700 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1.5 whitespace-pre-line">
                         {log.handover_notes}
                       </p>
                     )}

@@ -24,8 +24,8 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
 
   if (riwayat.length === 0) {
     return (
-      <section className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center">
-        <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+      <section className="glass-card rounded-3xl p-8 sm:p-12 text-center">
+        <FileText className="w-10 h-10 text-indigo-300 mx-auto" />
         <h2 className="text-base font-bold text-[#0F172A] mt-3">Belum Ada Riwayat Setoran</h2>
         <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
           Riwayat pembayaran IPL untuk Blok {profil.blok_rumah} dan e-Kwitansi digital Anda akan
@@ -34,7 +34,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
         <button
           type="button"
           onClick={onGoToSetor}
-          className="mt-5 min-h-[44px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-semibold transition-colors cursor-pointer"
+          className="mt-5 min-h-[44px] px-6 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-sm font-semibold transition-colors cursor-pointer shadow-sm"
         >
           Buat Setoran Pertama
         </button>
@@ -56,21 +56,21 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
       </div>
 
       {/* Daftar Riwayat */}
-      <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
+      <div className="glass-card rounded-3xl divide-y divide-indigo-100/70 overflow-hidden">
         {riwayat.map((trx) => {
           const isVerified = trx.status_verifikasi === 'Terverifikasi';
           const isAccBendahara = trx.status_verifikasi === 'ACC Bendahara';
           const isPending = trx.status_verifikasi === 'Pending';
 
           return (
-            <article key={trx.id} className="p-4 sm:p-5 hover:bg-slate-50/60 transition-colors">
+            <article key={trx.id} className="p-4 sm:p-5 hover:bg-indigo-50/40 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-bold text-[#0F172A]">
                       Bulan {formatDaftarBulan(trx.bulan_dibayar)} ({trx.tahun})
                     </span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span aria-hidden="true" className="text-indigo-200">·</span>
                     <span
                       className={`inline-flex items-center gap-1 text-xs font-semibold ${
                         isVerified
@@ -107,7 +107,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                   </div>
 
                   {trx.status_verifikasi === 'Ditolak' && trx.catatan_admin && (
-                    <div className="mt-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800">
+                    <div className="mt-2 rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800">
                       <span className="font-semibold">Alasan Penolakan Admin:</span>{' '}
                       {trx.catatan_admin}
                     </div>
@@ -128,9 +128,9 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                       <button
                         type="button"
                         onClick={() => setSelectedProof(trx)}
-                        className="min-h-[38px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                        className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                       >
-                        <ImageIcon className="w-3.5 h-3.5" />
+                        <ImageIcon className="w-3.5 h-3.5 text-[#4C1D95]" />
                         <span>Bukti Foto</span>
                       </button>
                     )}
@@ -139,7 +139,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                       <button
                         type="button"
                         onClick={() => setSelectedReceipt(trx)}
-                        className="min-h-[38px] px-3 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                        className="min-h-[38px] px-3.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                       >
                         <FileText className="w-3.5 h-3.5" />
                         <span>e-Kwitansi</span>
@@ -158,14 +158,14 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setSelectedProof(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">Bukti Transaksi Setoran</h3>
                 <p className="text-xs text-slate-500 font-mono">{selectedProof.no_kwitansi}</p>
@@ -174,18 +174,18 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                 type="button"
                 onClick={() => setSelectedProof(null)}
                 aria-label="Tutup pratinjau"
-                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full text-slate-500 hover:text-[#4C1D95] hover:bg-indigo-50 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 bg-slate-50 flex items-center justify-center">
+            <div className="p-4 bg-indigo-50/30 flex items-center justify-center">
               {selectedProof.bukti_url ? (
                 <img
                   src={selectedProof.bukti_url}
                   alt={`Bukti pembayaran ${selectedProof.no_kwitansi}`}
                   referrerPolicy="no-referrer"
-                  className="max-h-[65vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
+                  className="max-h-[65vh] w-auto object-contain rounded-2xl border border-indigo-100 bg-white"
                 />
               ) : (
                 <p className="text-sm text-slate-500 py-10">Bukti foto tidak tersedia.</p>

@@ -285,7 +285,7 @@ export function AdminBotWaSlide({
 
   if (!canManageFull) {
     return (
-      <div className="rounded-2xl bg-amber-50 border border-amber-200 p-6 text-center space-y-2">
+      <div className="rounded-3xl bg-[#FEF3C7]/90 border border-amber-200 p-6 text-center space-y-2">
         <p className="text-sm font-bold text-amber-950">
           Akses Terbatas — Khusus Bendahara
         </p>
@@ -299,7 +299,7 @@ export function AdminBotWaSlide({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-white border border-slate-200 px-5 py-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl glass-card px-5 py-4">
         <div className="min-w-0">
           <p className="text-sm font-bold text-[#0F172A]">
             Panduan Format Pesan Otomatis Warga
@@ -312,15 +312,15 @@ export function AdminBotWaSlide({
         <button
           type="button"
           onClick={() => setPanduanModalOpen(true)}
-          className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
-          <BookOpen className="w-3.5 h-3.5 text-[#059669]" />
+          <BookOpen className="w-3.5 h-3.5 text-[#4C1D95]" />
           <span>Lihat Panduan Bot WA</span>
         </button>
       </div>
 
       {!canManageFull && (
-        <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-700">
+        <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 px-4 py-3 text-xs text-slate-700">
           <span className="font-semibold text-[#0F172A]">Mode Baca ({session.jabatan || 'Pengurus'}):</span>{' '}
           Pengubahan pengaturan Bot WhatsApp dan pengiriman pengingat massal khusus akun{' '}
           <span className="font-semibold">Bendahara</span>.
@@ -329,9 +329,9 @@ export function AdminBotWaSlide({
 
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Kiri: Konfigurasi Gateway & Jadwal */}
-        <section className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+        <section className="lg:col-span-6 glass-card rounded-3xl p-5 sm:p-6 space-y-5">
           {/* Sakelar Aktif / Nonaktif */}
-          <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200">
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-indigo-100/70">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">Status Bot WhatsApp Otomatis</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -344,7 +344,7 @@ export function AdminBotWaSlide({
               aria-checked={config.aktif}
               onClick={() => setConfig((prev) => ({ ...prev, aktif: !prev.aktif }))}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                config.aktif ? 'bg-[#059669]' : 'bg-slate-300'
+                config.aktif ? 'bg-[#4C1D95]' : 'bg-slate-300'
               }`}
             >
               <span
@@ -366,10 +366,10 @@ export function AdminBotWaSlide({
                   key={provider}
                   type="button"
                   onClick={() => handleProviderChange(provider)}
-                  className={`min-h-[44px] rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                  className={`min-h-[44px] rounded-2xl border text-sm font-semibold transition-colors cursor-pointer ${
                     config.provider === provider
-                      ? 'bg-[#0F172A] border-[#0F172A] text-white'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-xs'
+                      : 'bg-white/90 border-indigo-100 text-slate-700 hover:bg-indigo-50/70'
                   }`}
                 >
                   {provider}
@@ -393,7 +393,7 @@ export function AdminBotWaSlide({
               value={config.api_endpoint}
               onChange={(e) => setConfig({ ...config, api_endpoint: e.target.value })}
               placeholder="https://api.fonnte.com/send"
-              className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
 
@@ -412,13 +412,13 @@ export function AdminBotWaSlide({
                 value={config.api_token}
                 onChange={(e) => setConfig({ ...config, api_token: e.target.value })}
                 placeholder="Masukkan API Token dari dashboard gateway"
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 pl-3.5 pr-11 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-3.5 pr-11 text-sm font-mono text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
               <button
                 type="button"
                 onClick={() => setShowToken((prev) => !prev)}
                 aria-label={showToken ? 'Sembunyikan token' : 'Tampilkan token'}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:text-slate-800 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:text-[#4C1D95] cursor-pointer"
               >
                 {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -455,13 +455,13 @@ export function AdminBotWaSlide({
               ).map((item) => (
                 <label
                   key={item.key}
-                  className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex items-start gap-3 p-3 rounded-2xl border border-indigo-100/80 bg-white/60 hover:bg-indigo-50/50 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={config[item.key]}
                     onChange={(e) => setConfig({ ...config, [item.key]: e.target.checked })}
-                    className="w-4 h-4 mt-0.5 rounded accent-[#059669]"
+                    className="w-4 h-4 mt-0.5 rounded accent-[#4C1D95]"
                   />
                   <div>
                     <p className="text-sm font-semibold text-[#0F172A]">{item.label}</p>
@@ -474,7 +474,7 @@ export function AdminBotWaSlide({
         </section>
 
         {/* Kanan: Editor Template Pesan, Preview & Aksi Kirim */}
-        <section className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+        <section className="lg:col-span-6 glass-card rounded-3xl p-5 sm:p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Editor Template Pesan WhatsApp</h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -497,19 +497,19 @@ export function AdminBotWaSlide({
                       template_pesan: preset.template,
                     }))
                   }
-                  className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
+                  className={`text-left p-3 rounded-2xl border transition-colors cursor-pointer ${
                     isSelected
-                      ? 'border-[#059669] bg-emerald-50/70'
-                      : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100/80'
+                      ? 'border-[#4C1D95] bg-[#EDE9FE]/80'
+                      : 'border-indigo-100/80 bg-white/75 hover:bg-indigo-50/60'
                   }`}
                 >
                   <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
                     {preset.id === 'akses_pin' ? (
-                      <KeyRound className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                      <KeyRound className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
                     ) : preset.id === 'akses_pengurus' ? (
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
                     ) : (
-                      <MessageSquare className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                      <MessageSquare className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
                     )}
                     <span>{preset.label}</span>
                   </p>
@@ -527,7 +527,7 @@ export function AdminBotWaSlide({
                 key={v}
                 type="button"
                 onClick={() => insertVariable(v)}
-                className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-mono text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                className="min-h-[34px] px-2.5 rounded-xl border border-indigo-100 bg-indigo-50/60 hover:bg-[#EDE9FE] hover:border-indigo-300 text-xs font-mono text-slate-700 hover:text-[#4C1D95] transition-colors cursor-pointer"
               >
                 {v}
               </button>
@@ -539,13 +539,13 @@ export function AdminBotWaSlide({
             required
             value={config.template_pesan}
             onChange={(e) => setConfig({ ...config, template_pesan: e.target.value })}
-            className="w-full rounded-xl border border-slate-300 p-3.5 text-sm text-[#0F172A] leading-relaxed focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+            className="w-full rounded-2xl border border-indigo-200/80 bg-white/90 p-3.5 text-sm text-[#0F172A] leading-relaxed focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
 
           {/* Pratinjau Pesan */}
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+          <div className="rounded-2xl bg-indigo-50/40 border border-indigo-100/80 p-4">
             <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+              <MessageSquare className="w-3.5 h-3.5 text-[#4C1D95]" />
               Pratinjau Pesan Diterima Warga
             </p>
             <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
@@ -558,7 +558,7 @@ export function AdminBotWaSlide({
               type="submit"
               disabled={saving || !canManageFull}
               aria-busy={saving}
-              className="flex-1 min-h-[46px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+              className="flex-1 min-h-[46px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap shadow-sm"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>{saving ? 'Menyimpan...' : 'Simpan Konfigurasi'}</span>
@@ -569,7 +569,7 @@ export function AdminBotWaSlide({
               disabled={sending || !canManageFull}
               aria-busy={sending}
               onClick={() => void handleSendNow()}
-              className="flex-1 min-h-[46px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+              className="flex-1 min-h-[46px] px-5 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] disabled:opacity-50 disabled:cursor-not-allowed text-[#064E3B] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap shadow-xs"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               <span>{sending ? 'Mengirim Pengingat...' : 'Kirim Pengingat Sekarang'}</span>
@@ -577,7 +577,7 @@ export function AdminBotWaSlide({
           </div>
 
           {/* Uji Kirim 1 Nomor (Cek Token Fonnte/Wablas Langsung) */}
-          <div className="pt-4 border-t border-slate-200 space-y-2.5">
+          <div className="pt-4 border-t border-indigo-100/70 space-y-2.5">
             <div>
               <h3 className="text-xs font-bold text-[#0F172A]">
                 Uji Koneksi Token ({config.provider}) ke 1 Nomor WA
@@ -596,14 +596,14 @@ export function AdminBotWaSlide({
                   onChange={(e) => setTestPhone(e.target.value)}
                   disabled={!canManageFull || testingWa}
                   placeholder="Nomor WA uji coba (contoh: 0812xxxxxxxx)"
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-10 pr-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:opacity-60"
+                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-10 pr-3.5 text-sm font-mono text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
                 />
               </div>
               <button
                 type="button"
                 disabled={!canManageFull || testingWa || !testPhone.trim()}
                 onClick={() => void handleTestSingleWa()}
-                className="min-h-[44px] px-4 rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-800 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[44px] px-4 rounded-full border border-emerald-200 bg-[#D1FAE5] hover:bg-[#A7F3D0] disabled:opacity-50 disabled:cursor-not-allowed text-[#047857] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 {testingWa ? (
                   <>
@@ -620,7 +620,7 @@ export function AdminBotWaSlide({
             </div>
           </div>
           {/* Kirim Akses Akun & PIN Massal ke Seluruh Warga Aktif */}
-          <div className="pt-4 border-t border-slate-200 space-y-2.5">
+          <div className="pt-4 border-t border-indigo-100/70 space-y-2.5">
             <div>
               <h3 className="text-xs font-bold text-[#0F172A]">
                 Bagikan Info Akun &amp; PIN Warga ({APP_PORTAL_URL})
@@ -641,13 +641,13 @@ export function AdminBotWaSlide({
                 type="button"
                 disabled={!canManageFull || sendingCredentials || activeWargaWithPhoneCount === 0}
                 onClick={() => setConfirmSendCredentials(true)}
-                className="w-full min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="w-full min-h-[44px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
-                <KeyRound className="w-4 h-4 text-[#059669]" />
+                <KeyRound className="w-4 h-4 text-[#4C1D95]" />
                 <span>Kirim Akses Akun &amp; PIN ke Semua Warga Aktif</span>
               </button>
             ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 space-y-2.5">
+              <div className="rounded-2xl border border-amber-200 bg-[#FEF3C7]/85 p-3.5 space-y-2.5">
                 <p className="text-xs text-amber-900 leading-relaxed">
                   Konfirmasi pengiriman: setiap warga aktif ({activeWargaWithPhoneCount} unit) akan
                   menerima <strong>Username Blok &amp; PIN 6 digit</strong> masing-masing melalui{' '}
@@ -658,7 +658,7 @@ export function AdminBotWaSlide({
                     type="button"
                     disabled={sendingCredentials}
                     onClick={() => void handleSendAccessCredentialsAll()}
-                    className="min-h-[40px] px-4 rounded-lg bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     {sendingCredentials ? (
                       <>
@@ -676,7 +676,7 @@ export function AdminBotWaSlide({
                     type="button"
                     disabled={sendingCredentials}
                     onClick={() => setConfirmSendCredentials(false)}
-                    className="min-h-[40px] px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                    className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 cursor-pointer transition-colors"
                   >
                     Batal
                   </button>
@@ -688,11 +688,11 @@ export function AdminBotWaSlide({
       </form>
 
       {/* Template & Bagikan Link Portal Pengurus (/admin) */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <section className="glass-card rounded-3xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#0F172A] flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <div className="w-10 h-10 rounded-2xl bg-[#4C1D95] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-[#0F172A]">
@@ -718,16 +718,16 @@ export function AdminBotWaSlide({
                   onToast('error', 'Gagal menyalin link pengurus.');
                 }
               }}
-              className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="min-h-[38px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
             >
               {copiedPengurusKey === 'link-only' ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[#059669]" />
-                  <span className="text-emerald-700">Link Tersalin</span>
+                  <Check className="w-3.5 h-3.5 text-[#047857]" />
+                  <span className="text-[#047857]">Link Tersalin</span>
                 </>
               ) : (
                 <>
-                  <Link2 className="w-3.5 h-3.5 text-[#059669]" />
+                  <Link2 className="w-3.5 h-3.5 text-[#4C1D95]" />
                   <span>Salin Link /admin</span>
                 </>
               )}
@@ -745,11 +745,11 @@ export function AdminBotWaSlide({
                   onToast('error', 'Gagal menyalin template.');
                 }
               }}
-              className="min-h-[38px] px-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors shadow-xs"
             >
               {copiedPengurusKey === 'template-umum' ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-300" />
                   <span>Tersalin</span>
                 </>
               ) : (
@@ -782,11 +782,11 @@ export function AdminBotWaSlide({
             return (
               <div
                 key={p.username}
-                className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col justify-between gap-3"
+                className="rounded-2xl border border-indigo-100/80 bg-indigo-50/40 p-4 flex flex-col justify-between gap-3"
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-emerald-700">{p.jabatan}</span>
+                    <span className="text-xs font-bold text-[#4C1D95]">{p.jabatan}</span>
                     <span className="text-[11px] font-mono text-slate-500">Blok {p.blokRumah}</span>
                   </div>
                   <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
@@ -796,7 +796,7 @@ export function AdminBotWaSlide({
                     {canManageFull && mergedInfo.pin_akses && (
                       <>
                         {' · '}PIN:{' '}
-                        <span className="font-mono font-semibold text-emerald-700">
+                        <span className="font-mono font-semibold text-[#047857]">
                           {mergedInfo.pin_akses}
                         </span>
                       </>
@@ -812,7 +812,7 @@ export function AdminBotWaSlide({
                     href={buildWhatsAppLink(targetPhone, waText)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 min-h-[38px] px-3 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                    className="flex-1 min-h-[38px] px-3 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
                   >
                     <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>Kirim WA</span>
@@ -832,12 +832,12 @@ export function AdminBotWaSlide({
                         onToast('error', 'Gagal menyalin template pengurus.');
                       }
                     }}
-                    className="min-h-[38px] px-3 rounded-lg border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                   >
                     {copiedPengurusKey === p.username ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-[#059669]" />
-                        <span className="text-emerald-700">Tersalin</span>
+                        <Check className="w-3.5 h-3.5 text-[#047857]" />
+                        <span className="text-[#047857]">Tersalin</span>
                       </>
                     ) : (
                       <>
@@ -856,10 +856,10 @@ export function AdminBotWaSlide({
       {/* Bot Jawab Otomatis (Webhook Fonnte) + Simulator Live */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Pengaturan Webhook Fonnte */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
+        <div className="lg:col-span-5 glass-card rounded-3xl p-5 sm:p-6 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-              <Webhook className="w-5 h-5 text-[#059669]" />
+            <div className="w-10 h-10 rounded-2xl bg-[#EDE9FE] border border-[#DDD6FE] flex items-center justify-center shrink-0">
+              <Webhook className="w-5 h-5 text-[#4C1D95]" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-[#0F172A]">
@@ -883,16 +883,16 @@ export function AdminBotWaSlide({
                 readOnly
                 value={webhookUrl}
                 aria-label="URL Webhook Bot Jawab Otomatis"
-                className="flex-1 min-w-0 min-h-[42px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-mono text-slate-800"
+                className="flex-1 min-w-0 min-h-[42px] rounded-2xl border border-indigo-200/80 bg-indigo-50/40 px-3 text-xs font-mono text-slate-800"
               />
               <button
                 type="button"
                 onClick={() => void handleCopyWebhook()}
-                className="min-h-[42px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 {copiedWebhook ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-emerald-300" />
                     <span>Tersalin</span>
                   </>
                 ) : (
@@ -908,7 +908,7 @@ export function AdminBotWaSlide({
             </p>
           </div>
 
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
+          <div className="rounded-2xl bg-indigo-50/40 border border-indigo-100/80 p-4 space-y-2">
             <p className="text-xs font-bold text-[#0F172A]">
               Cara Aktifkan di Dashboard Fonnte (3 Langkah):
             </p>
@@ -937,10 +937,10 @@ export function AdminBotWaSlide({
         </div>
 
         {/* Simulator Live Bot Jawab Otomatis */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="lg:col-span-7 glass-card rounded-3xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <Bot className="w-4 h-4 text-[#059669] shrink-0" />
+              <Bot className="w-4 h-4 text-[#4C1D95] shrink-0" />
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#0F172A] truncate">
                   Simulator Uji Isolasi Keamanan Bot WA
@@ -954,7 +954,7 @@ export function AdminBotWaSlide({
 
           <div className="p-5 space-y-4">
             {/* Pilih Peran Pengirim Simulator */}
-            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl w-fit">
               {(
                 [
                   { id: 'warga', label: 'Simulasi: Warga Biasa' },
@@ -966,10 +966,10 @@ export function AdminBotWaSlide({
                   key={r.id}
                   type="button"
                   onClick={() => setSimRole(r.id)}
-                  className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                     simRole === r.id
-                      ? 'bg-white text-[#0F172A] shadow-sm'
-                      : 'text-slate-600 hover:text-[#0F172A]'
+                      ? 'bg-[#4C1D95] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-[#4C1D95]'
                   }`}
                 >
                   {r.label}
@@ -991,7 +991,7 @@ export function AdminBotWaSlide({
                   key={cmd}
                   type="button"
                   onClick={() => handleRunSimulator(cmd)}
-                  className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-mono text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2.5 rounded-xl border border-indigo-100 bg-indigo-50/60 hover:bg-[#EDE9FE] hover:border-indigo-300 text-xs font-mono text-slate-700 hover:text-[#4C1D95] transition-colors cursor-pointer"
                 >
                   {cmd}
                 </button>
@@ -1011,12 +1011,12 @@ export function AdminBotWaSlide({
                   }
                 }}
                 placeholder="Ketik simulasi pesan (contoh: CEK atau CEK#B07/16)..."
-                className="flex-1 min-w-0 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="flex-1 min-w-0 min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
               <button
                 type="button"
                 onClick={() => handleRunSimulator(simInput)}
-                className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Uji Balasan</span>
@@ -1028,7 +1028,7 @@ export function AdminBotWaSlide({
               {simHistory.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5"
+                  className="rounded-2xl border border-indigo-100/80 bg-indigo-50/35 p-3.5 space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
                     <span>
@@ -1036,11 +1036,11 @@ export function AdminBotWaSlide({
                       <span className="font-mono font-semibold text-slate-700">{item.command}</span>
                     </span>
                   </div>
-                  <div className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs font-mono font-semibold text-[#0F172A]">
+                  <div className="rounded-xl bg-white border border-indigo-100/80 px-3 py-2 text-xs font-mono font-semibold text-[#0F172A]">
                     {item.incoming}
                   </div>
-                  <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold text-emerald-800 mb-1">
+                  <div className="rounded-xl bg-[#D1FAE5]/60 border border-emerald-200/80 px-3.5 py-2.5">
+                    <p className="text-[11px] font-semibold text-[#047857] mb-1">
                       Balasan Otomatis Bot WA
                     </p>
                     <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
@@ -1055,8 +1055,8 @@ export function AdminBotWaSlide({
       </section>
 
       {/* Tabel Log Riwayat Pengiriman Bot WA */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+      <section className="glass-card rounded-3xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Log Riwayat Pengiriman Bot WA</h2>
             <p className="text-xs text-slate-500">
@@ -1071,7 +1071,7 @@ export function AdminBotWaSlide({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-600">
+              <tr className="border-b border-indigo-100/80 bg-indigo-50/70 text-xs font-semibold text-slate-600">
                 <th className="py-3 px-4 whitespace-nowrap">Waktu</th>
                 <th className="py-3 px-4 whitespace-nowrap">Blok / Penerima</th>
                 <th className="py-3 px-4 whitespace-nowrap">No. WA</th>
@@ -1080,7 +1080,7 @@ export function AdminBotWaSlide({
                 <th className="py-3 px-4">Respon Gateway</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
+            <tbody className="divide-y divide-indigo-100/60 text-xs sm:text-sm">
               {botLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-500">
@@ -1089,7 +1089,7 @@ export function AdminBotWaSlide({
                 </tr>
               ) : (
                 botLogs.slice(0, visibleLogsCount).map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/60">
+                  <tr key={log.id} className="hover:bg-indigo-50/40 transition-colors">
                     <td className="py-3 px-4 font-mono text-xs text-slate-500 tabular-nums whitespace-nowrap">
                       {formatTanggalWaktu(log.created_at)}
                     </td>
@@ -1105,7 +1105,7 @@ export function AdminBotWaSlide({
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                          log.status_kirim === 'Terkirim' ? 'text-emerald-700' : 'text-red-700'
+                          log.status_kirim === 'Terkirim' ? 'text-[#047857]' : 'text-red-700'
                         }`}
                       >
                         {log.status_kirim === 'Terkirim' ? (
@@ -1125,14 +1125,14 @@ export function AdminBotWaSlide({
         </div>
 
         {botLogs.length > visibleLogsCount && (
-          <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+          <div className="px-5 py-3 border-t border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
             <span className="text-xs text-slate-500 tabular-nums">
               Menampilkan {Math.min(visibleLogsCount, botLogs.length)} dari {botLogs.length} log
             </span>
             <button
               type="button"
               onClick={() => setVisibleLogsCount((c) => c + 20)}
-              className="min-h-[36px] px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-[#0F172A] cursor-pointer"
+              className="min-h-[36px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] cursor-pointer transition-colors"
             >
               Tampilkan Lebih Banyak
             </button>

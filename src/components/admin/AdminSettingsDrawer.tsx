@@ -360,22 +360,22 @@ export function AdminSettingsDrawer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="central-settings-title"
-      className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 no-print animate-modal-backdrop"
+      className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 no-print animate-modal-backdrop"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-5xl max-h-[93dvh] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-modal-pop"
+        className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl w-full max-w-5xl max-h-[93dvh] border border-white/90 shadow-2xl flex flex-col overflow-hidden animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag Handle Mobile */}
         <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
-          <div className="w-10 h-1 rounded-full bg-slate-300" aria-hidden="true" />
+          <div className="w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
         </div>
 
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 sm:px-6 py-4 border-b border-indigo-100/70 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl glass-hero text-emerald-300 flex items-center justify-center shrink-0">
               <Settings className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -397,17 +397,17 @@ export function AdminSettingsDrawer({
             type="button"
             onClick={onClose}
             aria-label="Tutup Pengaturan Sistem"
-            className="min-h-[40px] min-w-[40px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center cursor-pointer shrink-0"
+            className="min-h-[40px] min-w-[40px] rounded-full text-slate-500 hover:text-slate-900 hover:bg-indigo-50 flex items-center justify-center cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigasi Pengaturan Terpusat (Profil Saya tersedia untuk SEMUA Pengurus) */}
-        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-indigo-100/70 bg-indigo-50/40 shrink-0">
           <div
             role="tablist"
-            className={`grid ${canAccessBotWa ? 'grid-cols-6' : 'grid-cols-5'} gap-1 p-1 bg-slate-200/75 rounded-xl`}
+            className={`grid ${canAccessBotWa ? 'grid-cols-6' : 'grid-cols-5'} gap-1 p-1 bg-indigo-100/60 rounded-2xl`}
           >
             {(
               [
@@ -430,15 +430,15 @@ export function AdminSettingsDrawer({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tab.id as SettingsDrawerTab)}
-                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-lg text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer min-w-0 ${
+                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-xl text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer min-w-0 ${
                     active
-                      ? 'bg-white text-[#0F172A] shadow-sm'
-                      : 'text-slate-600 hover:text-[#0F172A]'
+                      ? 'bg-[#4C1D95] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-[#4C1D95]'
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 md:w-3.5 md:h-3.5 shrink-0 ${
-                      active ? 'text-[#059669]' : 'text-slate-500'
+                      active ? 'text-emerald-300' : 'text-slate-500'
                     }`}
                   />
                   <span className="md:hidden whitespace-nowrap">{tab.short}</span>
@@ -450,12 +450,12 @@ export function AdminSettingsDrawer({
         </div>
 
         {/* Konten Tab */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 bg-[#F8FAFC]">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 glass-canvas">
           <div key={activeTab} className="animate-page-enter">
           {/* TAB 0: PROFIL SAYA & FOTO PROFIL (AKTIF UNTUK SEMUA PENGURUS: KETUA, BENDAHARA, HUMAS, DLL.) */}
           {activeTab === 'profil' && (
             <div className="space-y-5 max-w-3xl mx-auto">
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+              <div className="glass-card rounded-3xl p-5 sm:p-6">
                 <ProfileAvatarEditor
                   session={session}
                   avatarUrl={
@@ -474,20 +474,20 @@ export function AdminSettingsDrawer({
                 />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+              <div className="glass-card rounded-3xl p-5 sm:p-6">
                 <ThemePicker onToast={onToast} />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+              <div className="glass-card rounded-3xl p-5 sm:p-6">
                 <NotificationSettingsCard session={session} onToast={onToast} />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+              <div className="glass-card rounded-3xl p-5 sm:p-6">
                 <BugReportCard session={session} onToast={onToast} />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+              <div className="glass-card rounded-3xl overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A]">Daftar Akun Pengurus Aktif</h3>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -498,13 +498,13 @@ export function AdminSettingsDrawer({
                   <button
                     type="button"
                     onClick={() => setActiveTab('keamanan')}
-                    className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    <Lock className="w-3.5 h-3.5 text-[#059669]" />
+                    <Lock className="w-3.5 h-3.5 text-[#4C1D95]" />
                     <span>Ganti PIN</span>
                   </button>
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-indigo-100/60">
                   {pengurusAccounts.map((acc) => {
                     const accAvatar =
                       acc.avatar_url || avatarMap[buildAvatarKey('admin', acc.username)] || null;
@@ -532,7 +532,7 @@ export function AdminSettingsDrawer({
                             </p>
                           </div>
                         </div>
-                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md shrink-0">
+                        <span className="text-[11px] font-semibold text-[#047857] bg-[#D1FAE5] border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
                           {acc.permission === 'full' ? 'Akses Penuh' : 'Pengurus'}
                         </span>
                       </div>
@@ -546,8 +546,8 @@ export function AdminSettingsDrawer({
           {activeTab === 'identitas' && (
             <form onSubmit={handleSaveBrand} className="space-y-5 max-w-3xl mx-auto">
               {!canEdit && (
-                <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7] border border-amber-200 px-4 py-3 text-xs text-amber-900">
+                  <ShieldAlert className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
                   <span>
                     Mode lihat saja ({session.jabatan || 'Pengurus'}). Pengubahan identitas, logo,
                     stempel resmi, dan kontak WA khusus akun <strong>Bendahara</strong>.
@@ -558,7 +558,7 @@ export function AdminSettingsDrawer({
               {/* Upload Logo & Upload Stempel PNG Transparan */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Kartu Logo */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                <div className="glass-card rounded-3xl p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <BrandLogo
                       size="lg"
@@ -585,7 +585,7 @@ export function AdminSettingsDrawer({
                         type="button"
                         disabled={uploadingLogo}
                         onClick={() => logoInputRef.current?.click()}
-                        className="min-h-[38px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         {uploadingLogo ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -598,7 +598,7 @@ export function AdminSettingsDrawer({
                         <button
                           type="button"
                           onClick={() => setBrandDraft((p) => ({ ...p, logo_url: null }))}
-                          className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                          className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Reset</span>
@@ -609,14 +609,14 @@ export function AdminSettingsDrawer({
                 </div>
 
                 {/* Kartu Stempel Digital Resmi (PNG Transparan) */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                <div className="glass-card rounded-3xl p-4 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/40 flex items-center justify-center shrink-0 overflow-hidden p-1">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50/40 flex items-center justify-center shrink-0 overflow-hidden p-1">
                       <OfficialStamp srcOverride={brandDraft.stempel_url ?? null} size="sm" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                        <Stamp className="w-4 h-4 text-[#059669] shrink-0" />
+                        <Stamp className="w-4 h-4 text-[#4C1D95] shrink-0" />
                         <span>Stempel Resmi Pengurus</span>
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
@@ -638,7 +638,7 @@ export function AdminSettingsDrawer({
                         type="button"
                         disabled={uploadingStempel}
                         onClick={() => stempelInputRef.current?.click()}
-                        className="min-h-[38px] px-3.5 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         {uploadingStempel ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -651,7 +651,7 @@ export function AdminSettingsDrawer({
                         <button
                           type="button"
                           onClick={() => setBrandDraft((p) => ({ ...p, stempel_url: null }))}
-                          className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                          className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Stempel Default</span>
@@ -663,7 +663,7 @@ export function AdminSettingsDrawer({
               </div>
 
               {/* Form Teks Identitas */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="glass-card rounded-3xl p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
@@ -710,9 +710,9 @@ export function AdminSettingsDrawer({
               </div>
 
               {/* Nomor WA Pengurus & Bot */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="glass-card rounded-3xl p-5 space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
-                  <Phone className="w-4 h-4 text-[#059669]" />
+                  <Phone className="w-4 h-4 text-[#4C1D95]" />
                   <span>Nomor WhatsApp Pengurus &amp; Bot Terpisah</span>
                 </div>
 
@@ -772,7 +772,7 @@ export function AdminSettingsDrawer({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                   {SUSUNAN_PENGURUS.map((p) => (
-                    <div key={p.username} className="rounded-xl border border-slate-200 p-2.5 bg-slate-50/70">
+                    <div key={p.username} className="rounded-2xl border border-indigo-100/80 p-2.5 bg-indigo-50/40">
                       <p className="text-[11px] font-semibold text-slate-700 truncate">
                         {p.nama} · {p.jabatan}
                       </p>
@@ -790,7 +790,7 @@ export function AdminSettingsDrawer({
                           });
                         }}
                         placeholder={`Default +${normWaPengurus || '628...'}`}
-                        className="mt-1.5 w-full min-h-[36px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-mono disabled:bg-slate-100"
+                        className="mt-1.5 w-full min-h-[36px] rounded-xl border border-indigo-200/80 bg-white/90 px-2.5 text-xs font-mono text-[#0F172A] disabled:bg-slate-100"
                       />
                     </div>
                   ))}
@@ -807,7 +807,7 @@ export function AdminSettingsDrawer({
                         pengurus_wa_map: {},
                       })
                     }
-                    className="min-h-[42px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Default</span>
@@ -815,7 +815,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingBrand || uploadingLogo || uploadingStempel || isSameAsBot}
-                    className="min-h-[44px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+                    className="min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingBrand ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -833,7 +833,7 @@ export function AdminSettingsDrawer({
           {activeTab === 'pembayaran' && (
             <form onSubmit={handleSavePayment} className="space-y-5 max-w-3xl mx-auto">
               {!canEdit && (
-                <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900">
+                <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7]/90 border border-amber-200 px-4 py-3 text-xs text-amber-900">
                   <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span>
                     Mode lihat saja. Perubahan QRIS, nomor rekening, dan nominal IPL khusus{' '}
@@ -843,7 +843,7 @@ export function AdminSettingsDrawer({
               )}
 
               {/* Nominal IPL Standar Bulanan */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+              <div className="glass-card rounded-3xl p-5 space-y-3">
                 <div>
                   <h3 className="text-sm font-bold text-[#0F172A]">Nominal IPL Bulanan Standar</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -868,17 +868,17 @@ export function AdminSettingsDrawer({
                           nominal_ipl_bulanan: Math.max(0, Number(e.target.value) || 0),
                         }))
                       }
-                      className="w-full min-h-[44px] rounded-xl border border-slate-300 pl-10 pr-4 text-sm font-mono font-bold text-[#0F172A] tabular-nums disabled:bg-slate-100"
+                      className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-10 pr-4 text-sm font-mono font-bold text-[#0F172A] tabular-nums disabled:bg-slate-100 focus:border-[#4C1D95] focus:outline-none"
                     />
                   </div>
-                  <span className="text-xs font-mono text-emerald-700 font-semibold">
+                  <span className="text-xs font-mono text-[#047857] font-semibold">
                     = {formatRupiah(payDraft.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)} / bulan
                   </span>
                 </div>
               </div>
 
               {/* QRIS */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="glass-card rounded-3xl p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A]">Pembayaran QR / QRIS</h3>
@@ -893,7 +893,7 @@ export function AdminSettingsDrawer({
                     disabled={!canEdit}
                     onClick={() => setPayDraft((p) => ({ ...p, qris_aktif: !p.qris_aktif }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      payDraft.qris_aktif ? 'bg-[#059669]' : 'bg-slate-300'
+                      payDraft.qris_aktif ? 'bg-[#4C1D95]' : 'bg-slate-300'
                     } ${canEdit ? 'cursor-pointer' : 'opacity-50'}`}
                   >
                     <span
@@ -914,19 +914,19 @@ export function AdminSettingsDrawer({
                 />
 
                 {payDraft.qris_image_url ? (
-                  <div className="rounded-xl border border-slate-200 p-4 bg-slate-50 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="rounded-2xl border border-indigo-100/80 p-4 bg-indigo-50/40 flex flex-col sm:flex-row items-center gap-4">
                     <img
                       src={payDraft.qris_image_url}
                       alt="QRIS Kas Lingkungan"
                       referrerPolicy="no-referrer"
-                      className="w-36 h-36 object-contain rounded-lg border border-slate-200 bg-white"
+                      className="w-36 h-36 object-contain rounded-xl border border-indigo-100 bg-white"
                     />
                     {canEdit && (
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => qrisInputRef.current?.click()}
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <Upload className="w-3.5 h-3.5" />
                           <span>Ganti QRIS</span>
@@ -936,7 +936,7 @@ export function AdminSettingsDrawer({
                           onClick={() =>
                             setPayDraft((p) => ({ ...p, qris_image_url: null, qris_aktif: false }))
                           }
-                          className="min-h-[38px] px-3.5 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[38px] px-4 rounded-full border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
@@ -949,12 +949,12 @@ export function AdminSettingsDrawer({
                     type="button"
                     disabled={!canEdit || uploadingQris}
                     onClick={() => qrisInputRef.current?.click()}
-                    className="w-full min-h-[110px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-emerald-500 hover:bg-emerald-50/40 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
+                    className="w-full min-h-[110px] rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 hover:border-[#4C1D95] hover:bg-indigo-50/80 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50 transition-colors"
                   >
                     {uploadingQris ? (
-                      <Loader2 className="w-6 h-6 text-[#059669] animate-spin" />
+                      <Loader2 className="w-6 h-6 text-[#4C1D95] animate-spin" />
                     ) : (
-                      <QrCode className="w-6 h-6 text-slate-400" />
+                      <QrCode className="w-6 h-6 text-indigo-400" />
                     )}
                     <span>
                       {uploadingQris ? 'Mengunggah QRIS...' : 'Klik untuk Upload Gambar QRIS'}
@@ -964,17 +964,17 @@ export function AdminSettingsDrawer({
               </div>
 
               {/* Nomor Rekening Bendahara */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="glass-card rounded-3xl p-5 space-y-4">
                 <h3 className="text-sm font-bold text-[#0F172A]">
                   Daftar Rekening Transfer &amp; E-Wallet Resmi (Tersinkron ke Bot WA)
                 </h3>
 
-                <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
+                <div className="divide-y divide-indigo-100/70 border border-indigo-100/80 rounded-2xl overflow-hidden bg-white/80">
                   {payDraft.rekening_list.map((rek) => (
                     <div key={rek.id} className="p-3.5 flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs text-slate-500">
-                          <span className="font-semibold text-emerald-700">{rek.tipe}</span> ·{' '}
+                          <span className="font-semibold text-[#4C1D95]">{rek.tipe}</span> ·{' '}
                           <span className="font-semibold text-[#0F172A]">{rek.bank}</span>
                         </p>
                         <p className="text-sm font-mono font-bold text-[#0F172A] tabular-nums mt-0.5">
@@ -991,7 +991,7 @@ export function AdminSettingsDrawer({
                               rekening_list: p.rekening_list.filter((r) => r.id !== rek.id),
                             }))
                           }
-                          className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-500 hover:text-red-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                          className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white hover:border-red-300 hover:bg-red-50 text-slate-500 hover:text-red-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
@@ -1002,7 +1002,7 @@ export function AdminSettingsDrawer({
                 </div>
 
                 {canEdit && (
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+                  <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-4 space-y-3">
                     <p className="text-xs font-bold text-[#0F172A]">Tambah Rekening Baru</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <select
@@ -1010,7 +1010,7 @@ export function AdminSettingsDrawer({
                         onChange={(e) =>
                           setNewTipe(e.target.value as 'Transfer Bank' | 'E-Wallet')
                         }
-                        className="min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
                       >
                         <option value="Transfer Bank">Transfer Bank</option>
                         <option value="E-Wallet">E-Wallet</option>
@@ -1020,27 +1020,27 @@ export function AdminSettingsDrawer({
                         value={newBank}
                         onChange={(e) => setNewBank(e.target.value)}
                         placeholder="Nama Bank / E-Wallet (cth: Blu BCA)"
-                        className="min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
                       />
                       <input
                         type="text"
                         value={newNomor}
                         onChange={(e) => setNewNomor(e.target.value)}
                         placeholder="Nomor Rekening"
-                        className="min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono"
+                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs font-mono text-[#0F172A]"
                       />
                       <input
                         type="text"
                         value={newAtasNama}
                         onChange={(e) => setNewAtasNama(e.target.value)}
                         placeholder="Atas Nama"
-                        className="min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={handleAddRekening}
-                      className="min-h-[38px] px-3.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                      className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Tambah ke Daftar</span>
@@ -1054,7 +1054,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingPay || uploadingQris}
-                    className="min-h-[44px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+                    className="min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingPay ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1089,12 +1089,12 @@ export function AdminSettingsDrawer({
               {/* Ganti PIN 6 Digit Pengurus */}
               <form
                 onSubmit={handleChangePin}
-                className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4"
+                className="glass-card rounded-3xl p-5 space-y-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[#059669]" />
+                      <Lock className="w-4 h-4 text-[#4C1D95]" />
                       <span>Ganti PIN 6 Digit Pengurus ({session.nama_warga})</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -1108,7 +1108,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="button"
                     onClick={() => setShowPins((p) => !p)}
-                    className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer shrink-0"
+                    className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
                   >
                     {showPins ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     <span>{showPins ? 'Sembunyikan' : 'Tampilkan'}</span>
@@ -1128,7 +1128,7 @@ export function AdminSettingsDrawer({
                       value={oldPin}
                       onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono tracking-widest"
+                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -1143,7 +1143,7 @@ export function AdminSettingsDrawer({
                       value={newPin}
                       onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono tracking-widest"
+                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -1158,7 +1158,7 @@ export function AdminSettingsDrawer({
                       value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono tracking-widest"
+                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1167,7 +1167,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingPin || oldPin.length !== 6 || newPin.length !== 6 || confirmPin.length !== 6}
-                    className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer"
+                    className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingPin ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1180,11 +1180,11 @@ export function AdminSettingsDrawer({
               </form>
 
               {/* Log Aktivitas Sistem */}
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div className="glass-card rounded-3xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                      <History className="w-4 h-4 text-[#059669]" />
+                      <History className="w-4 h-4 text-[#4C1D95]" />
                       <span>Log Aktivitas &amp; Audit Sistem</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -1199,14 +1199,14 @@ export function AdminSettingsDrawer({
                         .then((logs) => setAuditLogs(logs))
                         .finally(() => setLoadingLogs(false));
                     }}
-                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
                     <span>Muat Ulang</span>
                   </button>
                 </div>
 
-                <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                <div className="max-h-96 overflow-y-auto divide-y divide-indigo-100/60">
                   {loadingLogs ? (
                     <div className="p-8 text-center text-xs text-slate-500">
                       Memuat log aktivitas sistem...
@@ -1223,7 +1223,7 @@ export function AdminSettingsDrawer({
                         avatarMap[buildAvatarKey('petugas', log.actor_id)] ||
                         null;
                       return (
-                        <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3">
+                        <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3 hover:bg-indigo-50/30 transition-colors">
                           <UserAvatar
                             name={log.actor_name}
                             src={actorAvatar}
@@ -1243,7 +1243,7 @@ export function AdminSettingsDrawer({
                               </span>
                             </div>
                             <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
-                            <p className="text-[10px] font-mono text-emerald-700 mt-0.5">
+                            <p className="text-[10px] font-mono text-[#4C1D95] mt-0.5">
                               {log.action} · {log.entity}
                             </p>
                           </div>

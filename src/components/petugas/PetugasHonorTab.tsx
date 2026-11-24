@@ -212,17 +212,17 @@ export function PetugasHonorTab({
     <div className="space-y-4">
       {/* RINGKASAN TOTAL LEMBUR BULAN INI & TOTAL HONOR DITERIMA (READ-ONLY) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-[#0F172A] text-white border border-slate-800 p-4 space-y-2">
+        <div className="rounded-3xl glass-hero text-white p-4 sm:p-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A7F3D0]">
               Total Lembur Bulan Ini
             </p>
-            <Moon className="w-4 h-4 text-emerald-400 shrink-0" />
+            <Moon className="w-4 h-4 text-[#A7F3D0] shrink-0" />
           </div>
           <p className="text-xl sm:text-2xl font-mono font-extrabold text-white tabular-nums">
             {formatRupiah(currentMonthLemburSummary.paidTotal)}
           </p>
-          <p className="text-[11px] text-slate-300 leading-snug tabular-nums">
+          <p className="text-[11px] text-indigo-100/80 leading-snug tabular-nums">
             {currentMonthLemburSummary.paidCount} jadwal lunas
             {currentMonthLemburSummary.unpaidCount > 0
               ? ` · ${currentMonthLemburSummary.unpaidCount} terjadwal (${formatRupiah(
@@ -232,27 +232,27 @@ export function PetugasHonorTab({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200/90 p-4 space-y-2">
+        <div className="rounded-3xl glass-card p-4 sm:p-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4C1D95]">
               Total Honor &amp; Lembur Diterima
             </p>
-            <Wallet className="w-4 h-4 text-[#059669] shrink-0" />
+            <Wallet className="w-4 h-4 text-[#4C1D95] shrink-0" />
           </div>
           <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#0F172A] tabular-nums">
             {formatRupiah(totalHonorDiterima)}
           </p>
-          <p className="text-[11px] font-medium text-emerald-800">
+          <p className="text-[11px] font-medium text-slate-500">
             Privasi Pribadi Terisolasi · Hanya Tampil untuk {officerName}
           </p>
         </div>
       </section>
 
       {/* DAFTAR LEMBUR MINGGU (19:00 – 07:00 WIB) */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+      <section className="glass-card rounded-3xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
+            <Moon className="w-4 h-4 text-[#4C1D95] shrink-0" />
             <h2 className="text-sm font-bold text-[#0F172A] truncate">
               Jadwal &amp; Pencairan Lembur Minggu
             </h2>
@@ -264,15 +264,15 @@ export function PetugasHonorTab({
 
         {loadingOverrides ? (
           <div className="p-4 space-y-2.5">
-            <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
-            <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-16 rounded-2xl bg-indigo-50/70 animate-pulse" />
+            <div className="h-16 rounded-2xl bg-indigo-50/70 animate-pulse" />
           </div>
         ) : lemburOverrides.length === 0 ? (
           <div className="px-4 py-6 text-center text-xs text-slate-500">
             Belum ada jadwal Lembur Minggu (19:00 – 07:00 WIB) atas nama Anda.
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-indigo-100/60">
             {lemburOverrides.map((ov) => {
               const isPaid = ov.payment_status === 'paid' || Boolean(ov.cash_transaction_id);
               const linkedTrx = linkedCashByOverrideId.get(ov.id) || null;
@@ -316,7 +316,7 @@ export function PetugasHonorTab({
                     )}
 
                     {ov.notes && (
-                      <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1">
+                      <p className="text-[11px] text-slate-500 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1">
                         {ov.notes}
                       </p>
                     )}
@@ -337,10 +337,10 @@ export function PetugasHonorTab({
                             ov.overtime_amount
                           )
                         }
-                        className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                        className={`min-h-[40px] px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
                           isConfirmed
                             ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
-                            : 'border-slate-300 bg-white hover:bg-slate-50 text-[#0F172A] cursor-pointer'
+                            : 'border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] cursor-pointer'
                         }`}
                       >
                         {isConfirmed ? (
@@ -350,7 +350,7 @@ export function PetugasHonorTab({
                           </>
                         ) : (
                           <>
-                            <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+                            <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#4C1D95]" />
                             <span>
                               {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
                             </span>
@@ -362,7 +362,7 @@ export function PetugasHonorTab({
                       <button
                         type="button"
                         onClick={() => onOpenKwitansi(linkedTrx)}
-                        className="min-h-[40px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        className="min-h-[40px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                       >
                         <FileText className="w-3.5 h-3.5 shrink-0" />
                         <span>e-Kwitansi</span>
@@ -377,10 +377,10 @@ export function PetugasHonorTab({
       </section>
 
       {/* RIWAYAT HONOR BULANAN & PENCAIRAN KAS */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+      <section className="glass-card rounded-3xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Wallet className="w-4 h-4 text-[#059669] shrink-0" />
+            <Wallet className="w-4 h-4 text-[#4C1D95] shrink-0" />
             <h2 className="text-sm font-bold text-[#0F172A] truncate">
               Riwayat Honor Bulanan &amp; Pencairan Kas
             </h2>
@@ -392,7 +392,7 @@ export function PetugasHonorTab({
 
         {otherHonorRows.length === 0 ? (
           <div className="p-7 text-center space-y-1.5">
-            <ShieldAlert className="w-7 h-7 text-slate-400 mx-auto" />
+            <ShieldAlert className="w-7 h-7 text-indigo-300 mx-auto" />
             <p className="text-xs font-bold text-slate-700">
               Belum Ada Catatan Honor Rutin Lainnya
             </p>
@@ -402,7 +402,7 @@ export function PetugasHonorTab({
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-indigo-100/60">
             {otherHonorRows.map((trx) => {
               const isLembur =
                 trx.jenis_honor === 'honor_rutin'
@@ -415,12 +415,12 @@ export function PetugasHonorTab({
               return (
                 <div
                   key={trx.id}
-                  className="p-3.5 sm:px-5 sm:py-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3.5 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                       <span
-                        className={`font-bold ${isLembur ? 'text-indigo-700' : 'text-emerald-700'}`}
+                        className={`font-bold ${isLembur ? 'text-[#4C1D95]' : 'text-emerald-700'}`}
                       >
                         {isLembur ? 'Uang Lembur' : 'Honor Rutin'}
                       </span>
@@ -455,10 +455,10 @@ export function PetugasHonorTab({
                       onClick={() =>
                         void handleConfirmHonorReceipt(confirmKey, periodeLabel, trx.nominal)
                       }
-                      className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                      className={`min-h-[40px] px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
                         isConfirmed
                           ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
-                          : 'border-slate-300 bg-white hover:bg-slate-50 text-[#0F172A] cursor-pointer'
+                          : 'border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] cursor-pointer'
                       }`}
                     >
                       {isConfirmed ? (
@@ -468,7 +468,7 @@ export function PetugasHonorTab({
                         </>
                       ) : (
                         <>
-                          <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+                          <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#4C1D95]" />
                           <span>
                             {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
                           </span>
@@ -478,7 +478,7 @@ export function PetugasHonorTab({
                     <button
                       type="button"
                       onClick={() => onOpenKwitansi(trx)}
-                      className="min-h-[40px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      className="min-h-[40px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                     >
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>e-Kwitansi</span>

@@ -170,16 +170,16 @@ export function WargaHomeSlide({
       {notifications.length > 0 && (
         <section
           aria-label="Pengumuman Pengurus Lingkungan"
-          className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+          className="glass-card rounded-3xl overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="px-5 py-3.5 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
-              <Megaphone className="w-4 h-4 text-[#059669] shrink-0" />
+              <Megaphone className="w-4 h-4 text-[#4C1D95] shrink-0" />
               <span>Pengumuman Pengurus</span>
               {unreadNotifications.length > 0 && (
                 <>
-                  <span aria-hidden="true" className="text-slate-300 font-normal">·</span>
-                  <span className="text-xs font-mono font-semibold text-emerald-700 tabular-nums">
+                  <span aria-hidden="true" className="text-indigo-200 font-normal">·</span>
+                  <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
                     {unreadNotifications.length} baru
                   </span>
                 </>
@@ -189,7 +189,7 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => setShowReadHistory((v) => !v)}
-                className="text-xs font-semibold text-slate-600 hover:text-[#0F172A] cursor-pointer whitespace-nowrap"
+                className="text-xs font-semibold text-slate-600 hover:text-[#4C1D95] cursor-pointer whitespace-nowrap"
               >
                 {showReadHistory
                   ? 'Sembunyikan yang sudah dibaca'
@@ -204,25 +204,25 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => setShowReadHistory(true)}
-                className="font-semibold text-emerald-700 hover:underline cursor-pointer whitespace-nowrap"
+                className="font-semibold text-[#4C1D95] hover:underline cursor-pointer whitespace-nowrap"
               >
                 Lihat arsip
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-indigo-100/60">
               {displayedNotifications.map((notif) => {
                 const isRead = readIds.includes(notif.id);
                 return (
                   <article
                     key={notif.id}
                     className={`px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
-                      isRead ? 'bg-slate-50/50' : 'bg-white'
+                      isRead ? 'bg-indigo-50/30' : 'bg-white/40'
                     }`}
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                        <span className="font-semibold text-emerald-700">{notif.category}</span>
+                        <span className="font-semibold text-[#4C1D95]">{notif.category}</span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono tabular-nums">
                           {formatTanggalWaktu(notif.created_at)}
@@ -241,7 +241,7 @@ export function WargaHomeSlide({
                       <button
                         type="button"
                         onClick={() => markAsRead(notif.id)}
-                        className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-500 hover:text-emerald-700 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
+                        className="min-h-[36px] px-3.5 rounded-full border border-indigo-200 bg-white/95 hover:border-[#4C1D95] hover:text-[#4C1D95] text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Tandai Dibaca</span>
@@ -258,72 +258,57 @@ export function WargaHomeSlide({
       {/* Baris Atas: e-Card Verifikasi (Focal Anchor) + Ringkasan Siklus Tagihan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* e-Card Verifikasi Digital */}
-        <section
-          className="lg:col-span-7 rounded-2xl text-white p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[248px] border"
-          style={{
-            backgroundImage:
-              'linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-2) 100%)',
-            borderColor: 'var(--theme-accent-border)',
-          }}
-        >
+        <section className="lg:col-span-7 glass-hero rounded-3xl text-white p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[248px]">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-25"
-            style={{ backgroundColor: 'var(--theme-primary)' }}
+            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-400/20 blur-3xl"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 left-0 right-0 h-1.5"
-            style={{ backgroundColor: 'var(--theme-primary)' }}
+            className="pointer-events-none absolute -bottom-16 -left-16 w-52 h-52 rounded-full bg-emerald-400/15 blur-3xl"
           />
 
           {/* Header Kartu */}
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
-                <Building2
-                  className="w-5 h-5"
-                  style={{ color: 'var(--theme-accent-highlight)' }}
-                />
+              <div className="w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5 text-[#A7F3D0]" />
               </div>
               <div>
                 <p className="text-sm font-bold tracking-tight text-white">e-Card Verifikasi IPL</p>
-                <p className="text-xs text-white/70">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
+                <p className="text-xs text-indigo-100/80">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
               </div>
             </div>
-            <ShieldCheck
-              className="w-6 h-6 shrink-0"
-              style={{ color: 'var(--theme-accent-highlight)' }}
-            />
+            <ShieldCheck className="w-6 h-6 shrink-0 text-[#A7F3D0]" />
           </div>
 
           {/* Identitas Utama Rumah */}
           <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-slate-400">Nama Kepala Keluarga</p>
+              <p className="text-xs text-indigo-200/80">Nama Kepala Keluarga</p>
               <p className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
                 {profil.nama_warga}
               </p>
             </div>
             <div className="sm:text-right">
-              <p className="text-xs text-slate-400">Blok / No. Rumah</p>
-              <p className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 tracking-tight tabular-nums mt-0.5">
+              <p className="text-xs text-indigo-200/80">Blok / No. Rumah</p>
+              <p className="text-2xl sm:text-3xl font-bold font-mono text-[#A7F3D0] tracking-tight tabular-nums mt-0.5">
                 {profil.blok_rumah}
               </p>
             </div>
           </div>
 
           {/* Footer Kartu: Status Hunian + Badge Bulan Berjalan */}
-          <div className="relative z-10 mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="relative z-10 mt-6 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-indigo-100/85">
               <span>Status Hunian:</span>
               <span className="font-semibold text-white">{profil.status_hunian}</span>
-              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span aria-hidden="true" className="text-white/40">·</span>
               <span>Periode {currentMonthName} {TAHUN_AKTIF}</span>
             </div>
 
             <div
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide whitespace-nowrap ${ecardBadge.bg}`}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide whitespace-nowrap shadow-xs ${ecardBadge.bg}`}
             >
               <BadgeIcon className="w-3.5 h-3.5 shrink-0" />
               <span>{ecardBadge.text}</span>
@@ -332,12 +317,12 @@ export function WargaHomeSlide({
         </section>
 
         {/* Panel Info Siklus Tagihan */}
-        <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between">
+        <aside className="lg:col-span-5 glass-card rounded-3xl p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Informasi Siklus Tagihan IPL</h2>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">{brand.kop_resmi}</p>
 
-            <dl className="mt-5 divide-y divide-slate-100 text-sm">
+            <dl className="mt-5 divide-y divide-indigo-100/60 text-sm">
               <div className="py-2.5 flex items-center justify-between gap-4">
                 <dt className="text-slate-600">Nominal Standar IPL</dt>
                 <dd className="font-mono font-bold text-[#0F172A] tabular-nums">
@@ -374,7 +359,7 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => onQuickPayMonth(currentMonth)}
-                className="w-full min-h-[44px] rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="w-full min-h-[46px] rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
               >
                 <span>Setor Iuran {currentMonthName} Sekarang</span>
                 <ArrowRight className="w-4 h-4" />
@@ -384,9 +369,9 @@ export function WargaHomeSlide({
             <button
               type="button"
               onClick={() => setPanduanWaOpen(true)}
-              className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#0F172A] text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Bot className="w-4 h-4 text-[#059669]" />
+              <Bot className="w-4 h-4 text-[#4C1D95]" />
               <span>Panduan Bot WA (Cek Saldo &amp; Setor)</span>
             </button>
           </div>
@@ -394,7 +379,7 @@ export function WargaHomeSlide({
       </div>
 
       {/* Matriks Status 12 Bulan (Januari – Desember 2026) */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
+      <section className="glass-card rounded-3xl p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
@@ -441,9 +426,9 @@ export function WargaHomeSlide({
                 type="button"
                 disabled={!canClick}
                 onClick={() => canClick && onQuickPayMonth(b.angka)}
-                className={`text-left rounded-xl border p-3.5 transition-all min-h-[88px] flex flex-col justify-between ${style.box} ${
+                className={`text-left rounded-2xl border p-3.5 transition-all min-h-[88px] flex flex-col justify-between ${style.box} ${
                   canClick ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
-                } ${isCurrent ? 'ring-2 ring-[#0F172A]/20' : ''}`}
+                } ${isCurrent ? 'ring-2 ring-[#4C1D95]/30' : ''}`}
               >
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-sm font-bold">{b.singkat}</span>

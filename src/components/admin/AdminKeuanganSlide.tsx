@@ -461,36 +461,36 @@ export function AdminKeuanganSlide({
     <div className="space-y-6">
       {/* KPI Strip Saldo Kas Real-Time */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="col-span-2 lg:col-span-1 bg-[#0F172A] text-white rounded-2xl p-4 sm:p-5">
+        <div className="col-span-2 lg:col-span-1 glass-hero text-white rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-slate-300">Saldo Kas Real-Time</p>
-            <Wallet className="w-4 h-4 text-emerald-400 shrink-0" />
+            <p className="text-xs font-medium text-indigo-100/90">Saldo Kas Real-Time</p>
+            <Wallet className="w-4 h-4 text-emerald-300 shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-extrabold font-mono text-emerald-400 tabular-nums mt-2">
+          <p className="text-xl sm:text-2xl font-extrabold font-mono text-white tabular-nums mt-2">
             {formatRupiah(cashSummary.saldoKas)}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-[11px] text-indigo-200/90 mt-1">
             IPL + Pemasukan Lain − Pengeluaran
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total IPL Terverifikasi</p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-[#059669] tabular-nums mt-2">
+          <p className="text-lg sm:text-xl font-bold font-mono text-[#047857] tabular-nums mt-2">
             {formatRupiah(cashSummary.totalIplMasuk)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Akumulasi iuran warga lunas</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total Pemasukan Lain</p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-sky-700 tabular-nums mt-2">
+          <p className="text-lg sm:text-xl font-bold font-mono text-[#3730A3] tabular-nums mt-2">
             {formatRupiah(cashSummary.totalPemasukanLain)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Donasi, kas awal &amp; parsial</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="glass-card rounded-3xl p-4 sm:p-5">
           <p className="text-xs font-medium text-slate-500">Total Pengeluaran</p>
           <p className="text-lg sm:text-xl font-bold font-mono text-red-700 tabular-nums mt-2">
             {formatRupiah(cashSummary.totalPengeluaran)}
@@ -503,7 +503,7 @@ export function AdminKeuanganSlide({
       <div
         role="tablist"
         aria-label="Submenu Keuangan Admin"
-        className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-200/75 rounded-2xl w-full sm:w-fit"
+        className="flex flex-wrap items-center gap-1.5 p-1.5 bg-indigo-50/80 border border-indigo-100/90 backdrop-blur-md rounded-2xl w-full sm:w-fit"
       >
         <button
           type="button"
@@ -512,11 +512,11 @@ export function AdminKeuanganSlide({
           onClick={() => setKeuanganSubTab('buku_kas')}
           className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
             keuanganSubTab === 'buku_kas'
-              ? 'bg-white text-[#0F172A] shadow-sm'
-              : 'text-slate-600 hover:text-[#0F172A]'
+              ? 'bg-[#4C1D95] text-white shadow-sm'
+              : 'text-slate-600 hover:text-[#4C1D95]'
           }`}
         >
-          <Wallet className="w-4 h-4 text-[#059669] shrink-0" />
+          <Wallet className={`w-4 h-4 shrink-0 ${keuanganSubTab === 'buku_kas' ? 'text-emerald-300' : 'text-[#4C1D95]'}`} />
           <span>Buku Kas &amp; Arus Dana</span>
         </button>
         <button
@@ -526,14 +526,14 @@ export function AdminKeuanganSlide({
           onClick={() => setKeuanganSubTab('shift_lembur')}
           className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
             keuanganSubTab === 'shift_lembur'
-              ? 'bg-white text-[#0F172A] shadow-sm'
-              : 'text-slate-600 hover:text-[#0F172A]'
+              ? 'bg-[#4C1D95] text-white shadow-sm'
+              : 'text-slate-600 hover:text-[#4C1D95]'
           }`}
         >
-          <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
+          <Moon className={`w-4 h-4 shrink-0 ${keuanganSubTab === 'shift_lembur' ? 'text-amber-300' : 'text-[#4C1D95]'}`} />
           <span>Kelola Shift &amp; Lembur Keamanan</span>
           {unpaidOvertimeCount > 0 && (
-            <span className="text-[11px] font-mono font-bold text-amber-700 tabular-nums">
+            <span className={`text-[11px] font-mono font-bold tabular-nums ${keuanganSubTab === 'shift_lembur' ? 'text-amber-200' : 'text-amber-700'}`}>
               ({unpaidOvertimeCount} blm bayar)
             </span>
           )}
@@ -557,8 +557,8 @@ export function AdminKeuanganSlide({
         /* Grid Utama: Form Input Cepat (Kiri) + Daftar Riwayat Kas (Kanan) */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Pencatatan Pengeluaran Anggaran / Pemasukan Lain */}
-        <section className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-200 space-y-3">
+        <section className="lg:col-span-5 glass-card rounded-3xl overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-indigo-100/80 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-bold text-[#0F172A]">
                 {editingItem
@@ -569,7 +569,7 @@ export function AdminKeuanganSlide({
                 <button
                   type="button"
                   onClick={() => resetForm(formJenis)}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                  className="text-xs font-semibold text-slate-500 hover:text-[#4C1D95] cursor-pointer"
                 >
                   Batal Edit
                 </button>
@@ -577,11 +577,11 @@ export function AdminKeuanganSlide({
             </div>
 
             {!editingItem && (
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-indigo-50/80 rounded-2xl">
                 <button
                   type="button"
                   onClick={() => switchJenisForm('pengeluaran')}
-                  className={`min-h-[40px] rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`min-h-[40px] rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                     formJenis === 'pengeluaran'
                       ? 'bg-red-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
@@ -593,9 +593,9 @@ export function AdminKeuanganSlide({
                 <button
                   type="button"
                   onClick={() => switchJenisForm('pemasukan_lain')}
-                  className={`min-h-[40px] rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`min-h-[40px] rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                     formJenis === 'pemasukan_lain'
-                      ? 'bg-[#059669] text-white shadow-sm'
+                      ? 'bg-[#3730A3] text-white shadow-sm'
                       : 'text-slate-600 hover:text-[#0F172A]'
                   }`}
                 >
@@ -629,16 +629,16 @@ export function AdminKeuanganSlide({
 
             {/* SATU PINTU INPUT (ANTI DOUBLE-INPUT): Arahkan Honor & Lembur Keamanan ke Tab Terpusat */}
             {!editingItem && isHonorKeamananCategory ? (
-              <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200 p-4 space-y-3.5">
+              <div className="rounded-2xl bg-indigo-50/80 border border-indigo-200 p-4 space-y-3.5">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-2xl bg-[#4C1D95] text-white flex items-center justify-center shrink-0 mt-0.5">
                     <Moon className="w-4 h-4" />
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs sm:text-sm font-bold text-[#0F172A] leading-snug">
                       Pencatatan Honor &amp; Lembur Keamanan Terpusat
                     </p>
-                    <p className="text-xs text-emerald-950/90 leading-relaxed">
+                    <p className="text-xs text-slate-700 leading-relaxed">
                       Pengelolaan shift, lembur, dan pencairan honor petugas kini terpusat di tab{' '}
                       <strong>Kelola Shift &amp; Lembur Keamanan</strong> agar tidak terjadi input
                       ganda.
@@ -649,14 +649,14 @@ export function AdminKeuanganSlide({
                 <button
                   type="button"
                   onClick={goToShiftLemburTab}
-                  className="w-full min-h-[44px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                  className="w-full min-h-[44px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
                 >
                   <Moon className="w-4 h-4 shrink-0" />
                   <span>Buka Kelola Shift &amp; Lembur Keamanan</span>
                   <ArrowRight className="w-4 h-4 shrink-0" />
                 </button>
 
-                <p className="text-[11px] text-emerald-800 leading-snug">
+                <p className="text-[11px] text-indigo-900/80 leading-snug">
                   Setiap pembayaran Honor Rutin maupun Uang Lembur di tab tersebut otomatis
                   tercatat di Buku Kas, memotong Saldo Kas Real-Time, masuk LPJ Triwulanan, dan
                   langsung tampil di Tab Honor Portal Petugas.
@@ -822,10 +822,10 @@ export function AdminKeuanganSlide({
                 <button
                   type="submit"
                   disabled={saving}
-                  className={`w-full min-h-[46px] rounded-xl text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 ${
+                  className={`w-full min-h-[46px] rounded-full text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 shadow-sm ${
                     formJenis === 'pengeluaran'
-                      ? 'bg-[#0F172A] hover:bg-slate-800'
-                      : 'bg-[#059669] hover:bg-emerald-700'
+                      ? 'bg-[#4C1D95] hover:bg-[#3B0764]'
+                      : 'bg-[#3730A3] hover:bg-[#312E81]'
                   }`}
                 >
                   {saving ? (
@@ -856,8 +856,8 @@ export function AdminKeuanganSlide({
         </section>
 
         {/* Daftar Riwayat Pengeluaran & Pemasukan Lain */}
-        <section className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-200 space-y-3">
+        <section className="lg:col-span-7 glass-card rounded-3xl overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-indigo-100/80 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-[#0F172A]">
@@ -867,7 +867,7 @@ export function AdminKeuanganSlide({
                   {filteredKas.length} catatan ditampilkan · Tersinkron otomatis ke Rekap &amp; LPJ
                 </p>
               </div>
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+              <div className="flex items-center gap-1 p-1 bg-indigo-50/80 rounded-2xl w-fit">
                 {(
                   [
                     { id: 'semua', label: 'Semua' },
@@ -879,10 +879,10 @@ export function AdminKeuanganSlide({
                     key={f.id}
                     type="button"
                     onClick={() => setFilterJenis(f.id)}
-                    className={`min-h-[32px] px-2.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                    className={`min-h-[32px] px-3 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
                       filterJenis === f.id
-                        ? 'bg-white text-[#0F172A] shadow-sm'
-                        : 'text-slate-600 hover:text-[#0F172A]'
+                        ? 'bg-[#4C1D95] text-white shadow-sm'
+                        : 'text-slate-600 hover:text-[#4C1D95]'
                     }`}
                   >
                     {f.label}
@@ -892,7 +892,7 @@ export function AdminKeuanganSlide({
             </div>
 
             {/* Filter Tahap Verifikasi Berjenjang */}
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-indigo-50/80 rounded-2xl w-fit">
               {(
                 [
                   { id: 'semua', label: 'Semua Status' },
@@ -906,10 +906,10 @@ export function AdminKeuanganSlide({
                   key={st.id}
                   type="button"
                   onClick={() => setFilterStatus(st.id)}
-                  className={`min-h-[30px] px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer ${
+                  className={`min-h-[30px] px-3 rounded-xl text-[11px] font-semibold cursor-pointer transition-colors ${
                     filterStatus === st.id
-                      ? 'bg-white text-[#0F172A] shadow-sm'
-                      : 'text-slate-600 hover:text-[#0F172A]'
+                      ? 'bg-[#4C1D95] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-[#4C1D95]'
                   }`}
                 >
                   {st.label}
@@ -918,13 +918,13 @@ export function AdminKeuanganSlide({
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-indigo-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari nomor bukti, pos anggaran, penerima, atau keterangan..."
-                className="w-full min-h-[42px] rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm focus:bg-white focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 pl-10 pr-4 text-sm focus:border-[#4C1D95] focus:outline-none"
               />
             </div>
           </div>
@@ -1027,7 +1027,7 @@ export function AdminKeuanganSlide({
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => void handleBendaharaAccKas(item)}
-                                className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                className="min-h-[34px] px-3 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>{isBusy ? '...' : 'ACC Bendahara'}</span>
@@ -1039,7 +1039,7 @@ export function AdminKeuanganSlide({
                                   setActionNoteModal({ mode: 'bendahara_reject', item });
                                   setActionNoteText('');
                                 }}
-                                className="min-h-[34px] px-2.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                className="min-h-[34px] px-3 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                                 <span>Tolak</span>
@@ -1054,7 +1054,7 @@ export function AdminKeuanganSlide({
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => void handleKetuaApproveKas(item)}
-                                className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                className="min-h-[34px] px-3 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5" />
                                 <span>{isBusy ? '...' : 'Sahkan Final'}</span>
@@ -1066,7 +1066,7 @@ export function AdminKeuanganSlide({
                                   setActionNoteModal({ mode: 'ketua_return', item });
                                   setActionNoteText('');
                                 }}
-                                className="min-h-[34px] px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                className="min-h-[34px] px-3 rounded-full border border-amber-300 bg-[#FEF3C7] hover:bg-amber-200/80 text-[#B45309] text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               >
                                 <Undo2 className="w-3.5 h-3.5" />
                                 <span>Kembalikan</span>
@@ -1077,7 +1077,7 @@ export function AdminKeuanganSlide({
                           <button
                             type="button"
                             onClick={() => setSelectedKwitansi(item)}
-                            className="min-h-[34px] px-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                            className="min-h-[34px] px-3 rounded-full bg-[#4C1D95] hover:bg-[#3B0764] text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>Kwitansi</span>
@@ -1087,7 +1087,7 @@ export function AdminKeuanganSlide({
                             <button
                               type="button"
                               onClick={() => setSelectedProofUrl(item.bukti_url || null)}
-                              className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                              className="min-h-[34px] px-3 rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
                             >
                               <ImageIcon className="w-3.5 h-3.5" />
                               <span>Nota</span>
@@ -1146,15 +1146,15 @@ export function AdminKeuanganSlide({
           onClick={() => setSelectedProofUrl(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full overflow-hidden border border-slate-200 shadow-2xl animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-indigo-100 flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#0F172A]">Lampiran Nota / Bukti Kas</h3>
               <button
                 type="button"
                 onClick={() => setSelectedProofUrl(null)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-indigo-50 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1164,7 +1164,7 @@ export function AdminKeuanganSlide({
                 src={selectedProofUrl}
                 alt="Bukti nota kas"
                 referrerPolicy="no-referrer"
-                className="max-h-[70vh] w-auto object-contain rounded-lg border border-slate-200 bg-white"
+                className="max-h-[70vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
               />
             </div>
           </div>
@@ -1179,10 +1179,10 @@ export function AdminKeuanganSlide({
           onClick={() => !verifyingId && setActionNoteModal(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-indigo-100 flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#0F172A]">
                 {actionNoteModal.mode === 'bendahara_reject'
                   ? 'Tolak Transaksi Kas'
@@ -1192,7 +1192,7 @@ export function AdminKeuanganSlide({
                 type="button"
                 disabled={Boolean(verifyingId)}
                 onClick={() => setActionNoteModal(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-50"
+                className="p-1.5 rounded-xl text-slate-400 hover:bg-indigo-50 disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1212,15 +1212,15 @@ export function AdminKeuanganSlide({
                     ? 'Tulis alasan penolakan transaksi kas...'
                     : 'Tulis catatan Ketua untuk pemeriksaan ulang Bendahara...'
                 }
-                className="w-full rounded-xl border border-slate-300 p-3 text-sm"
+                className="w-full rounded-2xl border border-indigo-100 p-3 text-sm focus:border-[#4C1D95] focus:outline-none"
               />
             </div>
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-5 py-3.5 bg-indigo-50/40 border-t border-indigo-100 flex justify-end gap-2">
               <button
                 type="button"
                 disabled={Boolean(verifyingId)}
                 onClick={() => setActionNoteModal(null)}
-                className="min-h-[40px] px-4 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
               >
                 Batal
               </button>
@@ -1229,7 +1229,7 @@ export function AdminKeuanganSlide({
                 disabled={!actionNoteText.trim() || Boolean(verifyingId)}
                 aria-busy={Boolean(verifyingId)}
                 onClick={() => void handleConfirmActionNote()}
-                className={`min-h-[40px] px-4 rounded-xl text-white text-xs font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer ${
+                className={`min-h-[40px] px-5 rounded-full text-white text-xs font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                   actionNoteModal.mode === 'bendahara_reject'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-amber-600 hover:bg-amber-700'

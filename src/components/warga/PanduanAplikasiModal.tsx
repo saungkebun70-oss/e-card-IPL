@@ -86,7 +86,7 @@ export function PanduanAplikasiModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-950/55 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-950/55 backdrop-blur-md"
             aria-hidden="true"
           />
 
@@ -96,18 +96,18 @@ export function PanduanAplikasiModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden"
+            className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Mobile Drag Handle */}
             <div className="sm:hidden pt-2.5 pb-1 flex justify-center">
-              <div className="w-10 h-1 rounded-full bg-slate-300" aria-hidden="true" />
+              <div className="w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
             </div>
 
             {/* Header */}
-            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 shrink-0">
+            <div className="px-5 sm:px-6 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-start justify-between gap-4 shrink-0">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
-                  <BookOpen className="w-5 h-5 text-[#059669]" />
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0 mt-0.5">
+                  <BookOpen className="w-5 h-5 text-[#4C1D95]" />
                 </div>
                 <div className="min-w-0">
                   <h2
@@ -130,18 +130,18 @@ export function PanduanAplikasiModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Tutup Panduan Aplikasi"
-                className="min-h-[40px] min-w-[40px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="min-h-[40px] min-w-[40px] rounded-full text-slate-500 hover:text-[#4C1D95] hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Stepper Tab Navigasi */}
-            <div className="px-5 sm:px-6 pt-3.5 pb-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
+            <div className="px-5 sm:px-6 pt-3.5 pb-3 border-b border-indigo-100/70 bg-indigo-50/25 shrink-0">
               <div
                 role="tablist"
                 aria-label="Langkah Panduan Penggunaan Aplikasi"
-                className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-slate-200/70 rounded-xl"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl"
               >
                 {stepMeta.map((item) => {
                   const Icon = item.icon;
@@ -153,15 +153,15 @@ export function PanduanAplikasiModal({
                       role="tab"
                       aria-selected={active}
                       onClick={() => setStep(item.id)}
-                      className={`min-h-[40px] px-2.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                      className={`min-h-[40px] px-2.5 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                         active
-                          ? 'bg-white text-[#0F172A] shadow-sm'
-                          : 'text-slate-600 hover:text-[#0F172A]'
+                          ? 'bg-[#4C1D95] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-[#4C1D95]'
                       }`}
                     >
                       <Icon
                         className={`w-3.5 h-3.5 shrink-0 ${
-                          active ? 'text-[#059669]' : 'text-slate-500'
+                          active ? 'text-[#A7F3D0]' : 'text-slate-500'
                         }`}
                       />
                       <span className="truncate">{item.short}</span>
@@ -199,8 +199,8 @@ export function PanduanAplikasiModal({
                       </div>
 
                       <ol className="space-y-3 text-sm text-slate-700">
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             1
                           </span>
                           <div>
@@ -213,8 +213,8 @@ export function PanduanAplikasiModal({
                             </p>
                           </div>
                         </li>
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             2
                           </span>
                           <div>
@@ -225,8 +225,8 @@ export function PanduanAplikasiModal({
                             </p>
                           </div>
                         </li>
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             3
                           </span>
                           <div>
@@ -247,7 +247,7 @@ export function PanduanAplikasiModal({
                         <button
                           type="button"
                           onClick={() => handleNavigate(onGoToBeranda)}
-                          className="min-h-[42px] px-4 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                          className="min-h-[42px] px-5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
                         >
                           <CreditCard className="w-4 h-4" />
                           <span>Buka Beranda &amp; e-Card</span>
@@ -301,10 +301,10 @@ export function PanduanAplikasiModal({
                           </div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-                          <Calendar className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
+                        <div className="p-3.5 rounded-2xl bg-indigo-50/40 border border-indigo-100 flex items-start gap-3">
+                          <Calendar className="w-5 h-5 text-[#4C1D95] shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Belum Tagihan</p>
+                            <p className="text-xs font-bold text-[#0F172A]">Belum Tagihan</p>
                             <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                               Periode bulan mendatang. Anda tetap boleh mengetuknya jika ingin membayar di
                               muka beberapa bulan sekaligus.
@@ -317,7 +317,7 @@ export function PanduanAplikasiModal({
                         <button
                           type="button"
                           onClick={() => handleNavigate(onGoToBeranda)}
-                          className="min-h-[42px] px-4 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                          className="min-h-[42px] px-5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
                         >
                           <Calendar className="w-4 h-4" />
                           <span>Cek Matriks e-Card Saya</span>
@@ -339,8 +339,8 @@ export function PanduanAplikasiModal({
                       </div>
 
                       <ol className="space-y-2.5 text-sm text-slate-700">
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             1
                           </span>
                           <div>
@@ -353,8 +353,8 @@ export function PanduanAplikasiModal({
                           </div>
                         </li>
 
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             2
                           </span>
                           <div>
@@ -367,8 +367,8 @@ export function PanduanAplikasiModal({
                           </div>
                         </li>
 
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             3
                           </span>
                           <div>
@@ -380,8 +380,8 @@ export function PanduanAplikasiModal({
                           </div>
                         </li>
 
-                        <li className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                          <span className="w-6 h-6 rounded-md bg-[#0F172A] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
+                        <li className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80">
+                          <span className="w-6 h-6 rounded-lg bg-[#3730A3] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">
                             4
                           </span>
                           <div>
@@ -398,7 +398,7 @@ export function PanduanAplikasiModal({
                         <button
                           type="button"
                           onClick={() => handleNavigate(onGoToSetor)}
-                          className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                          className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
                         >
                           <Upload className="w-4 h-4" />
                           <span>Coba Buka Menu Setor Iuran</span>
@@ -420,7 +420,7 @@ export function PanduanAplikasiModal({
                       </div>
 
                       <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                        <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 space-y-1.5">
                           <p className="text-sm font-semibold text-[#0F172A]">
                             Riwayat Transaksi &amp; Kwitansi Sah
                           </p>
@@ -431,7 +431,7 @@ export function PanduanAplikasiModal({
                           </p>
                         </div>
 
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                        <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 space-y-1.5">
                           <p className="text-sm font-semibold text-[#0F172A]">
                             Profil Lingkungan &amp; Susunan Pengurus
                           </p>
@@ -442,7 +442,7 @@ export function PanduanAplikasiModal({
                           </p>
                         </div>
 
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                        <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 space-y-1.5">
                           <p className="text-sm font-semibold text-[#0F172A]">
                             Bantuan Reset PIN atau Ganti Nomor WA
                           </p>
@@ -459,7 +459,7 @@ export function PanduanAplikasiModal({
                           <button
                             type="button"
                             onClick={() => handleNavigate(onGoToRiwayat)}
-                            className="min-h-[42px] px-4 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            className="min-h-[42px] px-4 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                           >
                             <ReceiptText className="w-4 h-4" />
                             <span>Buka Riwayat &amp; Kwitansi</span>
@@ -469,9 +469,9 @@ export function PanduanAplikasiModal({
                           <button
                             type="button"
                             onClick={() => handleNavigate(onOpenLingkungan)}
-                            className="min-h-[42px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                           >
-                            <Building2 className="w-4 h-4 text-[#059669]" />
+                            <Building2 className="w-4 h-4 text-[#4C1D95]" />
                             <span>Lihat Profil Lingkungan</span>
                           </button>
                         )}
@@ -483,12 +483,12 @@ export function PanduanAplikasiModal({
             </div>
 
             {/* Footer Navigasi Langkah */}
-            <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between gap-3 shrink-0">
+            <div className="px-5 sm:px-6 py-3.5 border-t border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 disabled={step === 0}
                 onClick={() => setStep((s) => Math.max(0, s - 1))}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Sebelumnya</span>
@@ -502,7 +502,7 @@ export function PanduanAplikasiModal({
                 <button
                   type="button"
                   onClick={() => setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1))}
-                  className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                  className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                 >
                   <span>Langkah Berikutnya</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -511,9 +511,9 @@ export function PanduanAplikasiModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                  className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#A7F3D0]" />
                   <span>Selesai &amp; Mengerti</span>
                 </button>
               )}

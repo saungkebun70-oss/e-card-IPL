@@ -479,15 +479,15 @@ export function AdminWargaSlide({
   return (
     <div className="space-y-5">
       {/* Toolbar Pencarian & Tombol Aksi */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-indigo-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari Blok / No. Rumah, Nama Warga, atau WA..."
-            className="w-full min-h-[42px] rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+            className="w-full min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 pl-10 pr-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
           />
         </div>
 
@@ -498,7 +498,7 @@ export function AdminWargaSlide({
               setSyncExistingNames(false);
               setImportModalOpen(true);
             }}
-            className="min-h-[44px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[42px] px-4 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
           >
             <Database className="w-4 h-4" />
             <span>
@@ -510,7 +510,7 @@ export function AdminWargaSlide({
           <button
             type="button"
             onClick={openAddModal}
-            className="min-h-[44px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Warga Baru</span>
@@ -519,15 +519,15 @@ export function AdminWargaSlide({
       </div>
 
       {/* Bar Filter Status Hunian & Counter Unit Real-Time */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:p-3 space-y-2">
+      <div className="glass-card rounded-3xl p-3 sm:p-3.5 space-y-2">
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           <button
             type="button"
             onClick={() => setOccupancyFilter('all')}
-            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`min-h-[40px] px-4 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               occupancyFilter === 'all'
-                ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-sm'
+                : 'bg-white/90 text-slate-700 border-indigo-100 hover:bg-indigo-50/60'
             }`}
           >
             <Home className="w-3.5 h-3.5 shrink-0" />
@@ -537,10 +537,10 @@ export function AdminWargaSlide({
           <button
             type="button"
             onClick={() => setOccupancyFilter('aktif')}
-            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`min-h-[40px] px-4 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               occupancyFilter === 'aktif'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/80'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                : 'bg-[#D1FAE5]/85 text-[#047857] border-emerald-200 hover:bg-[#D1FAE5]'
             }`}
           >
             <span
@@ -555,10 +555,10 @@ export function AdminWargaSlide({
           <button
             type="button"
             onClick={() => setOccupancyFilter('kosong')}
-            className={`min-h-[40px] px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`min-h-[40px] px-4 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               occupancyFilter === 'kosong'
-                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                : 'bg-amber-50/80 text-amber-800 border-amber-200 hover:bg-amber-100/70'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                : 'bg-[#FEF3C7]/90 text-[#B45309] border-amber-200 hover:bg-[#FEF3C7]'
             }`}
           >
             <span
@@ -580,8 +580,8 @@ export function AdminWargaSlide({
       </div>
 
       {!canManageFull && (
-        <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-700">
-          <span className="font-semibold text-[#0F172A]">
+        <div className="rounded-2xl bg-indigo-50/80 border border-indigo-200/80 px-4 py-3 text-xs text-slate-700">
+          <span className="font-semibold text-[#4C1D95]">
             Hak Akses {session.jabatan || 'Pengurus'}:
           </span>{' '}
           Anda dapat menambahkan data warga baru dan menyalin info login warga. Pengubahan data
@@ -593,7 +593,7 @@ export function AdminWargaSlide({
       {/* Tampilan Kartu Mobile (< md) agar Status Hunian & Quick Toggle nyaman di HP */}
       <div className="md:hidden space-y-3">
         {pagedWarga.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-sm text-slate-500">
+          <div className="glass-card rounded-3xl p-8 text-center text-sm text-slate-500">
             Tidak ada unit rumah yang cocok dengan filter pencarian.
           </div>
         ) : (
@@ -613,7 +613,7 @@ export function AdminWargaSlide({
             return (
               <article
                 key={w.id}
-                className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3"
+                className="glass-card rounded-3xl p-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -703,7 +703,7 @@ export function AdminWargaSlide({
                       href={buildWhatsAppLink(primaryLinkNumber, buildWargaAccessWaMessage(w))}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="min-h-[34px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1"
+                      className="min-h-[34px] px-3 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-xs font-semibold text-white inline-flex items-center gap-1"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                       <span>Kirim WA</span>
@@ -712,7 +712,7 @@ export function AdminWargaSlide({
                     <button
                       type="button"
                       onClick={() => void handleCopyLoginInfo(w)}
-                      className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
+                      className="min-h-[34px] px-3 rounded-full border border-slate-200 bg-white/95 text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>{copiedId === w.id ? 'Tersalin' : 'Salin PIN'}</span>
@@ -724,7 +724,7 @@ export function AdminWargaSlide({
                       <button
                         type="button"
                         onClick={() => void handleResetPin(w)}
-                        className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                        className="min-h-[34px] px-3 rounded-full border border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
                       >
                         <KeyRound className="w-3.5 h-3.5 text-amber-600" />
                         <span>Reset PIN</span>
@@ -732,7 +732,7 @@ export function AdminWargaSlide({
                       <button
                         type="button"
                         onClick={() => openEditModal(w)}
-                        className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                        className="min-h-[34px] px-3 rounded-full border border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                         <span>Edit</span>
@@ -741,7 +741,7 @@ export function AdminWargaSlide({
                         type="button"
                         onClick={() => setDeleteTarget(w)}
                         aria-label={`Hapus ${w.blok_rumah}`}
-                        className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg border border-slate-200 bg-white text-red-600 cursor-pointer ml-auto"
+                        className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-slate-200 bg-white/95 text-red-600 cursor-pointer ml-auto"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -755,11 +755,11 @@ export function AdminWargaSlide({
       </div>
 
       {/* Daftar / Tabel Master Data Warga (Desktop & Tablet >= md) */}
-      <section className="hidden md:block bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      <section className="hidden md:block glass-card rounded-3xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-600">
+              <tr className="border-b border-indigo-100/80 bg-indigo-50/60 text-xs font-semibold text-[#4C1D95]">
                 <th className="py-3.5 px-4 whitespace-nowrap">Blok / Username</th>
                 <th className="py-3.5 px-4">Nama Warga</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">No. WhatsApp Terdaftar</th>
@@ -952,7 +952,7 @@ export function AdminWargaSlide({
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Kirim Template Akses Akun & PIN langsung ke WhatsApp warga"
-                              className="min-h-[36px] px-2.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-xs font-semibold text-white inline-flex items-center gap-1 transition-colors"
+                              className="min-h-[36px] px-3 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-xs font-semibold text-white inline-flex items-center gap-1 transition-colors"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                               <span className="hidden xl:inline">Kirim WA</span>
@@ -962,7 +962,7 @@ export function AdminWargaSlide({
                               type="button"
                               onClick={() => void handleCopyLoginInfo(w)}
                               title="Belum ada nomor WA terdaftar — salin template untuk dikirim manual"
-                              className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
+                              className="min-h-[36px] px-3 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 text-xs font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                               <span className="hidden xl:inline">Kirim WA</span>
@@ -973,7 +973,7 @@ export function AdminWargaSlide({
                             type="button"
                             onClick={() => void handleCopyLoginInfo(w)}
                             title="Salin Template WA Akses Akun & PIN (e-card-ipl.vercel.app)"
-                            className="min-h-[36px] px-2.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 inline-flex items-center gap-1 cursor-pointer"
+                            className="min-h-[36px] px-3 rounded-full bg-[#A7F3D0]/80 hover:bg-[#6EE7B7] text-xs font-semibold text-[#064E3B] inline-flex items-center gap-1 cursor-pointer"
                           >
                             {copiedId === w.id ? (
                               <>
@@ -994,7 +994,7 @@ export function AdminWargaSlide({
                                 type="button"
                                 onClick={() => openEditModal(w)}
                                 aria-label={`Edit ${w.blok_rumah}`}
-                                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer"
+                                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-slate-600 cursor-pointer"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
@@ -1003,7 +1003,7 @@ export function AdminWargaSlide({
                                 type="button"
                                 onClick={() => setDeleteTarget(w)}
                                 aria-label={`Hapus ${w.blok_rumah}`}
-                                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-red-700 cursor-pointer"
+                                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full border border-slate-200 bg-white/95 hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-red-700 cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1021,7 +1021,7 @@ export function AdminWargaSlide({
       </section>
 
       {filteredWarga.length > PAGE_SIZE && (
-        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-slate-600">
+        <div className="glass-card rounded-3xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-slate-600">
             <span className="tabular-nums">
               Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
               {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
@@ -1031,19 +1031,19 @@ export function AdminWargaSlide({
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Sebelumnya</span>
               </button>
-              <span className="px-2 font-mono font-semibold tabular-nums">
+              <span className="px-2 font-mono font-semibold tabular-nums text-[#4C1D95]">
                 {safePage} / {totalPages}
               </span>
               <button
                 type="button"
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
               >
                 <span>Berikutnya</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -1062,7 +1062,7 @@ export function AdminWargaSlide({
         >
           <form
             onSubmit={handleSubmitForm}
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-lg w-full border border-white/90 shadow-2xl overflow-hidden my-auto animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1327,11 +1327,11 @@ export function AdminWargaSlide({
               )}
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 Batal
               </button>
@@ -1339,7 +1339,7 @@ export function AdminWargaSlide({
                 type="submit"
                 disabled={saving || Boolean(waValidation.error)}
                 aria-busy={saving}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {saving && <LoadingSpinner size="xs" tone="white" />}
                 <span>{saving ? 'Menyimpan...' : 'Simpan Data'}</span>
@@ -1358,7 +1358,7 @@ export function AdminWargaSlide({
           onClick={() => !importingMaster && setImportModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-lg w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -1437,12 +1437,12 @@ export function AdminWargaSlide({
               )}
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={importingMaster}
                 onClick={() => setImportModalOpen(false)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 Batal
               </button>
@@ -1451,7 +1451,7 @@ export function AdminWargaSlide({
                 disabled={importingMaster}
                 aria-busy={importingMaster}
                 onClick={() => void handleBulkImportMaster()}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {importingMaster ? (
                   <LoadingSpinner size="xs" tone="white" />
@@ -1476,7 +1476,7 @@ export function AdminWargaSlide({
           onClick={() => !deletingWarga && setDeleteTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5">
@@ -1490,12 +1490,12 @@ export function AdminWargaSlide({
                 ini akan mencabut akses login e-Card rumah tersebut.
               </p>
             </div>
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={deletingWarga}
                 onClick={() => setDeleteTarget(null)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
               >
                 Batal
               </button>
@@ -1504,7 +1504,7 @@ export function AdminWargaSlide({
                 disabled={deletingWarga}
                 aria-busy={deletingWarga}
                 onClick={() => void handleConfirmDelete()}
-                className="min-h-[42px] px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-5 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {deletingWarga && <LoadingSpinner size="xs" tone="white" />}
                 <span>{deletingWarga ? 'Menghapus...' : 'Ya, Hapus Unit'}</span>

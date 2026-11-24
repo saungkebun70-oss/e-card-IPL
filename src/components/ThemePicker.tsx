@@ -20,7 +20,7 @@ export function ThemePicker({ compact = false, onToast }: ThemePickerProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border"
             style={{
               backgroundColor: 'var(--theme-primary-soft)',
               borderColor: 'var(--theme-primary-soft-border)',
@@ -57,7 +57,7 @@ export function ThemePicker({ compact = false, onToast }: ThemePickerProps) {
               role="radio"
               aria-checked={isActive}
               onClick={() => handleSelect(item.id, item.name)}
-              className={`group relative w-full text-left rounded-xl border p-3.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] ${
+              className={`group relative w-full text-left rounded-3xl border p-3.5 backdrop-blur-sm transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] ${
                 isActive
                   ? 'shadow-sm'
                   : 'hover:border-[var(--theme-primary)]/50'

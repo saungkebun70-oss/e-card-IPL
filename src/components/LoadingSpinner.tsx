@@ -59,9 +59,9 @@ export function LoadingOverlay({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px] animate-modal-backdrop no-print"
+      className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-slate-950/35 backdrop-blur-sm animate-modal-backdrop no-print"
     >
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xl px-6 py-5 flex flex-col items-center gap-3 max-w-[260px] w-full text-center animate-modal-pop">
+      <div className="bg-white/95 backdrop-blur-xl border border-white/90 rounded-3xl shadow-2xl px-6 py-5 flex flex-col items-center gap-3 max-w-[260px] w-full text-center animate-modal-pop">
         <LoadingSpinner size="lg" tone="theme" label={message} />
         <div className="space-y-0.5">
           <p className="text-sm font-bold text-[#0F172A] leading-snug">{message}</p>
@@ -94,7 +94,7 @@ export function ContentLoadingState({
         compact ? 'py-10 px-4' : 'min-h-[42dvh] py-14 px-5'
       }`}
     >
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs px-7 py-6 flex flex-col items-center gap-3 max-w-xs w-full">
+      <div className="glass-card rounded-3xl px-7 py-6 flex flex-col items-center gap-3 max-w-xs w-full">
         <LoadingSpinner size="lg" tone="theme" label={message} />
         <div className="space-y-1">
           <p className="text-sm font-bold text-[#0F172A]">{message}</p>

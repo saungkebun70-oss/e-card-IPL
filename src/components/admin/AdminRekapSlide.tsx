@@ -302,42 +302,42 @@ export function AdminRekapSlide({
     <div className="space-y-5 pb-28 print:pb-0 overflow-x-hidden">
       {/* Sub-Tab Switcher & Quick Action Input Tunai */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="inline-flex p-1 bg-slate-200/80 rounded-xl w-full sm:w-fit overflow-x-auto">
+        <div className="inline-flex p-1.5 bg-indigo-50/80 border border-indigo-100/90 backdrop-blur-md rounded-2xl w-full sm:w-fit overflow-x-auto">
           <button
             type="button"
             onClick={() => setSubTab('bulanan')}
-            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
               subTab === 'bulanan'
-                ? 'bg-white text-[#0F172A] shadow-sm'
-                : 'text-slate-600 hover:text-[#0F172A]'
+                ? 'bg-[#4C1D95] text-white shadow-sm'
+                : 'text-slate-600 hover:text-[#4C1D95]'
             }`}
           >
-            <BookOpen className="w-4 h-4 text-[#059669] shrink-0" />
+            <BookOpen className={`w-4 h-4 shrink-0 ${subTab === 'bulanan' ? 'text-emerald-300' : 'text-[#4C1D95]'}`} />
             <span>Rekap Bulanan (Buku Kas)</span>
           </button>
           <button
             type="button"
             onClick={() => setSubTab('matriks')}
-            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
               subTab === 'matriks'
-                ? 'bg-white text-[#0F172A] shadow-sm'
-                : 'text-slate-600 hover:text-[#0F172A]'
+                ? 'bg-[#4C1D95] text-white shadow-sm'
+                : 'text-slate-600 hover:text-[#4C1D95]'
             }`}
           >
-            <TableProperties className="w-4 h-4 text-slate-500 shrink-0" />
+            <TableProperties className={`w-4 h-4 shrink-0 ${subTab === 'matriks' ? 'text-indigo-200' : 'text-slate-500'}`} />
             <span>Matriks IPL 12 Bulan</span>
           </button>
           {isKetua && (
             <button
               type="button"
               onClick={() => setSubTab('ketua')}
-              className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                 subTab === 'ketua'
-                  ? 'bg-white text-[#0F172A] shadow-sm'
-                  : 'text-slate-600 hover:text-[#0F172A]'
+                  ? 'bg-[#4C1D95] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-[#4C1D95]'
               }`}
             >
-              <FileBarChart2 className="w-4 h-4 text-[#059669] shrink-0" />
+              <FileBarChart2 className={`w-4 h-4 shrink-0 ${subTab === 'ketua' ? 'text-emerald-300' : 'text-[#4C1D95]'}`} />
               <span>Laporan Ketua (PDF)</span>
             </button>
           )}
@@ -346,7 +346,7 @@ export function AdminRekapSlide({
         <button
           type="button"
           onClick={openManualModal}
-          className="min-h-[42px] px-4 rounded-xl bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
         >
           <Banknote className="w-4 h-4 shrink-0" />
           <span>Input Tunai Manual</span>
@@ -380,13 +380,13 @@ export function AdminRekapSlide({
       {subTab === 'bulanan' && (
         <div className="space-y-5 min-w-0">
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
-          <div className="no-print bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="no-print glass-card rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <select
                 aria-label="Pilih Bulan Rekapitulasi"
                 value={selectedBulan}
                 onChange={(e) => setSelectedBulan(Number(e.target.value))}
-                className="min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-[#0F172A] focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
               >
                 {BULAN_LIST.map((b) => (
                   <option key={b.angka} value={b.angka}>
@@ -399,7 +399,7 @@ export function AdminRekapSlide({
                 aria-label="Pilih Tahun Rekapitulasi"
                 value={selectedTahun}
                 onChange={(e) => setSelectedTahun(Number(e.target.value))}
-                className="min-h-[42px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono font-semibold text-[#0F172A] focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-mono font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>
@@ -414,7 +414,7 @@ export function AdminRekapSlide({
                 type="button"
                 disabled={printingPdf || downloadingPdf}
                 onClick={() => void handlePrintReport()}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
               >
                 {printingPdf ? (
                   <LoadingSpinner size="xs" tone="current" />
@@ -428,12 +428,12 @@ export function AdminRekapSlide({
                 type="button"
                 disabled={downloadingPdf || printingPdf}
                 onClick={() => void handleDownloadMonthlyPdf()}
-                className="min-h-[42px] px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
               >
                 {downloadingPdf ? (
                   <LoadingSpinner size="xs" tone="white" />
                 ) : (
-                  <FileText className="w-4 h-4 text-emerald-400" />
+                  <FileText className="w-4 h-4 text-emerald-300" />
                 )}
                 <span>{downloadingPdf ? 'Menyiapkan PDF...' : 'Unduh PDF A4'}</span>
               </button>
@@ -441,9 +441,9 @@ export function AdminRekapSlide({
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="min-h-[42px] px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-900 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-xs font-semibold text-[#064E3B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
               >
-                <FileSpreadsheet className="w-4 h-4 text-[#059669]" />
+                <FileSpreadsheet className="w-4 h-4 text-[#064E3B]" />
                 <span>Excel</span>
               </button>
             </div>
@@ -452,7 +452,7 @@ export function AdminRekapSlide({
           {/* Dokumen Resmi Rekapitulasi Bulanan (#printable-report) */}
           <article
             id="printable-report"
-            className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
+            className="bg-white border border-indigo-100/90 rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
           >
             {/* Kop Resmi Perumahan */}
             <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#0F172A] flex items-center gap-3 sm:gap-4">
@@ -707,7 +707,7 @@ export function AdminRekapSlide({
         <div className="space-y-5">
           {/* Ringkasan Alokasi Kas & Dana Darurat */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="glass-card rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">
                 Total Kas Terverifikasi ({TAHUN_AKTIF})
               </p>
@@ -717,19 +717,19 @@ export function AdminRekapSlide({
               <p className="text-xs text-slate-500 mt-1">Akumulasi seluruh setoran lunas</p>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="glass-card rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">Kas IPL Reguler (≥ Rp 100.000/bln)</p>
-              <p className="text-2xl font-mono font-bold text-[#059669] tabular-nums mt-1.5">
+              <p className="text-2xl font-mono font-bold text-[#047857] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiIplReguler)}
               </p>
               <p className="text-xs text-slate-500 mt-1">Operasional &amp; pemeliharaan lingkungan</p>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="glass-card rounded-3xl p-5">
               <p className="text-xs font-medium text-slate-500">
                 Alokasi Dana Darurat (&lt; Rp 100.000/bln)
               </p>
-              <p className="text-2xl font-mono font-bold text-amber-700 tabular-nums mt-1.5">
+              <p className="text-2xl font-mono font-bold text-[#B45309] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiDanaDarurat)}
               </p>
               <p className="text-xs text-slate-500 mt-1 tabular-nums">
@@ -739,16 +739,16 @@ export function AdminRekapSlide({
           </section>
 
           {/* Toolbar Filter & Export */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="glass-card rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari blok / nama..."
-                  className="w-full min-h-[42px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 pl-9 pr-3 text-sm focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
                 />
               </div>
 
@@ -756,7 +756,7 @@ export function AdminRekapSlide({
                 aria-label="Filter Blok"
                 value={blokFilter}
                 onChange={(e) => setBlokFilter(e.target.value)}
-                className="min-h-[42px] rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-[#0F172A] focus:border-emerald-600 focus:outline-none"
+                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3 text-xs font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
               >
                 {blokOptions.map((b) => (
                   <option key={b} value={b}>
@@ -765,16 +765,16 @@ export function AdminRekapSlide({
                 ))}
               </select>
 
-              <div className="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl">
+              <div className="flex items-center gap-1 p-1 bg-indigo-50/80 rounded-2xl">
                 {(['Semua', 'Lunas', 'Menunggak'] as const).map((st) => (
                   <button
                     key={st}
                     type="button"
                     onClick={() => setStatusFilter(st)}
-                    className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                       statusFilter === st
-                        ? 'bg-white text-[#0F172A] shadow-sm'
-                        : 'text-slate-600 hover:text-[#0F172A]'
+                        ? 'bg-[#4C1D95] text-white shadow-sm'
+                        : 'text-slate-600 hover:text-[#4C1D95]'
                     }`}
                   >
                     {st}
@@ -787,7 +787,7 @@ export function AdminRekapSlide({
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Download className="w-4 h-4 text-slate-500" />
                 <span>Export CSV</span>
@@ -796,17 +796,17 @@ export function AdminRekapSlide({
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="min-h-[42px] px-3.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
               >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
                 <span>Export Excel (.xlsx)</span>
               </button>
             </div>
           </div>
 
           {/* Matriks Pembayaran 12 Bulan (Jan – Des 2026) */}
-          <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <section className="glass-card rounded-3xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-[#0F172A]">
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
@@ -815,7 +815,7 @@ export function AdminRekapSlide({
                   Filter status mengacu pada bulan berjalan ({getNamaBulan(currentMonth)} {TAHUN_AKTIF}).
                 </p>
               </div>
-              <span className="text-xs font-mono text-slate-500 tabular-nums">
+              <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
                 {filteredWarga.length} unit tampil
               </span>
             </div>
@@ -823,8 +823,8 @@ export function AdminRekapSlide({
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600">
-                    <th className="py-3 px-4 sticky left-0 bg-slate-50 z-10 whitespace-nowrap border-r border-slate-200">
+                  <tr className="border-b border-indigo-100/80 bg-indigo-50/70 text-[11px] font-semibold text-[#4C1D95]">
+                    <th className="py-3 px-4 sticky left-0 bg-indigo-50/95 z-10 whitespace-nowrap border-r border-indigo-100">
                       Blok / Warga
                     </th>
                     {BULAN_LIST.map((b) => (
@@ -888,7 +888,7 @@ export function AdminRekapSlide({
             </div>
 
             {filteredWarga.length > PAGE_SIZE && (
-              <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3 text-xs text-slate-600">
+              <div className="px-4 py-3 border-t border-indigo-100/80 bg-indigo-50/40 flex items-center justify-between gap-3 text-xs text-slate-600">
                 <span className="tabular-nums">
                   Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
                   {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
@@ -898,19 +898,19 @@ export function AdminRekapSlide({
                     type="button"
                     disabled={safePage <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                    className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                     <span>Sebelumnya</span>
                   </button>
-                  <span className="px-2 font-mono font-semibold tabular-nums">
+                  <span className="px-2 font-mono font-semibold text-[#4C1D95] tabular-nums">
                     {safePage} / {totalPages}
                   </span>
                   <button
                     type="button"
                     disabled={safePage >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                    className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
                   >
                     <span>Berikutnya</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -932,10 +932,10 @@ export function AdminRekapSlide({
         >
           <form
             onSubmit={handleManualSubmit}
-            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-lg w-full border border-white/90 shadow-2xl overflow-hidden my-auto animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-[#0F172A]">
                   Input Setoran Tunai Manual (Admin)
@@ -948,7 +948,7 @@ export function AdminRekapSlide({
                 type="button"
                 onClick={() => setManualModalOpen(false)}
                 aria-label="Tutup modal"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -970,7 +970,7 @@ export function AdminRekapSlide({
                       setNominalInput(String(found.nominal_iuran * selectedMonths.length));
                     }
                   }}
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
                 >
                   {wargaList.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -992,13 +992,13 @@ export function AdminRekapSlide({
                         key={b.angka}
                         type="button"
                         onClick={() => toggleManualMonth(b.angka)}
-                        className={`min-h-[38px] rounded-lg border text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                        className={`min-h-[38px] rounded-xl border text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                           checked
-                            ? 'bg-emerald-50 border-[#059669] text-emerald-900'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-indigo-50 border-[#4C1D95] text-[#4C1D95]'
+                            : 'bg-white border-indigo-100 text-slate-600 hover:bg-indigo-50/50'
                         }`}
                       >
-                        {checked && <Check className="w-3 h-3 text-[#059669]" />}
+                        {checked && <Check className="w-3 h-3 text-[#4C1D95]" />}
                         <span>{b.singkat}</span>
                       </button>
                     );
@@ -1014,7 +1014,7 @@ export function AdminRekapSlide({
                   <select
                     value={petugas}
                     onChange={(e) => setPetugas(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
                   >
                     {PETUGAS_PENERIMA.map((p) => (
                       <option key={p} value={p}>
@@ -1034,7 +1034,7 @@ export function AdminRekapSlide({
                     required
                     value={nominalInput}
                     onChange={(e) => setNominalInput(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm font-mono font-bold tabular-nums focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono font-bold tabular-nums text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
                   />
                 </div>
               </div>
@@ -1048,16 +1048,16 @@ export function AdminRekapSlide({
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                   placeholder="Contoh: Setoran tunai saat rapat lingkungan"
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
                 />
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setManualModalOpen(false)}
-                className="min-h-[42px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 cursor-pointer"
               >
                 Batal
               </button>
@@ -1065,7 +1065,7 @@ export function AdminRekapSlide({
                 type="submit"
                 disabled={submitting || selectedMonths.length === 0}
                 aria-busy={submitting}
-                className="min-h-[42px] px-5 rounded-xl bg-[#059669] hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submitting && <LoadingSpinner size="xs" tone="white" />}
                 <span>{submitting ? 'Menyimpan...' : 'Simpan & Verifikasi'}</span>
