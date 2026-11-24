@@ -14,11 +14,11 @@ interface BrandLogoProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
-  xs: 'w-8 h-8 rounded-lg',
-  sm: 'w-10 h-10 rounded-xl',
-  md: 'w-12 h-12 rounded-xl',
-  lg: 'w-16 h-16 sm:w-20 sm:h-20 rounded-2xl',
-  xl: 'w-20 h-20 sm:w-24 sm:h-24 rounded-2xl',
+  xs: 'w-10 h-10 rounded-xl',
+  sm: 'w-11 h-11 sm:w-12 sm:h-12 rounded-xl',
+  md: 'w-14 h-14 rounded-2xl',
+  lg: 'w-20 h-20 sm:w-24 sm:h-24 rounded-2xl',
+  xl: 'w-24 h-24 sm:w-[104px] sm:h-[104px] rounded-2xl',
 };
 
 export function BrandLogo({
@@ -45,21 +45,21 @@ export function BrandLogo({
   if (failed) {
     return (
       <div
-        className={`bg-[#15803D] flex items-center justify-center shrink-0 shadow-sm ring-1 ring-emerald-400/30 ${SIZE_CLASSES[size]} ${className}`}
+        className={`bg-[#4A583E] flex items-center justify-center shrink-0 shadow-md border border-[#EAE4D3]/40 ${SIZE_CLASSES[size]} ${className}`}
       >
-        <Building2 className="w-1/2 h-1/2 text-white" />
+        <Building2 className="w-1/2 h-1/2 text-[#F5F2E4]" />
       </div>
     );
   }
 
-  // Latar krem lembut (#F5F3E7) menyatu rapi dengan logo SAUNG KEBUN di header terang maupun gelap
+  // Bingkai krem hangat (#F4F0E0 / #EAE4D3) menyatu mulus dengan logo resmi SAUNG KEBUN
   const frameSurface = isDefaultAsset
     ? variant === 'dark'
-      ? 'bg-[#F5F3E7] p-0.5 shadow-md ring-1 ring-emerald-400/35'
-      : 'bg-[#F5F3E7] p-0.5 shadow-xs ring-1 ring-emerald-900/10'
+      ? 'bg-[#F4F0E0] p-0 shadow-md shadow-black/20 border border-[#EAE4D3]/60'
+      : 'bg-[#F4F0E0] p-0 shadow-md shadow-[#4A583E]/10 border border-[#4A583E]/15'
     : variant === 'dark'
-      ? 'bg-white/95 p-1 shadow-md ring-1 ring-emerald-400/30'
-      : 'bg-white p-1 shadow-xs ring-1 ring-slate-200/90';
+      ? 'bg-white/95 p-1 shadow-md shadow-black/20 border border-white/40'
+      : 'bg-white p-1 shadow-md shadow-slate-900/5 border border-slate-200/90';
 
   return (
     <div
@@ -71,7 +71,9 @@ export function BrandLogo({
         referrerPolicy="no-referrer"
         decoding="async"
         onError={() => setFailed(true)}
-        className="w-full h-full object-contain rounded-[inherit]"
+        className={`w-full h-full object-contain rounded-[inherit] ${
+          isDefaultAsset ? 'scale-[1.16]' : ''
+        }`}
       />
     </div>
   );

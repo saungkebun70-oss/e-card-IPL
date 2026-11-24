@@ -456,7 +456,7 @@ export function AdminRekapSlide({
           >
             {/* Kop Resmi Perumahan */}
             <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#0F172A] flex items-center gap-3 sm:gap-4">
-              <BrandLogo size="sm" variant="light" className="shrink-0 sm:w-12 sm:h-12" />
+              <BrandLogo size="md" variant="light" className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#059669] leading-tight">
                   Pengurus Lingkungan Perumahan Saung Kebun

@@ -217,7 +217,7 @@ export function AdminLpjSlide({
       >
         {/* Kop Resmi Pengurus — Proporsional Tanpa Memanjang ke Bawah */}
         <header className="flex items-center gap-3 sm:gap-4 border-b-2 border-[#0F172A] pb-3.5 print:pb-2.5">
-          <BrandLogo size="sm" variant="light" className="shrink-0 sm:w-12 sm:h-12" />
+          <BrandLogo size="md" variant="light" className="shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700 leading-tight">
               Pengurus Lingkungan Perumahan Saung Kebun

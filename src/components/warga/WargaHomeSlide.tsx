@@ -6,7 +6,6 @@ import {
   Calendar,
   ArrowRight,
   ShieldCheck,
-  Building2,
   Megaphone,
   Check,
   Bot,
@@ -30,7 +29,7 @@ import {
   getNamaBulan,
 } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
-
+import { BrandLogo } from '../BrandLogo';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 
 interface WargaHomeSlideProps {
@@ -270,10 +269,8 @@ export function WargaHomeSlide({
 
           {/* Header Kartu */}
           <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                <Building2 className="w-5 h-5 text-[#A7F3D0]" />
-              </div>
+            <div className="flex items-center gap-3.5">
+              <BrandLogo size="sm" variant="dark" className="shrink-0" />
               <div>
                 <p className="text-sm font-bold tracking-tight text-white">e-Card Verifikasi IPL</p>
                 <p className="text-xs text-indigo-100/80">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
