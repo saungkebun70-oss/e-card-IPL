@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Bug,
   ChevronRight,
   FileCheck2,
   LogOut,
@@ -21,6 +22,10 @@ import {
   fetchUnreadNotificationCount,
   subscribeActivityNotificationsRealtime,
 } from '../lib/notificationService';
+import {
+  fetchPendingBugReportCount,
+  subscribeBugReportsRealtime,
+} from '../lib/bugReportService';
 
 export interface NavItem {
   id: string;
@@ -62,12 +67,14 @@ export function AppShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const [pendingBugCount, setPendingBugCount] = useState<number>(0);
 
   const isAdmin = session.role === 'admin';
   const isPetugas = session.role === 'petugas';
   const canAccessBotWa = isBendaharaOnly(session);
   const adminIdentityLabel = `${session.nama_warga} — ${session.jabatan || 'Pengurus'}`;
   const isLpjActive = activeTab === 'lpj';
+  const isBugReportsActive = activeTab === 'laporan_bug';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
   // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari tabel `notifications` untuk badge Lonceng Header
@@ -106,9 +113,35 @@ export function AppShell({
     };
   }, [session]);
 
+  // Sinkronisasi jumlah Laporan Bug yang masih Pending khusus Admin
+  useEffect(() => {
+    if (!isAdmin) {
+      setPendingBugCount(0);
+      return;
+    }
+    let active = true;
+    const syncBugCount = async () => {
+      const count = await fetchPendingBugReportCount(session);
+      if (active) {
+        setPendingBugCount(count);
+      }
+    };
+
+    void syncBugCount();
+    const unsub = subscribeBugReportsRealtime(session, () => {
+      void syncBugCount();
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [isAdmin, session]);
+
   const activePageTitle = isLpjActive
     ? 'Laporan Pertanggungjawaban (LPJ)'
-    : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
+    : isBugReportsActive
+      ? 'Laporan Bug'
+      : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -133,6 +166,11 @@ export function AppShell({
   const handleOpenLpj = () => {
     setDrawerOpen(false);
     onTabChange('lpj');
+  };
+
+  const handleOpenBugReports = () => {
+    setDrawerOpen(false);
+    onTabChange('laporan_bug');
   };
 
   const handleOpenSettingsFromSidebar = () => {
@@ -332,6 +370,57 @@ export function AppShell({
                     </div>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  title={sidebarCollapsed ? 'Laporan Bug' : undefined}
+                  onClick={handleOpenBugReports}
+                  className={`relative w-full text-left rounded-xl flex ${
+                    sidebarCollapsed
+                      ? 'items-center justify-center min-h-[44px] px-2'
+                      : 'items-start gap-3 px-3.5 py-2.5'
+                  } transition-all duration-200 active:scale-[0.97] cursor-pointer ${
+                    isBugReportsActive
+                      ? 'bg-[#059669] text-white'
+                      : 'text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Bug
+                    className={`w-4 h-4 shrink-0 ${!sidebarCollapsed ? 'mt-0.5' : ''} ${
+                      isBugReportsActive ? 'text-white' : 'text-rose-400'
+                    }`}
+                  />
+                  {!sidebarCollapsed && (
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold leading-snug truncate">
+                          Laporan Bug
+                        </p>
+                        {pendingBugCount > 0 && (
+                          <span
+                            className={`font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-md shrink-0 ${
+                              isBugReportsActive
+                                ? 'bg-white/20 text-white'
+                                : 'bg-rose-500/20 text-rose-300'
+                            }`}
+                          >
+                            {pendingBugCount}
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`text-[11px] mt-0.5 leading-snug ${
+                          isBugReportsActive ? 'text-emerald-100' : 'text-slate-400'
+                        }`}
+                      >
+                        Kendala &amp; Snapshot Error Pengguna
+                      </p>
+                    </div>
+                  )}
+                  {sidebarCollapsed && pendingBugCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-400" />
+                  )}
+                </button>
               </div>
 
               {/* Kelompok Menu Sistem (Pengaturan Terpusat) */}
@@ -510,6 +599,42 @@ export function AppShell({
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
                         Rekapitulasi &amp; Cetak PDF A4
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenBugReports}
+                    className={`w-full text-left px-3.5 py-3 rounded-2xl shadow-sm border flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer ${
+                      isBugReportsActive
+                        ? 'bg-emerald-50/90 border-emerald-200'
+                        : 'bg-white border-slate-100 hover:bg-slate-50/80'
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        isBugReportsActive
+                          ? 'bg-[#059669] text-white'
+                          : 'bg-rose-50 text-rose-600'
+                      }`}
+                    >
+                      <Bug className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">
+                          Laporan Bug
+                        </p>
+                        {pendingBugCount > 0 && (
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 tabular-nums">
+                            {pendingBugCount}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                        Kendala &amp; Snapshot Error Pengguna
                       </p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />

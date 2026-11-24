@@ -54,6 +54,7 @@ import { AdminWargaSlide } from './components/admin/AdminWargaSlide';
 import { AdminKeuanganSlide } from './components/admin/AdminKeuanganSlide';
 import { AdminRekapSlide } from './components/admin/AdminRekapSlide';
 import { AdminLpjSlide } from './components/admin/AdminLpjSlide';
+import { AdminBugReportsSlide } from './components/admin/AdminBugReportsSlide';
 import {
   AdminSettingsDrawer,
   type SettingsDrawerTab,
@@ -752,7 +753,7 @@ export default function App() {
         const tabId = targetUrl.replace('tab:', '');
         setSettingsOpen(false);
         const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil'];
-        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj'];
+        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj', 'laporan_bug'];
         if (session.role === 'warga' && wargaValid.includes(tabId)) {
           handleTabChange(tabId);
         } else if (session.role === 'admin' && adminValid.includes(tabId)) {
@@ -1073,6 +1074,13 @@ export default function App() {
               statusList={adminData.statusList}
               transaksiList={adminData.transaksiList}
               transaksiKasList={adminData.transaksiKasList}
+              onToast={pushToast}
+            />
+          );
+        case 'laporan_bug':
+          return (
+            <AdminBugReportsSlide
+              session={session}
               onToast={pushToast}
             />
           );

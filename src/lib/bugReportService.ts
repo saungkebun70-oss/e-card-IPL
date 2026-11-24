@@ -91,10 +91,26 @@ export const BUG_CATEGORY_LABELS: Record<BugReportCategory, string> = {
 };
 
 export const BUG_STATUS_LABELS: Record<BugReportStatus, string> = {
-  baru: 'Baru',
+  baru: 'Pending',
   diproses: 'Diproses',
-  selesai: 'Selesai',
+  selesai: 'Selesai (Resolved)',
 };
+
+const BUG_REPORTS_EVENT = 'ecard-bug-reports-changed';
+
+export function isBugReportResolved(status?: string | null): boolean {
+  const clean = String(status || '').trim().toLowerCase();
+  return clean === 'selesai' || clean === 'resolved';
+}
+
+function emitBugReportsChanged(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(BUG_REPORTS_EVENT));
+  } catch {
+    // Abaikan
+  }
+}
 
 const ERROR_BUFFER_STORAGE_KEY = 'ecard_bug_error_buffer_v1';
 const LOCAL_BUG_REPORTS_KEY = 'ecard_bug_reports_local_v1';
@@ -531,12 +547,18 @@ function writeLocalBugReports(list: BugReportRecord[]): void {
   }
 }
 
+function normalizeBugStatus(raw?: unknown): BugReportStatus {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (clean === 'selesai' || clean === 'resolved') return 'selesai';
+  if (clean === 'diproses' || clean === 'in_progress') return 'diproses';
+  return 'baru';
+}
+
 function normalizeRemoteBugRow(row: Record<string, unknown>): BugReportRecord {
   const rawCategory = String(row.category || 'lainnya') as BugReportCategory;
   const category: BugReportCategory =
     rawCategory in BUG_CATEGORY_LABELS ? rawCategory : 'lainnya';
-  const rawStatus = String(row.status || 'baru') as BugReportStatus;
-  const status: BugReportStatus = rawStatus in BUG_STATUS_LABELS ? rawStatus : 'baru';
+  const status: BugReportStatus = normalizeBugStatus(row.status);
 
   return {
     id: String(row.id || createUuidSafe()),
@@ -682,16 +704,18 @@ export async function submitBugReport(
       category: 'system',
       title: notifTitle,
       message: notifMsg,
-      target_url: 'settings:profil',
+      target_url: 'tab:laporan_bug',
     })),
     {
       title: notifTitle,
       body: notifMsg,
       target_roles: ['admin'],
-      target_url: 'settings:profil',
+      target_url: 'tab:laporan_bug',
       category: 'system',
     }
   );
+
+  emitBugReportsChanged();
 
   return {
     report: reportRecord,
@@ -805,4 +829,78 @@ export async function updateBugReportStatusAdmin(
       throw new Error(error.message || 'Gagal memperbarui status laporan bug.');
     }
   }
+
+  emitBugReportsChanged();
+}
+
+/**
+ * Menghitung jumlah laporan bug yang masih Pending (belum Selesai/Resolved) untuk badge tab Admin.
+ */
+export async function fetchPendingBugReportCount(session: SessionUser): Promise<number> {
+  if (session.role !== 'admin') return 0;
+  try {
+    const reports = await fetchBugReports(session);
+    return reports.filter((r) => !isBugReportResolved(r.status)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Listener real-time perubahan tabel `bug_reports` + event lokal untuk sinkronisasi badge & daftar Admin.
+ */
+export function subscribeBugReportsRealtime(
+  session: SessionUser,
+  onChange: () => void
+): () => void {
+  const cleanups: Array<() => void> = [];
+
+  if (typeof window !== 'undefined') {
+    const onLocal = () => onChange();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCAL_BUG_REPORTS_KEY) onChange();
+    };
+    window.addEventListener(BUG_REPORTS_EVENT, onLocal);
+    window.addEventListener('storage', onStorage);
+    cleanups.push(() => {
+      window.removeEventListener(BUG_REPORTS_EVENT, onLocal);
+      window.removeEventListener('storage', onStorage);
+    });
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const channel = supabase
+        .channel(`bug-reports-${session.role}-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'bug_reports' },
+          () => {
+            onChange();
+          }
+        )
+        .subscribe();
+
+      cleanups.push(() => {
+        try {
+          void supabase.removeChannel(channel);
+        } catch {
+          // Abaikan
+        }
+      });
+    } catch {
+      // Abaikan bila realtime WebSocket dibatasi
+    }
+  }
+
+  return () => {
+    cleanups.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        // Abaikan
+      }
+    });
+  };
 }

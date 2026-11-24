@@ -44,7 +44,7 @@ create table if not exists public.bug_reports (
   error_snapshot jsonb,
   app_version text not null default '1.0.0',
   platform text not null default 'web',
-  status text not null default 'baru' check (status in ('baru', 'diproses', 'selesai')),
+  status text not null default 'baru' check (status in ('baru', 'diproses', 'selesai', 'pending', 'resolved')),
   admin_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
