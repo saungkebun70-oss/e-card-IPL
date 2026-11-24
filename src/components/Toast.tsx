@@ -16,7 +16,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   return (
     <div
       aria-live="polite"
-      className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 flex flex-col gap-2 pointer-events-none"
+      className="fixed top-[calc(env(safe-area-inset-top,0px)+1rem)] right-4 left-4 sm:left-auto sm:w-96 z-[95] flex flex-col gap-2 pointer-events-none"
     >
       <AnimatePresence initial={false}>
         {toasts.map((toast) => {

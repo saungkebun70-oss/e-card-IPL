@@ -581,15 +581,15 @@ export function AppShell({
       </div>
 
       {/* Area Konten Utama */}
-      <main className="relative z-10 flex-1 px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:pt-[6rem] pb-[100px] md:pb-[108px] min-w-0 overflow-x-clip">
+      <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:pt-[6rem] pb-[104px] md:pb-[108px] min-w-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               className="w-full min-w-0"
             >
               {children}
@@ -635,7 +635,7 @@ export function AppShell({
       {/* Bottom Navigation Bar Tetap untuk Mobile (< 768px) dengan Floating Center + Circle */}
       <nav
         aria-label="Navigasi Bawah Mobile"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl border-t border-white/90 shadow-[0_-8px_24px_-8px_rgba(79,70,229,0.14)] pb-safe pb-[env(safe-area-inset-bottom)] no-print"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-t border-white/90 shadow-[0_-8px_24px_-8px_rgba(79,70,229,0.14)] pb-[max(0.5rem,env(safe-area-inset-bottom))] no-print"
       >
         <div
           className={`grid ${
@@ -659,18 +659,18 @@ export function AppShell({
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   aria-label={item.label}
-                  className="relative flex flex-col items-center justify-end pb-1.5 px-0.5 cursor-pointer group min-w-0"
+                  className="relative flex flex-col items-center justify-end h-[60px] pb-2 px-0.5 cursor-pointer group min-w-0"
                 >
                   <span
                     className={`${
-                      isCompactSix ? 'w-11 h-11 -mt-5' : 'w-13 h-13 -mt-6'
-                    } rounded-full border-[3.5px] border-white shadow-[0_8px_20px_-4px_rgba(76,29,149,0.45)] flex items-center justify-center transition-all group-active:scale-95 ${
+                      isCompactSix ? 'w-11 h-11 -mt-5' : 'w-12 h-12 -mt-6'
+                    } rounded-full border-[3.5px] border-white shadow-[0_8px_20px_-4px_rgba(76,29,149,0.45)] flex items-center justify-center transition-all group-active:scale-95 shrink-0 ${
                       isActive
                         ? 'bg-[var(--theme-cta-indigo)] text-white'
                         : 'bg-[var(--theme-primary)] text-white hover:opacity-95'
                     }`}
                   >
-                    <Icon className={isCompactSix ? 'w-5 h-5' : 'w-6 h-6'} strokeWidth={2.5} />
+                    <Icon className={isCompactSix ? 'w-5 h-5' : 'w-5 h-5'} strokeWidth={2.5} />
                   </span>
                   <span
                     className={`text-[10px] font-bold mt-1 leading-none truncate max-w-full ${
@@ -688,7 +688,7 @@ export function AppShell({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`relative flex flex-col items-center justify-center h-[60px] px-0.5 transition-all duration-150 active:scale-[0.95] cursor-pointer min-w-0 ${
+                className={`relative flex flex-col items-center justify-end h-[60px] pb-2 px-0.5 transition-all duration-150 active:scale-[0.95] cursor-pointer min-w-0 ${
                   isActive
                     ? 'text-[var(--theme-primary)]'
                     : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text)]'

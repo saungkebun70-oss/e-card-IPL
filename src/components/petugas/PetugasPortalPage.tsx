@@ -1929,35 +1929,35 @@ export function PetugasPortalPage({
       {/* BOTTOM NAVIGATION BAR 5 MENU SIMETRIS KHUSUS PETUGAS KEAMANAN */}
       <nav
         aria-label="Navigasi Petugas Keamanan"
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl border-t border-white/90 pb-safe pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(76,29,149,0.08)]"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-t border-white/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(76,29,149,0.08)]"
       >
-        <div className="max-w-3xl mx-auto grid grid-cols-5 h-16 items-center px-1">
+        <div className="max-w-3xl mx-auto grid grid-cols-5 h-[60px] items-end px-1">
           {/* 1. Info & Shift */}
           <button
             type="button"
             onClick={() => handleSelectTab('info')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
+            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'info' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
             }`}
           >
             <Shield className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'info' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-tight">Info &amp; Shift</span>
+            <span className="text-[10px] font-bold leading-none">Info &amp; Shift</span>
           </button>
 
           {/* 2. Riwayat Patroli */}
           <button
             type="button"
             onClick={() => handleSelectTab('riwayat')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
+            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'riwayat' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
             }`}
           >
             <ClipboardList className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'riwayat' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-tight">Riwayat</span>
+            <span className="text-[10px] font-bold leading-none">Riwayat</span>
           </button>
 
           {/* 3. TENGAH MENONJOL: TOMBOL LANGSUNG PEMICU SCAN WEB NFC */}
-          <div className="flex flex-col items-center justify-center relative">
+          <div className="flex flex-col items-center justify-end pb-2 relative h-full">
             <button
               type="button"
               disabled={submittingPatroli}
@@ -1968,7 +1968,7 @@ export function PetugasPortalPage({
                   : 'Aktifkan Scan NFC Checkpoint Patroli'
               }
               aria-pressed={scanningNfc}
-              className={`relative -mt-7 w-14 h-14 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
+              className={`relative -mt-6 w-12 h-12 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
                 scanningNfc
                   ? 'bg-emerald-600 text-white shadow-emerald-500/50 ring-4 ring-emerald-300/60 scale-105'
                   : activeTab === 'scan'
@@ -1989,17 +1989,17 @@ export function PetugasPortalPage({
                 </>
               )}
               {submittingPatroli ? (
-                <Loader2 className="w-6 h-6 relative z-10 animate-spin" />
+                <Loader2 className="w-5 h-5 relative z-10 animate-spin" />
               ) : (
                 <Radio
-                  className={`w-6 h-6 relative z-10 stroke-[2.5] ${
+                  className={`w-5 h-5 relative z-10 stroke-[2.5] ${
                     scanningNfc ? 'animate-pulse' : ''
                   }`}
                 />
               )}
             </button>
             <span
-              className={`text-[10px] font-extrabold leading-tight mt-0.5 ${
+              className={`text-[10px] font-extrabold leading-none mt-1 ${
                 scanningNfc
                   ? 'text-emerald-700 animate-pulse'
                   : activeTab === 'scan'
@@ -2015,24 +2015,24 @@ export function PetugasPortalPage({
           <button
             type="button"
             onClick={() => handleSelectTab('honor')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
+            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'honor' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
             }`}
           >
             <Wallet className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'honor' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-tight">Honor</span>
+            <span className="text-[10px] font-bold leading-none">Honor</span>
           </button>
 
           {/* 5. Peta Patroli */}
           <button
             type="button"
             onClick={() => handleSelectTab('peta')}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
+            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
               activeTab === 'peta' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
             }`}
           >
             <MapIcon className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'peta' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-tight">Peta</span>
+            <span className="text-[10px] font-bold leading-none">Peta</span>
           </button>
         </div>
       </nav>

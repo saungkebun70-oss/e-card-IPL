@@ -888,32 +888,32 @@ export function AdminRekapSlide({
             </div>
 
             {filteredWarga.length > PAGE_SIZE && (
-              <div className="px-4 py-3 border-t border-indigo-100/80 bg-indigo-50/40 flex items-center justify-between gap-3 text-xs text-slate-600">
-                <span className="tabular-nums">
+              <div className="px-4 py-3 border-t border-indigo-100/80 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-600">
+                <span className="tabular-nums text-center sm:text-left">
                   Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
                   {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-center sm:justify-end gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     disabled={safePage <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
                   >
-                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
                     <span>Sebelumnya</span>
                   </button>
-                  <span className="px-2 font-mono font-semibold text-[#4C1D95] tabular-nums">
+                  <span className="px-2 font-mono font-semibold text-[#4C1D95] tabular-nums whitespace-nowrap shrink-0">
                     {safePage} / {totalPages}
                   </span>
                   <button
                     type="button"
                     disabled={safePage >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
                   >
                     <span>Berikutnya</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
                   </button>
                 </div>
               </div>
@@ -927,17 +927,17 @@ export function AdminRekapSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-modal-backdrop"
+          className="fixed inset-0 z-[70] bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           onClick={() => !submitting && setManualModalOpen(false)}
         >
           <form
             onSubmit={handleManualSubmit}
-            className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-lg w-full border border-white/90 shadow-2xl overflow-hidden my-auto animate-modal-pop"
+            className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-[#0F172A]">
+            <div className="shrink-0 px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-[#0F172A] truncate">
                   Input Setoran Tunai Manual (Admin)
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -948,13 +948,13 @@ export function AdminRekapSlide({
                 type="button"
                 onClick={() => setManualModalOpen(false)}
                 aria-label="Tutup modal"
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                   Pilih Unit Warga
@@ -1053,7 +1053,7 @@ export function AdminRekapSlide({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
+            <div className="shrink-0 px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setManualModalOpen(false)}

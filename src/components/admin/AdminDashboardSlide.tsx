@@ -1457,7 +1457,7 @@ export function AdminDashboardSlide({
           onClick={() => setRejectTarget(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
@@ -1573,7 +1573,7 @@ export function AdminDashboardSlide({
           onClick={() => setKetuaReturnTarget(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
@@ -1653,12 +1653,12 @@ export function AdminDashboardSlide({
           role="dialog"
           aria-modal="true"
           aria-labelledby="broadcast-modal-title"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           onClick={() => !sendingBroadcast && setBroadcastOpen(false)}
         >
           <form
             onSubmit={handleSendBulkNotification}
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full max-h-[88vh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-t-3xl sm:rounded-3xl max-w-xl w-full max-h-[90dvh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
@@ -1838,7 +1838,7 @@ export function AdminDashboardSlide({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
+            <div className="shrink-0 px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-indigo-50/40 border-t border-indigo-100/80 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={sendingBroadcast}
@@ -1886,7 +1886,7 @@ export function AdminDashboardSlide({
         >
           <form
             onSubmit={(e) => void handleConfirmDeleteIpl(e)}
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-red-100 bg-red-50/70 flex items-center justify-between gap-3">
