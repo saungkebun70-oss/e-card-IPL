@@ -21,6 +21,12 @@ export interface NativePushRuntimeInfo {
   tokenPreview: string | null;
   webPushConfigured: boolean;
   channelId: string;
+  isBackgroundSyncFallback: boolean;
+  fallbackReason: string | null;
+  isHuaweiDevice: boolean;
+  periodicSyncSupported: boolean;
+  periodicSyncRegistered: boolean;
+  lastBackgroundPollAt: number | null;
 }
 
 export interface ForegroundPushToastPayload {
@@ -40,11 +46,17 @@ export interface AdminTestPushResult {
 
 const PREFS_STORAGE_KEY = 'app_notif_prefs_v1';
 const LAST_FCM_TOKEN_KEY = 'ecard_last_fcm_token_v1';
+const BG_POLL_SEEN_PREFIX = 'ecard_bg_poll_seen_v1:';
+const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
+const LOCAL_DISMISSED_NOTIF_PREFIX = 'ecard_notif_dismissed_v1:';
 const PREFS_CHANGED_EVENT = 'ecard-notif-prefs-changed';
+const PUSH_RUNTIME_CHANGED_EVENT = 'ecard-push-runtime-changed';
 const BELL_SHAKE_EVENT = 'ecard-bell-shake';
 const NOTIF_NAVIGATE_EVENT = 'ecard-notif-navigate';
 const NOTIF_LIST_CHANGED_EVENT = 'ecard-activity-notifications-changed';
 const FOREGROUND_PUSH_TOAST_EVENT = 'ecard-foreground-push-toast';
+const PERIODIC_SYNC_TAG = 'ecard-notif-periodic-sync';
+const ONE_OFF_SYNC_TAG = 'ecard-notif-bg-sync';
 
 export const ANDROID_NOTIFICATION_CHANNEL_ID = 'saung_kebun_notif';
 const LEGACY_ANDROID_CHANNEL_ID = 'saung_kebun_alerts';
@@ -75,9 +87,21 @@ let pushListenersInstallPromise: Promise<boolean> | null = null;
 let webPushSwRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 let webForegroundListenerInstalled = false;
 let swMessageListenerInstalled = false;
+let wakeupSyncInstalled = false;
+let wakeupPollIntervalId: number | null = null;
 let cachedFcmToken: string | null = null;
 let activePushSession: SessionUser | null = null;
 let lastSyncedTokenSignature = '';
+let fcmFallbackActive = false;
+let fcmFallbackReason: string | null = null;
+let periodicSyncRegistered = false;
+let lastBackgroundPollAt: number | null = null;
+let lastUnreadPollTriggeredAt = 0;
+let inFlightUnreadPollPromise: Promise<{
+  checked: boolean;
+  unreadCount: number;
+  newCount: number;
+}> | null = null;
 let inFlightPushSyncPromise: Promise<{
   ok: boolean;
   synced: boolean;
@@ -232,15 +256,134 @@ export function subscribeForegroundPushToast(
   return () => window.removeEventListener(FOREGROUND_PUSH_TOAST_EVENT, handler);
 }
 
+export function isLikelyHuaweiDevice(): boolean {
+  try {
+    if (typeof navigator === 'undefined') return false;
+    const ua = String(navigator.userAgent || '');
+    return /huawei|harmonyos|emui|honor|hms|huaweibrowser|petal|bah[0-9]|ags[0-9]|db[rs]-|btk-|agr-|kob2|mrx-|wgr-|scm-|dby-|tgr-|bg2-|jdn2|cmr-/i.test(
+      ua
+    );
+  } catch {
+    return false;
+  }
+}
+
+function emitPushRuntimeChanged(): void {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(PUSH_RUNTIME_CHANGED_EVENT));
+    }
+  } catch {
+    // Abaikan
+  }
+}
+
+function markFcmFallback(active: boolean, reason?: string | null): void {
+  const nextReason = active ? reason || 'Perangkat tidak memiliki layanan GMS/FCM aktif.' : null;
+  if (fcmFallbackActive === active && fcmFallbackReason === nextReason) return;
+  fcmFallbackActive = active;
+  fcmFallbackReason = nextReason;
+  emitPushRuntimeChanged();
+}
+
+export function subscribePushRuntimeInfoChange(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = () => callback();
+  window.addEventListener(PUSH_RUNTIME_CHANGED_EVENT, handler);
+  return () => window.removeEventListener(PUSH_RUNTIME_CHANGED_EVENT, handler);
+}
+
+/**
+ * Pembungkus aman `isSupported()` Firebase Messaging untuk perangkat non-GMS (Huawei EMUI/HarmonyOS).
+ * Tidak pernah melempar error atau menggantung jika Google Play Services / Push API dibatasi.
+ */
+export async function safeCheckFirebaseMessagingSupported(
+  isSupportedFn?: () => Promise<boolean>
+): Promise<boolean> {
+  try {
+    let checker = isSupportedFn;
+    if (!checker) {
+      const messagingMod = await import('firebase/messaging');
+      checker = messagingMod.isSupported;
+    }
+    if (typeof checker !== 'function') return false;
+
+    const supported = await Promise.race<boolean>([
+      Promise.resolve()
+        .then(() => checker!())
+        .catch(() => false),
+      new Promise<boolean>((resolve) => {
+        if (typeof window !== 'undefined') {
+          window.setTimeout(() => resolve(false), 4000);
+        } else {
+          setTimeout(() => resolve(false), 4000);
+        }
+      }),
+    ]);
+    return Boolean(supported);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pembungkus aman `getToken()` Firebase Messaging dengan proteksi try-catch dan timeout
+ * agar perangkat Huawei tanpa Google Play Services (GMS) otomatis jatuh ke mode Background Sync Fallback.
+ */
+export async function safeGetFirebaseMessagingToken<TMessaging, TOptions>(
+  getTokenFn: (messaging: TMessaging, options?: TOptions) => Promise<string>,
+  messaging: TMessaging,
+  options?: TOptions,
+  timeoutMs = 8000
+): Promise<{ token: string | null; error?: string }> {
+  try {
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<{ token: null; error: string }>((resolve) => {
+      timerId = setTimeout(() => {
+        resolve({
+          token: null,
+          error: 'Permintaan token FCM melewati batas waktu (perangkat tanpa GMS).',
+        });
+      }, timeoutMs);
+    });
+
+    const tokenPromise = Promise.resolve()
+      .then(() => getTokenFn(messaging, options))
+      .then((tok) => ({
+        token: typeof tok === 'string' && tok.trim() ? tok.trim() : null,
+        error: typeof tok === 'string' && tok.trim() ? undefined : 'Token FCM tidak dikembalikan.',
+      }))
+      .catch((err: unknown) => ({
+        token: null,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+
+    const result = await Promise.race([tokenPromise, timeoutPromise]);
+    if (timerId !== null) clearTimeout(timerId);
+    return result;
+  } catch (err) {
+    return {
+      token: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
   const isNative = isNativeApp();
   const platform = getNativePlatformName();
+  const isHuaweiDevice = isLikelyHuaweiDevice();
   const webPushConfigured = Boolean(getFirebaseWebConfig());
   const webSupported =
     !isNative &&
     typeof window !== 'undefined' &&
     'Notification' in window &&
     'serviceWorker' in navigator;
+  const periodicSyncSupported =
+    !isNative &&
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PeriodicSyncManager' in window;
   const token = readCachedFcmToken();
   const hasToken = Boolean(token);
   const tokenPreview = token
@@ -248,6 +391,7 @@ export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
       ? `${token.slice(0, 12)}...${token.slice(-6)}`
       : token
     : null;
+  const isBackgroundSyncFallback = !hasToken && (fcmFallbackActive || isHuaweiDevice);
 
   return {
     isNative,
@@ -259,6 +403,17 @@ export function getNativePushRuntimeInfo(): NativePushRuntimeInfo {
     tokenPreview,
     webPushConfigured,
     channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+    isBackgroundSyncFallback,
+    fallbackReason: isBackgroundSyncFallback
+      ? fcmFallbackReason ||
+        (isHuaweiDevice
+          ? 'Perangkat Huawei (EMUI/HarmonyOS) menggunakan Background Sync Fallback.'
+          : 'Token FCM belum tersedia, menggunakan Background Sync Fallback.')
+      : null,
+    isHuaweiDevice,
+    periodicSyncSupported,
+    periodicSyncRegistered,
+    lastBackgroundPollAt,
   };
 }
 
@@ -638,6 +793,7 @@ export async function removeCurrentDevicePushToken(session?: SessionUser | null)
   const targetSession = session || activePushSession;
   activePushSession = null;
   lastSyncedTokenSignature = '';
+  void syncServiceWorkerPollingContext(null);
 
   if (!token || !targetSession) return;
 
@@ -661,6 +817,440 @@ export async function removeCurrentDevicePushToken(session?: SessionUser | null)
   }
 }
 
+function buildSessionMatchUserIdsForPolling(session: SessionUser): string[] {
+  const ids = new Set<string>(['broadcast:all']);
+  if (session.role === 'warga') {
+    ids.add('broadcast:warga');
+    ids.add('role:warga');
+    const cleanBlok = normalizeIdPart(session.blok_rumah);
+    if (cleanBlok) {
+      ids.add(`warga:${cleanBlok}`);
+      ids.add(`warga:${cleanBlok.toUpperCase()}`);
+      const parts = cleanBlok.split('/');
+      if (parts.length === 2) {
+        const prefixMatch = parts[0].match(/^([a-z]+)0*(\d+)$/i);
+        const numMatch = parts[1].match(/^0*(\d+)$/);
+        if (prefixMatch && numMatch) {
+          const prefix = prefixMatch[1].toLowerCase();
+          const bNum = Number(prefixMatch[2]);
+          const hNum = Number(numMatch[1]);
+          const unpadded = `${prefix}${bNum}/${hNum}`;
+          const padded = `${prefix}${String(bNum).padStart(2, '0')}/${String(hNum).padStart(2, '0')}`;
+          ids.add(`warga:${unpadded}`);
+          ids.add(`warga:${unpadded.toUpperCase()}`);
+          ids.add(`warga:${padded}`);
+          ids.add(`warga:${padded.toUpperCase()}`);
+        }
+      }
+    }
+  } else if (session.role === 'admin') {
+    ids.add('broadcast:admin');
+    ids.add('role:admin');
+    const rawBlok = normalizeIdPart(session.blok_rumah);
+    if (rawBlok) {
+      ids.add(`admin:${rawBlok === 'admin' ? 'andriansyah' : rawBlok}`);
+      ids.add(`admin:${rawBlok}`);
+    }
+    if (session.jabatan === 'Bendahara' || session.admin_permission === 'full' || rawBlok === 'admin') {
+      ids.add('admin:andriansyah');
+      ids.add('admin:admin');
+      ids.add('role:bendahara');
+    }
+    if (session.jabatan === 'Ketua' || rawBlok === 'erlangga') {
+      ids.add('admin:erlangga');
+      ids.add('role:ketua');
+    }
+  } else {
+    ids.add('broadcast:petugas');
+    ids.add('broadcast:keamanan');
+    ids.add('role:petugas');
+    ids.add('role:keamanan');
+    if (session.petugas_id) {
+      const cleanPid = normalizeIdPart(session.petugas_id);
+      ids.add(`petugas:${cleanPid}`);
+      ids.add(`keamanan:${cleanPid}`);
+    }
+    if (session.blok_rumah) {
+      const cleanBlok = normalizeIdPart(session.blok_rumah);
+      ids.add(`petugas:${cleanBlok}`);
+      ids.add(`keamanan:${cleanBlok}`);
+    }
+    if (session.nama_warga) {
+      const cleanNama = normalizeIdPart(session.nama_warga);
+      ids.add(`petugas:${cleanNama}`);
+      ids.add(`keamanan:${cleanNama}`);
+    }
+  }
+  return Array.from(ids);
+}
+
+function resolveCanonicalNotificationActorId(session: SessionUser): string {
+  if (session.role === 'warga') {
+    return `warga:${normalizeIdPart(session.blok_rumah)}`;
+  }
+  if (session.role === 'admin') {
+    const clean = normalizeIdPart(session.blok_rumah);
+    return `admin:${clean === 'admin' ? 'andriansyah' : clean}`;
+  }
+  return `petugas:${normalizeIdPart(session.petugas_id || session.blok_rumah)}`;
+}
+
+function readStoredIdSet(storageKey: string): Set<string> | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(storageKey);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set<string>();
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredIdSet(storageKey: string, set: Set<string>, maxItems = 250): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(storageKey, JSON.stringify(Array.from(set).slice(-maxItems)));
+  } catch {
+    // Abaikan keterbatasan storage
+  }
+}
+
+/**
+ * Mendaftarkan Periodic Background Sync & one-off Background Sync pada Service Worker
+ * bila didukung oleh browser/WebView (termasuk fallback perangkat Huawei non-GMS).
+ */
+export async function registerPeriodicNotificationSync(
+  registration?: ServiceWorkerRegistration | null
+): Promise<boolean> {
+  if (isNativeApp()) return false;
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return false;
+
+  try {
+    const reg =
+      registration ||
+      (await Promise.race<ServiceWorkerRegistration | null>([
+        navigator.serviceWorker.ready,
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2500)),
+      ]));
+    if (!reg) return false;
+
+    let registered = false;
+    const regWithSync = reg as ServiceWorkerRegistration & {
+      periodicSync?: {
+        register: (tag: string, options?: { minInterval?: number }) => Promise<void>;
+      };
+      sync?: {
+        register: (tag: string) => Promise<void>;
+      };
+    };
+
+    if (regWithSync.periodicSync && typeof regWithSync.periodicSync.register === 'function') {
+      try {
+        let canRegister = true;
+        if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+          try {
+            const status = await navigator.permissions.query({
+              name: 'periodic-background-sync' as PermissionName,
+            });
+            if (status.state === 'denied') {
+              canRegister = false;
+            }
+          } catch {
+            // Browser/WebView tertentu tetap mengizinkan register meski query permission tidak mendukung nama ini
+          }
+        }
+        if (canRegister) {
+          await regWithSync.periodicSync.register(PERIODIC_SYNC_TAG, {
+            minInterval: 15 * 60 * 1000,
+          });
+          registered = true;
+        }
+      } catch {
+        // Periodic Sync dibatasi browser/OS — fallback tetap berjalan melalui wake-up listener
+      }
+    }
+
+    if (regWithSync.sync && typeof regWithSync.sync.register === 'function') {
+      try {
+        await regWithSync.sync.register(ONE_OFF_SYNC_TAG);
+      } catch {
+        // Abaikan jika Background Sync belum didukung
+      }
+    }
+
+    if (registered !== periodicSyncRegistered) {
+      periodicSyncRegistered = registered;
+      emitPushRuntimeChanged();
+    }
+    return registered;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mengirim konteks sesi (non-rahasia: URL publik, anon key, dan matchIds user) ke Service Worker
+ * agar Periodic Background Sync bisa memeriksa tabel `notifications` Supabase saat aplikasi di latar belakang.
+ */
+export async function syncServiceWorkerPollingContext(session: SessionUser | null): Promise<void> {
+  if (isNativeApp()) return;
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  try {
+    const reg = await registerWebPushServiceWorker();
+    const targetWorker =
+      reg?.active || reg?.waiting || reg?.installing || navigator.serviceWorker.controller;
+    if (!targetWorker) return;
+
+    if (!session) {
+      targetWorker.postMessage({ type: 'ECARD_CLEAR_SYNC_CONTEXT' });
+      return;
+    }
+
+    const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+    const supabaseUrl = (env.VITE_SUPABASE_URL || '').trim();
+    const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || '').trim();
+    if (!supabaseUrl || !supabaseAnonKey) return;
+
+    targetWorker.postMessage({
+      type: 'ECARD_SYNC_CONTEXT',
+      context: {
+        supabaseUrl,
+        supabaseAnonKey,
+        canonicalUserId: resolveCanonicalNotificationActorId(session),
+        matchIds: buildSessionMatchUserIdsForPolling(session),
+        headers: {
+          'x-blok-rumah': session.blok_rumah || '',
+          'x-user-role': session.role || 'anon',
+          'x-admin-permission': session.admin_permission || '',
+          'x-admin-jabatan': session.jabatan || '',
+          'x-petugas-id': session.petugas_id || '',
+          'x-petugas-name': session.role === 'petugas' ? session.nama_warga || '' : '',
+        },
+      },
+    });
+  } catch {
+    // Abaikan jika SW belum siap
+  }
+}
+
+/**
+ * Mengecek langsung notifikasi belum terbaca (`is_read = false`) di tabel Supabase `notifications`
+ * segera ketika layar tablet menyala, tab kembali fokus, atau koneksi internet pulih.
+ */
+export async function pollUnreadNotificationsNow(
+  session?: SessionUser | null,
+  options?: { silentSeed?: boolean; force?: boolean }
+): Promise<{ checked: boolean; unreadCount: number; newCount: number }> {
+  const targetSession = session || activePushSession;
+  if (!targetSession) {
+    return { checked: false, unreadCount: 0, newCount: 0 };
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { checked: false, unreadCount: 0, newCount: 0 };
+  }
+
+  if (inFlightUnreadPollPromise) {
+    return inFlightUnreadPollPromise;
+  }
+
+  const now = Date.now();
+  if (!options?.force && now - lastUnreadPollTriggeredAt < 2500) {
+    return { checked: false, unreadCount: 0, newCount: 0 };
+  }
+  lastUnreadPollTriggeredAt = now;
+
+  inFlightUnreadPollPromise = (async () => {
+    try {
+      const supabase = getSupabaseClient(targetSession);
+      if (!supabase || !isSupabaseConfigured()) {
+        return { checked: false, unreadCount: 0, newCount: 0 };
+      }
+
+      const matchIds = buildSessionMatchUserIdsForPolling(targetSession);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id, user_id, actor_id, category, title, message, is_read, target_url, created_at')
+        .in('user_id', matchIds)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (error || !Array.isArray(data)) {
+        return { checked: false, unreadCount: 0, newCount: 0 };
+      }
+
+      const canonicalActorId = resolveCanonicalNotificationActorId(targetSession);
+      const broadcastReadSet =
+        readStoredIdSet(`${LOCAL_BROADCAST_READ_PREFIX}${canonicalActorId}`) || new Set<string>();
+      const dismissedSet =
+        readStoredIdSet(`${LOCAL_DISMISSED_NOTIF_PREFIX}${canonicalActorId}`) || new Set<string>();
+
+      const seenStorageKey = `${BG_POLL_SEEN_PREFIX}${canonicalActorId}`;
+      const existingSeen = readStoredIdSet(seenStorageKey);
+      const hasSeededBefore = existingSeen !== null;
+      const seenSet = existingSeen || new Set<string>();
+
+      const activeUnreadRows: Array<{
+        id: string;
+        title: string;
+        message: string;
+        target_url: string;
+        created_at: string;
+        actor_id: string;
+      }> = [];
+
+      const freshUnreadRows: Array<{
+        id: string;
+        title: string;
+        message: string;
+        target_url: string;
+      }> = [];
+
+      const freshWindowMs = 3 * 60 * 1000;
+      const currentMs = Date.now();
+
+      for (const raw of data) {
+        const row = raw as Record<string, unknown>;
+        const id = String(row.id || '').trim();
+        const userId = String(row.user_id || '').trim();
+        if (!id || dismissedSet.has(id)) continue;
+        if (userId.toLowerCase().startsWith('broadcast:') && broadcastReadSet.has(id)) continue;
+
+        const actorId = normalizeIdPart(typeof row.actor_id === 'string' ? row.actor_id : '');
+        const item = {
+          id,
+          title: String(row.title || 'Aktivitas Baru · Saung Kebun'),
+          message: String(row.message || 'Ketuk untuk melihat detail aktivitas terbaru.'),
+          target_url: String(row.target_url || ''),
+          created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+          actor_id: actorId,
+        };
+        activeUnreadRows.push(item);
+
+        if (seenSet.has(id)) continue;
+        seenSet.add(id);
+
+        if (actorId && actorId === normalizeIdPart(canonicalActorId)) {
+          continue;
+        }
+
+        const createdMs = Date.parse(item.created_at);
+        const isRecent = !Number.isNaN(createdMs) && currentMs - createdMs <= freshWindowMs;
+        if ((hasSeededBefore && !options?.silentSeed) || isRecent) {
+          freshUnreadRows.push(item);
+        }
+      }
+
+      writeStoredIdSet(seenStorageKey, seenSet, 250);
+      lastBackgroundPollAt = Date.now();
+      void syncAppIconBadge(activeUnreadRows.length);
+
+      if (freshUnreadRows.length > 0) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+        }
+
+        for (const item of freshUnreadRows.slice(0, 3)) {
+          if (alertedIds.has(item.id)) continue;
+          emitForegroundPushToast({
+            title: item.title,
+            body: item.message,
+            targetUrl: item.target_url,
+          });
+          void triggerDeviceAlert(item.title, item.message, {
+            id: item.id,
+            targetUrl: item.target_url,
+          });
+        }
+      }
+
+      emitPushRuntimeChanged();
+      return {
+        checked: true,
+        unreadCount: activeUnreadRows.length,
+        newCount: freshUnreadRows.length,
+      };
+    } catch {
+      return { checked: false, unreadCount: 0, newCount: 0 };
+    } finally {
+      inFlightUnreadPollPromise = null;
+    }
+  })();
+
+  return inFlightUnreadPollPromise;
+}
+
+/**
+ * Memasang listener agresif `visibilitychange`, `focus`, `pageshow`, `online`, dan `resume`
+ * agar begitu layar tablet Huawei menyala atau koneksi internet pulih, aplikasi langsung
+ * mengecek notifikasi belum terbaca di Supabase tanpa menunggu FCM GMS.
+ */
+export function installAggressiveNotificationWakeupSync(session?: SessionUser | null): void {
+  if (session) {
+    activePushSession = session;
+  }
+  if (typeof window === 'undefined') return;
+  if (wakeupSyncInstalled) return;
+  wakeupSyncInstalled = true;
+
+  const triggerWakeupCheck = (reason: 'visible' | 'focus' | 'online' | 'resume' | 'interval') => {
+    const currentSession = activePushSession;
+    if (!currentSession) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+    void pollUnreadNotificationsNow(currentSession, {
+      force: reason === 'online' || reason === 'visible' || reason === 'resume',
+    });
+
+    // Saat koneksi pulih atau layar menyala di mode fallback, sinkronkan ulang SW & coba token jika belum ada
+    if (reason === 'online' || reason === 'visible') {
+      void syncServiceWorkerPollingContext(currentSession);
+      if (!readCachedFcmToken() && !isNativeApp() && window.Notification?.permission === 'granted') {
+        void syncNativePushTokenForSession(currentSession);
+      }
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        triggerWakeupCheck('visible');
+      }
+    });
+    document.addEventListener('resume', () => {
+      triggerWakeupCheck('resume');
+    });
+  }
+
+  window.addEventListener('focus', () => {
+    triggerWakeupCheck('focus');
+  });
+
+  window.addEventListener('pageshow', () => {
+    triggerWakeupCheck('visible');
+  });
+
+  window.addEventListener('online', () => {
+    triggerWakeupCheck('online');
+  });
+
+  // Polling berkala saat layar aktif untuk perangkat non-GMS atau saat WebSocket terputus oleh EMUI
+  if (wakeupPollIntervalId !== null) {
+    window.clearInterval(wakeupPollIntervalId);
+  }
+  wakeupPollIntervalId = window.setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    if (!activePushSession) return;
+    const intervalMs = fcmFallbackActive || isLikelyHuaweiDevice() ? 20000 : 45000;
+    if (Date.now() - lastUnreadPollTriggeredAt >= intervalMs - 1000) {
+      triggerWakeupCheck('interval');
+    }
+  }, 15000);
+}
+
 /**
  * Mendaftarkan Service Worker `public/firebase-messaging-sw.js` otomatis pada browser Web (Chrome & Safari).
  */
@@ -672,10 +1262,18 @@ export async function registerWebPushServiceWorker(): Promise<ServiceWorkerRegis
     swMessageListenerInstalled = true;
     navigator.serviceWorker.addEventListener('message', (event) => {
       const data = event.data as { type?: string; targetUrl?: string } | null;
-      if (data?.type === 'ECARD_NOTIFICATION_CLICK' && data.targetUrl) {
-        window.dispatchEvent(
-          new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl: data.targetUrl } })
-        );
+      if (data?.type === 'ECARD_NOTIFICATION_CLICK') {
+        if (data.targetUrl) {
+          window.dispatchEvent(
+            new CustomEvent(NOTIF_NAVIGATE_EVENT, { detail: { targetUrl: data.targetUrl } })
+          );
+        }
+        window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+        if (activePushSession) {
+          void pollUnreadNotificationsNow(activePushSession, { force: true });
+        }
+      } else if (data?.type === 'ECARD_BG_SYNC_NEW_NOTIFICATIONS') {
+        window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
       }
     });
   }
@@ -717,6 +1315,7 @@ export async function registerWebPushServiceWorker(): Promise<ServiceWorkerRegis
         });
       }
 
+      void registerPeriodicNotificationSync(registration);
       return registration;
     } catch {
       webPushSwRegistrationPromise = null;
@@ -728,9 +1327,9 @@ export async function registerWebPushServiceWorker(): Promise<ServiceWorkerRegis
 }
 
 /**
- * Menginisialisasi Firebase Web Push (Chrome & Safari), mengambil token FCM Web,
- * memasang listener foreground `onMessage` (toast dalam aplikasi + browser Notification),
- * dan menyinkronkan token ke `user_push_tokens`.
+ * Menginisialisasi Firebase Web Push (Chrome & Safari), mengambil token FCM Web secara aman
+ * (dengan try-catch `isSupported()` & `getToken()` untuk perangkat Huawei tanpa GMS),
+ * memasang listener foreground `onMessage`, dan menyinkronkan token ke `user_push_tokens`.
  */
 async function syncWebPushTokenForSession(
   session: SessionUser
@@ -740,8 +1339,14 @@ async function syncWebPushTokenForSession(
   }
 
   const registration = await registerWebPushServiceWorker();
+  void syncServiceWorkerPollingContext(session);
+  void registerPeriodicNotificationSync(registration);
+
   const cfg = getFirebaseWebConfig();
   if (!cfg) {
+    if (isLikelyHuaweiDevice()) {
+      markFcmFallback(true, 'Mode Background Sync Fallback aktif untuk perangkat Huawei.');
+    }
     return {
       ok: false,
       synced: false,
@@ -751,6 +1356,7 @@ async function syncWebPushTokenForSession(
   }
 
   if (typeof window === 'undefined' || !('Notification' in window)) {
+    markFcmFallback(true, 'Browser tidak mendukung Web Push FCM, menggunakan Background Sync Fallback.');
     return { ok: false, synced: false, token: null, error: 'Browser tidak mendukung Web Notification.' };
   }
 
@@ -762,8 +1368,12 @@ async function syncWebPushTokenForSession(
     const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported, onMessage }] =
       await Promise.all([import('firebase/app'), import('firebase/messaging')]);
 
-    const supported = await isSupported().catch(() => false);
+    const supported = await safeCheckFirebaseMessagingSupported(isSupported);
     if (!supported) {
+      markFcmFallback(
+        true,
+        'Browser/perangkat tanpa GMS tidak mendukung FCM Web Push. Menggunakan Background Sync Fallback.'
+      );
       return {
         ok: false,
         synced: false,
@@ -788,52 +1398,89 @@ async function syncWebPushTokenForSession(
         appName
       );
 
-    const messaging = getMessaging(firebaseApp);
+    let messaging;
+    try {
+      messaging = getMessaging(firebaseApp);
+    } catch (msgErr) {
+      markFcmFallback(
+        true,
+        'Layanan Firebase Messaging tidak tersedia (non-GMS). Menggunakan Background Sync Fallback.'
+      );
+      return {
+        ok: false,
+        synced: false,
+        token: null,
+        error: msgErr instanceof Error ? msgErr.message : String(msgErr),
+      };
+    }
 
     if (!webForegroundListenerInstalled) {
-      webForegroundListenerInstalled = true;
-      onMessage(messaging, (payload) => {
-        const data = (payload?.data || {}) as Record<string, string>;
-        const title =
-          payload?.notification?.title || data.title || 'Aktivitas Baru · Saung Kebun';
-        const body =
-          payload?.notification?.body ||
-          data.body ||
-          'Ketuk untuk melihat detail aktivitas terbaru.';
-        const targetUrl = data.target_url || '';
-        const notifId = data.notification_id || `web-fcm-${Date.now()}`;
+      try {
+        webForegroundListenerInstalled = true;
+        onMessage(messaging, (payload) => {
+          const data = (payload?.data || {}) as Record<string, string>;
+          const title =
+            payload?.notification?.title || data.title || 'Aktivitas Baru · Saung Kebun';
+          const body =
+            payload?.notification?.body ||
+            data.body ||
+            'Ketuk untuk melihat detail aktivitas terbaru.';
+          const targetUrl = data.target_url || '';
+          const notifId = data.notification_id || `web-fcm-${Date.now()}`;
 
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
-        }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(NOTIF_LIST_CHANGED_EVENT));
+          }
 
-        // Tampilkan toast in-app + pemicu browser Notification (suara/getar/pop-up)
-        emitForegroundPushToast({ title, body, targetUrl });
-        void triggerDeviceAlert(title, body, {
-          id: notifId,
-          targetUrl,
+          emitForegroundPushToast({ title, body, targetUrl });
+          void triggerDeviceAlert(title, body, {
+            id: notifId,
+            targetUrl,
+          });
         });
-      });
+      } catch {
+        webForegroundListenerInstalled = false;
+      }
     }
 
-    const token = await getToken(messaging, {
-      vapidKey: cfg.vapidKey,
-      serviceWorkerRegistration: registration || undefined,
-    });
+    const tokenRes = await safeGetFirebaseMessagingToken(
+      getToken,
+      messaging,
+      {
+        vapidKey: cfg.vapidKey,
+        serviceWorkerRegistration: registration || undefined,
+      },
+      8000
+    );
 
-    if (!token) {
-      return { ok: false, synced: false, token: null, error: 'Token FCM Web gagal diperoleh.' };
+    if (!tokenRes.token) {
+      markFcmFallback(
+        true,
+        'Token FCM gagal diperoleh (perangkat Huawei / non-GMS). Menggunakan Background Sync Fallback.'
+      );
+      return {
+        ok: false,
+        synced: false,
+        token: null,
+        error: tokenRes.error || 'Token FCM Web gagal diperoleh.',
+      };
     }
 
-    writeCachedFcmToken(token);
-    const persistRes = await persistFcmTokenToSupabase(session, token);
+    writeCachedFcmToken(tokenRes.token);
+    markFcmFallback(false, null);
+    emitPushRuntimeChanged();
+    const persistRes = await persistFcmTokenToSupabase(session, tokenRes.token);
     return {
       ok: true,
       synced: persistRes.synced,
-      token,
+      token: tokenRes.token,
       error: persistRes.error,
     };
   } catch (err) {
+    markFcmFallback(
+      true,
+      'Firebase Messaging tidak tersedia pada perangkat ini. Menggunakan Background Sync Fallback.'
+    );
     return {
       ok: false,
       synced: false,
@@ -846,7 +1493,7 @@ async function syncWebPushTokenForSession(
 /**
  * Mendaftarkan listener `@capacitor/push-notifications` SEBELUM `register()` dipanggil (Android & iOS):
  * - `registration`: simpan token FCM/APNs ke cache lokal & sinkronkan ke `user_push_tokens`
- * - `registrationError`: selesaikan waiter tanpa menghentikan aplikasi
+ * - `registrationError`: aktifkan mode Background Sync Fallback tanpa menghentikan aplikasi (aman untuk Huawei non-GMS)
  * - `pushNotificationReceived`: refresh daftar notifikasi, tampilkan toast foreground & picu alert
  * - `pushNotificationActionPerformed`: buka `target_url` saat notifikasi diketuk dari Status Bar
  */
@@ -862,10 +1509,16 @@ async function ensureNativePushListeners(): Promise<boolean> {
       await PushNotifications.addListener('registration', (tokenData) => {
         const nextToken = tokenData?.value?.trim() || '';
         if (!nextToken) {
+          markFcmFallback(
+            true,
+            'Token FCM kosong (perangkat non-GMS). Menggunakan Background Sync Fallback.'
+          );
           resolvePendingTokenWaiters(null);
           return;
         }
         writeCachedFcmToken(nextToken);
+        markFcmFallback(false, null);
+        emitPushRuntimeChanged();
         resolvePendingTokenWaiters(nextToken);
         if (activePushSession) {
           void persistFcmTokenToSupabase(activePushSession, nextToken);
@@ -873,6 +1526,10 @@ async function ensureNativePushListeners(): Promise<boolean> {
       });
 
       await PushNotifications.addListener('registrationError', () => {
+        markFcmFallback(
+          true,
+          'Google Play Services / FCM tidak tersedia pada perangkat ini. Menggunakan Background Sync Fallback.'
+        );
         resolvePendingTokenWaiters(null);
       });
 
@@ -925,6 +1582,10 @@ async function ensureNativePushListeners(): Promise<boolean> {
       return true;
     } catch {
       pushListenersInstalled = false;
+      markFcmFallback(
+        true,
+        'Plugin Push FCM tidak tersedia di perangkat ini. Menggunakan Background Sync Fallback.'
+      );
       return false;
     } finally {
       pushListenersInstallPromise = null;
@@ -937,7 +1598,7 @@ async function ensureNativePushListeners(): Promise<boolean> {
 /**
  * Mendaftarkan perangkat Android/iOS (Capacitor) MAUPUN Web Browser (Chrome/Safari) ke FCM,
  * menyimpan token ke cache lokal, dan menyinkronkannya ke tabel Supabase `user_push_tokens`
- * dengan upsert `(user_id, token)`.
+ * dengan upsert `(user_id, token)`. Aman di perangkat Huawei tanpa GMS.
  */
 export async function syncNativePushTokenForSession(
   session?: SessionUser | null
@@ -961,6 +1622,10 @@ export async function syncNativePushTokenForSession(
       await ensureAndroidNotificationChannel();
       const listenersReady = await ensureNativePushListeners();
       if (!listenersReady) {
+        markFcmFallback(
+          true,
+          'Plugin Push FCM tidak tersedia. Menggunakan Background Sync Fallback.'
+        );
         return {
           ok: false,
           synced: false,
@@ -996,14 +1661,34 @@ export async function syncNativePushTokenForSession(
         pendingTokenWaiters.push(finish);
       });
 
-      await PushNotifications.register();
+      try {
+        await PushNotifications.register();
+      } catch (regErr) {
+        markFcmFallback(
+          true,
+          'Registrasi FCM tidak didukung (non-GMS / Huawei). Menggunakan Background Sync Fallback.'
+        );
+        return {
+          ok: false,
+          synced: false,
+          token: readCachedFcmToken(),
+          error: regErr instanceof Error ? regErr.message : String(regErr),
+        };
+      }
+
       const token = (await tokenPromise) || readCachedFcmToken();
 
       if (!token) {
+        markFcmFallback(
+          true,
+          'Token FCM tidak diperoleh (perangkat Huawei non-GMS). Menggunakan Background Sync Fallback.'
+        );
         return { ok: false, synced: false, token: null, error: 'Token FCM/APNs belum diperoleh' };
       }
 
       writeCachedFcmToken(token);
+      markFcmFallback(false, null);
+      emitPushRuntimeChanged();
       const persistRes = await persistFcmTokenToSupabase(session, token);
       return {
         ok: true,
@@ -1012,6 +1697,10 @@ export async function syncNativePushTokenForSession(
         error: persistRes.error,
       };
     } catch (err) {
+      markFcmFallback(
+        true,
+        'Gagal terhubung ke layanan FCM. Menggunakan Background Sync Fallback.'
+      );
       return {
         ok: false,
         synced: false,
@@ -1028,8 +1717,9 @@ export async function syncNativePushTokenForSession(
 
 /**
  * Dipanggil otomatis saat aplikasi (Android APK, iOS, maupun Web Browser) dibuka atau saat sesi login berubah:
- * - Di Web: otomatis mendaftarkan `public/firebase-messaging-sw.js` & menyinkronkan token FCM Web saat izin granted + sesi login aktif
- * - Di Android/iOS: membuat channel `saung_kebun_notif`, memasang listener SEBELUM `register()`, meminta izin OS, & menyinkronkan token ke `user_push_tokens`
+ * - Memasang listener agresif `visibilitychange`/`focus`/`online`/`resume` + Periodic Background Sync
+ * - Di Web: mendaftarkan `public/firebase-messaging-sw.js`, mengirim konteks polling SW, & menyinkronkan token FCM Web secara aman
+ * - Di Android/iOS: membuat channel `saung_kebun_notif`, memasang listener SEBELUM `register()`, & fallback aman untuk Huawei non-GMS
  */
 export async function initNativeNotificationsOnLaunch(
   session?: SessionUser | null
@@ -1038,11 +1728,29 @@ export async function initNativeNotificationsOnLaunch(
     activePushSession = session;
   }
 
+  installAggressiveNotificationWakeupSync(session || null);
+
   if (!isNativeApp()) {
-    void registerWebPushServiceWorker();
+    void registerWebPushServiceWorker().then((reg) => {
+      if (session) {
+        void syncServiceWorkerPollingContext(session);
+      }
+      if (reg) {
+        void registerPeriodicNotificationSync(reg);
+      }
+    });
+
     const webPerm = await checkOsNotificationPermission();
-    if (session && webPerm === 'granted') {
-      void syncNativePushTokenForSession(session);
+    if (session) {
+      void pollUnreadNotificationsNow(session, { silentSeed: true });
+      if (webPerm === 'granted') {
+        void syncNativePushTokenForSession(session);
+      } else if (webPerm === 'unsupported' || isLikelyHuaweiDevice()) {
+        markFcmFallback(
+          true,
+          'Menggunakan Background Sync Fallback agar notifikasi tetap terpantau di perangkat ini.'
+        );
+      }
     }
     return webPerm;
   }
@@ -1076,12 +1784,23 @@ export async function initNativeNotificationsOnLaunch(
           }
           if (pushPerm.receive === 'granted') {
             pushStatus = 'granted';
-            await PushNotifications.register();
+            try {
+              await PushNotifications.register();
+            } catch {
+              markFcmFallback(
+                true,
+                'Google Play Services tidak tersedia. Menggunakan Background Sync Fallback.'
+              );
+            }
           } else if (pushPerm.receive === 'denied') {
             pushStatus = 'denied';
           }
         } catch {
-          // Fallback tetap aman dengan LocalNotifications
+          // Fallback tetap aman dengan LocalNotifications + Background Sync
+          markFcmFallback(
+            true,
+            'Layanan FCM tidak tersedia. Menggunakan Background Sync Fallback & Local Notifications.'
+          );
         }
 
         if (localStatus === 'granted' || pushStatus === 'granted') return 'granted';
@@ -1096,6 +1815,7 @@ export async function initNativeNotificationsOnLaunch(
   const permission = await nativeLaunchInitPromise;
 
   if (session) {
+    void pollUnreadNotificationsNow(session, { silentSeed: true });
     void syncNativePushTokenForSession(session);
   }
 
@@ -1285,11 +2005,13 @@ export async function showOsNotification(payload: {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
     if (window.Notification.permission !== 'granted') return false;
 
-    const webOptions: NotificationOptions & { vibrate?: number[] } = {
+    const webOptions: NotificationOptions & { vibrate?: number[]; renotify?: boolean } = {
       body,
       icon: '/app-icon.jpg',
       badge: '/app-icon.jpg',
       tag,
+      renotify: true,
+      requireInteraction: true,
       silent: payload.soundEnabled === false,
       data: { target_url: targetUrl },
     };

@@ -24,6 +24,7 @@ const REQUIRED_PERMISSIONS = [
   'android.permission.VIBRATE',
   'android.permission.WAKE_LOCK',
   'android.permission.RECEIVE_BOOT_COMPLETED',
+  'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
 ];

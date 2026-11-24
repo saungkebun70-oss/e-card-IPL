@@ -4,6 +4,7 @@ import {
   BellRing,
   CheckCircle2,
   Radio,
+  RefreshCw,
   Send,
   ShieldAlert,
   Smartphone,
@@ -16,8 +17,10 @@ import {
   ANDROID_NOTIFICATION_CHANNEL_ID,
   checkOsNotificationPermission,
   getNativePushRuntimeInfo,
+  pollUnreadNotificationsNow,
   requestOsNotificationPermission,
   sendAdminTestPushNotification,
+  subscribePushRuntimeInfoChange,
   syncNativePushTokenForSession,
   triggerTestNotificationAlert,
   useNotificationPreferences,
@@ -41,6 +44,7 @@ export function NotificationSettingsCard({
   const [pushInfo, setPushInfo] = useState(() => getNativePushRuntimeInfo());
   const [requestingPerm, setRequestingPerm] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [syncingFallback, setSyncingFallback] = useState(false);
   const [sendingServerPush, setSendingServerPush] = useState<'self' | 'broadcast' | null>(null);
   const [lastServerResult, setLastServerResult] = useState<{
     ok: boolean;
@@ -56,9 +60,42 @@ export function NotificationSettingsCard({
   useEffect(() => {
     void refreshPermission();
     const onFocus = () => void refreshPermission();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshPermission();
+      }
+    };
+    const unsubscribeRuntime = subscribePushRuntimeInfoChange(() => {
+      setPushInfo(getNativePushRuntimeInfo());
+    });
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+      unsubscribeRuntime();
+    };
   }, [refreshPermission]);
+
+  const handleManualBackgroundSync = async () => {
+    if (syncingFallback) return;
+    setSyncingFallback(true);
+    try {
+      const res = await pollUnreadNotificationsNow(session, { force: true });
+      setPushInfo(getNativePushRuntimeInfo());
+      if (!res.checked) {
+        onToast?.('info', 'Tidak dapat memeriksa server sekarang. Pastikan koneksi internet aktif.');
+      } else if (res.newCount > 0) {
+        onToast?.('success', `${res.newCount} notifikasi baru ditemukan dan telah disinkronkan.`);
+      } else if (res.unreadCount > 0) {
+        onToast?.('info', `Tersinkron: ada ${res.unreadCount} notifikasi belum dibaca di lonceng.`);
+      } else {
+        onToast?.('success', 'Notifikasi sudah terbaru. Tidak ada notifikasi baru yang belum dibaca.');
+      }
+    } finally {
+      setSyncingFallback(false);
+    }
+  };
 
   const handleRequestPermission = async () => {
     if (requestingPerm) return;
@@ -278,19 +315,27 @@ export function NotificationSettingsCard({
                   ) : null}
                   {permBadge.label}
                 </span>
+                {pushInfo.isBackgroundSyncFallback && (
+                  <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                    <RefreshCw className="w-3 h-3" />
+                    Background Sync Fallback
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                {permission === 'granted'
-                  ? pushInfo.isNative
-                    ? `Channel ${ANDROID_NOTIFICATION_CHANNEL_ID} aktif (${pushInfo.hasFcmToken ? 'Token FCM tersinkron' : 'Notifikasi Lokal aktif'}).`
-                    : pushInfo.hasFcmToken
-                      ? 'Web Push FCM aktif (Chrome/Safari siap menerima notifikasi background).'
-                      : 'Notifikasi pop-up Browser siap tampil dengan suara & getar bawaan.'
-                  : permission === 'denied'
-                    ? 'Izin diblokir. Buka Pengaturan HP/Browser lalu izinkan Notifikasi untuk aplikasi ini.'
-                    : permission === 'unsupported'
-                      ? 'Browser ini tidak mendukung pop-up sistem, namun bunyi & lonceng aplikasi tetap aktif.'
-                      : 'Izinkan pop-up agar pemberitahuan muncul di atas layar HP dan saat aplikasi ditutup.'}
+                {pushInfo.isBackgroundSyncFallback
+                  ? 'Perangkat non-GMS / Huawei aktif menggunakan mode Background Sync Fallback: mengecek notifikasi otomatis saat layar menyala, aplikasi dibuka, atau koneksi pulih.'
+                  : permission === 'granted'
+                    ? pushInfo.isNative
+                      ? `Channel ${ANDROID_NOTIFICATION_CHANNEL_ID} aktif (${pushInfo.hasFcmToken ? 'Token FCM tersinkron' : 'Notifikasi Lokal aktif'}).`
+                      : pushInfo.hasFcmToken
+                        ? 'Web Push FCM aktif (Chrome/Safari siap menerima notifikasi background).'
+                        : 'Notifikasi pop-up Browser siap tampil dengan suara & getar bawaan.'
+                    : permission === 'denied'
+                      ? 'Izin diblokir. Buka Pengaturan HP/Browser lalu izinkan Notifikasi untuk aplikasi ini.'
+                      : permission === 'unsupported'
+                        ? 'Browser ini tidak mendukung pop-up sistem, namun bunyi & lonceng aplikasi tetap aktif.'
+                        : 'Izinkan pop-up agar pemberitahuan muncul di atas layar HP dan saat aplikasi ditutup.'}
               </p>
             </div>
           </div>
@@ -311,6 +356,42 @@ export function NotificationSettingsCard({
             </button>
           )}
         </div>
+
+        {/* 4. Indikator Khusus Mode Background Sync Fallback (Huawei / Non-GMS) */}
+        {pushInfo.isBackgroundSyncFallback && (
+          <div className="px-3.5 py-3 bg-amber-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-white border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+                <RefreshCw className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-amber-900">
+                  Mode Background Sync Fallback Aktif
+                </p>
+                <p className="text-[11px] text-amber-800/90 leading-snug mt-0.5">
+                  Token FCM Google Play Services tidak tersedia di perangkat ini. Aplikasi otomatis
+                  menggunakan{' '}
+                  {pushInfo.periodicSyncRegistered
+                    ? 'Periodic Background Sync & pengecekan otomatis saat layar menyala.'
+                    : 'sinkronisasi otomatis saat layar menyala, kembali fokus, atau koneksi internet pulih.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={syncingFallback}
+              onClick={() => void handleManualBackgroundSync()}
+              className="min-h-[34px] px-3 rounded-xl border border-amber-300 bg-white hover:bg-amber-100/70 disabled:opacity-60 text-amber-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+            >
+              {syncingFallback ? (
+                <LoadingSpinner size="xs" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              <span>{syncingFallback ? 'Memeriksa...' : 'Cek Sekarang'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tombol Uji Coba Bunyi, Getaran & Pop-up Lokal */}

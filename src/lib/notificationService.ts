@@ -6,10 +6,67 @@ import {
   type UserRole,
 } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import {
+  safeCheckFirebaseMessagingSupported,
+  syncNativePushTokenForSession,
+} from './notificationAlertService';
 export {
   triggerDeviceAlert,
   initNativeNotificationsOnLaunch as initializeAndroidNotificationsOnLaunch,
+  safeCheckFirebaseMessagingSupported,
+  safeGetFirebaseMessagingToken,
+  getNativePushRuntimeInfo,
+  subscribePushRuntimeInfoChange,
+  pollUnreadNotificationsNow,
+  registerPeriodicNotificationSync,
+  syncNativePushTokenForSession,
+  isLikelyHuaweiDevice,
 } from './notificationAlertService';
+
+/**
+ * Inisialisasi & pengambilan token FCM secara aman (try-catch `isSupported()` & `getToken()`).
+ * Tidak pernah menyebabkan crash pada perangkat Huawei (EMUI/HarmonyOS) tanpa Google Play Services (GMS);
+ * otomatis kembali ke mode Background Sync Fallback apabila FCM gagal diperoleh.
+ */
+export async function safeRequestFcmTokenForSession(session: SessionUser): Promise<{
+  ok: boolean;
+  token: string | null;
+  fallbackMode: boolean;
+  error?: string;
+}> {
+  try {
+    const supported = await safeCheckFirebaseMessagingSupported();
+    if (!supported) {
+      const nativeRes = await syncNativePushTokenForSession(session).catch(() => ({
+        ok: false,
+        synced: false,
+        token: null,
+        error: 'FCM tidak didukung pada perangkat non-GMS.',
+      }));
+      return {
+        ok: nativeRes.ok,
+        token: nativeRes.token,
+        fallbackMode: !nativeRes.token,
+        error: nativeRes.error,
+      };
+    }
+
+    const res = await syncNativePushTokenForSession(session);
+    return {
+      ok: res.ok,
+      token: res.token,
+      fallbackMode: !res.token,
+      error: res.error,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      token: null,
+      fallbackMode: true,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
 
 const LOCAL_NOTIF_KEY = 'ecard_activity_notifications_v1';
 const LOCAL_BROADCAST_READ_PREFIX = 'ecard_broadcast_read_v1:';
