@@ -247,13 +247,15 @@ function getOrCreatePushDeviceId(): string {
 }
 
 /**
- * Mengembalikan `true` jika perangkat sudah memiliki token FCM aktif (Android/iOS/Web dengan GMS)
- * sehingga polling/Realtime tidak perlu menembakkan LocalNotifications / OS popup duplikat
- * di atas push notification yang sudah dikirim oleh FCM.
+ * Mengembalikan `true` jika perangkat sudah memiliki token FCM aktif (atau perangkat Android/iOS
+ * dengan GMS yang dikelola oleh FCM), sehingga polling/Realtime tidak menembakkan
+ * LocalNotifications / OS popup duplikat di atas push notification FCM.
  */
 export function shouldSuppressOsPopupWhenFcmActive(): boolean {
   if (fcmFallbackActive) return false;
-  return Boolean(readCachedFcmToken());
+  if (readCachedFcmToken()) return true;
+  if (isNativeApp() && !isLikelyHuaweiDevice()) return true;
+  return false;
 }
 
 function resolvePendingTokenWaiters(token: string | null): void {

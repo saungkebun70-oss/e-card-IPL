@@ -688,7 +688,8 @@ export async function sendDirectPushNotification(
           dedup_key: dedupKey,
         },
       };
-    });
+    })
+    .filter((item) => !pruneAndCheckRecentDispatch(`push::${item.dedup_key}`));
 
   if (validItems.length === 0) return;
 

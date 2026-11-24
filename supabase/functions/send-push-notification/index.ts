@@ -128,9 +128,11 @@ async function claimPersistentFcmDelivery(
   if (pushDispatchLogTableMissing) return true;
   try {
     const sigHash = await sha256Hex(`${cleanToken}::${sigKey}`);
+    const bucket30s = Math.floor(Date.now() / 30_000);
+    const sigBucketKey = await sha256Hex(`${cleanToken}::${sigKey}::${bucket30s}`);
     const recentCutoffIso = new Date(Date.now() - 45_000).toISOString();
 
-    // 1. Cek duplikat signature dalam 45 detik terakhir (menangkap kasus DB webhook + client invoke)
+    // 1. Cek jendela geser 45 detik terakhir (menangkap kasus melintasi batas bucket 30 detik)
     const { data: recentMatch, error: checkErr } = await supabaseAdmin
       .from('push_dispatch_logs')
       .select('dispatch_key')
@@ -151,22 +153,38 @@ async function claimPersistentFcmDelivery(
       return false;
     }
 
-    // 2. Klaim lock atomik di Postgres berdasarkan dispatch_key
+    // 2. Klaim lock atomik di Postgres berdasarkan dispatch_key DAN unique sig_bucket_key
+    //    sehingga 2 request paralel (webhook + client invoke) di milidetik yang sama
+    //    tidak mungkin sama-sama lolos (zero TOCTOU race).
     const eventIdentity = dedupKey
       ? `dk:${dedupKey}`
-      : isValidUuid(notificationId)
-        ? `id:${notificationId}`
-        : `sig:${sigKey}:${Math.floor(Date.now() / 45_000)}`;
+      : `sig:${sigKey}:${bucket30s}`;
     const dispatchKey = await sha256Hex(`${cleanToken}::${eventIdentity}`);
     const tokenHash = await sha256Hex(cleanToken);
 
-    const { error: insertErr } = await supabaseAdmin.from('push_dispatch_logs').insert({
+    let { error: insertErr } = await supabaseAdmin.from('push_dispatch_logs').insert({
       dispatch_key: dispatchKey,
       sig_hash: sigHash,
+      sig_bucket_key: sigBucketKey,
       notification_id: notificationId || null,
       dedup_key: dedupKey || null,
       token_hash: tokenHash,
     });
+
+    // Fallback bila kolom sig_bucket_key (migrasi v12) belum ditambahkan, tetap kunci via dispatch_key (v11)
+    if (
+      insertErr &&
+      String(insertErr.message || '').toLowerCase().includes('sig_bucket_key')
+    ) {
+      const retry = await supabaseAdmin.from('push_dispatch_logs').insert({
+        dispatch_key: dispatchKey,
+        sig_hash: sigHash,
+        notification_id: notificationId || null,
+        dedup_key: dedupKey || null,
+        token_hash: tokenHash,
+      });
+      insertErr = retry.error;
+    }
 
     if (!insertErr) return true;
 
@@ -563,12 +581,10 @@ async function sendSingleFcmMessage(
   const category = String(record.category || 'system');
   const notificationId = String(record.id || '').trim();
   const dedupKey = resolveRecordDedupKey(record);
-  const collapseTag = sanitizeCollapseKey(
-    dedupKey ||
-      (isValidUuid(notificationId) ? notificationId : '') ||
-      `${category}_${title}_${body}`
-  );
-  const effectiveNotifId = notificationId || collapseTag;
+  const sigSeed = `${category.toLowerCase()}::${title.toLowerCase().replace(/\s+/g, ' ')}::${body.toLowerCase().replace(/\s+/g, ' ')}::${Math.floor(Date.now() / 30_000)}`;
+  // Gunakan dedup_key bila tersedia, atau hash konten+jendela 30s (bukan UUID per-baris yang berbeda antar penerima/pemicu)
+  const collapseTag = sanitizeCollapseKey(dedupKey || sigSeed);
+  const effectiveNotifId = isValidUuid(notificationId) ? notificationId : collapseTag;
   const targetUrl = String(record.target_url || '');
   const userId = String(record.user_id || device.user_id || '');
   const clickPath = resolveClickPathForDevice(device);
@@ -601,7 +617,7 @@ async function sendSingleFcmMessage(
     },
   };
 
-  if (platform === 'android' || !platform) {
+  if (platform !== 'ios' && platform !== 'web') {
     message.android = {
       priority: 'HIGH',
       collapse_key: collapseTag,
@@ -829,6 +845,7 @@ Deno.serve(async (req: Request) => {
     const errorSamples: string[] = [];
     let sentCount = 0;
     let failedCount = 0;
+    let deduplicatedSkipped = 0;
 
     const sendQueue: Array<{ device: UserPushTokenRow; record: IncomingNotificationRecord }> = [];
 
@@ -851,8 +868,14 @@ Deno.serve(async (req: Request) => {
         const pairKey = dedupKey
           ? `${device.token}::dk:${dedupKey}`
           : `${device.token}::${sigKey}`;
-        if (deliveredPairs.has(pairKey)) continue;
-        if (!claimRecentFcmDelivery(device.token, dedupKey, sigKey)) continue;
+        if (deliveredPairs.has(pairKey)) {
+          deduplicatedSkipped += 1;
+          continue;
+        }
+        if (!claimRecentFcmDelivery(device.token, dedupKey, sigKey)) {
+          deduplicatedSkipped += 1;
+          continue;
+        }
 
         // 2. Deduplikasi persisten lintas isolate/webhook/trigger di tabel push_dispatch_logs
         const claimedDb = await claimPersistentFcmDelivery(
@@ -862,7 +885,10 @@ Deno.serve(async (req: Request) => {
           sigKey,
           String(record.id || '').trim()
         );
-        if (!claimedDb) continue;
+        if (!claimedDb) {
+          deduplicatedSkipped += 1;
+          continue;
+        }
 
         deliveredPairs.add(pairKey);
         sendQueue.push({ device, record });
@@ -921,6 +947,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         sent: sentCount,
         failed: failedCount,
+        deduplicatedSkipped,
         matchedDevices: sendQueue.length,
         totalRegisteredDevices: allDevices.length,
         removedInvalidTokens: removedCount,
