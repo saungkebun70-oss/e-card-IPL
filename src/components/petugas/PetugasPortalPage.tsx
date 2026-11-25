@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
   Clock,
   Crosshair,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Map as MapIcon,
   MapPin,
+  Menu,
   MessageCircle,
   Navigation,
   PhoneCall,
@@ -21,9 +23,11 @@ import {
   ShieldAlert,
   Smartphone,
   Square,
+  UserCircle2,
   Wallet,
   X,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   SUSUNAN_PENGURUS,
   type LogPatroli,
@@ -153,6 +157,7 @@ export function PetugasPortalPage({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [riwayatFilter, setRiwayatFilter] = useState<'hari_ini' | 'semua'>('hari_ini');
   const [resettingCycle, setResettingCycle] = useState(false);
   const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
@@ -163,11 +168,16 @@ export function PetugasPortalPage({
   );
   const [togglingBiometric, setTogglingBiometric] = useState(false);
 
-  // Tangkap tombol Back HP/Browser agar menutup modal profil atau kembali ke menu utama ('scan') tanpa keluar login
+  // Tangkap tombol Back HP/Browser agar menutup sidebar, modal profil, atau kembali ke menu utama ('scan') tanpa keluar login
   useEffect(() => {
     const onBackOverlay = (e: Event) => {
       const detail = (e as CustomEvent<{ handled?: boolean }>).detail;
       if (!detail || detail.handled) return;
+      if (sidebarOpen) {
+        detail.handled = true;
+        setSidebarOpen(false);
+        return;
+      }
       if (profileModalOpen) {
         detail.handled = true;
         setProfileModalOpen(false);
@@ -178,9 +188,18 @@ export function PetugasPortalPage({
         setActiveTab('scan');
       }
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
     window.addEventListener('ecard-handle-back-overlay', onBackOverlay);
-    return () => window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
-  }, [profileModalOpen, activeTab]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [sidebarOpen, profileModalOpen, activeTab]);
 
   useEffect(() => {
     let active = true;
@@ -1017,18 +1036,269 @@ export function PetugasPortalPage({
     void loadData(true);
   };
 
+  const handleSelectTabFromSidebar = (nextTab: PetugasTab) => {
+    setSidebarOpen(false);
+    handleSelectTab(nextTab);
+  };
+
+  const handleOpenProfileFromSidebar = () => {
+    setSidebarOpen(false);
+    setProfileModalOpen(true);
+  };
+
+  const handleLogoutFromSidebar = () => {
+    setSidebarOpen(false);
+    onLogout();
+  };
+
+  const sidebarNavItems: Array<{
+    id: PetugasTab;
+    label: string;
+    subtitle: string;
+    icon: typeof Shield;
+  }> = [
+    { id: 'info', label: 'Pos Jaga & Shift', subtitle: 'Absensi & darurat', icon: Shield },
+    { id: 'riwayat', label: 'Riwayat Patroli', subtitle: 'Log checkpoint Anda', icon: ClipboardList },
+    { id: 'scan', label: 'Scan NFC / Patroli', subtitle: 'Checkpoint RFID/NFC', icon: Radio },
+    { id: 'honor', label: 'Honor & Lembur', subtitle: 'Termin & uang lembur', icon: Wallet },
+    { id: 'peta', label: 'Peta Patroli', subtitle: 'Status titik live', icon: MapIcon },
+  ];
+
+  const renderPetugasSidebarNav = () => (
+    <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5">
+      <div className="space-y-1">
+        <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Menu Keamanan
+        </p>
+        {sidebarNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleSelectTabFromSidebar(item.id)}
+              className={`w-full min-h-[42px] px-3 py-2.5 rounded-2xl text-left flex items-center gap-3 text-sm transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
+                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent'
+              }`}
+            >
+              <span
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
+                    : 'bg-slate-100/80 text-slate-500'
+                }`}
+              >
+                <Icon className="w-4 h-4" strokeWidth={isActive ? 2.4 : 2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate leading-tight">{item.label}</p>
+                <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                  {item.subtitle}
+                </p>
+              </div>
+              {item.id === 'scan' && scanningNfc && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold shrink-0">
+                  Aktif
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-1">
+        <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Profil &amp; Pengaturan
+        </p>
+        <button
+          type="button"
+          onClick={handleOpenProfileFromSidebar}
+          className="w-full min-h-[42px] px-3 py-2.5 rounded-2xl text-left flex items-center gap-3 text-sm font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent transition-all duration-150 cursor-pointer"
+        >
+          <span className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+            <UserCircle2 className="w-4 h-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate leading-tight">Profil &amp; Tema Petugas</p>
+            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+              Foto, Tema, Notifikasi &amp; Biometrik
+            </p>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-[100dvh] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] pb-28 overflow-x-hidden">
-      {/* Header Tetap & Anti-Geser Khusus Petugas (Fixed top-0, Tinggi Konstan h-16) */}
-      <header className="fixed top-0 left-0 right-0 z-40 w-full h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-gradient-to-r from-[#3B0764]/95 via-[#4C1D95]/95 to-[#312E81]/95 backdrop-blur-xl text-white border-b border-white/15 flex items-center shadow-lg shadow-indigo-950/15">
+    <div className="min-h-[100dvh] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] overflow-x-hidden">
+      {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
+      <aside
+        aria-label="Navigasi Sidebar Portal Keamanan"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-white/75 backdrop-blur-2xl border-r border-white/85 shadow-[8px_0_32px_-16px_rgba(49,46,129,0.12)] no-print"
+      >
+        <div className="px-4 pt-5 pb-4 border-b border-indigo-100/70 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleSelectTabFromSidebar('scan')}
+            className="w-full flex items-center gap-3 text-left cursor-pointer group"
+          >
+            <BrandLogo size="md" variant="light" className="shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold tracking-tight text-[#0F172A] leading-tight truncate">
+                {brand.app_name || 'Perumahan Saung Kebun'}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                Portal Petugas Keamanan
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {renderPetugasSidebarNav()}
+
+        <div className="mt-auto px-3.5 pt-3 pb-4 border-t border-indigo-100/70 bg-white/45 space-y-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenProfileFromSidebar}
+            className="w-full p-2.5 rounded-2xl bg-white/80 hover:bg-white border border-white/90 shadow-2xs flex items-center gap-2.5 text-left transition-colors cursor-pointer"
+          >
+            <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-[#0F172A] truncate leading-tight">
+                {profil.nama}
+              </p>
+              <p className="text-[11px] text-slate-500 truncate mt-0.5 leading-tight">
+                Keamanan · {effectiveShiftLabel}
+              </p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogoutFromSidebar}
+            className="w-full min-h-[40px] px-3.5 rounded-2xl bg-red-50/90 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
+          >
+            <LogOut className="w-3.5 h-3.5 shrink-0" />
+            <span>Keluar / Logout</span>
+          </button>
+
+          <AppVersionFooter compact className="px-1 pt-0.5" />
+        </div>
+      </aside>
+
+      {/* SLIDE-OVER GLASS SIDEBAR — MOBILE & TABLET (< lg) */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu Sidebar & Profil Petugas"
+            className="lg:hidden fixed inset-0 z-[60] flex no-print"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm"
+            />
+
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 w-[84vw] max-w-[320px] h-full bg-white/85 backdrop-blur-2xl rounded-r-3xl border-r border-white/90 shadow-2xl flex flex-col overflow-hidden"
+            >
+              <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shrink-0">
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <BrandLogo size="md" variant="dark" className="shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white leading-tight truncate">
+                        {brand?.app_name || 'Perumahan Saung Kebun'}
+                      </p>
+                      <p className="text-[11px] text-sky-100/90 truncate mt-0.5">
+                        Portal Petugas Keamanan
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Tutup menu sidebar"
+                    className="h-9 w-9 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenProfileFromSidebar}
+                  className="mt-4 w-full text-left p-3 rounded-2xl bg-white/15 hover:bg-white/20 border border-white/20 flex items-center gap-3 transition-colors cursor-pointer"
+                >
+                  <UserAvatar
+                    name={profil.nama}
+                    src={effectiveAvatarUrl}
+                    size="md"
+                    ringClassName="ring-2 ring-sky-200/70"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-white leading-tight truncate">
+                      {profil.nama}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-medium text-sky-100 truncate">
+                      Keamanan · {effectiveShiftLabel}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-sky-100 shrink-0" />
+                </button>
+              </div>
+
+              {renderPetugasSidebarNav()}
+
+              <div className="mt-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-indigo-100/80 bg-white/60 space-y-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleLogoutFromSidebar}
+                  className="w-full min-h-[44px] px-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] font-semibold text-sm border border-red-100 inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 shrink-0" />
+                  <span>Keluar / Logout</span>
+                </button>
+                <AppVersionFooter compact className="px-1" />
+              </div>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Header Tetap & Anti-Geser Khusus Petugas (Offset lg:left-[260px] pada Desktop) */}
+      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-gradient-to-r from-[#312E81]/95 via-[#3730A3]/95 to-[#0284C7]/95 backdrop-blur-xl text-white border-b border-white/15 flex items-center shadow-lg shadow-indigo-950/15">
         <div className="max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
-            <BrandLogo size="xs" variant="dark" className="shrink-0" />
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Buka Menu Sidebar Petugas"
+              title="Menu Profil & Navigasi"
+              className="lg:hidden h-10 w-10 rounded-xl bg-white/12 hover:bg-white/22 border border-white/20 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors active:scale-95"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <BrandLogo size="xs" variant="dark" className="shrink-0 lg:hidden" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-white leading-tight truncate">
                 {profil.nama}
               </p>
-              <p className="text-[11px] text-[#A7F3D0] font-medium truncate">
+              <p className="text-[11px] text-sky-100 font-medium truncate">
                 Keamanan · {effectiveShiftLabel}
               </p>
             </div>
@@ -1040,7 +1310,7 @@ export function PetugasPortalPage({
               disabled={refreshing}
               onClick={() => void loadData(true)}
               aria-label="Muat ulang data petugas"
-              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-100 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-sky-100 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -1055,28 +1325,25 @@ export function PetugasPortalPage({
 
             <button
               type="button"
-              onClick={() => setProfileModalOpen(true)}
-              aria-label="Foto Profil Petugas"
-              title="Foto Profil Petugas"
-              className="p-0.5 rounded-full border border-white/25 bg-white/10 hover:border-[#A7F3D0] transition-colors cursor-pointer shrink-0"
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setSidebarOpen(true);
+                } else {
+                  setProfileModalOpen(true);
+                }
+              }}
+              aria-label="Profil & Menu Petugas"
+              title="Profil & Pengaturan Petugas"
+              className="p-0.5 rounded-full border border-white/25 bg-white/10 hover:border-sky-200 transition-colors cursor-pointer shrink-0"
             >
               <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onLogout}
-              aria-label="Keluar dari Portal Keamanan"
-              className="h-10 px-3 sm:px-3.5 rounded-full bg-white/10 hover:bg-red-500/80 border border-white/15 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap transition-colors"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Keluar</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 pt-[calc(4rem+env(safe-area-inset-top,0px)+1rem)] pb-24 space-y-4">
+      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+1rem)] pb-28 lg:pb-12">
+        <div className="max-w-3xl mx-auto px-4 space-y-4">
         {loading && !data ? (
           <ContentLoadingState
             message="Memuat Portal Keamanan..."
@@ -1924,117 +2191,193 @@ export function PetugasPortalPage({
         )}
         </div>
         )}
+        </div>
       </main>
 
-      {/* BOTTOM NAVIGATION BAR 5 MENU SIMETRIS KHUSUS PETUGAS KEAMANAN */}
+      {/* 7. DUAL-RING FLOATING ORB DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
       <nav
-        aria-label="Navigasi Petugas Keamanan"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-t border-white/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(76,29,149,0.08)]"
+        aria-label="Navigasi Bawah Floating Orb Dock Petugas"
+        className="lg:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-4 max-w-md mx-auto rounded-full bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-3 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
       >
-        <div className="max-w-3xl mx-auto grid grid-cols-5 h-[60px] items-end px-1">
-          {/* 1. Info & Shift */}
-          <button
-            type="button"
-            onClick={() => handleSelectTab('info')}
-            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
-              activeTab === 'info' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
+        {/* 1. Pos Jaga / Info & Shift */}
+        <button
+          type="button"
+          onClick={() => handleSelectTab('info')}
+          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
+            activeTab === 'info' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+          }`}
+        >
+          <Shield
+            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+              activeTab === 'info' ? 'scale-105' : ''
+            }`}
+            strokeWidth={activeTab === 'info' ? 2.4 : 1.9}
+          />
+          <span
+            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+              activeTab === 'info' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >
-            <Shield className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'info' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-none">Info &amp; Shift</span>
-          </button>
+            Pos Jaga
+          </span>
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
+              activeTab === 'info'
+                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                : 'bg-transparent opacity-0 scale-0'
+            }`}
+          />
+        </button>
 
-          {/* 2. Riwayat Patroli */}
-          <button
-            type="button"
-            onClick={() => handleSelectTab('riwayat')}
-            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
-              activeTab === 'riwayat' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
+        {/* 2. Patroli / Riwayat */}
+        <button
+          type="button"
+          onClick={() => handleSelectTab('riwayat')}
+          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
+            activeTab === 'riwayat' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+          }`}
+        >
+          <ClipboardList
+            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+              activeTab === 'riwayat' ? 'scale-105' : ''
+            }`}
+            strokeWidth={activeTab === 'riwayat' ? 2.4 : 1.9}
+          />
+          <span
+            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+              activeTab === 'riwayat' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >
-            <ClipboardList className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'riwayat' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-none">Riwayat</span>
-          </button>
+            Patroli
+          </span>
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
+              activeTab === 'riwayat'
+                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                : 'bg-transparent opacity-0 scale-0'
+            }`}
+          />
+        </button>
 
-          {/* 3. TENGAH MENONJOL: TOMBOL LANGSUNG PEMICU SCAN WEB NFC */}
-          <div className="flex flex-col items-center justify-end pb-2 relative h-full">
-            <button
-              type="button"
-              disabled={submittingPatroli}
-              onClick={handleCenterScanFabClick}
-              aria-label={
-                scanningNfc
-                  ? 'Hentikan Mode Scan NFC Patroli'
-                  : 'Aktifkan Scan NFC Checkpoint Patroli'
-              }
-              aria-pressed={scanningNfc}
-              className={`relative -mt-6 w-12 h-12 rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-70 ${
-                scanningNfc
-                  ? 'bg-emerald-600 text-white shadow-emerald-500/50 ring-4 ring-emerald-300/60 scale-105'
-                  : activeTab === 'scan'
-                    ? 'bg-[#3730A3] text-white shadow-indigo-900/30'
-                    : 'bg-[#3730A3] hover:bg-[#312E81] text-white shadow-indigo-900/25'
-              }`}
-            >
-              {scanningNfc && (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="absolute -inset-2 rounded-full bg-emerald-400/45 animate-ping pointer-events-none"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-full bg-emerald-300/40 animate-ping [animation-delay:300ms] pointer-events-none"
-                  />
-                </>
-              )}
-              {submittingPatroli ? (
-                <Loader2 className="w-5 h-5 relative z-10 animate-spin" />
-              ) : (
-                <Radio
-                  className={`w-5 h-5 relative z-10 stroke-[2.5] ${
-                    scanningNfc ? 'animate-pulse' : ''
-                  }`}
+        {/* 3. CENTER DUAL-RING FLOATING ORB: PEMICU SCAN WEB NFC */}
+        <div className="flex flex-col items-center justify-center relative">
+          <button
+            type="button"
+            disabled={submittingPatroli}
+            onClick={handleCenterScanFabClick}
+            aria-label={
+              scanningNfc
+                ? 'Hentikan Mode Scan NFC Patroli'
+                : 'Aktifkan Scan NFC Checkpoint Patroli'
+            }
+            aria-pressed={scanningNfc}
+            className={`w-16 h-16 -mt-8 rounded-full text-white shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
+              scanningNfc
+                ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-emerald-500/40 scale-[1.06] before:border-emerald-400/50 before:bg-emerald-400/15'
+                : activeTab === 'scan'
+                  ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] shadow-sky-500/35 scale-[1.04] before:border-sky-400/40 before:bg-sky-400/10'
+                  : 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] shadow-sky-900/25 hover:scale-[1.02] before:border-sky-400/40 before:bg-sky-400/10'
+            }`}
+          >
+            {scanningNfc && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="absolute -inset-2 rounded-full bg-emerald-400/40 animate-ping pointer-events-none"
                 />
-              )}
-            </button>
-            <span
-              className={`text-[10px] font-extrabold leading-none mt-1 ${
-                scanningNfc
-                  ? 'text-emerald-700 animate-pulse'
-                  : activeTab === 'scan'
-                    ? 'text-[#4C1D95]'
-                    : 'text-slate-700'
-              }`}
-            >
-              {submittingPatroli ? 'Menyimpan...' : scanningNfc ? 'Scanning...' : 'Scan NFC'}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-emerald-300/35 animate-ping [animation-delay:300ms] pointer-events-none"
+                />
+              </>
+            )}
+            {submittingPatroli ? (
+              <Loader2 className="w-6 h-6 relative z-10 animate-spin shrink-0" />
+            ) : (
+              <Radio
+                className={`w-6 h-6 relative z-10 shrink-0 ${scanningNfc ? 'animate-pulse' : ''}`}
+                strokeWidth={2.4}
+              />
+            )}
+            <span className="text-[9px] font-bold tracking-wide leading-none text-sky-50 relative z-10">
+              {submittingPatroli ? 'Simpan' : scanningNfc ? 'Aktif' : 'Scan'}
             </span>
-          </div>
-
-          {/* 4. Honor & Lembur */}
-          <button
-            type="button"
-            onClick={() => handleSelectTab('honor')}
-            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
-              activeTab === 'honor' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
-            }`}
-          >
-            <Wallet className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'honor' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-none">Honor</span>
           </button>
-
-          {/* 5. Peta Patroli */}
-          <button
-            type="button"
-            onClick={() => handleSelectTab('peta')}
-            className={`flex flex-col items-center justify-end pb-2 gap-1 h-full rounded-xl transition-all duration-200 active:scale-[0.95] cursor-pointer ${
-              activeTab === 'peta' ? 'text-[#4C1D95]' : 'text-slate-500 hover:text-[#4C1D95]'
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all duration-200 ${
+              activeTab === 'scan' || scanningNfc
+                ? scanningNfc
+                  ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.95)] opacity-100 scale-100'
+                  : 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                : 'bg-transparent opacity-0 scale-0'
             }`}
-          >
-            <MapIcon className={`w-5 h-5 transition-transform duration-200 ${activeTab === 'peta' ? 'stroke-[2.5] scale-105' : ''}`} />
-            <span className="text-[10px] font-bold leading-none">Peta</span>
-          </button>
+          />
         </div>
+
+        {/* 4. Honor & Lembur */}
+        <button
+          type="button"
+          onClick={() => handleSelectTab('honor')}
+          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
+            activeTab === 'honor' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+          }`}
+        >
+          <Wallet
+            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+              activeTab === 'honor' ? 'scale-105' : ''
+            }`}
+            strokeWidth={activeTab === 'honor' ? 2.4 : 1.9}
+          />
+          <span
+            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+              activeTab === 'honor' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+            }`}
+          >
+            Honor
+          </span>
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
+              activeTab === 'honor'
+                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                : 'bg-transparent opacity-0 scale-0'
+            }`}
+          />
+        </button>
+
+        {/* 5. Peta Patroli */}
+        <button
+          type="button"
+          onClick={() => handleSelectTab('peta')}
+          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
+            activeTab === 'peta' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+          }`}
+        >
+          <MapIcon
+            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+              activeTab === 'peta' ? 'scale-105' : ''
+            }`}
+            strokeWidth={activeTab === 'peta' ? 2.4 : 1.9}
+          />
+          <span
+            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+              activeTab === 'peta' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+            }`}
+          >
+            Peta
+          </span>
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
+              activeTab === 'peta'
+                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                : 'bg-transparent opacity-0 scale-0'
+            }`}
+          />
+        </button>
       </nav>
 
       {selectedHonorTrx && (

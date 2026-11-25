@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowUpCircle,
   CreditCard,
-  Upload,
   ReceiptText,
   Building2,
-  UserCircle2,
   LayoutDashboard,
   Users,
   Plus,
@@ -863,29 +862,34 @@ export default function App() {
     );
   }
 
-  // Konfigurasi Navigasi 6 Slide Warga & 5 Menu Utama Simetris Admin (LPJ & Pengaturan di Sidebar)
+  // Konfigurasi Navigasi 5 Ikon Simetris (Dual-Ring Floating Orb Dock — Profil & menu tambahan di Glass Sidebar)
   const navItems: NavItem[] =
     session.role === 'warga'
       ? [
-          { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'e-Card', icon: CreditCard },
-          { id: 'setor', label: 'Setor Iuran', shortLabel: 'Setor', icon: Upload },
+          { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'E-Card', icon: CreditCard },
           { id: 'riwayat', label: 'Riwayat & Kwitansi', shortLabel: 'Riwayat', icon: ReceiptText },
+          {
+            id: 'setor',
+            label: 'Setor Iuran IPL',
+            shortLabel: 'Setor',
+            icon: ArrowUpCircle,
+            isCenterFab: true,
+          },
           { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
-          { id: 'lingkungan', label: 'Profil Lingkungan', shortLabel: 'Info', icon: Building2 },
-          { id: 'profil', label: 'Profil & Akun', shortLabel: 'Profil', icon: UserCircle2 },
+          { id: 'lingkungan', label: 'Info Lingkungan & Kas RT', shortLabel: 'Info', icon: Building2 },
         ]
       : [
           {
             id: 'dashboard',
             label: 'Dashboard & Verifikasi',
-            shortLabel: 'Verifikasi',
+            shortLabel: 'Dasbor',
             icon: LayoutDashboard,
             badgeCount: pendingCount > 0 ? pendingCount : undefined,
           },
           { id: 'warga', label: 'Master Warga & PIN', shortLabel: 'Warga', icon: Users },
           {
             id: 'keuangan',
-            label: 'Pengeluaran & Kas Lain',
+            label: 'Verifikasi & Catat Kas',
             shortLabel: 'Kas',
             icon: Plus,
             isCenterFab: true,
