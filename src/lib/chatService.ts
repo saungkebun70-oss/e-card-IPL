@@ -12,7 +12,11 @@ import {
 } from './notificationService';
 import { canonicalBlockKey } from './phoneAndBlockUtils';
 import { SEED_WARGA } from './seedData';
-import type { AttachmentPickerKind, UploadQueueItem } from './chat/attachmentUtils';
+import {
+  extractUploadErrorDetails,
+  type AttachmentPickerKind,
+  type UploadQueueItem,
+} from './chat/attachmentUtils';
 import type {
   ChatMediaUploadProgress,
   ChatMediaUploadResult,
@@ -1739,6 +1743,7 @@ export function createChatUploadQueueItem(params: {
     bytesUploaded: 0,
     totalBytes: params.file.size,
     error: null,
+    errorDetails: null,
     abortController: new AbortController(),
     result: null,
   };
@@ -1781,6 +1786,7 @@ export async function executeChatUploadQueueItem(params: {
       phaseLabel: 'Tersimpan di Google Drive.',
       bytesUploaded: prev.totalBytes,
       error: null,
+      errorDetails: null,
       result,
     }));
 
@@ -1796,12 +1802,14 @@ export async function executeChatUploadQueueItem(params: {
 
     const message =
       err instanceof Error ? err.message : 'Gagal mengunggah lampiran ke Google Drive.';
+    const errorDetails = extractUploadErrorDetails(err);
     onPatchItem(item.localId, (prev) => ({
       ...prev,
       status: 'failed',
       phase: 'failed',
       phaseLabel: 'Unggahan gagal',
       error: message,
+      errorDetails,
     }));
     return null;
   }
@@ -1829,6 +1837,7 @@ export function createRetryChatUploadQueueItem(item: UploadQueueItem): UploadQue
     phaseLabel: 'Mengulang unggahan...',
     bytesUploaded: 0,
     error: null,
+    errorDetails: null,
     abortController: new AbortController(),
     result: null,
   };

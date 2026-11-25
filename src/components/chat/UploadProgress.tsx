@@ -40,10 +40,21 @@ export function UploadProgress({
 }: UploadProgressProps) {
   if (items.length === 0) return null;
 
+  const hasAnyErrorDetails = items.some(
+    (item) =>
+      item.status === 'failed' &&
+      Boolean(
+        item.errorDetails &&
+          ((item.errorDetails.missingFields?.length || 0) > 0 ||
+            (item.errorDetails.invalidFields?.length || 0) > 0 ||
+            Object.keys(item.errorDetails.fieldReasons || {}).length > 0)
+      )
+  );
+
   return (
     <div
       aria-live="polite"
-      className={`max-h-44 overflow-y-auto space-y-2 pr-0.5 overscroll-contain min-w-0 ${className}`.trim()}
+      className={`${hasAnyErrorDetails ? 'max-h-60' : 'max-h-44'} overflow-y-auto space-y-2 pr-0.5 overscroll-contain min-w-0 ${className}`.trim()}
     >
       {items.map((item) => {
         const Icon = getAttachmentIcon(item.attachmentType);
@@ -53,6 +64,17 @@ export function UploadProgress({
         const isUploading = item.status === 'uploading';
         const isFailed = item.status === 'failed';
         const isCompleted = item.status === 'completed';
+
+        const errorDetails = isFailed ? item.errorDetails : null;
+        const missingFields = errorDetails?.missingFields || [];
+        const invalidFields = errorDetails?.invalidFields || [];
+        const fieldReasons = errorDetails?.fieldReasons || {};
+        const knownFieldSet = new Set<string>([...missingFields, ...invalidFields]);
+        const extraReasonEntries = Object.entries(fieldReasons).filter(
+          ([field]) => !knownFieldSet.has(field)
+        );
+        const hasFieldDiagnostics =
+          missingFields.length > 0 || invalidFields.length > 0 || extraReasonEntries.length > 0;
 
         return (
           <div
@@ -141,12 +163,6 @@ export function UploadProgress({
                 {isUploading && item.phaseLabel && (
                   <p className="text-[10px] text-slate-500 truncate mt-1">{item.phaseLabel}</p>
                 )}
-
-                {isFailed && item.error && (
-                  <p className="text-[10.5px] text-rose-700 mt-1 break-words leading-snug">
-                    {item.error}
-                  </p>
-                )}
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -202,6 +218,76 @@ export function UploadProgress({
                 )}
               </div>
             </div>
+
+            {isFailed && (item.error || hasFieldDiagnostics) && (
+              <div className="mt-2 pt-1.5 border-t border-rose-200/80 space-y-1.5 min-w-0">
+                {item.error && (
+                  <p className="text-[10.5px] text-rose-800 font-medium break-words leading-snug">
+                    {item.error}
+                  </p>
+                )}
+
+                {hasFieldDiagnostics && (
+                  <div className="rounded-xl border border-rose-200/90 bg-white/90 px-2.5 py-2 space-y-1.5 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-rose-700">
+                      Detail Field
+                      {errorDetails?.stage ? ` · ${errorDetails.stage}` : ''}
+                    </p>
+                    <ul className="space-y-1 min-w-0">
+                      {missingFields.map((field) => (
+                        <li key={`missing-${field}`} className="text-[10.5px] leading-snug min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-1.5 min-w-0">
+                            <span className="inline-block rounded-md px-1.5 py-0.5 text-[9.5px] font-bold bg-amber-100 text-amber-900 border border-amber-200/90 shrink-0">
+                              Kosong
+                            </span>
+                            <code className="font-mono text-[10px] font-bold text-rose-950 break-all">
+                              {field}
+                            </code>
+                          </div>
+                          {fieldReasons[field] && (
+                            <p className="text-[10px] text-slate-700 mt-0.5 break-words">
+                              {fieldReasons[field]}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+
+                      {invalidFields.map((field) => (
+                        <li key={`invalid-${field}`} className="text-[10.5px] leading-snug min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-1.5 min-w-0">
+                            <span className="inline-block rounded-md px-1.5 py-0.5 text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
+                              Tidak valid
+                            </span>
+                            <code className="font-mono text-[10px] font-bold text-rose-950 break-all">
+                              {field}
+                            </code>
+                          </div>
+                          {fieldReasons[field] && (
+                            <p className="text-[10px] text-slate-700 mt-0.5 break-words">
+                              {fieldReasons[field]}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+
+                      {extraReasonEntries.map(([field, reason]) => (
+                        <li key={`reason-${field}`} className="text-[10.5px] leading-snug min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-1.5 min-w-0">
+                            <span className="inline-block rounded-md px-1.5 py-0.5 text-[9.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                              Alasan
+                            </span>
+                            <code className="font-mono text-[10px] font-bold text-rose-950 break-all">
+                              {field}
+                            </code>
+                          </div>
+                          <p className="text-[10px] text-slate-700 mt-0.5 break-words">{reason}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

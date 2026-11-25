@@ -167,7 +167,104 @@ async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: string }>(params: {
+export interface ChatUploadErrorDiagnostics {
+  stage?: string;
+  missingFields?: string[];
+  invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
+}
+
+export class ChatMediaUploadError extends Error {
+  stage?: string;
+  missingFields?: string[];
+  invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
+
+  constructor(message: string, diagnostics?: ChatUploadErrorDiagnostics | null) {
+    super(message);
+    this.name = 'ChatMediaUploadError';
+    if (diagnostics?.stage) this.stage = diagnostics.stage;
+    if (diagnostics?.missingFields?.length) this.missingFields = [...diagnostics.missingFields];
+    if (diagnostics?.invalidFields?.length) this.invalidFields = [...diagnostics.invalidFields];
+    if (diagnostics?.fieldReasons && Object.keys(diagnostics.fieldReasons).length > 0) {
+      this.fieldReasons = { ...diagnostics.fieldReasons };
+    }
+  }
+}
+
+type BackendErrorPayload = {
+  ok?: boolean;
+  error?: string;
+  stage?: unknown;
+  missingFields?: unknown;
+  invalidFields?: unknown;
+  fieldReasons?: unknown;
+};
+
+function sanitizeDiagnosticFieldList(val: unknown): string[] {
+  if (!Array.isArray(val)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of val) {
+    if (typeof item !== 'string') continue;
+    const clean = item.trim();
+    if (!clean || seen.has(clean)) continue;
+    seen.add(clean);
+    out.push(clean);
+  }
+  return out;
+}
+
+function sanitizeDiagnosticFieldReasons(val: unknown): Record<string, string> {
+  if (!val || typeof val !== 'object' || Array.isArray(val)) return {};
+  const out: Record<string, string> = {};
+  for (const [rawKey, rawReason] of Object.entries(val as Record<string, unknown>)) {
+    const key = String(rawKey || '').trim();
+    const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
+    if (key && reason) {
+      out[key] = reason;
+    }
+  }
+  return out;
+}
+
+function parseBackendErrorDiagnostics(
+  payload: BackendErrorPayload | null | undefined
+): ChatUploadErrorDiagnostics | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const stage =
+    typeof payload.stage === 'string' && payload.stage.trim() ? payload.stage.trim() : undefined;
+  const missingFields = sanitizeDiagnosticFieldList(payload.missingFields);
+  const invalidFields = sanitizeDiagnosticFieldList(payload.invalidFields);
+  const fieldReasons = sanitizeDiagnosticFieldReasons(payload.fieldReasons);
+
+  if (
+    !stage &&
+    missingFields.length === 0 &&
+    invalidFields.length === 0 &&
+    Object.keys(fieldReasons).length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    ...(stage ? { stage } : {}),
+    ...(missingFields.length > 0 ? { missingFields } : {}),
+    ...(invalidFields.length > 0 ? { invalidFields } : {}),
+    ...(Object.keys(fieldReasons).length > 0 ? { fieldReasons } : {}),
+  };
+}
+
+function hasFieldDiagnostics(diag?: ChatUploadErrorDiagnostics | null): boolean {
+  if (!diag) return false;
+  return (
+    (diag.missingFields?.length || 0) > 0 ||
+    (diag.invalidFields?.length || 0) > 0 ||
+    Object.keys(diag.fieldReasons || {}).length > 0
+  );
+}
+
+async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: {
   edgeFunctionName: string;
   apiPath: string;
   session: SessionUser;
@@ -183,6 +280,12 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
   };
   const sbCfg = getSupabasePublicConfig();
   const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
+
+  let edgeFailure: {
+    status: number;
+    message: string;
+    diagnostics: ChatUploadErrorDiagnostics | null;
+  } | null = null;
 
   // 1. Prioritaskan Supabase Edge Function bila Supabase aktif
   if (sbCfg) {
@@ -205,15 +308,30 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
         return edgeJson;
       }
 
-      // Error validasi/otorisasi (400/401/403) langsung diteruskan dengan pesan spesifik dari Edge Function
+      const edgeDiagnostics = parseBackendErrorDiagnostics(edgeJson);
+      const edgeErrorMsg =
+        typeof edgeJson.error === 'string' && edgeJson.error.trim() ? edgeJson.error.trim() : '';
+
+      // Error validasi/otorisasi (400/401/403) langsung diteruskan dengan pesan & detail field spesifik
       if (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) {
-        throw new Error(edgeJson.error || `Permintaan ditolak (${edgeRes.status}).`);
+        throw new ChatMediaUploadError(
+          edgeErrorMsg || `Permintaan ditolak (${edgeRes.status}).`,
+          edgeDiagnostics
+        );
       }
 
-      // Bila Edge Function belum di-deploy (404) atau secret Drive belum diset di Edge Function,
-      // fallback ke endpoint server /api/storage/... (Vercel / Express).
+      // Simpan detail error Edge Function (termasuk missingFields, invalidFields, fieldReasons)
+      // sebelum mencoba fallback ke /api/storage/...
+      edgeFailure = {
+        status: edgeRes.status,
+        message: edgeErrorMsg,
+        diagnostics: edgeDiagnostics,
+      };
     } catch (err) {
       if (isAbortError(err)) throw err;
+      if (err instanceof ChatMediaUploadError) {
+        throw err;
+      }
       // Untuk penolakan validasi/otorisasi eksplisit dari Edge Function, lempar langsung
       if (
         err instanceof Error &&
@@ -227,22 +345,53 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
     }
   }
 
-  const apiRes = await fetch(params.apiPath, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
-      ...identityHeaders,
-    },
-    body: JSON.stringify(enrichedBody),
-    signal: params.signal,
-  });
+  try {
+    const apiRes = await fetch(params.apiPath, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
+        ...identityHeaders,
+      },
+      body: JSON.stringify(enrichedBody),
+      signal: params.signal,
+    });
 
-  const apiJson = (await apiRes.json().catch(() => ({}))) as T;
-  if (!apiRes.ok || apiJson.ok === false) {
-    throw new Error(apiJson.error || `Gagal memproses media di server (${apiRes.status}).`);
+    const apiJson = (await apiRes.json().catch(() => ({}))) as T;
+    if (apiRes.ok && apiJson.ok !== false) {
+      return apiJson;
+    }
+
+    const apiDiagnostics = parseBackendErrorDiagnostics(apiJson);
+    const apiErrorMsg =
+      typeof apiJson.error === 'string' && apiJson.error.trim() ? apiJson.error.trim() : '';
+
+    if (hasFieldDiagnostics(edgeFailure?.diagnostics) && !hasFieldDiagnostics(apiDiagnostics)) {
+      throw new ChatMediaUploadError(
+        edgeFailure?.message ||
+          apiErrorMsg ||
+          `Gagal memproses media di Edge Function (${edgeFailure?.status}).`,
+        edgeFailure?.diagnostics
+      );
+    }
+
+    throw new ChatMediaUploadError(
+      apiErrorMsg || edgeFailure?.message || `Gagal memproses media di server (${apiRes.status}).`,
+      apiDiagnostics || edgeFailure?.diagnostics
+    );
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+    if (err instanceof ChatMediaUploadError) {
+      throw err;
+    }
+    if (edgeFailure && (hasFieldDiagnostics(edgeFailure.diagnostics) || edgeFailure.message)) {
+      throw new ChatMediaUploadError(
+        edgeFailure.message || `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+        edgeFailure.diagnostics
+      );
+    }
+    throw err;
   }
-  return apiJson;
 }
 
 function parseRangeHeaderLastByte(rangeHeader: string | null): number | null {

@@ -10,6 +10,13 @@ export type AttachmentPickerKind = 'camera' | 'photo' | 'document' | 'video';
 
 export type UploadItemStatus = 'uploading' | 'completed' | 'failed';
 
+export interface UploadErrorDetails {
+  stage?: string;
+  missingFields?: string[];
+  invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
+}
+
 export interface UploadQueueItem {
   localId: string;
   roomId: ChatRoomId;
@@ -23,8 +30,78 @@ export interface UploadQueueItem {
   bytesUploaded: number;
   totalBytes: number;
   error: string | null;
+  errorDetails?: UploadErrorDetails | null;
   abortController: AbortController;
   result: ChatMediaUploadResult | null;
+}
+
+export function extractUploadErrorDetails(err: unknown): UploadErrorDetails | null {
+  if (!err || typeof err !== 'object') return null;
+  const candidate = err as {
+    stage?: unknown;
+    missingFields?: unknown;
+    invalidFields?: unknown;
+    fieldReasons?: unknown;
+  };
+
+  const stage =
+    typeof candidate.stage === 'string' && candidate.stage.trim()
+      ? candidate.stage.trim()
+      : undefined;
+
+  const missingFields = Array.isArray(candidate.missingFields)
+    ? Array.from(
+        new Set(
+          candidate.missingFields
+            .filter((v): v is string => typeof v === 'string')
+            .map((v) => v.trim())
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  const invalidFields = Array.isArray(candidate.invalidFields)
+    ? Array.from(
+        new Set(
+          candidate.invalidFields
+            .filter((v): v is string => typeof v === 'string')
+            .map((v) => v.trim())
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  const fieldReasons: Record<string, string> = {};
+  if (
+    candidate.fieldReasons &&
+    typeof candidate.fieldReasons === 'object' &&
+    !Array.isArray(candidate.fieldReasons)
+  ) {
+    for (const [rawKey, rawVal] of Object.entries(
+      candidate.fieldReasons as Record<string, unknown>
+    )) {
+      const key = String(rawKey || '').trim();
+      const val = typeof rawVal === 'string' ? rawVal.trim() : '';
+      if (key && val) {
+        fieldReasons[key] = val;
+      }
+    }
+  }
+
+  if (
+    missingFields.length === 0 &&
+    invalidFields.length === 0 &&
+    Object.keys(fieldReasons).length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    ...(stage ? { stage } : {}),
+    ...(missingFields.length > 0 ? { missingFields } : {}),
+    ...(invalidFields.length > 0 ? { invalidFields } : {}),
+    ...(Object.keys(fieldReasons).length > 0 ? { fieldReasons } : {}),
+  };
 }
 
 export const MAX_NON_VIDEO_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB (sesuai limit bucket chat-transit)
