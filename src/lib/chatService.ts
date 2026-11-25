@@ -29,13 +29,17 @@ export interface ChatRoomMeta {
   description: string;
   participantsLabel: string;
   accentClass: string;
+  allowedRoles: UserRole[];
 }
 
 export interface ChatContact {
   participant_id: string;
+  dedup_key?: string;
   role: UserRole;
   display_name: string;
   subtitle: string;
+  role_label?: string;
+  unit_label?: string;
   blok_or_code: string;
   avatar_url?: string | null;
 }
@@ -91,41 +95,46 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     id: 'grup_pengurus',
     label: 'Grup Pengurus',
     shortLabel: 'Pengurus',
-    description: 'Koordinasi internal khusus Pengurus Lingkungan (Ketua, Bendahara, Humas & Pembina)',
-    participantsLabel: 'Khusus Pengurus',
+    description: 'Khusus Pengurus Lingkungan (Ketua, Bendahara, Pembina, Humas & Seksi Olahraga)',
+    participantsLabel: 'Hanya Pengurus / Admin',
     accentClass: 'from-[#4C1D95] to-[#7C3AED]',
+    allowedRoles: ['admin'],
   },
   {
     id: 'pengurus_keamanan',
     label: 'Grup Pengurus & Keamanan',
     shortLabel: 'Pengurus & Keamanan',
-    description: 'Koordinasi shift jaga, patroli NFC, dan instruksi pengurus kepada keamanan',
-    participantsLabel: 'Pengurus · Keamanan',
+    description: 'Khusus Pengurus dan Petugas Keamanan / Patroli (koordinasi pos & patroli NFC)',
+    participantsLabel: 'Hanya Pengurus & Keamanan',
     accentClass: 'from-amber-600 to-orange-600',
+    allowedRoles: ['admin', 'petugas'],
   },
   {
     id: 'pengurus_warga',
     label: 'Grup Pengurus & Warga',
     shortLabel: 'Pengurus & Warga',
-    description: 'Koordinasi iuran IPL, fasilitas lingkungan, pengumuman & aspirasi warga',
-    participantsLabel: 'Pengurus · Warga',
+    description: 'Khusus Pengurus dan Warga (iuran IPL, pengumuman & aspirasi lingkungan)',
+    participantsLabel: 'Hanya Pengurus & Warga',
     accentClass: 'from-[#3730A3] to-[#6D28D9]',
-  },
-  {
-    id: 'forum_umum',
-    label: 'Forum Lingkungan',
-    shortLabel: 'Forum',
-    description: 'Diskusi terbuka Pengurus, Warga & Keamanan Perumahan Saung Kebun',
-    participantsLabel: 'Pengurus · Warga · Keamanan',
-    accentClass: 'from-[#312E81] to-[#0284C7]',
+    allowedRoles: ['admin', 'warga'],
   },
   {
     id: 'warga_keamanan',
     label: 'Grup Warga & Keamanan',
     shortLabel: 'Warga & Keamanan',
-    description: 'Laporan cepat tamu, kendala gerbang, dan bantuan keamanan 24 jam',
-    participantsLabel: 'Warga · Keamanan · Pengurus',
+    description: 'Khusus Warga dan Petugas Keamanan (laporan tamu, gerbang & bantuan darurat)',
+    participantsLabel: 'Hanya Warga & Keamanan',
     accentClass: 'from-emerald-600 to-teal-600',
+    allowedRoles: ['warga', 'petugas'],
+  },
+  {
+    id: 'forum_umum',
+    label: 'Forum Lingkungan',
+    shortLabel: 'Forum',
+    description: 'Forum bersama Pengurus, Warga & Keamanan Perumahan Saung Kebun',
+    participantsLabel: 'Pengurus · Warga · Keamanan',
+    accentClass: 'from-[#312E81] to-[#0284C7]',
+    allowedRoles: ['admin', 'warga', 'petugas'],
   },
 ];
 
@@ -146,15 +155,26 @@ function normalizeToken(raw?: string | null): string {
     .replace(/\s+/g, '');
 }
 
+function canonicalAdminUsername(raw?: string | null): string {
+  const clean = normalizeToken(raw);
+  if (clean === 'admin' || clean === 'andriansyah') return 'andriansyah';
+  if (clean === 'paiwan' || clean === 'bpiwan') return 'bpiwan';
+  return clean;
+}
+
+const PENGURUS_BY_USERNAME = new Map(
+  SUSUNAN_PENGURUS.map((p) => [canonicalAdminUsername(p.username), p])
+);
+
 /**
  * Menghasilkan ID kanonik peserta chat yang konsisten di Client & RLS SQL.
  * Khusus Warga, B03/07 dan B3/7 dinormalisasi menjadi `warga:b3/7`.
+ * Khusus Admin, alias `admin` -> `andriansyah` dan `paiwan` -> `bpiwan`.
  */
 export function getChatParticipantId(session?: SessionUser | null): string {
   if (!session) return 'anon';
   if (session.role === 'admin') {
-    const clean = normalizeToken(session.blok_rumah);
-    return `admin:${clean === 'admin' ? 'andriansyah' : clean}`;
+    return `admin:${canonicalAdminUsername(session.blok_rumah)}`;
   }
   if (session.role === 'petugas') {
     return `petugas:${normalizeToken(session.petugas_id || session.blok_rumah)}`;
@@ -177,6 +197,9 @@ export function getChatParticipantMatchIds(session?: SessionUser | null): Set<st
     if (clean === 'admin' || clean === 'andriansyah') {
       ids.add('admin:admin');
       ids.add('admin:andriansyah');
+    } else if (clean === 'paiwan' || clean === 'bpiwan') {
+      ids.add('admin:paiwan');
+      ids.add('admin:bpiwan');
     }
   } else if (session.role === 'warga') {
     const raw = normalizeToken(session.blok_rumah);
@@ -198,8 +221,7 @@ export function getChatParticipantMatchIds(session?: SessionUser | null): Set<st
 export function normalizeChatParticipantId(rawId: string): string {
   const clean = normalizeToken(rawId);
   if (clean.startsWith('admin:')) {
-    const sub = clean.slice('admin:'.length);
-    return `admin:${sub === 'admin' ? 'andriansyah' : sub}`;
+    return `admin:${canonicalAdminUsername(clean.slice('admin:'.length))}`;
   }
   if (clean.startsWith('warga:')) {
     const sub = clean.slice('warga:'.length);
@@ -231,23 +253,7 @@ export function parseDmParticipants(roomId: string): [string, string] | null {
 }
 
 export function getAccessibleChatRooms(session: SessionUser): ChatRoomMeta[] {
-  if (session.role === 'admin') {
-    return CHAT_ROOMS;
-  }
-  if (session.role === 'petugas') {
-    return CHAT_ROOMS.filter(
-      (r) =>
-        r.id === 'pengurus_keamanan' ||
-        r.id === 'forum_umum' ||
-        r.id === 'warga_keamanan'
-    );
-  }
-  return CHAT_ROOMS.filter(
-    (r) =>
-      r.id === 'pengurus_warga' ||
-      r.id === 'forum_umum' ||
-      r.id === 'warga_keamanan'
-  );
+  return CHAT_ROOMS.filter((room) => room.allowedRoles.includes(session.role));
 }
 
 export function canAccessChatRoom(session: SessionUser, roomId: ChatRoomId): boolean {
@@ -426,27 +432,100 @@ export function isMessageClearedForRoom(
   return msgMs <= cutoffMs;
 }
 
+function formatEnrichedContact(item: ChatContact): ChatContact {
+  const canonId = normalizeChatParticipantId(item.participant_id);
+  const role = item.role;
+
+  if (role === 'admin') {
+    const usernameKey = canonicalAdminUsername(canonId.slice('admin:'.length));
+    const pengurusMeta = PENGURUS_BY_USERNAME.get(usernameKey);
+    const rawName = (pengurusMeta?.nama || item.display_name || 'Pengurus').replace(/\s*\(Bendahara\)\s*$/i, '').trim();
+    const jabatan = pengurusMeta?.jabatan || item.subtitle || 'Pengurus';
+    const rawBlock = pengurusMeta?.blokRumah || item.blok_or_code || '';
+    const canonBlock = canonicalBlockKey(rawBlock) || rawBlock.toUpperCase();
+    const unitLabel = canonBlock && /^B\d+/i.test(canonBlock) ? `Blok ${canonBlock}` : 'Sekretariat Blok B3/7';
+    const roleLabel = jabatan && jabatan !== 'Pengurus' ? `Pengurus · ${jabatan}` : 'Pengurus';
+    return {
+      ...item,
+      participant_id: `admin:${usernameKey}`,
+      role: 'admin',
+      display_name: rawName,
+      subtitle: `${roleLabel} · ${unitLabel}`,
+      role_label: roleLabel,
+      unit_label: unitLabel,
+      blok_or_code: canonBlock || usernameKey.toUpperCase(),
+      dedup_key: `admin:${usernameKey}:${canonBlock.toLowerCase()}`,
+    };
+  }
+
+  if (role === 'petugas') {
+    const shiftText = (item.subtitle || 'Petugas Keamanan').trim();
+    const unitLabel = shiftText && shiftText !== 'Petugas Keamanan' ? shiftText : 'Pos Keamanan Saung Kebun';
+    const cleanName = (item.display_name || 'Petugas Keamanan').trim();
+    return {
+      ...item,
+      participant_id: canonId,
+      role: 'petugas',
+      display_name: cleanName,
+      subtitle: `Keamanan · ${unitLabel}`,
+      role_label: 'Keamanan',
+      unit_label: unitLabel,
+      blok_or_code: item.blok_or_code || cleanName,
+      dedup_key: `petugas:${cleanName.toLowerCase().replace(/\s+/g, '')}`,
+    };
+  }
+
+  const rawUnit = canonId.startsWith('warga:') ? canonId.slice('warga:'.length) : item.blok_or_code;
+  const canonBlok = canonicalBlockKey(item.blok_or_code || rawUnit) || (item.blok_or_code || rawUnit).toUpperCase();
+  const unitLabel = canonBlok ? `Blok ${canonBlok}` : 'Warga';
+  return {
+    ...item,
+    participant_id: `warga:${canonBlok.toLowerCase()}`,
+    role: 'warga',
+    display_name: (item.display_name || `Warga ${unitLabel}`).trim(),
+    subtitle: `Warga · ${unitLabel}`,
+    role_label: `Warga · ${unitLabel}`,
+    unit_label: unitLabel,
+    blok_or_code: canonBlok,
+    dedup_key: `warga:${canonBlok.toLowerCase()}`,
+  };
+}
+
 /**
- * Mengambil direktori kontak untuk Chat Personal / Individu (Pengurus, Keamanan, & Warga)
- * tanpa pernah mengekspos PIN ataupun nomor WA privat.
+ * Mengambil direktori kontak untuk DM & daftar anggota grup (Pengurus, Keamanan, & Warga)
+ * dengan menyertakan Blok/Nomor Rumah & Peran tanpa mengekspos PIN/WA, serta deduplikasi ketat.
  */
 export async function fetchChatDirectory(session: SessionUser): Promise<ChatContact[]> {
   const myIds = getChatParticipantMatchIds(session);
   const contactMap = new Map<string, ChatContact>();
+  const secondaryKeyToPid = new Map<string, string>();
 
   const upsertContact = (item: ChatContact) => {
-    const canonId = normalizeChatParticipantId(item.participant_id);
+    const enriched = formatEnrichedContact(item);
+    const canonId = enriched.participant_id;
     if (!canonId || myIds.has(canonId)) return;
-    const existing = contactMap.get(canonId);
+
+    // Deduplikasi sekunder (nama + role + unit/kode) agar tidak pernah muncul nama ganda
+    const secKey =
+      enriched.dedup_key ||
+      `${enriched.role}:${enriched.display_name.toLowerCase().replace(/\s+/g, '')}:${enriched.blok_or_code.toLowerCase()}`;
+    const mappedPid = secondaryKeyToPid.get(secKey);
+    const targetKey = mappedPid || canonId;
+    secondaryKeyToPid.set(secKey, targetKey);
+
+    const existing = contactMap.get(targetKey);
     if (!existing) {
-      contactMap.set(canonId, { ...item, participant_id: canonId });
+      contactMap.set(targetKey, enriched);
     } else {
-      contactMap.set(canonId, {
+      contactMap.set(targetKey, {
         ...existing,
-        display_name: item.display_name || existing.display_name,
-        subtitle: item.subtitle || existing.subtitle,
-        blok_or_code: item.blok_or_code || existing.blok_or_code,
-        avatar_url: item.avatar_url || existing.avatar_url || null,
+        participant_id: canonId.length > 0 ? canonId : existing.participant_id,
+        display_name: enriched.display_name || existing.display_name,
+        subtitle: enriched.subtitle || existing.subtitle,
+        role_label: enriched.role_label || existing.role_label,
+        unit_label: enriched.unit_label || existing.unit_label,
+        blok_or_code: enriched.blok_or_code || existing.blok_or_code,
+        avatar_url: enriched.avatar_url || existing.avatar_url || null,
       });
     }
   };
@@ -454,7 +533,7 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
   // 1. Seed Pengurus & Petugas default agar selalu tersedia cepat
   for (const p of SUSUNAN_PENGURUS) {
     upsertContact({
-      participant_id: `admin:${normalizeToken(p.username)}`,
+      participant_id: `admin:${canonicalAdminUsername(p.username)}`,
       role: 'admin',
       display_name: p.nama,
       subtitle: p.jabatan,
@@ -495,9 +574,16 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
       const { data, error } = await supabase.rpc('get_chat_directory');
       if (!error && Array.isArray(data) && data.length > 0) {
         loadedRpcDirectory = true;
-        // Hapus seed petugas/warga sementara agar data live DB yang akurat menggantikannya
+        // Hapus seed petugas & warga agar data live DB yang akurat menggantikannya
         for (const [k, v] of Array.from(contactMap.entries())) {
-          if (v.role !== 'admin') contactMap.delete(k);
+          if (v.role !== 'admin') {
+            contactMap.delete(k);
+          }
+        }
+        for (const [sk, pid] of Array.from(secondaryKeyToPid.entries())) {
+          if (!contactMap.has(pid)) {
+            secondaryKeyToPid.delete(sk);
+          }
         }
         for (const raw of data as Array<Record<string, unknown>>) {
           const role = normalizeSenderRole(raw.role);
@@ -522,6 +608,9 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
         if (Array.isArray(petugasRows) && petugasRows.length > 0) {
           for (const [k, v] of Array.from(contactMap.entries())) {
             if (v.role === 'petugas') contactMap.delete(k);
+          }
+          for (const [sk, pid] of Array.from(secondaryKeyToPid.entries())) {
+            if (!contactMap.has(pid)) secondaryKeyToPid.delete(sk);
           }
           for (const raw of petugasRows as Array<Record<string, unknown>>) {
             const id = String(raw.id || '').trim();
@@ -553,7 +642,7 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
               if (!blok || !nama) continue;
               if (rowRole === 'admin' || rowRole === 'bendahara') {
                 upsertContact({
-                  participant_id: `admin:${normalizeToken(blok)}`,
+                  participant_id: `admin:${canonicalAdminUsername(blok)}`,
                   role: 'admin',
                   display_name: nama,
                   subtitle: String(raw.jabatan || 'Pengurus'),
@@ -583,6 +672,50 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
     if (rp !== 0) return rp;
     return a.blok_or_code.localeCompare(b.blok_or_code, 'id', { numeric: true });
   });
+}
+
+/**
+ * Mengembalikan daftar anggota sah pada suatu ruang Group berdasarkan aturan keanggotaan peran yang ketat.
+ */
+export function getGroupMembers(
+  roomId: GroupChatRoomId,
+  session: SessionUser,
+  contacts: ChatContact[]
+): Array<ChatContact & { isSelf?: boolean }> {
+  const roomMeta = CHAT_ROOMS.find((r) => r.id === roomId);
+  if (!roomMeta) return [];
+
+  const allowedSet = new Set<UserRole>(roomMeta.allowedRoles);
+  const list: Array<ChatContact & { isSelf?: boolean }> = [];
+  const seenKeys = new Set<string>();
+
+  if (allowedSet.has(session.role)) {
+    const selfContact = formatEnrichedContact({
+      participant_id: getChatParticipantId(session),
+      role: session.role,
+      display_name: session.nama_warga || 'Anda',
+      subtitle:
+        session.role === 'admin'
+          ? session.jabatan || 'Pengurus'
+          : session.role === 'petugas'
+            ? session.shift || 'Petugas Keamanan'
+            : `Warga Blok ${session.blok_rumah}`,
+      blok_or_code: session.blok_rumah,
+      avatar_url: session.avatar_url || null,
+    });
+    seenKeys.add(selfContact.dedup_key || selfContact.participant_id);
+    list.push({ ...selfContact, isSelf: true });
+  }
+
+  for (const c of contacts) {
+    if (!allowedSet.has(c.role)) continue;
+    const key = c.dedup_key || c.participant_id;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    list.push(c);
+  }
+
+  return list;
 }
 
 /**
@@ -987,31 +1120,29 @@ export async function sendChatMessage(
     });
   } else {
     const roomMeta = CHAT_ROOMS.find((r) => r.id === normalizedRoom);
+    const allowedRoles = new Set<UserRole>(roomMeta?.allowedRoles || []);
     const roomTitle = roomMeta?.label || 'Chat Lingkungan';
     const notifTitle = `Pesan Baru · ${roomTitle}`;
     const notifMsg = `${nextMessage.sender_name} (${senderSubtitle}): ${snippet}`;
     const targetUrl = `chat:${normalizedRoom}`;
 
-    // Notifikasi ke Pengurus (kecuali pengirim sendiri)
-    const myAdminId = session.role === 'admin' ? getChatParticipantId(session) : '';
-    for (const adminUid of getAllAdminUserIds()) {
-      if (myAdminId && normalizeChatParticipantId(adminUid) === myAdminId) continue;
-      recipientItems.push({
-        user_id: adminUid,
-        category: 'system',
-        title: notifTitle,
-        message: notifMsg,
-        target_url: targetUrl,
-        dedup_key: dedupKey,
-      });
+    // Notifikasi ke Pengurus hanya jika role 'admin' termasuk anggota sah grup ini
+    if (allowedRoles.has('admin')) {
+      const myAdminId = session.role === 'admin' ? getChatParticipantId(session) : '';
+      for (const adminUid of getAllAdminUserIds()) {
+        if (myAdminId && normalizeChatParticipantId(adminUid) === myAdminId) continue;
+        recipientItems.push({
+          user_id: adminUid,
+          category: 'system',
+          title: notifTitle,
+          message: notifMsg,
+          target_url: targetUrl,
+          dedup_key: dedupKey,
+        });
+      }
     }
 
-    if (
-      (normalizedRoom === 'forum_umum' ||
-        normalizedRoom === 'pengurus_warga' ||
-        normalizedRoom === 'warga_keamanan') &&
-      session.role !== 'warga'
-    ) {
+    if (allowedRoles.has('warga') && session.role !== 'warga') {
       recipientItems.push({
         user_id: 'broadcast:warga',
         category: 'system',
@@ -1022,12 +1153,7 @@ export async function sendChatMessage(
       });
     }
 
-    if (
-      (normalizedRoom === 'forum_umum' ||
-        normalizedRoom === 'pengurus_keamanan' ||
-        normalizedRoom === 'warga_keamanan') &&
-      session.role !== 'petugas'
-    ) {
+    if (allowedRoles.has('petugas') && session.role !== 'petugas') {
       recipientItems.push({
         user_id: 'broadcast:petugas',
         category: 'system',

@@ -48,8 +48,10 @@ as $$
   select case
     when lower(trim(public.req_header('x-user-role'))) = 'admin' then
       case
-        when lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g')) = 'admin'
+        when lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g')) in ('admin', 'andriansyah')
           then 'admin:andriansyah'
+        when lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g')) in ('paiwan', 'bpiwan')
+          then 'admin:bpiwan'
         else 'admin:' || lower(regexp_replace(trim(public.req_header('x-blok-rumah')), '\s+', '', 'g'))
       end
     when lower(trim(public.req_header('x-user-role'))) in ('petugas', 'keamanan') then
@@ -92,9 +94,15 @@ begin
     return true;
   end if;
 
-  -- Kompatibilitas alias admin:admin <-> admin:andriansyah serta format blok warga tanpa/dengan nol depan
+  -- Kompatibilitas alias admin:admin <-> admin:andriansyah serta admin:paiwan <-> admin:bpiwan
   if v_role = 'admin' and v_raw_blok in ('admin', 'andriansyah') then
     if v_part1 in ('admin:admin', 'admin:andriansyah') or v_part2 in ('admin:admin', 'admin:andriansyah') then
+      return true;
+    end if;
+  end if;
+
+  if v_role = 'admin' and v_raw_blok in ('paiwan', 'bpiwan') then
+    if v_part1 in ('admin:paiwan', 'admin:bpiwan') or v_part2 in ('admin:paiwan', 'admin:bpiwan') then
       return true;
     end if;
   end if;
@@ -136,18 +144,21 @@ create index if not exists idx_community_chat_recipient
   on public.community_chat_messages (recipient_id)
   where recipient_id is not null;
 
--- 5. Kebijakan RLS terbaru (Grup Pengurus eksklusif Admin, DM eksklusif 2 peserta)
+-- 5. Kebijakan RLS terbaru (Keanggotaan Grup Ketat Sesuai Peran, DM eksklusif 2 peserta)
 drop policy if exists "community_chat_select_portal" on public.community_chat_messages;
 create policy "community_chat_select_portal" on public.community_chat_messages
   for select using (
     (
-      room_id in ('forum_umum', 'pengurus_warga', 'warga_keamanan')
+      room_id = 'forum_umum'
       and lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga', 'petugas', 'keamanan')
-      and (
-        lower(trim(public.req_header('x-user-role'))) = 'admin'
-        or (lower(trim(public.req_header('x-user-role'))) = 'warga' and room_id in ('forum_umum', 'pengurus_warga', 'warga_keamanan'))
-        or (lower(trim(public.req_header('x-user-role'))) in ('petugas', 'keamanan') and room_id in ('forum_umum', 'warga_keamanan'))
-      )
+    )
+    or (
+      room_id = 'pengurus_warga'
+      and lower(trim(public.req_header('x-user-role'))) in ('admin', 'warga')
+    )
+    or (
+      room_id = 'warga_keamanan'
+      and lower(trim(public.req_header('x-user-role'))) in ('warga', 'petugas', 'keamanan')
     )
     or (
       room_id = 'pengurus_keamanan'
@@ -170,7 +181,7 @@ create policy "community_chat_insert_portal" on public.community_chat_messages
       lower(trim(public.req_header('x-user-role'))) = 'admin'
       and sender_role = 'admin'
       and (
-        room_id in ('forum_umum', 'grup_pengurus', 'pengurus_warga', 'pengurus_keamanan', 'warga_keamanan')
+        room_id in ('forum_umum', 'grup_pengurus', 'pengurus_warga', 'pengurus_keamanan')
         or (room_id like 'dm:%' and public.chat_is_dm_participant(room_id))
       )
     )
@@ -212,7 +223,7 @@ create policy "community_chat_delete_portal" on public.community_chat_messages
     )
   );
 
--- 6. RPC aman direktori kontak chat (hanya nama, peran & blok/jabatan — TANPA PIN / WA)
+-- 6. RPC aman direktori kontak chat (hanya nama, peran & blok/jabatan — TANPA PIN / WA, bebas duplikat)
 create or replace function public.get_chat_directory()
 returns table (
   participant_id text,
@@ -225,45 +236,76 @@ language sql
 security definer
 set search_path = public
 as $$
-  -- Akun Pengurus / Admin aktif
-  select
-    case
-      when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'admin' then 'admin:andriansyah'
-      else 'admin:' || lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g'))
-    end as participant_id,
-    'admin'::text as role,
-    u.nama_warga as display_name,
-    coalesce(nullif(trim(u.jabatan), ''), 'Pengurus') as subtitle,
-    u.blok_rumah as blok_or_code
-  from public.users_warga u
-  where u.aktif = true
-    and u.role in ('admin', 'bendahara')
-
+  with admin_dedup as (
+    -- Akun Pengurus / Admin aktif (dideduplikasi & dipetakan ke Blok Rumah masing-masing)
+    select distinct on (pid)
+      pid as participant_id,
+      'admin'::text as role,
+      display_name,
+      subtitle,
+      blok_or_code
+    from (
+      select
+        case
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) in ('admin', 'andriansyah') then 'admin:andriansyah'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) in ('paiwan', 'bpiwan') then 'admin:bpiwan'
+          else 'admin:' || lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g'))
+        end as pid,
+        case
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'admin' then 'Andriansyah'
+          else u.nama_warga
+        end as display_name,
+        coalesce(nullif(trim(u.jabatan), ''), 'Pengurus') as subtitle,
+        case
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) in ('admin', 'andriansyah') then 'B7/16'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) in ('paiwan', 'bpiwan') then 'B8/5'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'erlangga' then 'B3/7'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'doni' then 'B5/21'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'wahyu' then 'B5/24'
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) = 'deny' then 'B8/6'
+          else u.blok_rumah
+        end as blok_or_code,
+        case
+          when lower(regexp_replace(trim(u.blok_rumah), '\s+', '', 'g')) in ('andriansyah', 'bpiwan') then 0
+          else 1
+        end as pref_rank
+      from public.users_warga u
+      where u.aktif = true
+        and u.role in ('admin', 'bendahara')
+    ) admin_rows
+    order by pid, pref_rank asc
+  ),
+  petugas_dedup as (
+    -- Akun Petugas Keamanan aktif (dideduplikasi berdasarkan nama)
+    select distinct on (lower(trim(p.nama)))
+      'petugas:' || lower(regexp_replace(trim(p.id::text), '\s+', '', 'g')) as participant_id,
+      'petugas'::text as role,
+      p.nama as display_name,
+      coalesce(nullif(trim(p.shift), ''), 'Petugas Keamanan') as subtitle,
+      coalesce(nullif(trim(p.username), ''), 'Keamanan') as blok_or_code
+    from public.petugas_keamanan p
+    where p.aktif = true
+    order by lower(trim(p.nama)), p.created_at asc
+  ),
+  warga_dedup as (
+    -- Akun Warga aktif (dihuni, dideduplikasi berdasarkan blok kanonik)
+    select distinct on (public.chat_canonical_blok(w.blok_rumah))
+      'warga:' || public.chat_canonical_blok(w.blok_rumah) as participant_id,
+      'warga'::text as role,
+      w.nama_warga as display_name,
+      'Warga · Blok ' || upper(public.chat_canonical_blok(w.blok_rumah)) as subtitle,
+      upper(public.chat_canonical_blok(w.blok_rumah)) as blok_or_code
+    from public.users_warga w
+    where w.aktif = true
+      and coalesce(w.role, 'warga') = 'warga'
+      and lower(coalesce(w.status_hunian, 'Tetap')) <> 'kosong'
+    order by public.chat_canonical_blok(w.blok_rumah), w.created_at desc
+  )
+  select participant_id, role, display_name, subtitle, blok_or_code from admin_dedup
   union all
-
-  -- Akun Petugas Keamanan aktif
-  select
-    'petugas:' || lower(regexp_replace(trim(p.id::text), '\s+', '', 'g')) as participant_id,
-    'petugas'::text as role,
-    p.nama as display_name,
-    coalesce(nullif(trim(p.shift), ''), 'Petugas Keamanan') as subtitle,
-    p.username as blok_or_code
-  from public.petugas_keamanan p
-  where p.aktif = true
-
+  select participant_id, role, display_name, subtitle, blok_or_code from petugas_dedup
   union all
-
-  -- Akun Warga aktif (dihuni)
-  select
-    'warga:' || public.chat_canonical_blok(w.blok_rumah) as participant_id,
-    'warga'::text as role,
-    w.nama_warga as display_name,
-    'Warga Blok ' || w.blok_rumah as subtitle,
-    w.blok_rumah as blok_or_code
-  from public.users_warga w
-  where w.aktif = true
-    and coalesce(w.role, 'warga') = 'warga'
-    and lower(coalesce(w.status_hunian, 'Tetap')) <> 'kosong';
+  select participant_id, role, display_name, subtitle, blok_or_code from warga_dedup;
 $$;
 
 grant execute on function public.get_chat_directory() to anon, authenticated;

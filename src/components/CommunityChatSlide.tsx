@@ -7,7 +7,6 @@ import {
   Loader2,
   Lock,
   MessageSquare,
-  Plus,
   RefreshCw,
   Search,
   Send,
@@ -31,6 +30,7 @@ import {
   getAccessibleChatRooms,
   getChatParticipantId,
   getChatParticipantMatchIds,
+  getGroupMembers,
   isDmRoomId,
   isMessageClearedForRoom,
   markChatRoomRead,
@@ -54,7 +54,7 @@ interface CommunityChatSlideProps {
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
-type ChannelScopeFilter = 'semua' | 'grup' | 'personal';
+type ChatPrimaryTab = 'dm' | 'group';
 
 function formatMessageTime(isoDate: string): string {
   try {
@@ -80,24 +80,24 @@ function formatMessageTime(isoDate: string): string {
   }
 }
 
-function getRoleBadgeStyle(role: UserRole): {
+function getRoleBadgeStyle(role: UserRole, customLabel?: string): {
   label: string;
   badgeClass: string;
 } {
   if (role === 'admin') {
     return {
-      label: 'Pengurus',
+      label: customLabel || 'Pengurus',
       badgeClass: 'bg-indigo-100 text-[#312E81] border-indigo-200',
     };
   }
   if (role === 'petugas') {
     return {
-      label: 'Keamanan',
+      label: customLabel || 'Keamanan',
       badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     };
   }
   return {
-    label: 'Warga',
+    label: customLabel || 'Warga',
     badgeClass: 'bg-sky-100 text-sky-800 border-sky-200',
   };
 }
@@ -112,7 +112,7 @@ function getRoomIcon(roomId: GroupChatRoomId) {
 export function CommunityChatSlide({
   session,
   initialRoomId,
-  variant = 'page',
+  variant = 'floating',
   onToast,
 }: CommunityChatSlideProps) {
   const isFloating = variant === 'floating';
@@ -127,13 +127,15 @@ export function CommunityChatSlide({
     }
     return accessibleRooms[0]?.id || 'forum_umum';
   });
-  const [scopeFilter, setScopeFilter] = useState<ChannelScopeFilter>('semua');
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [primaryTab, setPrimaryTab] = useState<ChatPrimaryTab>(() =>
+    initialRoomId && isDmRoomId(initialRoomId) ? 'dm' : initialRoomId ? 'group' : 'dm'
+  );
   const [contactSearch, setContactSearch] = useState('');
   const [contactRoleFilter, setContactRoleFilter] = useState<'semua' | UserRole>('semua');
   const [floatingView, setFloatingView] = useState<'list' | 'thread'>(() =>
     initialRoomId ? 'thread' : 'list'
   );
+  const [showGroupMembers, setShowGroupMembers] = useState(false);
 
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [dmThreads, setDmThreads] = useState<DmThreadPreview[]>([]);
@@ -159,6 +161,7 @@ export function CommunityChatSlide({
   useEffect(() => {
     if (initialRoomId && canAccessChatRoom(session, initialRoomId)) {
       setActiveRoomId(initialRoomId);
+      setPrimaryTab(isDmRoomId(initialRoomId) ? 'dm' : 'group');
       if (isFloating) setFloatingView('thread');
     }
   }, [initialRoomId, session, isFloating]);
@@ -198,9 +201,18 @@ export function CommunityChatSlide({
 
   const activeDmPeer = useMemo<ChatContact | null>(() => {
     if (!isDmRoomId(activeRoomId)) return null;
-    if (selectedPeerContact && buildDmRoomId(myParticipantId, selectedPeerContact.participant_id) === activeRoomId) {
+    if (
+      selectedPeerContact &&
+      buildDmRoomId(myParticipantId, selectedPeerContact.participant_id) === activeRoomId
+    ) {
       return selectedPeerContact;
     }
+    const pair = parseDmParticipants(activeRoomId);
+    if (!pair) return null;
+    const norm0 = normalizeChatParticipantId(pair[0]);
+    const peerId = myMatchIds.has(norm0) ? normalizeChatParticipantId(pair[1]) : norm0;
+    const found = contacts.find((c) => normalizeChatParticipantId(c.participant_id) === peerId);
+    if (found) return found;
     const thread = dmThreads.find((t) => t.room_id === activeRoomId);
     if (thread) {
       return {
@@ -212,30 +224,37 @@ export function CommunityChatSlide({
         avatar_url: thread.peer_avatar_url,
       };
     }
-    const pair = parseDmParticipants(activeRoomId);
-    if (!pair) return null;
-    const norm0 = normalizeChatParticipantId(pair[0]);
-    const peerId = myMatchIds.has(norm0) ? normalizeChatParticipantId(pair[1]) : norm0;
-    const found = contacts.find((c) => normalizeChatParticipantId(c.participant_id) === peerId);
-    if (found) return found;
     const fallbackRole: UserRole = peerId.startsWith('admin:')
       ? 'admin'
       : peerId.startsWith('petugas:')
         ? 'petugas'
         : 'warga';
+    const unitCode = peerId.split(':').slice(1).join(':').toUpperCase();
     return {
       participant_id: peerId,
       role: fallbackRole,
-      display_name: peerId.split(':').slice(1).join(':').toUpperCase(),
+      display_name: unitCode,
       subtitle:
         fallbackRole === 'admin'
           ? 'Pengurus'
           : fallbackRole === 'petugas'
-            ? 'Petugas Keamanan'
-            : 'Warga',
-      blok_or_code: peerId.split(':').slice(1).join(':').toUpperCase(),
+            ? 'Keamanan'
+            : `Warga · Blok ${unitCode}`,
+      role_label:
+        fallbackRole === 'admin'
+          ? 'Pengurus'
+          : fallbackRole === 'petugas'
+            ? 'Keamanan'
+            : `Warga · Blok ${unitCode}`,
+      unit_label: fallbackRole === 'warga' ? `Blok ${unitCode}` : '',
+      blok_or_code: unitCode,
     };
   }, [activeRoomId, selectedPeerContact, myParticipantId, dmThreads, contacts, myMatchIds]);
+
+  const activeGroupMembers = useMemo(() => {
+    if (!activeGroupRoom) return [];
+    return getGroupMembers(activeGroupRoom.id, session, contacts);
+  }, [activeGroupRoom, session, contacts]);
 
   const loadRoomMessages = useCallback(
     async (roomId: ChatRoomId, silent = false) => {
@@ -263,6 +282,7 @@ export function CommunityChatSlide({
     setReplyTarget(null);
     setConfirmDeleteId(null);
     setConfirmClearRoom(false);
+    setShowGroupMembers(false);
     void loadRoomMessages(activeRoomId, false);
   }, [activeRoomId, loadRoomMessages]);
 
@@ -311,7 +331,6 @@ export function CommunityChatSlide({
       setSelectedPeerContact(null);
     }
     setActiveRoomId(roomId);
-    setPickerOpen(false);
     if (isFloating) {
       setFloatingView('thread');
     }
@@ -320,7 +339,7 @@ export function CommunityChatSlide({
   const handleStartPersonalChat = (contact: ChatContact) => {
     const dmRoomId = buildDmRoomId(myParticipantId, contact.participant_id);
     handleSelectRoom(dmRoomId, contact);
-    setScopeFilter('semua');
+    setPrimaryTab('dm');
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -425,27 +444,59 @@ export function CommunityChatSlide({
     );
   };
 
-  const resolveContactAvatar = (c: ChatContact): string | null => {
-    if (c.avatar_url) return c.avatar_url;
-    return avatarMap[buildAvatarKey(c.role, c.blok_or_code)] || null;
-  };
+  const resolveContactAvatar = useCallback(
+    (c: ChatContact): string | null => {
+      if (c.avatar_url) return c.avatar_url;
+      return avatarMap[buildAvatarKey(c.role, c.blok_or_code)] || null;
+    },
+    [avatarMap]
+  );
 
+  // Deduplikasi ganda & filter pencarian kontak DM berdasarkan Peran, Nama, Blok/Nomor Rumah
   const filteredContacts = useMemo(() => {
     const q = contactSearch.trim().toLowerCase();
-    return contacts.filter((c) => {
-      if (contactRoleFilter !== 'semua' && c.role !== contactRoleFilter) return false;
-      if (!q) return true;
-      return (
-        c.display_name.toLowerCase().includes(q) ||
-        c.subtitle.toLowerCase().includes(q) ||
-        c.blok_or_code.toLowerCase().includes(q)
-      );
-    });
+    const seen = new Set<string>();
+    const result: ChatContact[] = [];
+
+    for (const c of contacts) {
+      if (contactRoleFilter !== 'semua' && c.role !== contactRoleFilter) continue;
+      if (q) {
+        const hay = `${c.display_name} ${c.subtitle} ${c.role_label || ''} ${c.unit_label || ''} ${c.blok_or_code}`.toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      const uniqueKey = c.dedup_key || `${c.participant_id}:${c.role}:${c.blok_or_code}`;
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
+      result.push(c);
+    }
+    return result;
   }, [contacts, contactSearch, contactRoleFilter]);
 
-  // Gabungkan thread DM aktif + contact DM yang sedang dibuka (bila belum ada riwayat pesan)
+  const roleCounts = useMemo(() => {
+    let admin = 0;
+    let petugas = 0;
+    let warga = 0;
+    for (const c of contacts) {
+      if (c.role === 'admin') admin += 1;
+      else if (c.role === 'petugas') petugas += 1;
+      else warga += 1;
+    }
+    return { total: contacts.length, admin, petugas, warga };
+  }, [contacts]);
+
+  // Thread DM aktif + contact DM yang sedang dibuka
   const visibleDmThreads = useMemo<DmThreadPreview[]>(() => {
-    const base = [...dmThreads];
+    const contactById = new Map(contacts.map((c) => [normalizeChatParticipantId(c.participant_id), c]));
+    const base = dmThreads.map((t) => {
+      const matched = contactById.get(normalizeChatParticipantId(t.peer_id));
+      if (!matched) return t;
+      return {
+        ...t,
+        peer_name: matched.display_name,
+        peer_subtitle: matched.subtitle,
+        peer_avatar_url: matched.avatar_url || t.peer_avatar_url,
+      };
+    });
     if (activeDmPeer && isDmRoomId(activeRoomId)) {
       const exists = base.some((t) => t.room_id === activeRoomId);
       if (!exists) {
@@ -456,7 +507,7 @@ export function CommunityChatSlide({
           peer_role: activeDmPeer.role,
           peer_subtitle: activeDmPeer.subtitle,
           peer_avatar_url: resolveContactAvatar(activeDmPeer),
-          last_message: 'Mulai percakapan pribadi...',
+          last_message: 'Mulai percakapan langsung...',
           last_sender_id: '',
           last_created_at: new Date().toISOString(),
           unread_count: unreadByRoom[activeRoomId] || 0,
@@ -464,7 +515,7 @@ export function CommunityChatSlide({
       }
     }
     return base;
-  }, [dmThreads, activeDmPeer, activeRoomId, unreadByRoom]);
+  }, [dmThreads, contacts, activeDmPeer, activeRoomId, unreadByRoom, resolveContactAvatar]);
 
   const totalPersonalUnread = useMemo(
     () => visibleDmThreads.reduce((acc, t) => acc + (unreadByRoom[t.room_id] ?? t.unread_count ?? 0), 0),
@@ -480,7 +531,7 @@ export function CommunityChatSlide({
     ? activeDmPeer.display_name
     : activeGroupRoom?.label || 'Chat Lingkungan';
   const activeSubtitle = activeDmPeer
-    ? `Chat Pribadi · ${activeDmPeer.subtitle}`
+    ? activeDmPeer.subtitle
     : activeGroupRoom?.description || '';
 
   return (
@@ -499,7 +550,7 @@ export function CommunityChatSlide({
               : 'flex flex-col md:grid md:grid-cols-[296px_minmax(0,1fr)] h-[calc(100dvh-13.25rem)] sm:h-[calc(100dvh-11.5rem)] md:h-[75dvh] min-h-[480px] max-h-[780px] w-full min-w-0'
           }
         >
-          {/* Panel Daftar Grup & Chat Personal (Aside) */}
+          {/* Panel Navigasi DM & Group (Aside) */}
           <aside
             className={`${
               isFloating && floatingView === 'thread' ? 'hidden' : 'flex'
@@ -509,8 +560,8 @@ export function CommunityChatSlide({
                 : 'shrink-0 md:shrink md:min-h-0 border-b md:border-b-0 md:border-r border-indigo-100/80 bg-white/60 flex flex-col w-full min-w-0 overflow-hidden'
             }`}
           >
-            {/* div:nth-of-type(1) — Header Sidebar Chat + Tab Filter + Tombol Chat Personal Baru */}
-            <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-indigo-100/70 space-y-2 shrink-0">
+            {/* div:nth-of-type(1) — Header + Tab Utama: DM | Group */}
+            <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-indigo-100/70 space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -518,263 +569,121 @@ export function CommunityChatSlide({
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-xs sm:text-sm font-bold text-[#0F172A] leading-tight truncate">
-                      Chat Lingkungan
+                      Pesan &amp; Koordinasi
                     </h2>
                     <p className="text-[10.5px] text-slate-500 truncate">
-                      Grup &amp; Personal (1-on-1)
+                      DM Langsung &amp; Group Peran Terisolasi
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen((v) => !v)}
-                    aria-label="Mulai chat personal baru"
-                    title="Chat Personal / Individu Baru"
-                    className={`h-8 px-2.5 rounded-xl text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors shrink-0 ${
-                      pickerOpen
-                        ? 'bg-[#312E81] text-white'
-                        : 'bg-[#EDE9FE] hover:bg-[#DDD6FE] text-[#4C1D95]'
-                    }`}
-                  >
-                    <Plus className="w-3.5 h-3.5 shrink-0" />
-                    <span>Personal</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={refreshing || loading}
-                    onClick={() => void loadRoomMessages(activeRoomId, true)}
-                    aria-label="Muat ulang percakapan"
-                    className="h-8 w-8 rounded-xl border border-indigo-100 bg-white/90 hover:bg-indigo-50 text-[#4C1D95] flex items-center justify-center cursor-pointer transition-colors shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={refreshing || loading}
+                  onClick={() => void loadRoomMessages(activeRoomId, true)}
+                  aria-label="Muat ulang percakapan"
+                  title="Sinkronkan percakapan & kontak"
+                  className="h-8 w-8 rounded-xl border border-indigo-100 bg-white/90 hover:bg-indigo-50 text-[#4C1D95] flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
               </div>
 
-              {/* Filter Tab: Semua | Grup | Personal */}
-              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-indigo-50/75 border border-indigo-100/70">
-                {(
-                  [
-                    { id: 'semua', label: 'Semua', badge: totalGroupUnread + totalPersonalUnread },
-                    { id: 'grup', label: 'Grup', badge: totalGroupUnread },
-                    { id: 'personal', label: 'Personal', badge: totalPersonalUnread },
-                  ] as const
-                ).map((tab) => {
-                  const active = scopeFilter === tab.id && !pickerOpen;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => {
-                        setPickerOpen(false);
-                        setScopeFilter(tab.id);
-                      }}
-                      className={`py-1 px-2 rounded-lg text-[11px] font-semibold inline-flex items-center justify-center gap-1 cursor-pointer transition-all truncate ${
-                        active
-                          ? 'bg-white text-[#312E81] shadow-2xs'
-                          : 'text-slate-600 hover:text-[#312E81]'
-                      }`}
-                    >
-                      <span className="truncate">{tab.label}</span>
-                      {tab.badge > 0 && (
-                        <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
-                          {tab.badge > 99 ? '99+' : tab.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              {/* Tab Utama 2 Pilihan: DM | Group */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-indigo-50/85 border border-indigo-100/80">
+                <button
+                  type="button"
+                  onClick={() => setPrimaryTab('dm')}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                    primaryTab === 'dm'
+                      ? 'bg-white text-[#312E81] shadow-2xs ring-1 ring-indigo-100'
+                      : 'text-slate-600 hover:text-[#312E81]'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 shrink-0" />
+                  <span>DM</span>
+                  {totalPersonalUnread > 0 && (
+                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
+                      {totalPersonalUnread > 99 ? '99+' : totalPersonalUnread}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrimaryTab('group')}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                    primaryTab === 'group'
+                      ? 'bg-white text-[#312E81] shadow-2xs ring-1 ring-indigo-100'
+                      : 'text-slate-600 hover:text-[#312E81]'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span>Group</span>
+                  {totalGroupUnread > 0 && (
+                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
+                      {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* div:nth-of-type(2) — Daftar Ruang Grup, Thread DM, atau Direktori Kontak Personal (Anti-Terpotong!) */}
-            <div
-              className={
-                pickerOpen
-                  ? 'p-2.5 sm:p-3 flex flex-col gap-2 overflow-y-auto min-w-0 flex-1 max-h-[240px] md:max-h-none md:min-h-0 overscroll-contain'
-                  : isFloating
-                    ? 'p-2.5 flex flex-col gap-2 overflow-y-auto min-w-0 flex-1 min-h-0 overscroll-contain'
-                    : 'p-2.5 sm:p-3 flex flex-nowrap md:flex-col gap-2 overflow-x-auto md:overflow-x-hidden md:overflow-y-auto min-w-0 md:flex-1 md:min-h-0 no-scrollbar overscroll-contain'
-              }
-            >
-              {pickerOpen ? (
-                <div className="space-y-2 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-bold text-[#4C1D95] truncate">
-                      Pilih Kontak untuk Chat Personal
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setPickerOpen(false)}
-                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 cursor-pointer shrink-0"
-                    >
-                      Tutup
-                    </button>
-                  </div>
-
-                  <div className="relative min-w-0">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="search"
-                      value={contactSearch}
-                      onChange={(e) => setContactSearch(e.target.value)}
-                      placeholder="Cari nama, blok, atau jabatan..."
-                      className="w-full min-h-[36px] rounded-xl border border-indigo-200/80 bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1">
-                    {(
-                      [
-                        { id: 'semua', label: 'Semua' },
-                        { id: 'admin', label: 'Pengurus' },
-                        { id: 'petugas', label: 'Keamanan' },
-                        { id: 'warga', label: 'Warga' },
-                      ] as const
-                    ).map((rf) => (
-                      <button
-                        key={rf.id}
-                        type="button"
-                        onClick={() => setContactRoleFilter(rf.id)}
-                        className={`px-2 py-1 rounded-lg text-[10.5px] font-semibold cursor-pointer transition-colors ${
-                          contactRoleFilter === rf.id
-                            ? 'bg-[#3730A3] text-white'
-                            : 'bg-white border border-indigo-100 text-slate-600 hover:bg-indigo-50'
-                        }`}
-                      >
-                        {rf.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-1.5 min-w-0">
-                    {filteredContacts.length === 0 ? (
-                      <p className="text-xs text-slate-500 py-4 text-center">
-                        Kontak tidak ditemukan.
-                      </p>
-                    ) : (
-                      filteredContacts.slice(0, 60).map((contact) => {
-                        const badge = getRoleBadgeStyle(contact.role);
-                        return (
-                          <button
-                            key={contact.participant_id}
-                            type="button"
-                            onClick={() => handleStartPersonalChat(contact)}
-                            className="w-full text-left px-2.5 py-2 rounded-xl bg-white/90 hover:bg-indigo-50/90 border border-indigo-100/80 flex items-center gap-2.5 transition-colors cursor-pointer min-w-0"
-                          >
-                            <UserAvatar
-                              name={contact.display_name}
-                              src={resolveContactAvatar(contact)}
-                              size="xs"
-                              className="shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <p className="text-xs font-bold text-[#0F172A] truncate">
-                                  {contact.display_name}
-                                </p>
-                                <span
-                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none shrink-0 ${badge.badgeClass}`}
-                                >
-                                  {badge.label}
-                                </span>
-                              </div>
-                              <p className="text-[10.5px] text-slate-500 truncate mt-0.5">
-                                {contact.subtitle}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              ) : (
+            {/* div:nth-of-type(2) — Isi Tab DM (Threads + Daftar Kontak Lengkap + Blok) atau Tab Group */}
+            <div className="p-2.5 sm:p-3 flex flex-col gap-2.5 overflow-y-auto min-w-0 flex-1 min-h-0 overscroll-contain">
+              {primaryTab === 'dm' ? (
                 <>
-                  {/* Bagian Grup */}
-                  {scopeFilter !== 'personal' && (
-                    <>
-                      {accessibleRooms.map((room) => {
-                        const RoomIcon = getRoomIcon(room.id);
-                        const isActive = room.id === activeRoomId;
-                        const unread = unreadByRoom[room.id] || 0;
-                        return (
-                          <button
-                            key={room.id}
-                            type="button"
-                            onClick={() => handleSelectRoom(room.id)}
-                            className={`${
-                              isFloating
-                                ? 'w-full'
-                                : 'shrink-0 md:shrink md:w-full'
-                            } text-left px-3 py-2 sm:py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
-                              isActive
-                                ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
-                                : 'bg-white/85 hover:bg-white border-indigo-100/60 hover:border-indigo-200 text-slate-700'
-                            }`}
-                          >
-                            <span
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                                isActive
-                                  ? `bg-gradient-to-tr ${room.accentClass} text-white shadow-xs`
-                                  : 'bg-indigo-50 text-[#4C1D95]'
-                              }`}
-                            >
-                              <RoomIcon className="w-4 h-4" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-bold leading-tight whitespace-nowrap md:whitespace-normal md:truncate">
-                                  <span className={isFloating ? 'hidden' : 'md:hidden'}>
-                                    {room.shortLabel}
-                                  </span>
-                                  <span className={isFloating ? 'inline' : 'hidden md:inline'}>
-                                    {room.label}
-                                  </span>
-                                </p>
-                                {unread > 0 && !isActive && (
-                                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
-                                    {unread > 99 ? '99+' : unread}
-                                  </span>
-                                )}
-                              </div>
-                              <p
-                                className={`${
-                                  isFloating ? 'block' : 'hidden md:block'
-                                } text-[10.5px] text-slate-500 truncate mt-0.5`}
-                              >
-                                {room.participantsLabel}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
+                  {/* Pencarian & Filter Peran Penerima DM */}
+                  <div className="space-y-2 shrink-0 min-w-0">
+                    <div className="relative min-w-0">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={contactSearch}
+                        onChange={(e) => setContactSearch(e.target.value)}
+                        placeholder="Cari nama, blok B3/7, atau jabatan..."
+                        className="w-full min-h-[36px] rounded-xl border border-indigo-200/80 bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
+                      />
+                    </div>
 
-                  {/* Bagian Chat Personal / Individu (DM) */}
-                  {scopeFilter !== 'grup' && (
-                    <>
-                      {visibleDmThreads.length > 0 && (
-                        <p
-                          className={`${
-                            isFloating ? 'block' : 'hidden md:block'
-                          } px-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400`}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(
+                        [
+                          { id: 'semua', label: `Semua (${roleCounts.total})` },
+                          { id: 'admin', label: `Pengurus (${roleCounts.admin})` },
+                          { id: 'petugas', label: `Keamanan (${roleCounts.petugas})` },
+                          { id: 'warga', label: `Warga (${roleCounts.warga})` },
+                        ] as const
+                      ).map((rf) => (
+                        <button
+                          key={rf.id}
+                          type="button"
+                          onClick={() => setContactRoleFilter(rf.id)}
+                          className={`px-2 py-1 rounded-lg text-[10.5px] font-semibold cursor-pointer transition-colors ${
+                            contactRoleFilter === rf.id
+                              ? 'bg-[#3730A3] text-white'
+                              : 'bg-white border border-indigo-100 text-slate-600 hover:bg-indigo-50'
+                          }`}
                         >
-                          Chat Personal (1-on-1)
-                        </p>
-                      )}
+                          {rf.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
+                  {/* Riwayat DM Aktif */}
+                  {!contactSearch.trim() && contactRoleFilter === 'semua' && visibleDmThreads.length > 0 && (
+                    <div className="space-y-1.5 min-w-0">
+                      <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Percakapan DM Aktif
+                      </p>
                       {visibleDmThreads.map((thread) => {
                         const isActive = thread.room_id === activeRoomId;
                         const unread = unreadByRoom[thread.room_id] ?? thread.unread_count ?? 0;
                         const badge = getRoleBadgeStyle(thread.peer_role);
                         return (
                           <button
-                            key={thread.room_id}
+                            key={`thread:${thread.room_id}`}
                             type="button"
                             onClick={() =>
                               handleSelectRoom(thread.room_id, {
@@ -786,12 +695,10 @@ export function CommunityChatSlide({
                                 avatar_url: thread.peer_avatar_url,
                               })
                             }
-                            className={`${
-                              isFloating ? 'w-full' : 'shrink-0 md:shrink md:w-full'
-                            } text-left px-3 py-2 sm:py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
+                            className={`w-full text-left px-2.5 py-2 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
                               isActive
                                 ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
-                                : 'bg-white/85 hover:bg-white border-indigo-100/60 hover:border-indigo-200 text-slate-700'
+                                : 'bg-white/90 hover:bg-white border-indigo-100/70 hover:border-indigo-200 text-slate-700'
                             }`}
                           >
                             <UserAvatar
@@ -801,8 +708,8 @@ export function CommunityChatSlide({
                               className="shrink-0"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-1.5">
-                                <p className="text-xs font-bold leading-tight whitespace-nowrap md:whitespace-normal md:truncate">
+                              <div className="flex items-center justify-between gap-1.5 min-w-0">
+                                <p className="text-xs font-bold leading-tight truncate text-[#0F172A]">
                                   {thread.peer_name}
                                 </p>
                                 {unread > 0 && !isActive && (
@@ -811,13 +718,9 @@ export function CommunityChatSlide({
                                   </span>
                                 )}
                               </div>
-                              <p
-                                className={`${
-                                  isFloating ? 'flex' : 'hidden md:flex'
-                                } items-center gap-1 text-[10.5px] text-slate-500 truncate mt-0.5`}
-                              >
+                              <p className="flex items-center gap-1.5 text-[10.5px] text-slate-500 truncate mt-0.5">
                                 <span
-                                  className={`px-1 py-px rounded text-[9px] font-bold border leading-none shrink-0 ${badge.badgeClass}`}
+                                  className={`px-1.5 py-px rounded text-[9px] font-bold border leading-none shrink-0 ${badge.badgeClass}`}
                                 >
                                   {badge.label}
                                 </span>
@@ -827,25 +730,123 @@ export function CommunityChatSlide({
                           </button>
                         );
                       })}
-
-                      {scopeFilter === 'personal' && visibleDmThreads.length === 0 && (
-                        <div className="w-full py-4 px-3 text-center space-y-2">
-                          <p className="text-xs text-slate-500">
-                            Belum ada percakapan pribadi.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setPickerOpen(true)}
-                            className="px-3 py-1.5 rounded-xl bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <User className="w-3.5 h-3.5" />
-                            <span>Pilih Pengurus / Keamanan / Warga</span>
-                          </button>
-                        </div>
-                      )}
-                    </>
+                    </div>
                   )}
+
+                  {/* Semua Daftar Penerima DM (Pengurus, Keamanan, & Warga lengkap dengan Blok Rumah & Peran) */}
+                  <div className="space-y-1.5 min-w-0">
+                    <p className="px-1 pt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Daftar Penerima DM ({filteredContacts.length})
+                    </p>
+                    {filteredContacts.length === 0 ? (
+                      <p className="text-xs text-slate-500 py-6 text-center">
+                        Kontak tidak ditemukan.
+                      </p>
+                    ) : (
+                      filteredContacts.map((contact) => {
+                        const dmRoomId = buildDmRoomId(myParticipantId, contact.participant_id);
+                        const isActive = dmRoomId === activeRoomId;
+                        const badge = getRoleBadgeStyle(contact.role, contact.role_label);
+                        return (
+                          <button
+                            key={contact.dedup_key || contact.participant_id}
+                            type="button"
+                            onClick={() => handleStartPersonalChat(contact)}
+                            className={`w-full text-left px-2.5 py-2 rounded-2xl border flex items-center gap-2.5 transition-colors cursor-pointer min-w-0 ${
+                              isActive
+                                ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80'
+                                : 'bg-white/90 hover:bg-indigo-50/75 border-indigo-100/75'
+                            }`}
+                          >
+                            <UserAvatar
+                              name={contact.display_name}
+                              src={resolveContactAvatar(contact)}
+                              size="xs"
+                              className="shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1.5 min-w-0">
+                                <p className="text-xs font-bold text-[#0F172A] truncate">
+                                  {contact.display_name}
+                                </p>
+                                {contact.unit_label && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 font-mono text-[9.5px] font-bold text-slate-700 shrink-0 whitespace-nowrap">
+                                    {contact.unit_label}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                <span
+                                  className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border leading-none shrink-0 ${badge.badgeClass}`}
+                                >
+                                  {badge.label}
+                                </span>
+                                <span className="text-[10.5px] text-slate-500 truncate">
+                                  {contact.subtitle}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </>
+              ) : (
+                /* Tab Group — Keanggotaan Ketat Berdasarkan Peran */
+                <div className="space-y-2 min-w-0">
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Grup Khusus Sesuai Peran ({accessibleRooms.length})
+                  </p>
+                  {accessibleRooms.map((room) => {
+                    const RoomIcon = getRoomIcon(room.id);
+                    const isActive = room.id === activeRoomId;
+                    const unread = unreadByRoom[room.id] || 0;
+                    const memberCount = getGroupMembers(room.id, session, contacts).length;
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => handleSelectRoom(room.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
+                            : 'bg-white/90 hover:bg-white border-indigo-100/70 hover:border-indigo-200 text-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isActive
+                              ? `bg-gradient-to-tr ${room.accentClass} text-white shadow-xs`
+                              : 'bg-indigo-50 text-[#4C1D95]'
+                          }`}
+                        >
+                          <RoomIcon className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2 min-w-0">
+                            <p className="text-xs font-bold leading-tight truncate text-[#0F172A]">
+                              {room.label}
+                            </p>
+                            {unread > 0 && !isActive && (
+                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-1.5 mt-0.5 min-w-0">
+                            <p className="text-[10.5px] text-slate-500 truncate">
+                              {room.participantsLabel}
+                            </p>
+                            <span className="text-[10px] font-mono font-semibold text-indigo-700/80 shrink-0 tabular-nums">
+                              {memberCount} anggota
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </aside>
@@ -856,9 +857,9 @@ export function CommunityChatSlide({
               isFloating && floatingView === 'list' ? 'hidden' : 'flex'
             } flex-1 flex-col min-w-0 min-h-0 overflow-hidden bg-gradient-to-b from-white/40 via-indigo-50/20 to-sky-50/25`}
           >
-            {/* Header Ruang / DM Aktif */}
+            {/* Header Ruang Group / DM Aktif */}
             <div className="border-b border-indigo-100/70 bg-white/75 backdrop-blur-md shrink-0 min-w-0">
-              <div className="px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2 min-w-0">
+              <div className="px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {isFloating && (
                     <button
@@ -888,12 +889,12 @@ export function CommunityChatSlide({
                       {activeDmPeer ? (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-semibold text-[#4C1D95] shrink-0">
                           <Lock className="w-2.5 h-2.5" />
-                          <span>Privat</span>
+                          <span>DM</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[9.5px] font-semibold text-emerald-700 shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>Real-time</span>
+                          <span>Group</span>
                         </span>
                       )}
                     </div>
@@ -903,10 +904,22 @@ export function CommunityChatSlide({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                  <span className="hidden sm:inline-flex text-[11px] font-mono text-slate-400 shrink-0 tabular-nums">
-                    {messages.length} pesan
-                  </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {activeGroupRoom && (
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupMembers((v) => !v)}
+                      title="Lihat daftar anggota sah grup ini"
+                      className={`h-8 px-2 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0 transition-colors ${
+                        showGroupMembers
+                          ? 'bg-[#312E81] text-white border-[#312E81]'
+                          : 'bg-white/90 hover:bg-indigo-50 text-[#312E81] border-indigo-100'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5 shrink-0" />
+                      <span className="font-mono tabular-nums">{activeGroupMembers.length}</span>
+                    </button>
+                  )}
 
                   {messages.length > 0 && (
                     <button
@@ -928,10 +941,56 @@ export function CommunityChatSlide({
                 </div>
               </div>
 
+              {/* Panel Daftar Anggota Grup (Verifikasi Keanggotaan Ketat) */}
+              {activeGroupRoom && showGroupMembers && (
+                <div className="px-3 sm:px-4 py-2.5 border-t border-indigo-100 bg-indigo-50/70 max-h-44 overflow-y-auto space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10.5px] font-bold text-[#312E81]">
+                      Anggota {activeGroupRoom.label} ({activeGroupRoom.participantsLabel})
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupMembers(false)}
+                      className="text-[10.5px] font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {activeGroupMembers.map((member) => {
+                      const mb = getRoleBadgeStyle(member.role, member.role_label);
+                      return (
+                        <div
+                          key={`gm:${member.dedup_key || member.participant_id}`}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-white/90 border border-indigo-100/80 min-w-0"
+                        >
+                          <UserAvatar
+                            name={member.display_name}
+                            src={resolveContactAvatar(member)}
+                            size="xs"
+                            className="shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-[#0F172A] truncate">
+                              {member.display_name}
+                              {member.isSelf ? ' (Anda)' : ''}
+                            </p>
+                            <p className="text-[9.5px] text-slate-500 truncate">
+                              {mb.label}
+                              {member.unit_label ? ` · ${member.unit_label}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {confirmClearRoom && messages.length > 0 && (
-                <div className="px-3 sm:px-5 py-2 border-t border-rose-100 bg-rose-50/90 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="px-3 sm:px-4 py-2 border-t border-rose-100 bg-rose-50/90 flex flex-wrap items-center justify-between gap-2 text-xs">
                   <p className="text-[11px] sm:text-xs font-semibold text-rose-800">
-                    Bersihkan semua pesan di {activeDmPeer ? `chat dengan ${activeDmPeer.display_name}` : activeTitle}?
+                    Bersihkan semua pesan di {activeDmPeer ? `DM dengan ${activeDmPeer.display_name}` : activeTitle}?
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                     <button
@@ -970,7 +1029,7 @@ export function CommunityChatSlide({
             </div>
 
             {/* Daftar Pesan */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 py-3.5 space-y-3 overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3.5 space-y-3 overscroll-contain">
               {loading ? (
                 <div className="h-full flex flex-col items-center justify-center py-10 text-slate-500 gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#4C1D95]" />
@@ -979,15 +1038,15 @@ export function CommunityChatSlide({
               ) : messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-8 text-center px-4">
                   <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#4C1D95]">
-                    {activeDmPeer ? <User className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                    {activeDmPeer ? <User className="w-5 h-5" /> : <Users className="w-5 h-5" />}
                   </div>
                   <h4 className="text-xs sm:text-sm font-bold text-[#0F172A] mt-3">
                     Belum Ada Pesan {activeDmPeer ? `dengan ${activeDmPeer.display_name}` : `di ${activeTitle}`}
                   </h4>
                   <p className="text-[11px] sm:text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
                     {activeDmPeer
-                      ? 'Percakapan ini bersifat pribadi antara Anda berdua dan tersinkronisasi real-time.'
-                      : `Mulai koordinasi langsung bersama ${activeGroupRoom?.participantsLabel.toLowerCase() || 'anggota ruang ini'}.`}
+                      ? `Pesan langsung 1-on-1 (${activeDmPeer.subtitle}) bersifat privat dan real-time.`
+                      : `Anggota grup ini terbatas hanya untuk ${activeGroupRoom?.participantsLabel.toLowerCase() || 'peran terkait'}.`}
                   </p>
                 </div>
               ) : (
@@ -1015,11 +1074,10 @@ export function CommunityChatSlide({
                       )}
 
                       <div
-                        className={`max-w-[85%] sm:max-w-[76%] flex flex-col min-w-0 ${
+                        className={`max-w-[85%] sm:max-w-[78%] flex flex-col min-w-0 ${
                           isMine ? 'items-end' : 'items-start'
                         }`}
                       >
-                        {/* Identitas Pengirim */}
                         <div
                           className={`flex flex-wrap items-center gap-1.5 mb-1 px-1 ${
                             isMine ? 'justify-end' : 'justify-start'
@@ -1040,7 +1098,6 @@ export function CommunityChatSlide({
                           )}
                         </div>
 
-                        {/* Gelembung Pesan */}
                         <div
                           className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full ${
                             isMine

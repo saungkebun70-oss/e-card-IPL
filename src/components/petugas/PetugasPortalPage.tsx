@@ -103,11 +103,11 @@ import {
   findActiveOverrideForOfficer,
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
-import { CommunityChatSlide } from '../CommunityChatSlide';
 import { FloatingChatWidget } from '../FloatingChatWidget';
 import {
   fetchChatUnreadSummary,
   subscribeChatMessagesRealtime,
+  type ChatRoomId,
 } from '../../lib/chatService';
 
 interface PetugasPortalPageProps {
@@ -117,7 +117,7 @@ interface PetugasPortalPageProps {
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
-type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta' | 'chat';
+type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta';
 
 function isSameLocalDay(isoDate: string): boolean {
   const d = new Date(isoDate);
@@ -150,10 +150,6 @@ const TAB_TITLES: Record<PetugasTab, { title: string; subtitle: string }> = {
     title: 'Peta Patroli Real-Time',
     subtitle: 'Pantau titik merah (belum scan) & hijau (terverifikasi)',
   },
-  chat: {
-    title: 'Chat Lingkungan',
-    subtitle: 'Koordinasi langsung dengan Pengurus & Warga Saung Kebun',
-  },
 };
 
 export function PetugasPortalPage({
@@ -169,6 +165,8 @@ export function PetugasPortalPage({
   const [refreshing, setRefreshing] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [chatInitialRoomId, setChatInitialRoomId] = useState<ChatRoomId | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [riwayatFilter, setRiwayatFilter] = useState<'hari_ini' | 'semua'>('hari_ini');
   const [resettingCycle, setResettingCycle] = useState(false);
@@ -997,17 +995,24 @@ export function PetugasPortalPage({
 
   const handleNotificationNavigate = (targetUrl: string) => {
     if (!targetUrl) return;
+    if (targetUrl.startsWith('chat:')) {
+      const roomId = targetUrl.slice('chat:'.length) as ChatRoomId;
+      if (roomId) setChatInitialRoomId(roomId);
+      setChatModalOpen(true);
+      return;
+    }
     if (targetUrl.startsWith('tab:')) {
       const targetTab = targetUrl.replace('tab:', '');
-      if (targetTab === 'keamanan') {
+      if (targetTab === 'chat') {
+        setChatModalOpen(true);
+      } else if (targetTab === 'keamanan') {
         handleSelectTab('peta');
       } else if (
         targetTab === 'info' ||
         targetTab === 'riwayat' ||
         targetTab === 'scan' ||
         targetTab === 'honor' ||
-        targetTab === 'peta' ||
-        targetTab === 'chat'
+        targetTab === 'peta'
       ) {
         handleSelectTab(targetTab);
       }
@@ -1148,16 +1153,19 @@ export function PetugasPortalPage({
         </p>
         <button
           type="button"
-          onClick={() => handleSelectTabFromSidebar('chat')}
+          onClick={() => {
+            setSidebarOpen(false);
+            setChatModalOpen(true);
+          }}
           className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
-            activeTab === 'chat'
+            chatModalOpen
               ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
               : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
           }`}
         >
           <span
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-              activeTab === 'chat'
+              chatModalOpen
                 ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
                 : 'bg-sky-50 text-[#0284C7]'
             }`}
@@ -1165,12 +1173,12 @@ export function PetugasPortalPage({
             <MessageSquare className="w-[18px] h-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate leading-tight">Chat Lingkungan</p>
+            <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
-              Pengurus &amp; Warga
+              DM &amp; Group (Pengurus · Warga)
             </p>
           </div>
-          {unreadChatCount > 0 && activeTab !== 'chat' && (
+          {unreadChatCount > 0 && !chatModalOpen && (
             <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
               {unreadChatCount > 99 ? '99+' : unreadChatCount}
             </span>
@@ -1386,17 +1394,17 @@ export function PetugasPortalPage({
 
             <button
               type="button"
-              onClick={() => handleSelectTab('chat')}
-              aria-label="Buka Chat Lingkungan"
-              title="Chat Lingkungan (Pengurus & Warga)"
+              onClick={() => setChatModalOpen((prev) => !prev)}
+              aria-label="Buka Chat Cepat Saung Kebun"
+              title="Chat Cepat (DM & Group)"
               className={`relative h-10 w-10 rounded-full border flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
-                activeTab === 'chat'
+                chatModalOpen
                   ? 'bg-white text-[#312E81] border-white shadow-xs'
                   : 'bg-white/10 hover:bg-white/20 border-white/15 text-sky-100'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              {unreadChatCount > 0 && activeTab !== 'chat' && (
+              {unreadChatCount > 0 && !chatModalOpen && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
                   {unreadChatCount > 9 ? '9+' : unreadChatCount}
                 </span>
@@ -2275,10 +2283,6 @@ export function PetugasPortalPage({
                 </button>
               </div>
             )}
-
-            {activeTab === 'chat' && (
-              <CommunityChatSlide session={session} onToast={onToast} />
-            )}
           </>
         )}
         </div>
@@ -2286,12 +2290,13 @@ export function PetugasPortalPage({
         </div>
       </main>
 
-      {/* IKON CHAT MELAYANG + PANEL CHAT PERSONAL & GRUP */}
+      {/* IKON CHAT MELAYANG + PANEL CHAT CEPAT (DM & GROUP) */}
       <FloatingChatWidget
         session={session}
         unreadCount={unreadChatCount}
-        hidden={activeTab === 'chat'}
-        onOpenFullChatTab={() => handleSelectTab('chat')}
+        open={chatModalOpen}
+        onOpenChange={setChatModalOpen}
+        initialRoomId={chatInitialRoomId}
         onToast={onToast}
       />
 

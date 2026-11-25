@@ -54,7 +54,9 @@ interface AppShellProps {
   onOpenSettings?: () => void;
   onOpenProfile?: () => void;
   onNavigateTarget?: (targetUrl: string) => void;
-  onOpenChatRoom?: (roomId?: ChatRoomId) => void;
+  chatOpen?: boolean;
+  onChatOpenChange?: (open: boolean) => void;
+  chatInitialRoomId?: ChatRoomId | null;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
   avatarUrl?: string | null;
   headerAction?: React.ReactNode;
@@ -70,7 +72,9 @@ export function AppShell({
   onOpenSettings,
   onOpenProfile,
   onNavigateTarget,
-  onOpenChatRoom,
+  chatOpen: controlledChatOpen,
+  onChatOpenChange,
+  chatInitialRoomId,
   onToast,
   avatarUrl,
   headerAction,
@@ -78,9 +82,20 @@ export function AppShell({
 }: AppShellProps) {
   const { brand } = useAppBrand();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [internalChatOpen, setInternalChatOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [pendingBugCount, setPendingBugCount] = useState<number>(0);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+
+  const isChatModalOpen = controlledChatOpen !== undefined ? controlledChatOpen : internalChatOpen;
+  const setChatModalOpen = (next: boolean) => {
+    if (onChatOpenChange) {
+      onChatOpenChange(next);
+    }
+    if (controlledChatOpen === undefined) {
+      setInternalChatOpen(next);
+    }
+  };
 
   const isAdmin = session.role === 'admin';
   const isWarga = session.role === 'warga';
@@ -90,7 +105,6 @@ export function AppShell({
   const isLpjActive = activeTab === 'lpj';
   const isBugReportsActive = activeTab === 'laporan_bug';
   const isProfilActive = activeTab === 'profil';
-  const isChatActive = activeTab === 'chat';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
   // Batasi dock bawah maksimal 5 ikon agar Dual-Ring Floating Orb Dock selalu simetris
@@ -182,15 +196,13 @@ export function AppShell({
     };
   }, [sessionKey]);
 
-  const activePageTitle = isChatActive
-    ? 'Chat Lingkungan'
-    : isLpjActive
-      ? 'Laporan Pertanggungjawaban (LPJ)'
-      : isBugReportsActive
-        ? 'Laporan Bug'
-        : isProfilActive
-          ? 'Profil & Akun Warga'
-          : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
+  const activePageTitle = isLpjActive
+    ? 'Laporan Pertanggungjawaban (LPJ)'
+    : isBugReportsActive
+      ? 'Laporan Bug'
+      : isProfilActive
+        ? 'Profil & Akun Warga'
+        : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -293,16 +305,19 @@ export function AppShell({
         {/* Chat Lingkungan Real-Time (Pengurus, Warga & Keamanan) */}
         <button
           type="button"
-          onClick={() => handleSelectNav('chat')}
+          onClick={() => {
+            setDrawerOpen(false);
+            setChatModalOpen(true);
+          }}
           className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
-            isChatActive
+            isChatModalOpen
               ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
               : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
           }`}
         >
           <span
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              isChatActive
+              isChatModalOpen
                 ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
                 : 'bg-sky-50 text-[#0284C7]'
             }`}
@@ -310,12 +325,12 @@ export function AppShell({
             <MessageSquare className="w-[18px] h-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate leading-tight">Chat Lingkungan</p>
+            <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
-              Pengurus · Warga · Keamanan
+              DM &amp; Group (Pengurus · Warga · Keamanan)
             </p>
           </div>
-          {unreadChatCount > 0 && (
+          {unreadChatCount > 0 && !isChatModalOpen && (
             <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
               {unreadChatCount > 99 ? '99+' : unreadChatCount}
             </span>
@@ -683,17 +698,17 @@ export function AppShell({
 
             <button
               type="button"
-              onClick={() => handleSelectNav('chat')}
-              aria-label="Buka Chat Lingkungan"
-              title="Chat Lingkungan (Pengurus, Warga & Keamanan)"
+              onClick={() => setChatModalOpen(!isChatModalOpen)}
+              aria-label="Buka Chat Cepat Saung Kebun"
+              title="Chat Cepat (DM & Group)"
               className={`relative h-9 w-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                isChatActive
+                isChatModalOpen
                   ? 'border-sky-300 bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
                   : 'border-indigo-200/70 bg-white/80 hover:bg-white text-[var(--theme-text-secondary)] hover:text-[#312E81]'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              {unreadChatCount > 0 && !isChatActive && (
+              {unreadChatCount > 0 && !isChatModalOpen && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
                   {unreadChatCount > 9 ? '9+' : unreadChatCount}
                 </span>
@@ -767,18 +782,13 @@ export function AppShell({
         </div>
       </main>
 
-      {/* IKON CHAT MELAYANG + PANEL CHAT PERSONAL & GRUP */}
+      {/* IKON CHAT MELAYANG + PANEL CHAT CEPAT (DM & GROUP) */}
       <FloatingChatWidget
         session={session}
         unreadCount={unreadChatCount}
-        hidden={isChatActive}
-        onOpenFullChatTab={(roomId) => {
-          if (onOpenChatRoom) {
-            onOpenChatRoom(roomId);
-          } else {
-            handleSelectNav('chat');
-          }
-        }}
+        open={isChatModalOpen}
+        onOpenChange={setChatModalOpen}
+        initialRoomId={chatInitialRoomId}
         onToast={onToast}
       />
 

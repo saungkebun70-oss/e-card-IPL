@@ -59,7 +59,6 @@ import {
   type SettingsDrawerTab,
 } from './components/admin/AdminSettingsDrawer';
 import { KeamananSlide } from './components/KeamananSlide';
-import { CommunityChatSlide } from './components/CommunityChatSlide';
 import type { ChatRoomId } from './lib/chatService';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
 import {
@@ -249,6 +248,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>(() =>
     initialAuthRef.current?.session?.role === 'admin' ? 'dashboard' : 'beranda'
   );
+  const [chatModalOpen, setChatModalOpen] = useState(false);
   const [initialChatRoomId, setInitialChatRoomId] = useState<ChatRoomId | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
@@ -755,14 +755,18 @@ export default function App() {
         const roomId = targetUrl.slice('chat:'.length) as ChatRoomId;
         setSettingsOpen(false);
         if (roomId) setInitialChatRoomId(roomId);
-        handleTabChange('chat');
+        setChatModalOpen(true);
         return;
       }
       if (targetUrl.startsWith('tab:')) {
         const tabId = targetUrl.replace('tab:', '');
         setSettingsOpen(false);
-        const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil', 'chat'];
-        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj', 'laporan_bug', 'chat'];
+        if (tabId === 'chat') {
+          setChatModalOpen(true);
+          return;
+        }
+        const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil'];
+        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj', 'laporan_bug'];
         if (session.role === 'warga' && wargaValid.includes(tabId)) {
           handleTabChange(tabId);
         } else if (session.role === 'admin' && adminValid.includes(tabId)) {
@@ -798,6 +802,7 @@ export default function App() {
     void removeCurrentDevicePushToken(session);
     clearStoredSession(session, portalRoute);
     setSession(null);
+    setChatModalOpen(false);
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;
@@ -818,6 +823,7 @@ export default function App() {
     }
     setPortalRoute(nextRoute);
     setSession(loadStoredSession(nextRoute));
+    setChatModalOpen(false);
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;
@@ -1025,14 +1031,6 @@ export default function App() {
               onLogout={handleLogout}
             />
           );
-        case 'chat':
-          return (
-            <CommunityChatSlide
-              session={session}
-              initialRoomId={initialChatRoomId}
-              onToast={pushToast}
-            />
-          );
         default:
           return null;
       }
@@ -1135,14 +1133,6 @@ export default function App() {
               onToast={pushToast}
             />
           );
-        case 'chat':
-          return (
-            <CommunityChatSlide
-              session={session}
-              initialRoomId={initialChatRoomId}
-              onToast={pushToast}
-            />
-          );
         default:
           return null;
       }
@@ -1178,10 +1168,9 @@ export default function App() {
           }
         }}
         onNavigateTarget={handleNavigateNotificationTarget}
-        onOpenChatRoom={(roomId) => {
-          if (roomId) setInitialChatRoomId(roomId);
-          handleTabChange('chat');
-        }}
+        chatOpen={chatModalOpen}
+        onChatOpenChange={setChatModalOpen}
+        chatInitialRoomId={initialChatRoomId}
         onToast={pushToast}
         onOpenSettings={
           session.role === 'admin'
