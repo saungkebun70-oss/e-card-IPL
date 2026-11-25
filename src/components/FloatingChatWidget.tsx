@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { SessionUser } from '../types';
@@ -15,6 +15,147 @@ interface FloatingChatWidgetProps {
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
+interface FloatingPosition {
+  x: number;
+  y: number;
+}
+
+interface StoredFloatingPosition extends FloatingPosition {
+  vw: number;
+  vh: number;
+}
+
+const FLOATING_CHAT_POS_STORAGE_KEY = 'ecard_floating_chat_btn_pos_v1';
+const DRAG_THRESHOLD_PX = 6;
+const EDGE_MARGIN_PX = 14;
+
+function readSafeAreaInsets(): { top: number; bottom: number; left: number; right: number } {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body) {
+    return { top: 0, bottom: 0, left: 0, right: 0 };
+  }
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;' +
+    'padding-top:env(safe-area-inset-top,0px);' +
+    'padding-bottom:env(safe-area-inset-bottom,0px);' +
+    'padding-left:env(safe-area-inset-left,0px);' +
+    'padding-right:env(safe-area-inset-right,0px);';
+  document.body.appendChild(probe);
+  const style = window.getComputedStyle(probe);
+  const top = parseFloat(style.paddingTop) || 0;
+  const bottom = parseFloat(style.paddingBottom) || 0;
+  const left = parseFloat(style.paddingLeft) || 0;
+  const right = parseFloat(style.paddingRight) || 0;
+  probe.remove();
+  return { top, bottom, left, right };
+}
+
+function getButtonSizeForViewport(vw: number): number {
+  return vw >= 640 ? 52 : 48;
+}
+
+function getSafeBounds(btnSize: number, vw: number, vh: number) {
+  const insets = readSafeAreaInsets();
+  const isMobileOrTabletDock = vw < 1024;
+  // Sisakan ruang atas agar tidak menutupi top header bar
+  const minY = Math.round(insets.top + (isMobileOrTabletDock ? 74 : 84));
+  // Sisakan ruang bawah agar tidak pernah tertutup / menumpuk di balik Floating Bottom Orb Dock (+ Kas)
+  const bottomReserve = isMobileOrTabletDock
+    ? Math.max(16, insets.bottom) + 98
+    : Math.max(16, insets.bottom) + 16;
+
+  const minX = Math.round(EDGE_MARGIN_PX + insets.left);
+  const maxX = Math.max(minX, Math.round(vw - btnSize - EDGE_MARGIN_PX - insets.right));
+  const maxY = Math.max(minY, Math.round(vh - btnSize - bottomReserve));
+
+  return { minX, maxX, minY, maxY, insets };
+}
+
+function clampPosition(
+  pos: FloatingPosition,
+  btnSize: number,
+  vw: number,
+  vh: number
+): FloatingPosition {
+  const { minX, maxX, minY, maxY } = getSafeBounds(btnSize, vw, vh);
+  return {
+    x: Math.min(maxX, Math.max(minX, Math.round(pos.x))),
+    y: Math.min(maxY, Math.max(minY, Math.round(pos.y))),
+  };
+}
+
+function getDefaultPosition(btnSize: number, vw: number, vh: number): FloatingPosition {
+  const { insets } = getSafeBounds(btnSize, vw, vh);
+  const rightMargin = (vw >= 640 ? 24 : 14) + insets.right;
+  const bottomOffset =
+    vw < 1024
+      ? Math.max(16, insets.bottom) + 98
+      : Math.max(16, insets.bottom) + 24;
+
+  return clampPosition(
+    {
+      x: vw - btnSize - rightMargin,
+      y: vh - btnSize - bottomOffset,
+    },
+    btnSize,
+    vw,
+    vh
+  );
+}
+
+function shouldResetForViewportChange(
+  prevW: number,
+  prevH: number,
+  nextW: number,
+  nextH: number
+): boolean {
+  const wasLandscape = prevW > prevH;
+  const isLandscape = nextW > nextH;
+  const wasDock = prevW < 1024;
+  const isDock = nextW < 1024;
+  const widthDelta = Math.abs(nextW - prevW);
+  return wasLandscape !== isLandscape || wasDock !== isDock || widthDelta > 120;
+}
+
+function loadInitialPosition(): FloatingPosition | null {
+  if (typeof window === 'undefined') return null;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const btnSize = getButtonSizeForViewport(vw);
+
+  try {
+    const raw = window.localStorage.getItem(FLOATING_CHAT_POS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<StoredFloatingPosition>;
+      if (
+        typeof parsed.x === 'number' &&
+        Number.isFinite(parsed.x) &&
+        typeof parsed.y === 'number' &&
+        Number.isFinite(parsed.y) &&
+        typeof parsed.vw === 'number' &&
+        typeof parsed.vh === 'number' &&
+        !shouldResetForViewportChange(parsed.vw, parsed.vh, vw, vh)
+      ) {
+        return clampPosition({ x: parsed.x, y: parsed.y }, btnSize, vw, vh);
+      }
+    }
+  } catch {
+    // Abaikan jika localStorage tidak tersedia
+  }
+
+  return getDefaultPosition(btnSize, vw, vh);
+}
+
+function savePosition(pos: FloatingPosition, vw: number, vh: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: StoredFloatingPosition = { x: pos.x, y: pos.y, vw, vh };
+    window.localStorage.setItem(FLOATING_CHAT_POS_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Abaikan kuota storage penuh
+  }
+}
+
 export function FloatingChatWidget({
   session,
   unreadCount,
@@ -25,26 +166,101 @@ export function FloatingChatWidget({
   onToast,
 }: FloatingChatWidgetProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [pos, setPos] = useState<FloatingPosition | null>(() => loadInitialPosition());
+  const [isDragging, setIsDragging] = useState(false);
+
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const suppressTimerRef = useRef<number | null>(null);
+  const lastViewportRef = useRef<{ vw: number; vh: number }>({
+    vw: typeof window !== 'undefined' ? window.innerWidth : 0,
+    vh: typeof window !== 'undefined' ? window.innerHeight : 0,
+  });
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+    latestPos: FloatingPosition;
+  } | null>(null);
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
-  const setOpen = (next: boolean | ((prev: boolean) => boolean)) => {
-    const resolved = typeof next === 'function' ? next(isOpen) : next;
-    if (onOpenChange) {
-      onOpenChange(resolved);
-    }
-    if (controlledOpen === undefined) {
-      setInternalOpen(resolved);
-    }
-  };
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === 'function' ? next(isOpen) : next;
+      if (onOpenChange) {
+        onOpenChange(resolved);
+      }
+      if (controlledOpen === undefined) {
+        setInternalOpen(resolved);
+      }
+    },
+    [controlledOpen, isOpen, onOpenChange]
+  );
+
+  // Sinkronkan posisi saat mount & saat ukuran layar / orientasi berubah (rotasi HP atau pindah tablet)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const ensurePosition = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const btnSize = buttonRef.current?.offsetWidth || getButtonSizeForViewport(vw);
+      setPos((prev) => {
+        if (!prev) {
+          const def = getDefaultPosition(btnSize, vw, vh);
+          savePosition(def, vw, vh);
+          return def;
+        }
+        return clampPosition(prev, btnSize, vw, vh);
+      });
+    };
+
+    ensurePosition();
+
+    const handleResize = () => {
+      const nextW = window.innerWidth;
+      const nextH = window.innerHeight;
+      const prevVp = lastViewportRef.current;
+      const btnSize = buttonRef.current?.offsetWidth || getButtonSizeForViewport(nextW);
+
+      const needReset =
+        prevVp.vw > 0 &&
+        prevVp.vh > 0 &&
+        shouldResetForViewportChange(prevVp.vw, prevVp.vh, nextW, nextH);
+
+      lastViewportRef.current = { vw: nextW, vh: nextH };
+
+      setPos((prev) => {
+        const nextPos =
+          needReset || !prev
+            ? getDefaultPosition(btnSize, nextW, nextH)
+            : clampPosition(prev, btnSize, nextW, nextH);
+        savePosition(nextPos, nextW, nextH);
+        return nextPos;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (suppressTimerRef.current !== null) {
+        window.clearTimeout(suppressTimerRef.current);
+      }
+    };
+  }, []);
 
   // Tutup panel chat melayang jika disembunyikan
   useEffect(() => {
     if (hidden && isOpen) {
       setOpen(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden]);
+  }, [hidden, isOpen, setOpen]);
 
   // Tangkap Escape & tombol Back Android saat chat melayang terbuka
   useEffect(() => {
@@ -65,8 +281,109 @@ export function FloatingChatWidget({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, setOpen]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const btnSize = e.currentTarget.offsetWidth || getButtonSizeForViewport(vw);
+    const currentPos = pos ?? getDefaultPosition(btnSize, vw, vh);
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Abaikan jika browser tidak mendukung setPointerCapture
+    }
+
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: currentPos.x,
+      originY: currentPos.y,
+      moved: false,
+      latestPos: currentPos,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    const distance = Math.hypot(dx, dy);
+
+    if (!drag.moved && distance <= DRAG_THRESHOLD_PX) {
+      return;
+    }
+
+    if (!drag.moved) {
+      drag.moved = true;
+      setIsDragging(true);
+    }
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const btnSize = e.currentTarget.offsetWidth || getButtonSizeForViewport(vw);
+    const clamped = clampPosition(
+      {
+        x: drag.originX + dx,
+        y: drag.originY + dy,
+      },
+      btnSize,
+      vw,
+      vh
+    );
+
+    drag.latestPos = clamped;
+    setPos(clamped);
+  };
+
+  const finishPointerInteraction = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // Abaikan jika sudah dilepas
+    }
+
+    if (drag.moved) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      savePosition(drag.latestPos, vw, vh);
+      suppressNextClickRef.current = true;
+      if (suppressTimerRef.current !== null) {
+        window.clearTimeout(suppressTimerRef.current);
+      }
+      suppressTimerRef.current = window.setTimeout(() => {
+        suppressNextClickRef.current = false;
+        suppressTimerRef.current = null;
+      }, 120);
+    }
+
+    dragStateRef.current = null;
+    setIsDragging(false);
+  };
+
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      if (suppressTimerRef.current !== null) {
+        window.clearTimeout(suppressTimerRef.current);
+        suppressTimerRef.current = null;
+      }
+      e.preventDefault();
+      return;
+    }
+    setOpen((prev) => !prev);
+  };
 
   if (hidden) return null;
 
@@ -140,22 +457,42 @@ export function FloatingChatWidget({
         )}
       </AnimatePresence>
 
-      {/* Tombol Ikon Chat Melayang (FAB) */}
+      {/* Tombol Ikon Chat Mengambang Fleksibel (Bisa Digeser ke Semua Arah) */}
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-label={isOpen ? 'Tutup Chat Cepat' : 'Buka Chat Cepat'}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishPointerInteraction}
+        onPointerCancel={finishPointerInteraction}
+        onClick={handleButtonClick}
+        aria-label={isOpen ? 'Tutup Chat Cepat' : 'Buka atau geser tombol Chat Cepat'}
         aria-expanded={isOpen}
-        title="Chat Cepat (DM & Group)"
-        className="fixed right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.15rem)] lg:bottom-6 z-40 h-12 w-12 sm:h-13 sm:w-13 rounded-full bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shadow-[0_12px_28px_-6px_rgba(49,46,129,0.45)] ring-2 ring-white/90 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer no-print"
+        title="Ketuk untuk buka chat · Geser untuk pindah posisi"
+        style={
+          pos
+            ? {
+                left: `${pos.x}px`,
+                top: `${pos.y}px`,
+                touchAction: 'none',
+              }
+            : { touchAction: 'none' }
+        }
+        className={`fixed z-[42] h-12 w-12 sm:h-13 sm:w-13 rounded-full bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white flex items-center justify-center select-none touch-none no-print ${
+          pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.15rem)] lg:bottom-6'
+        } ${
+          isDragging
+            ? 'scale-110 shadow-[0_18px_36px_-6px_rgba(49,46,129,0.55)] ring-4 ring-sky-200/90 cursor-grabbing transition-none'
+            : 'shadow-[0_12px_28px_-6px_rgba(49,46,129,0.45)] ring-2 ring-white/90 hover:scale-105 active:scale-95 transition-transform duration-150 cursor-grab'
+        }`}
       >
         {isOpen ? (
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 pointer-events-none" />
         ) : (
-          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 pointer-events-none" />
         )}
         {!isOpen && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white shadow-xs">
+          <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white shadow-xs">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

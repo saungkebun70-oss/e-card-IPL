@@ -1381,7 +1381,7 @@ export function PetugasPortalPage({
             </div>
           </div>
 
-          <div className="flex flex-nowrap items-center gap-1.5 shrink-0">
+          <div className="flex flex-nowrap items-center gap-2 shrink-0">
             <button
               type="button"
               disabled={refreshing}
@@ -1390,25 +1390,6 @@ export function PetugasPortalPage({
               className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-sky-100 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setChatModalOpen((prev) => !prev)}
-              aria-label="Buka Chat Cepat Saung Kebun"
-              title="Chat Cepat (DM & Group)"
-              className={`relative h-10 w-10 rounded-full border flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
-                chatModalOpen
-                  ? 'bg-white text-[#312E81] border-white shadow-xs'
-                  : 'bg-white/10 hover:bg-white/20 border-white/15 text-sky-100'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              {unreadChatCount > 0 && !chatModalOpen && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
-                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                </span>
-              )}
             </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">

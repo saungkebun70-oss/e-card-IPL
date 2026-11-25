@@ -693,27 +693,8 @@ export function AppShell({
           </div>
 
           {/* Zona Kanan: Lonceng Notifikasi + Pengaturan Cepat + Avatar Profil */}
-          <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex flex-nowrap items-center gap-2 shrink-0">
             {headerAction && <div className="shrink-0">{headerAction}</div>}
-
-            <button
-              type="button"
-              onClick={() => setChatModalOpen(!isChatModalOpen)}
-              aria-label="Buka Chat Cepat Saung Kebun"
-              title="Chat Cepat (DM & Group)"
-              className={`relative h-9 w-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                isChatModalOpen
-                  ? 'border-sky-300 bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                  : 'border-indigo-200/70 bg-white/80 hover:bg-white text-[var(--theme-text-secondary)] hover:text-[#312E81]'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              {unreadChatCount > 0 && !isChatModalOpen && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
-                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                </span>
-              )}
-            </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">
               <NotificationBell
