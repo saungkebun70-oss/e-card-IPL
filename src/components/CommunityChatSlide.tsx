@@ -128,7 +128,7 @@ export function CommunityChatSlide({
     return accessibleRooms[0]?.id || 'forum_umum';
   });
   const [primaryTab, setPrimaryTab] = useState<ChatPrimaryTab>(() =>
-    initialRoomId && isDmRoomId(initialRoomId) ? 'dm' : initialRoomId ? 'group' : 'dm'
+    initialRoomId && isDmRoomId(initialRoomId) ? 'dm' : 'group'
   );
   const [contactSearch, setContactSearch] = useState('');
   const [contactRoleFilter, setContactRoleFilter] = useState<'semua' | UserRole>('semua');
@@ -619,7 +619,7 @@ export function CommunityChatSlide({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5 shrink-0" />
-                  <span>Group</span>
+                  <span>Group ({accessibleRooms.length})</span>
                   {totalGroupUnread > 0 && (
                     <span className="min-w-[18px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
                       {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
@@ -794,7 +794,7 @@ export function CommunityChatSlide({
                 </>
               ) : (
                 /* Tab Group — Keanggotaan Ketat Berdasarkan Peran */
-                <div className="space-y-2 min-w-0">
+                <div className="space-y-2 min-w-0 shrink-0">
                   <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Grup Khusus Sesuai Peran ({accessibleRooms.length})
                   </p>
@@ -808,7 +808,7 @@ export function CommunityChatSlide({
                         key={room.id}
                         type="button"
                         onClick={() => handleSelectRoom(room.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
+                        className={`w-full shrink-0 text-left px-3 py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
                           isActive
                             ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
                             : 'bg-white/90 hover:bg-white border-indigo-100/70 hover:border-indigo-200 text-slate-700'

@@ -803,6 +803,7 @@ export default function App() {
     clearStoredSession(session, portalRoute);
     setSession(null);
     setChatModalOpen(false);
+    setInitialChatRoomId(null);
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;
@@ -824,6 +825,7 @@ export default function App() {
     setPortalRoute(nextRoute);
     setSession(loadStoredSession(nextRoute));
     setChatModalOpen(false);
+    setInitialChatRoomId(null);
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;

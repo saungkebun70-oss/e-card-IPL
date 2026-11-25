@@ -166,6 +166,17 @@ const PENGURUS_BY_USERNAME = new Map(
   SUSUNAN_PENGURUS.map((p) => [canonicalAdminUsername(p.username), p])
 );
 
+export function normalizeChatUserRole(rawRole?: string | null): UserRole {
+  const clean = normalizeToken(rawRole);
+  if (clean === 'admin' || clean === 'bendahara' || clean === 'ketua' || clean === 'pengurus') {
+    return 'admin';
+  }
+  if (clean === 'petugas' || clean === 'keamanan' || clean === 'satpam') {
+    return 'petugas';
+  }
+  return 'warga';
+}
+
 /**
  * Menghasilkan ID kanonik peserta chat yang konsisten di Client & RLS SQL.
  * Khusus Warga, B03/07 dan B3/7 dinormalisasi menjadi `warga:b3/7`.
@@ -173,10 +184,11 @@ const PENGURUS_BY_USERNAME = new Map(
  */
 export function getChatParticipantId(session?: SessionUser | null): string {
   if (!session) return 'anon';
-  if (session.role === 'admin') {
+  const role = normalizeChatUserRole(session.role);
+  if (role === 'admin') {
     return `admin:${canonicalAdminUsername(session.blok_rumah)}`;
   }
-  if (session.role === 'petugas') {
+  if (role === 'petugas') {
     return `petugas:${normalizeToken(session.petugas_id || session.blok_rumah)}`;
   }
   const canonBlok = canonicalBlockKey(session.blok_rumah).toLowerCase();
@@ -189,10 +201,11 @@ export function getChatParticipantId(session?: SessionUser | null): string {
 export function getChatParticipantMatchIds(session?: SessionUser | null): Set<string> {
   const ids = new Set<string>();
   if (!session) return ids;
+  const role = normalizeChatUserRole(session.role);
   ids.add(getChatParticipantId(session));
   ids.add(getCanonicalUserId(session));
 
-  if (session.role === 'admin') {
+  if (role === 'admin') {
     const clean = normalizeToken(session.blok_rumah);
     if (clean === 'admin' || clean === 'andriansyah') {
       ids.add('admin:admin');
@@ -201,12 +214,12 @@ export function getChatParticipantMatchIds(session?: SessionUser | null): Set<st
       ids.add('admin:paiwan');
       ids.add('admin:bpiwan');
     }
-  } else if (session.role === 'warga') {
+  } else if (role === 'warga') {
     const raw = normalizeToken(session.blok_rumah);
     if (raw) ids.add(`warga:${raw}`);
     const canon = canonicalBlockKey(session.blok_rumah).toLowerCase();
     if (canon) ids.add(`warga:${canon}`);
-  } else if (session.role === 'petugas') {
+  } else if (role === 'petugas') {
     if (session.petugas_id) {
       ids.add(`petugas:${normalizeToken(session.petugas_id)}`);
       ids.add(`keamanan:${normalizeToken(session.petugas_id)}`);
@@ -253,7 +266,8 @@ export function parseDmParticipants(roomId: string): [string, string] | null {
 }
 
 export function getAccessibleChatRooms(session: SessionUser): ChatRoomMeta[] {
-  return CHAT_ROOMS.filter((room) => room.allowedRoles.includes(session.role));
+  const role = normalizeChatUserRole(session?.role);
+  return CHAT_ROOMS.filter((room) => room.allowedRoles.includes(role));
 }
 
 export function canAccessChatRoom(session: SessionUser, roomId: ChatRoomId): boolean {
@@ -689,15 +703,16 @@ export function getGroupMembers(
   const list: Array<ChatContact & { isSelf?: boolean }> = [];
   const seenKeys = new Set<string>();
 
-  if (allowedSet.has(session.role)) {
+  const sessionRole = normalizeChatUserRole(session?.role);
+  if (allowedSet.has(sessionRole)) {
     const selfContact = formatEnrichedContact({
       participant_id: getChatParticipantId(session),
-      role: session.role,
+      role: sessionRole,
       display_name: session.nama_warga || 'Anda',
       subtitle:
-        session.role === 'admin'
+        sessionRole === 'admin'
           ? session.jabatan || 'Pengurus'
-          : session.role === 'petugas'
+          : sessionRole === 'petugas'
             ? session.shift || 'Petugas Keamanan'
             : `Warga Blok ${session.blok_rumah}`,
       blok_or_code: session.blok_rumah,
