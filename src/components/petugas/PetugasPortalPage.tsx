@@ -1065,8 +1065,8 @@ export function PetugasPortalPage({
   ];
 
   const renderPetugasSidebarNav = () => (
-    <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
-      <div className="space-y-1.5">
+    <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-5 md:py-6 lg:py-5 space-y-6 md:space-y-7 lg:space-y-6">
+      <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
         <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
           Menu Keamanan
         </p>
@@ -1078,7 +1078,7 @@ export function PetugasPortalPage({
               key={item.id}
               type="button"
               onClick={() => handleSelectTabFromSidebar(item.id)}
-              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+              className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
                 isActive
                   ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
                   : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
@@ -1109,14 +1109,14 @@ export function PetugasPortalPage({
         })}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
         <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
           Profil &amp; Pengaturan
         </p>
         <button
           type="button"
           onClick={handleOpenProfileFromSidebar}
-          className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+          className="w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
         >
           <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
             <UserCircle2 className="w-[18px] h-[18px]" />
@@ -1137,7 +1137,7 @@ export function PetugasPortalPage({
       {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-white/70 backdrop-blur-2xl backdrop-saturate-150 border-l border-l-white/20 border-r border-r-white/85 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),8px_0_36px_-14px_rgba(49,46,129,0.16)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-white/65 backdrop-blur-2xl backdrop-saturate-150 border-l border-l-white/20 border-r border-r-white/85 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),8px_0_36px_-14px_rgba(49,46,129,0.16)] no-print"
       >
         <div className="px-4 pt-5 pb-4 border-b border-indigo-100/70 shrink-0">
           <button
@@ -1218,7 +1218,7 @@ export function PetugasPortalPage({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[328px] h-full bg-white/80 backdrop-blur-2xl backdrop-saturate-150 rounded-r-3xl border-l border-l-white/20 border-r border-r-white/90 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),0_25px_50px_-12px_rgba(15,23,42,0.35)] flex flex-col overflow-hidden"
+              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-white/75 backdrop-blur-2xl backdrop-saturate-150 rounded-r-3xl border-l border-l-white/20 border-r border-r-white/90 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),0_25px_50px_-12px_rgba(15,23,42,0.35)] flex flex-col overflow-hidden"
             >
               <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shrink-0">
                 <div className="flex items-center justify-between gap-2.5">

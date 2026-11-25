@@ -306,6 +306,11 @@ html[data-theme="royal"] {
   box-shadow: 0 14px 36px -10px rgba(79, 70, 229, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
+.glass-sidebar {
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
 /* ==========================================================================
    HARMONISASI WARNA TEMA LINTAS HALAMAN (MENJAGA WARNA STATUS HIJAU & MERAH)
    ========================================================================== */
@@ -371,8 +376,9 @@ html[data-theme="midnight"] .glass-hero {
 }
 
 html[data-theme="midnight"] .glass-header,
-html[data-theme="midnight"] .glass-dock {
-  box-shadow: 0 12px 28px -10px rgba(2, 6, 23, 0.65);
+html[data-theme="midnight"] .glass-dock,
+html[data-theme="midnight"] .glass-sidebar {
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.14), 0 12px 32px -10px rgba(2, 6, 23, 0.72);
 }
 
 html[data-theme="midnight"] .bg-slate-50,
