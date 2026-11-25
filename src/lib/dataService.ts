@@ -19,6 +19,8 @@ import {
   type BotWaConfig,
   type BotWaLog,
   type JenisHonorPetugas,
+  type LoginAccountValidationStatus,
+  type LoginAuthErrorCode,
   type LogPatroli,
   type MetodeBayar,
   type MetodeScanPatroli,
@@ -44,6 +46,10 @@ import {
   type Warga,
 } from '../types';
 import { recordAuditLog } from './auditLogger';
+import {
+  hasSettingModulePermission,
+  validateLoginAccountStatus,
+} from './centralSettingsService';
 import {
   buildWargaBotActivationMessage,
   canonicalizeBlokKey,
@@ -72,7 +78,7 @@ import {
   SEED_TRANSAKSI,
   SEED_WARGA,
 } from './seedData';
-import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { getSupabaseClient, getSupabaseProbeClient, isSupabaseConfigured } from './supabase';
 import {
   routeNewMediaUploadAuto,
   tryDirectDriveUploadIfConnected,
@@ -197,6 +203,8 @@ function clearLocalAttempts(accountKey: string) {
 export interface ServiceResult<T> {
   data?: T;
   error?: string;
+  code?: LoginAuthErrorCode;
+  validation?: LoginAccountValidationStatus;
 }
 
 function parseFriendlyError(err: unknown, fallbackMessage: string): string {
@@ -498,13 +506,53 @@ export async function loginWargaAccount(
     return { error: 'PIN akses warga harus terdiri dari tepat 6 digit angka.' };
   }
 
-  const supabase = getSupabaseClient(null);
+  // Validasi eksklusivitas akun Pengurus vs. Warga sebelum memanggil login_ecard
+  const accountValidation = await validateLoginAccountStatus({
+    identifier: primaryBlok,
+    portal: 'warga',
+  });
+  if (accountValidation.is_active_pengurus) {
+    const pengurusIdentity = [
+      accountValidation.pengurus_nama,
+      accountValidation.pengurus_jabatan,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const blockMessage =
+      accountValidation.message ||
+      `Akun ${accountValidation.linked_blok_rumah || primaryBlok} terdaftar sebagai Pengurus aktif${
+        pengurusIdentity ? ` (${pengurusIdentity})` : ''
+      }. Silakan masuk melalui jalur Portal Pengurus (/admin).`;
+    await recordAuditLog({
+      action: 'LOGIN_BLOCKED_ACTIVE_PENGURUS',
+      entity: 'auth',
+      entity_id: primaryBlok,
+      summary: `Login jalur Warga diblokir untuk ${primaryBlok} karena berstatus Pengurus aktif.`,
+      metadata: {
+        portal: 'warga',
+        is_active_pengurus: true,
+        pengurus_username: accountValidation.pengurus_username || null,
+      },
+    });
+    return {
+      error: blockMessage,
+      code: 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL',
+      validation: accountValidation,
+    };
+  }
+
+  const supabase = getSupabaseProbeClient({
+    role: 'warga',
+    blokRumah: primaryBlok,
+  });
   if (supabase && isSupabaseConfigured()) {
     try {
       let matchedRow: Record<string, unknown> | null = null;
 
       for (const candidateBlok of blokCandidates) {
-        const { data, error } = await supabase.rpc('login_ecard', {
+        const probeSupabase =
+          getSupabaseProbeClient({ role: 'warga', blokRumah: candidateBlok }) || supabase;
+        const { data, error } = await probeSupabase.rpc('login_ecard', {
           p_blok: candidateBlok,
           p_pin: cleanPin,
         });
@@ -648,7 +696,46 @@ export async function loginAdminAccount(
     return { error: 'PIN akses pengurus harus terdiri dari tepat 6 digit angka.' };
   }
 
-  const supabase = getSupabaseClient(null);
+  // Validasi eksklusivitas akun Pengurus vs. Pemulihan Otomatis Akun Warga
+  const accountValidation = await validateLoginAccountStatus({
+    identifier: cleanUsername,
+    portal: 'admin',
+  });
+  if (
+    !accountValidation.is_active_pengurus &&
+    (accountValidation.reason_code === 'PENGURUS_REVOKED_WARGA_RESTORED' ||
+      (accountValidation.is_active_warga && accountValidation.warga_account_status === 'active'))
+  ) {
+    const linkedBlokLabel = accountValidation.linked_blok_rumah
+      ? ` Blok ${accountValidation.linked_blok_rumah}`
+      : '';
+    const revokedMessage =
+      accountValidation.message ||
+      `Hak akses Pengurus untuk akun "${cleanUsername}" telah dinonaktifkan. Akun Warga${linkedBlokLabel} Anda sudah otomatis aktif kembali dan kini dapat digunakan melalui Portal Warga.`;
+    await recordAuditLog({
+      action: 'LOGIN_BLOCKED_PENGURUS_REVOKED',
+      entity: 'auth',
+      entity_id: cleanUsername,
+      summary: `Login jalur Pengurus ditolak untuk "${cleanUsername}" karena status Pengurus nonaktif (akun Warga otomatis aktif kembali).`,
+      metadata: {
+        portal: 'admin',
+        is_active_pengurus: false,
+        is_active_warga: accountValidation.is_active_warga,
+        warga_account_status: accountValidation.warga_account_status,
+        linked_blok_rumah: accountValidation.linked_blok_rumah || null,
+      },
+    });
+    return {
+      error: revokedMessage,
+      code: 'PENGURUS_REVOKED_WARGA_RESTORED',
+      validation: accountValidation,
+    };
+  }
+
+  const supabase = getSupabaseProbeClient({
+    role: 'admin',
+    blokRumah: cleanUsername,
+  });
   if (supabase && isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.rpc('login_ecard', {
@@ -792,6 +879,21 @@ export async function loginWargaWithBiometric(enrolled: {
     return { error: 'Profil biometrik warga tidak valid. Silakan masuk menggunakan PIN 6 digit.' };
   }
 
+  // Validasi eksklusivitas akun sebelum memulihkan sesi biometrik Warga
+  const accountValidation = await validateLoginAccountStatus({
+    identifier: primaryBlok,
+    portal: 'warga',
+  });
+  if (accountValidation.is_active_pengurus) {
+    return {
+      error:
+        accountValidation.message ||
+        `Akun ${accountValidation.linked_blok_rumah || primaryBlok} saat ini berstatus Pengurus aktif. Silakan masuk melalui Portal Pengurus.`,
+      code: 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL',
+      validation: accountValidation,
+    };
+  }
+
   const candidateSession: SessionUser = {
     role: 'warga',
     blok_rumah: primaryBlok,
@@ -922,6 +1024,27 @@ export async function loginAdminWithBiometric(enrolled: {
   const cleanUsername = resolvePengurusAdminUsername(enrolled.username);
   if (!cleanUsername) {
     return { error: 'Profil biometrik pengurus tidak valid. Silakan masuk menggunakan PIN 6 digit.' };
+  }
+
+  // Validasi status aktif Pengurus & pemulihan akun Warga sebelum memulihkan sesi biometrik Admin
+  const accountValidation = await validateLoginAccountStatus({
+    identifier: cleanUsername,
+    portal: 'admin',
+  });
+  if (
+    !accountValidation.is_active_pengurus &&
+    (accountValidation.reason_code === 'PENGURUS_REVOKED_WARGA_RESTORED' ||
+      (accountValidation.is_active_warga && accountValidation.warga_account_status === 'active'))
+  ) {
+    return {
+      error:
+        accountValidation.message ||
+        `Hak akses Pengurus untuk akun "${cleanUsername}" telah dicabut. Akun Warga${
+          accountValidation.linked_blok_rumah ? ` Blok ${accountValidation.linked_blok_rumah}` : ''
+        } Anda otomatis aktif kembali untuk masuk lewat Portal Warga.`,
+      code: 'PENGURUS_REVOKED_WARGA_RESTORED',
+      validation: accountValidation,
+    };
   }
 
   const candidateSession: SessionUser = {
@@ -1688,6 +1811,7 @@ function buildPengurusAccountsList(
     jabatan?: string | null;
     admin_permission?: string | null;
     avatar_url?: string | null;
+    aktif?: boolean | null;
   }>
 ): PengurusAccountInfo[] {
   const canRevealPin = isBendaharaFullAccess(session);
@@ -1712,6 +1836,7 @@ function buildPengurusAccountsList(
       no_wa: dbMatch?.no_wa || undefined,
       pin_akses: canRevealPin ? dbMatch?.pin_akses || localMatch?.pin : undefined,
       avatar_url: resolvedAvatar,
+      aktif: typeof dbMatch?.aktif === 'boolean' ? dbMatch.aktif : true,
     };
   });
 }
@@ -4728,8 +4853,8 @@ export async function uploadQrisImageAdmin(
   session: SessionUser,
   file: File
 ): Promise<ServiceResult<string>> {
-  if (!isBendaharaFullAccess(session)) {
-    return { error: 'Akses ditolak: unggah gambar QRIS hanya dapat dilakukan oleh Bendahara.' };
+  if (!isBendaharaFullAccess(session) && !hasSettingModulePermission(session, 'settings.ipl_billing')) {
+    return { error: 'Akses ditolak: unggah gambar QRIS hanya untuk Bendahara atau Pengurus terdelegasi.' };
   }
 
   const supabase = getSupabaseClient(session);
@@ -4762,10 +4887,10 @@ export async function savePaymentConfigAdmin(
   session: SessionUser,
   config: PaymentConfig
 ): Promise<ServiceResult<PaymentConfig>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (!isBendaharaFullAccess(session) && !hasSettingModulePermission(session, 'settings.ipl_billing')) {
     return {
       error:
-        'Akses ditolak: perubahan pengaturan QRIS dan nomor rekening transfer hanya dapat dilakukan oleh Bendahara.',
+        'Akses ditolak: perubahan pengaturan QRIS dan nomor rekening transfer hanya untuk Bendahara atau Pengurus terdelegasi.',
     };
   }
 
@@ -4999,8 +5124,11 @@ export async function uploadAppLogoAdmin(
   session: SessionUser,
   file: File
 ): Promise<ServiceResult<string>> {
-  if (!isBendaharaFullAccess(session)) {
-    return { error: 'Akses ditolak: unggah logo aplikasi hanya dapat dilakukan oleh Bendahara.' };
+  if (
+    !isBendaharaFullAccess(session) &&
+    !hasSettingModulePermission(session, 'settings.residents_blocks')
+  ) {
+    return { error: 'Akses ditolak: unggah logo aplikasi hanya untuk Bendahara atau Pengurus terdelegasi.' };
   }
 
   const supabase = getSupabaseClient(session);
@@ -5036,8 +5164,11 @@ export async function uploadStempelImageAdmin(
   session: SessionUser,
   file: File
 ): Promise<ServiceResult<string>> {
-  if (!isBendaharaFullAccess(session)) {
-    return { error: 'Akses ditolak: unggah stempel resmi hanya dapat dilakukan oleh Bendahara.' };
+  if (
+    !isBendaharaFullAccess(session) &&
+    !hasSettingModulePermission(session, 'settings.residents_blocks')
+  ) {
+    return { error: 'Akses ditolak: unggah stempel resmi hanya untuk Bendahara atau Pengurus terdelegasi.' };
   }
 
   const supabase = getSupabaseClient(session);
@@ -5084,9 +5215,13 @@ export async function saveAppBrandConfigAdmin(
     | 'pengurus_wa_map'
   >
 ): Promise<ServiceResult<AppBrandConfig>> {
-  if (!isBendaharaFullAccess(session)) {
+  if (
+    !isBendaharaFullAccess(session) &&
+    !hasSettingModulePermission(session, 'settings.residents_blocks')
+  ) {
     return {
-      error: 'Akses ditolak: perubahan pengaturan aplikasi & WA pengurus hanya dapat dilakukan oleh Bendahara.',
+      error:
+        'Akses ditolak: perubahan pengaturan aplikasi & WA pengurus hanya untuk Bendahara atau Pengurus terdelegasi.',
     };
   }
 
@@ -6723,7 +6858,11 @@ export async function loginPetugasKeamanan(
     return { error: lockMsg };
   }
 
-  const supabase = getSupabaseClient(null);
+  const supabase = getSupabaseProbeClient({
+    role: 'petugas',
+    blokRumah: cleanUser,
+    petugasId: cleanUser,
+  });
   if (supabase && isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.rpc('login_petugas', {

@@ -13,7 +13,7 @@ import {
   Shield,
   Trash2,
 } from 'lucide-react';
-import { type SessionUser } from '../types';
+import { type LoginAccountValidationStatus, type SessionUser } from '../types';
 import { loginWargaAccount, loginWargaWithBiometric } from '../lib/dataService';
 import {
   authenticateWargaBiometric,
@@ -44,6 +44,10 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
+  const [pengurusBlockNotice, setPengurusBlockNotice] = useState<{
+    message: string;
+    validation?: LoginAccountValidationStatus;
+  } | null>(null);
 
   const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
     null
@@ -94,6 +98,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
     if (!enrolledProfile || !biometryAvailability?.isAvailable) return;
     setErrorMsg(null);
     setInfoMsg(null);
+    setPengurusBlockNotice(null);
     setBiometricLoading(true);
     try {
       const authRes = await authenticateWargaBiometric(enrolledProfile, biometryAvailability);
@@ -111,6 +116,12 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
       const sessionRes = await loginWargaWithBiometric(enrolledProfile);
       if (sessionRes?.error || !sessionRes?.data) {
         const msg = sessionRes?.error || 'Akun warga tidak aktif atau perlu verifikasi PIN ulang.';
+        if (sessionRes?.code === 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL') {
+          clearWargaBiometricEnrollment();
+          setEnrolledProfile(null);
+          setPengurusBlockNotice({ message: msg, validation: sessionRes.validation });
+          return;
+        }
         if (msg.toLowerCase().includes('dinonaktifkan') || msg.toLowerCase().includes('tidak ditemukan')) {
           clearWargaBiometricEnrollment();
           setEnrolledProfile(null);
@@ -139,10 +150,20 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
     e.preventDefault();
     setErrorMsg(null);
     setInfoMsg(null);
+    setPengurusBlockNotice(null);
     setLoading(true);
     try {
       const result = await loginWargaAccount(username, pin);
       if (result?.error || !result?.data) {
+        if (result?.code === 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL') {
+          setPengurusBlockNotice({
+            message:
+              result.error ||
+              'Akun ini terdaftar sebagai Pengurus aktif dan wajib masuk melalui Portal Pengurus.',
+            validation: result.validation,
+          });
+          return;
+        }
         setErrorMsg(result?.error || 'Blok rumah atau PIN 6 digit tidak sesuai.');
         return;
       }
@@ -362,7 +383,45 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 </div>
               )}
 
-              {errorMsg && (
+              {pengurusBlockNotice && (
+                <div
+                  role="alert"
+                  className="rounded-xl bg-amber-50 border border-amber-300/90 p-3.5 space-y-2.5 text-amber-950"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-xs sm:text-sm font-bold text-amber-950 leading-snug">
+                        Akun Terdaftar Sebagai Pengurus Aktif
+                      </p>
+                      <p className="text-xs text-amber-900 leading-relaxed">
+                        {pengurusBlockNotice.message}
+                      </p>
+                      {pengurusBlockNotice.validation?.pengurus_username && (
+                        <p className="text-[11px] font-mono text-amber-800">
+                          Username Pengurus: @{pengurusBlockNotice.validation.pengurus_username}
+                          {pengurusBlockNotice.validation.pengurus_jabatan
+                            ? ` · ${pengurusBlockNotice.validation.pengurus_jabatan}`
+                            : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {onSwitchPortal && (
+                    <button
+                      type="button"
+                      onClick={() => onSwitchPortal('admin')}
+                      className="w-full min-h-[42px] px-3.5 rounded-xl bg-[#4A583E] hover:bg-[#3C4832] text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>Pindah ke Portal Pengurus (/admin)</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {errorMsg && !pengurusBlockNotice && (
                 <div
                   role="alert"
                   className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3 text-xs sm:text-sm text-red-800"
@@ -372,7 +431,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 </div>
               )}
 
-              {infoMsg && !errorMsg && (
+              {infoMsg && !errorMsg && !pengurusBlockNotice && (
                 <div
                   role="status"
                   className="flex items-start gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-3 text-xs text-emerald-800"

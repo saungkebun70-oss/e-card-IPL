@@ -77,6 +77,7 @@ export interface PengurusAccountInfo extends PengurusItem {
   pin_akses?: string;
   no_wa?: string;
   avatar_url?: string | null;
+  aktif?: boolean;
 }
 
 export interface SessionUser {
@@ -805,3 +806,147 @@ export const WA_BOT_PRESET_TEMPLATES: Array<{
     template: WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT,
   },
 ];
+
+// =========================================================================
+// Modul 1: Pengaturan Sistem Terpusat, Delegasi Bendahara & Eksklusivitas Akun
+// =========================================================================
+
+export type CentralSettingModuleKey =
+  | 'settings.ipl_billing'
+  | 'settings.security_patrol'
+  | 'settings.residents_blocks'
+  | 'settings.chat_moderation'
+  | 'settings.reports_audit'
+  | 'settings.system_integrations';
+
+export type SettingPermissionStatus = 'granted' | 'revoked';
+
+export type LoginAuthErrorCode =
+  | 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL'
+  | 'PENGURUS_REVOKED_WARGA_RESTORED';
+
+export interface LoginAccountValidationStatus {
+  identifier: string;
+  portal: 'warga' | 'admin' | 'petugas';
+  is_active_pengurus: boolean;
+  is_active_warga: boolean;
+  warga_account_status: string;
+  pengurus_account_status: string;
+  pengurus_username?: string | null;
+  pengurus_nama?: string | null;
+  pengurus_jabatan?: string | null;
+  linked_blok_rumah?: string | null;
+  allowed_portal?: 'admin' | 'warga' | 'petugas' | 'none' | null;
+  can_login: boolean;
+  reason_code:
+    | 'OK'
+    | 'ACTIVE_PENGURUS_BLOCKED_ON_WARGA'
+    | 'PENGURUS_REVOKED_WARGA_RESTORED'
+    | 'ACCOUNT_INACTIVE'
+    | 'NOT_FOUND';
+  message?: string | null;
+  source: 'rpc' | 'local_fallback';
+}
+
+export interface CentralSettingModuleMeta {
+  key: CentralSettingModuleKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  scopeNote: string;
+  drawerTab:
+    | 'pembayaran'
+    | 'petugas_nfc'
+    | 'identitas'
+    | 'terpusat'
+    | 'keamanan'
+    | 'bot_wa'
+    | 'arsip_drive';
+}
+
+export const CENTRAL_SETTING_MODULES: CentralSettingModuleMeta[] = [
+  {
+    key: 'settings.ipl_billing',
+    label: 'Tagihan & Pembayaran IPL',
+    shortLabel: 'Tagihan IPL',
+    description:
+      'Nominal standar IPL Rp 100.000/bulan, QRIS resmi kas lingkungan, rekening transfer/e-wallet, dan siklus jatuh tempo.',
+    scopeNote: 'Tab Pembayaran',
+    drawerTab: 'pembayaran',
+  },
+  {
+    key: 'settings.security_patrol',
+    label: 'Keamanan, Petugas & Patroli NFC',
+    shortLabel: 'Patroli NFC',
+    description:
+      'Akun petugas keamanan, jadwal shift, titik checkpoint NFC/RFID, kalibrasi GPS, dan peta lingkungan Saung Kebun.',
+    scopeNote: 'Tab Petugas & Peta',
+    drawerTab: 'petugas_nfc',
+  },
+  {
+    key: 'settings.residents_blocks',
+    label: 'Identitas, Master Warga & Blok',
+    shortLabel: 'Warga & Blok',
+    description:
+      'Identitas portal, logo & stempel resmi, alamat Sekretariat Blok B03/07, kontak WA pengurus, dan tata kelola Blok B3–B8.',
+    scopeNote: 'Tab Identitas',
+    drawerTab: 'identitas',
+  },
+  {
+    key: 'settings.chat_moderation',
+    label: 'Moderasi Chat & Komunikasi',
+    shortLabel: 'Moderasi Chat',
+    description:
+      'Kebijakan ruang chat Pengurus, Pengurus & Keamanan, Pengurus & Warga, serta moderasi pesan dan lampiran.',
+    scopeNote: 'Kontrol Moderasi',
+    drawerTab: 'terpusat',
+  },
+  {
+    key: 'settings.reports_audit',
+    label: 'Laporan, Keamanan & Audit Log',
+    shortLabel: 'Laporan & Audit',
+    description:
+      'Pemantauan rekam jejak audit_logs, keamanan akun pengurus, sinkronisasi status, dan tata kelola pembersihan log.',
+    scopeNote: 'Tab PIN & Log',
+    drawerTab: 'keamanan',
+  },
+  {
+    key: 'settings.system_integrations',
+    label: 'Integrasi Bot WA & Arsip Hybrid Drive',
+    shortLabel: 'Integrasi Sistem',
+    description:
+      'Konfigurasi gateway Bot WhatsApp (Fonnte/Wablas), cadangan otomatis Google Drive Hybrid, dan integrasi notifikasi FCM.',
+    scopeNote: 'Tab Bot WA & Arsip Drive',
+    drawerTab: 'bot_wa',
+  },
+];
+
+export interface PengurusSettingPermissionRecord {
+  id?: string;
+  pengurus_username: string;
+  module_key: CentralSettingModuleKey;
+  status: SettingPermissionStatus;
+  granted_by?: string | null;
+  updated_at?: string | null;
+  notes?: string | null;
+}
+
+export interface PengurusWargaSyncStatus {
+  pengurus_username: string;
+  pengurus_nama: string;
+  jabatan: AdminJabatan;
+  linked_blok_rumah: string;
+  is_active_pengurus: boolean;
+  is_active_warga: boolean;
+  warga_account_status: string;
+  updated_at?: string | null;
+}
+
+export interface ChatModerationPolicy {
+  allow_warga_attachments: boolean;
+  pengurus_only_announcements: boolean;
+  retention_days: number;
+  updated_at: string;
+  updated_by?: string | null;
+}
+

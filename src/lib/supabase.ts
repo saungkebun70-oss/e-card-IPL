@@ -58,3 +58,54 @@ export function getSupabaseClient(session?: SessionUser | null): SupabaseClient 
   clientCache.set(key, client);
   return client;
 }
+
+export interface SupabaseProbeHeaders {
+  role?: 'warga' | 'admin' | 'petugas' | 'anon';
+  blokRumah?: string;
+  petugasId?: string;
+  adminPermission?: string;
+  adminJabatan?: string;
+}
+
+/**
+ * Menghasilkan instance Supabase client dengan header identitas sesi (`x-user-role`, `x-blok-rumah`, `x-petugas-id`)
+ * untuk panggilan pre-login / validasi RPC (`validate_login_account_status`, `login_ecard`)
+ * agar kebijakan RLS dan fungsi RPC berbasis header selalu menerima konteks yang konsisten.
+ */
+export function getSupabaseProbeClient(probe?: SupabaseProbeHeaders | null): SupabaseClient | null {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  const roleHeader = probe?.role || 'anon';
+  const blokHeader = (probe?.blokRumah || '').trim();
+  const petugasIdHeader = (probe?.petugasId || '').trim();
+  const permHeader = (probe?.adminPermission || '').trim();
+  const jabatanHeader = (probe?.adminJabatan || '').trim();
+  const key = `probe::${roleHeader}::${blokHeader}::${permHeader}::${jabatanHeader}::${petugasIdHeader}`;
+
+  const existing = clientCache.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'x-blok-rumah': blokHeader,
+        'x-user-role': roleHeader,
+        'x-admin-permission': permHeader,
+        'x-admin-jabatan': jabatanHeader,
+        'x-petugas-id': petugasIdHeader,
+        'x-petugas-name': '',
+      },
+    },
+  });
+
+  clientCache.set(key, client);
+  return client;
+}

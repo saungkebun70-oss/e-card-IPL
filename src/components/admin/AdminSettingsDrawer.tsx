@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Save,
   Loader2,
-  ShieldAlert,
   Stamp,
   QrCode,
   Plus,
@@ -25,10 +24,10 @@ import {
   Radio,
   UserCircle2,
   HardDrive,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   DEFAULT_APP_BRAND_CONFIG,
-  isBendaharaFullAccess,
   isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
   SUSUNAN_PENGURUS,
@@ -36,12 +35,14 @@ import {
   type AuditLogEntry,
   type BotWaConfig,
   type BotWaLog,
+  type CentralSettingModuleKey,
   type PatrolMapConfig,
   type PaymentConfig,
   type PengurusAccountInfo,
   type PetugasKeamanan,
   type RekeningPembayaran,
   type SessionUser,
+  type SettingPermissionStatus,
   type StatusEcardBulanan,
   type TitikPatroli,
   type Warga,
@@ -73,9 +74,12 @@ import { BugReportCard } from '../BugReportCard';
 import { UserAvatar } from '../UserAvatar';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { AdminHybridDrivePanel } from './AdminHybridDrivePanel';
+import { AdminCentralSettingsPanel } from './AdminCentralSettingsPanel';
+import { fetchMySettingPermissions } from '../../lib/centralSettingsService';
 
 export type SettingsDrawerTab =
   | 'profil'
+  | 'terpusat'
   | 'identitas'
   | 'pembayaran'
   | 'bot_wa'
@@ -122,13 +126,37 @@ export function AdminSettingsDrawer({
 }: AdminSettingsDrawerProps) {
   const { brand, setBrand } = useAppBrand();
   const avatarMap = useAvatarMap();
-  const canEdit = isBendaharaFullAccess(session);
-  const canAccessBotWa = isBendaharaOnly(session);
+  const isBendahara = isBendaharaOnly(session);
 
-  const resolveSafeTab = (tab: SettingsDrawerTab): SettingsDrawerTab =>
-    tab === 'bot_wa' && !canAccessBotWa ? 'profil' : tab;
+  const [myPermissions, setMyPermissions] = useState<
+    Record<CentralSettingModuleKey, SettingPermissionStatus>
+  >(() => ({
+    'settings.ipl_billing': isBendahara ? 'granted' : 'revoked',
+    'settings.security_patrol': isBendahara ? 'granted' : 'revoked',
+    'settings.residents_blocks': isBendahara ? 'granted' : 'revoked',
+    'settings.chat_moderation': isBendahara ? 'granted' : 'revoked',
+    'settings.reports_audit': isBendahara ? 'granted' : 'revoked',
+    'settings.system_integrations': isBendahara ? 'granted' : 'revoked',
+  }));
+
+  const canEditResidentsBlocks =
+    isBendahara || myPermissions['settings.residents_blocks'] === 'granted';
+  const canEditIplBilling = isBendahara || myPermissions['settings.ipl_billing'] === 'granted';
+  const canAccessSecurityPatrol =
+    isBendahara || myPermissions['settings.security_patrol'] === 'granted';
+  const canAccessSystemIntegrations =
+    isBendahara || myPermissions['settings.system_integrations'] === 'granted';
+  const canAccessReportsAudit =
+    isBendahara || myPermissions['settings.reports_audit'] === 'granted';
+
+  const resolveSafeTab = (tab: SettingsDrawerTab): SettingsDrawerTab => tab;
 
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>(resolveSafeTab(initialTab));
+
+  const reloadMyPermissions = async () => {
+    const latest = await fetchMySettingPermissions(session);
+    setMyPermissions(latest);
+  };
 
   // Tab 1: Identitas, Logo, Stempel & WA Pengurus
   const [brandDraft, setBrandDraft] = useState<AppBrandConfig>(brand);
@@ -186,16 +214,17 @@ export function AdminSettingsDrawer({
     setOldPin('');
     setNewPin('');
     setConfirmPin('');
+    void reloadMyPermissions();
   }, [open, initialTab, brand, paymentConfig]);
 
   useEffect(() => {
-    if (!open || activeTab !== 'keamanan') return;
+    if (!open || activeTab !== 'keamanan' || !canAccessReportsAudit) return;
     setLoadingLogs(true);
     void fetchAuditLogs(session)
       .then((logs) => setAuditLogs(logs))
       .finally(() => setLoadingLogs(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, activeTab, session.blok_rumah]);
+  }, [open, activeTab, session.blok_rumah, canAccessReportsAudit]);
 
   useEffect(() => {
     if (!open) return;
@@ -214,7 +243,7 @@ export function AdminSettingsDrawer({
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !canEdit) return;
+    if (!file || !canEditResidentsBlocks) return;
     setUploadingLogo(true);
     try {
       const optimized = await compressLogoImage(file, 512);
@@ -233,7 +262,7 @@ export function AdminSettingsDrawer({
 
   const handleUploadStempel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !canEdit) return;
+    if (!file || !canEditResidentsBlocks) return;
     if (file.type && !file.type.startsWith('image/')) {
       onToast('error', 'Stempel harus berupa gambar (disarankan PNG transparan).');
       return;
@@ -256,7 +285,7 @@ export function AdminSettingsDrawer({
 
   const handleSaveBrand = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit || savingBrand) return;
+    if (!canEditResidentsBlocks || savingBrand) return;
     if (isSameAsBot) {
       onToast('error', 'Nomor WA Pengurus tidak boleh sama dengan Nomor WA Bot.');
       return;
@@ -287,7 +316,7 @@ export function AdminSettingsDrawer({
 
   const handleUploadQris = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !canEdit) return;
+    if (!file || !canEditIplBilling) return;
     setUploadingQris(true);
     try {
       const compressed = await compressProofImage(file, 1080, 0.85);
@@ -305,7 +334,7 @@ export function AdminSettingsDrawer({
   };
 
   const handleAddRekening = () => {
-    if (!canEdit) return;
+    if (!canEditIplBilling) return;
     if (!newBank.trim() || !newNomor.trim() || !newAtasNama.trim()) {
       onToast('error', 'Lengkapi Nama Bank/E-Wallet, Nomor Rekening, dan Atas Nama.');
       return;
@@ -326,7 +355,7 @@ export function AdminSettingsDrawer({
 
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit || savingPay) return;
+    if (!canEditIplBilling || savingPay) return;
     setSavingPay(true);
     try {
       const res = await savePaymentConfigAdmin(session, payDraft);
@@ -397,9 +426,9 @@ export function AdminSettingsDrawer({
                 Pengaturan Sistem Terpusat
               </h2>
               <p className="text-xs text-slate-500 truncate">
-                {canAccessBotWa
-                  ? 'Identitas & Stempel, Pembayaran IPL, Bot WA, Arsip Drive, Petugas & Log'
-                  : 'Identitas & Stempel, Pembayaran IPL, Arsip Drive, Petugas & Log'}
+                {isBendahara
+                  ? '6 Modul Terpusat, Delegasi Hak Pengurus, Sinkronisasi Status & Audit'
+                  : 'Pusat Pengaturan Terdelegasi — Modul dikelola oleh Bendahara'}
               </p>
             </div>
           </div>
@@ -414,23 +443,57 @@ export function AdminSettingsDrawer({
           </button>
         </div>
 
-        {/* Tab Navigasi Pengaturan Terpusat (Profil Saya tersedia untuk SEMUA Pengurus) */}
+        {/* Tab Navigasi Pengaturan Terpusat — Scroll Horizontal Halus Bebas Overflow */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-indigo-100/70 bg-indigo-50/40 shrink-0">
           <div
             role="tablist"
-            className={`grid ${canAccessBotWa ? 'grid-cols-4 md:grid-cols-7' : 'grid-cols-3 md:grid-cols-6'} gap-1 p-1 bg-indigo-100/60 rounded-2xl`}
+            className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 bg-indigo-100/60 rounded-2xl"
           >
             {(
               [
-                { id: 'profil', label: 'Profil Saya', short: 'Profil', icon: UserCircle2 },
-                { id: 'identitas', label: 'Identitas', short: 'Identitas', icon: Sparkles },
-                { id: 'pembayaran', label: 'Pembayaran', short: 'Bayar', icon: CreditCard },
-                ...(canAccessBotWa
-                  ? [{ id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot }]
-                  : []),
-                { id: 'arsip_drive', label: 'Arsip Drive', short: 'Drive', icon: HardDrive },
-                { id: 'petugas_nfc', label: 'Petugas & Peta', short: 'Petugas', icon: Radio },
-                { id: 'keamanan', label: 'PIN & Log', short: 'PIN & Log', icon: ShieldCheck },
+                {
+                  id: 'terpusat' as const,
+                  label: isBendahara ? 'Pusat & Delegasi' : 'Pusat Modul',
+                  icon: SlidersHorizontal,
+                  locked: false,
+                },
+                { id: 'profil' as const, label: 'Profil Saya', icon: UserCircle2, locked: false },
+                {
+                  id: 'identitas' as const,
+                  label: 'Identitas',
+                  icon: Sparkles,
+                  locked: !canEditResidentsBlocks,
+                },
+                {
+                  id: 'pembayaran' as const,
+                  label: 'Pembayaran',
+                  icon: CreditCard,
+                  locked: !canEditIplBilling,
+                },
+                {
+                  id: 'bot_wa' as const,
+                  label: 'Bot WA',
+                  icon: Bot,
+                  locked: !canAccessSystemIntegrations,
+                },
+                {
+                  id: 'arsip_drive' as const,
+                  label: 'Arsip Drive',
+                  icon: HardDrive,
+                  locked: !canAccessSystemIntegrations,
+                },
+                {
+                  id: 'petugas_nfc' as const,
+                  label: 'Petugas & Peta',
+                  icon: Radio,
+                  locked: !canAccessSecurityPatrol,
+                },
+                {
+                  id: 'keamanan' as const,
+                  label: 'PIN & Log',
+                  icon: ShieldCheck,
+                  locked: false,
+                },
               ] as const
             ).map((tab) => {
               const Icon = tab.icon;
@@ -441,20 +504,26 @@ export function AdminSettingsDrawer({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setActiveTab(tab.id as SettingsDrawerTab)}
-                  className={`min-h-[50px] md:min-h-[40px] py-1.5 md:py-0 px-0.5 md:px-2.5 rounded-xl text-[10px] md:text-xs font-semibold leading-tight flex flex-col md:flex-row items-center justify-center gap-1 md:gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer min-w-0 ${
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold leading-tight inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                     active
                       ? 'bg-[#4C1D95] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-[#4C1D95]'
+                      : tab.locked
+                        ? 'text-slate-400 hover:text-slate-600'
+                        : 'text-slate-600 hover:text-[#4C1D95] hover:bg-white/60'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 md:w-3.5 md:h-3.5 shrink-0 ${
-                      active ? 'text-emerald-300' : 'text-slate-500'
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      active ? 'text-emerald-300' : tab.locked ? 'text-slate-400' : 'text-slate-500'
                     }`}
                   />
-                  <span className="md:hidden whitespace-nowrap">{tab.short}</span>
-                  <span className="hidden md:inline truncate">{tab.label}</span>
+                  <span>{tab.label}</span>
+                  {tab.locked && (
+                    <Lock
+                      className={`w-3 h-3 shrink-0 ${active ? 'text-amber-300' : 'text-slate-400'}`}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -464,6 +533,19 @@ export function AdminSettingsDrawer({
         {/* Konten Tab */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 glass-canvas">
           <div key={activeTab} className="animate-page-enter">
+          {/* TAB UTAMA: PUSAT PENGATURAN TERPUSAT & DELEGASI BENDAHARA */}
+          {activeTab === 'terpusat' && (
+            <AdminCentralSettingsPanel
+              session={session}
+              pengurusAccounts={pengurusAccounts}
+              wargaList={wargaList}
+              myPermissions={myPermissions}
+              onPermissionsChanged={reloadMyPermissions}
+              onNavigateTab={(nextTab) => setActiveTab(nextTab)}
+              onRefresh={onRefresh}
+              onToast={onToast}
+            />
+          )}
           {/* TAB 0: PROFIL SAYA & FOTO PROFIL (AKTIF UNTUK SEMUA PENGURUS: KETUA, BENDAHARA, HUMAS, DLL.) */}
           {activeTab === 'profil' && (
             <div className="space-y-5 max-w-3xl mx-auto">
@@ -554,15 +636,38 @@ export function AdminSettingsDrawer({
               </div>
             </div>
           )}
-          {/* TAB 1: IDENTITAS, LOGO, STEMPEL & KONTAK WA */}
-          {activeTab === 'identitas' && (
+          {/* TAB 1: IDENTITAS, LOGO, STEMPEL & KONTAK WA (settings.residents_blocks) */}
+          {activeTab === 'identitas' && !canEditResidentsBlocks && (
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[#0F172A]">
+                Terkunci — Atur oleh Bendahara
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modul <span className="font-mono font-semibold">settings.residents_blocks</span>{' '}
+                (Identitas, Logo, Stempel &amp; Kontak WA) belum didelegasikan ke akun Anda. Hubungi
+                Bendahara untuk mengaktifkan akses modul ini.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('terpusat')}
+                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+              >
+                Kembali ke Pusat Modul
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'identitas' && canEditResidentsBlocks && (
             <form onSubmit={handleSaveBrand} className="space-y-5 max-w-3xl mx-auto">
-              {!canEdit && (
-                <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7] border border-amber-200 px-4 py-3 text-xs text-amber-900">
-                  <ShieldAlert className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
+              {!isBendahara && (
+                <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                   <span>
-                    Mode lihat saja ({session.jabatan || 'Pengurus'}). Pengubahan identitas, logo,
-                    stempel resmi, dan kontak WA khusus akun <strong>Bendahara</strong>.
+                    Akses modul <span className="font-mono font-semibold">settings.residents_blocks</span>{' '}
+                    aktif melalui delegasi Bendahara.
                   </span>
                 </div>
               )}
@@ -584,7 +689,7 @@ export function AdminSettingsDrawer({
                       </p>
                     </div>
                   </div>
-                  {canEdit && (
+                  {canEditResidentsBlocks && (
                     <div className="flex flex-wrap gap-2">
                       <input
                         ref={logoInputRef}
@@ -637,7 +742,7 @@ export function AdminSettingsDrawer({
                       </p>
                     </div>
                   </div>
-                  {canEdit && (
+                  {canEditResidentsBlocks && (
                     <div className="flex flex-wrap gap-2">
                       <input
                         ref={stempelInputRef}
@@ -684,7 +789,7 @@ export function AdminSettingsDrawer({
                     <input
                       type="text"
                       required
-                      disabled={!canEdit}
+                      disabled={!canEditResidentsBlocks}
                       value={brandDraft.app_name}
                       onChange={(e) => setBrandDraft((p) => ({ ...p, app_name: e.target.value }))}
                       className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm disabled:bg-slate-100"
@@ -697,7 +802,7 @@ export function AdminSettingsDrawer({
                     <input
                       type="text"
                       required
-                      disabled={!canEdit}
+                      disabled={!canEditResidentsBlocks}
                       value={brandDraft.app_subtitle}
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, app_subtitle: e.target.value }))
@@ -713,7 +818,7 @@ export function AdminSettingsDrawer({
                   </label>
                   <textarea
                     rows={2}
-                    disabled={!canEdit}
+                    disabled={!canEditResidentsBlocks}
                     value={brandDraft.kop_resmi}
                     onChange={(e) => setBrandDraft((p) => ({ ...p, kop_resmi: e.target.value }))}
                     className="w-full rounded-xl border border-slate-300 p-3 text-sm disabled:bg-slate-100 resize-none"
@@ -745,7 +850,7 @@ export function AdminSettingsDrawer({
                     </label>
                     <input
                       type="tel"
-                      disabled={!canEdit}
+                      disabled={!canEditResidentsBlocks}
                       value={brandDraft.wa_pengurus}
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, wa_pengurus: e.target.value }))
@@ -759,7 +864,7 @@ export function AdminSettingsDrawer({
                     </label>
                     <input
                       type="text"
-                      disabled={!canEdit}
+                      disabled={!canEditResidentsBlocks}
                       value={brandDraft.wa_pengurus_label}
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, wa_pengurus_label: e.target.value }))
@@ -773,7 +878,7 @@ export function AdminSettingsDrawer({
                     </label>
                     <input
                       type="tel"
-                      disabled={!canEdit}
+                      disabled={!canEditResidentsBlocks}
                       value={brandDraft.wa_bot}
                       onChange={(e) => setBrandDraft((p) => ({ ...p, wa_bot: e.target.value }))}
                       placeholder="0851xxxx"
@@ -790,7 +895,7 @@ export function AdminSettingsDrawer({
                       </p>
                       <input
                         type="tel"
-                        disabled={!canEdit}
+                        disabled={!canEditResidentsBlocks}
                         value={brandDraft.pengurus_wa_map?.[p.username] || ''}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -809,7 +914,7 @@ export function AdminSettingsDrawer({
                 </div>
               </div>
 
-              {canEdit && (
+              {canEditResidentsBlocks && (
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
@@ -841,15 +946,37 @@ export function AdminSettingsDrawer({
             </form>
           )}
 
-          {/* TAB 2: METODE PEMBAYARAN (QRIS, REKENING, NOMINAL IPL) */}
-          {activeTab === 'pembayaran' && (
+          {/* TAB 2: METODE PEMBAYARAN (QRIS, REKENING, NOMINAL IPL) — settings.ipl_billing */}
+          {activeTab === 'pembayaran' && !canEditIplBilling && (
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[#0F172A]">
+                Terkunci — Atur oleh Bendahara
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modul <span className="font-mono font-semibold">settings.ipl_billing</span> (Nominal
+                IPL, QRIS, dan Rekening Kas) belum didelegasikan ke akun Anda.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('terpusat')}
+                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+              >
+                Kembali ke Pusat Modul
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'pembayaran' && canEditIplBilling && (
             <form onSubmit={handleSavePayment} className="space-y-5 max-w-3xl mx-auto">
-              {!canEdit && (
-                <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7]/90 border border-amber-200 px-4 py-3 text-xs text-amber-900">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              {!isBendahara && (
+                <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                   <span>
-                    Mode lihat saja. Perubahan QRIS, nomor rekening, dan nominal IPL khusus{' '}
-                    <strong>Bendahara</strong>.
+                    Akses modul <span className="font-mono font-semibold">settings.ipl_billing</span>{' '}
+                    aktif melalui delegasi Bendahara.
                   </span>
                 </div>
               )}
@@ -872,7 +999,7 @@ export function AdminSettingsDrawer({
                       type="number"
                       min={10000}
                       step={5000}
-                      disabled={!canEdit}
+                      disabled={!canEditIplBilling}
                       value={payDraft.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR}
                       onChange={(e) =>
                         setPayDraft((p) => ({
@@ -902,11 +1029,11 @@ export function AdminSettingsDrawer({
                     type="button"
                     role="switch"
                     aria-checked={payDraft.qris_aktif}
-                    disabled={!canEdit}
+                    disabled={!canEditIplBilling}
                     onClick={() => setPayDraft((p) => ({ ...p, qris_aktif: !p.qris_aktif }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       payDraft.qris_aktif ? 'bg-[#4C1D95]' : 'bg-slate-300'
-                    } ${canEdit ? 'cursor-pointer' : 'opacity-50'}`}
+                    } ${canEditIplBilling ? 'cursor-pointer' : 'opacity-50'}`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -920,7 +1047,7 @@ export function AdminSettingsDrawer({
                   ref={qrisInputRef}
                   type="file"
                   accept="image/*"
-                  disabled={!canEdit || uploadingQris}
+                  disabled={!canEditIplBilling || uploadingQris}
                   onChange={handleUploadQris}
                   className="hidden"
                 />
@@ -933,7 +1060,7 @@ export function AdminSettingsDrawer({
                       referrerPolicy="no-referrer"
                       className="w-36 h-36 object-contain rounded-xl border border-indigo-100 bg-white"
                     />
-                    {canEdit && (
+                    {canEditIplBilling && (
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -959,7 +1086,7 @@ export function AdminSettingsDrawer({
                 ) : (
                   <button
                     type="button"
-                    disabled={!canEdit || uploadingQris}
+                    disabled={!canEditIplBilling || uploadingQris}
                     onClick={() => qrisInputRef.current?.click()}
                     className="w-full min-h-[110px] rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 hover:border-[#4C1D95] hover:bg-indigo-50/80 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50 transition-colors"
                   >
@@ -994,7 +1121,7 @@ export function AdminSettingsDrawer({
                         </p>
                         <p className="text-xs text-slate-600">a.n. {rek.atasNama}</p>
                       </div>
-                      {canEdit && (
+                      {canEditIplBilling && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1013,7 +1140,7 @@ export function AdminSettingsDrawer({
                   ))}
                 </div>
 
-                {canEdit && (
+                {canEditIplBilling && (
                   <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-4 space-y-3">
                     <p className="text-xs font-bold text-[#0F172A]">Tambah Rekening Baru</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1061,7 +1188,7 @@ export function AdminSettingsDrawer({
                 )}
               </div>
 
-              {canEdit && (
+              {canEditIplBilling && (
                 <div className="flex justify-end">
                   <button
                     type="submit"
@@ -1080,8 +1207,31 @@ export function AdminSettingsDrawer({
             </form>
           )}
 
-          {/* TAB 3: KONFIGURASI BOT WHATSAPP (EKSKLUSIF BENDAHARA) */}
-          {activeTab === 'bot_wa' && canAccessBotWa && (
+          {/* TAB 3: KONFIGURASI BOT WHATSAPP (settings.system_integrations) */}
+          {activeTab === 'bot_wa' && !canAccessSystemIntegrations && (
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[#0F172A]">
+                Terkunci — Atur oleh Bendahara
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modul <span className="font-mono font-semibold">settings.system_integrations</span>{' '}
+                (Bot WhatsApp Gateway &amp; Arsip Drive) hanya dapat diakses Bendahara atau Pengurus
+                yang diberi izin.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('terpusat')}
+                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+              >
+                Kembali ke Pusat Modul
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'bot_wa' && canAccessSystemIntegrations && (
             <AdminBotWaSlide
               session={session}
               botConfig={botConfig}
@@ -1191,7 +1341,22 @@ export function AdminSettingsDrawer({
                 </div>
               </form>
 
-              {/* Log Aktivitas Sistem */}
+              {/* Log Aktivitas Sistem (settings.reports_audit) */}
+              {!canAccessReportsAudit ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 flex items-start gap-3">
+                  <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0F172A]">
+                      Log Aktivitas &amp; Audit Sistem — Terkunci (Atur oleh Bendahara)
+                    </p>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      Anda tetap dapat mengganti PIN akun pribadi di atas. Akses ke modul{' '}
+                      <span className="font-mono font-semibold">settings.reports_audit</span>{' '}
+                      diatur melalui delegasi Bendahara.
+                    </p>
+                  </div>
+                </div>
+              ) : (
               <div className="glass-card rounded-3xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1384,11 +1549,34 @@ export function AdminSettingsDrawer({
                   )}
                 </div>
               </div>
+              )}
             </div>
           )}
 
-          {/* TAB 5: ARSIP MODE HYBRID GOOGLE DRIVE */}
-          {activeTab === 'arsip_drive' && (
+          {/* TAB 5: ARSIP MODE HYBRID GOOGLE DRIVE (settings.system_integrations) */}
+          {activeTab === 'arsip_drive' && !canAccessSystemIntegrations && (
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[#0F172A]">
+                Terkunci — Atur oleh Bendahara
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modul <span className="font-mono font-semibold">settings.system_integrations</span>{' '}
+                (Arsip Hybrid Google Drive &amp; Bot WA) belum didelegasikan ke akun Anda.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('terpusat')}
+                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+              >
+                Kembali ke Pusat Modul
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'arsip_drive' && canAccessSystemIntegrations && (
             <AdminHybridDrivePanel
               session={session}
               onRefresh={onRefresh}
@@ -1396,8 +1584,31 @@ export function AdminSettingsDrawer({
             />
           )}
 
-          {/* TAB 6: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING */}
-          {activeTab === 'petugas_nfc' && (
+          {/* TAB 6: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING (settings.security_patrol) */}
+          {activeTab === 'petugas_nfc' && !canAccessSecurityPatrol && (
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[#0F172A]">
+                Terkunci — Atur oleh Bendahara
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modul <span className="font-mono font-semibold">settings.security_patrol</span>{' '}
+                (Petugas Keamanan, Titik Checkpoint NFC &amp; Peta Patroli) belum didelegasikan ke
+                akun Anda.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('terpusat')}
+                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+              >
+                Kembali ke Pusat Modul
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'petugas_nfc' && canAccessSecurityPatrol && (
             <AdminSecurityManagePanel
               session={session}
               petugasList={petugasList}

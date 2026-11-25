@@ -251,7 +251,7 @@ export default function App() {
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [initialChatRoomId, setInitialChatRoomId] = useState<ChatRoomId | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
+  const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('terpusat');
   const settingsOpenRef = useRef(false);
   const sessionRef = useRef<SessionUser | null>(session);
   const portalRouteRef = useRef<PortalRoute>(portalRoute);
@@ -740,6 +740,7 @@ export default function App() {
       if (targetUrl.startsWith('settings:') && session.role === 'admin') {
         const sub = targetUrl.replace('settings:', '') as SettingsDrawerTab;
         const validSettingsTabs: SettingsDrawerTab[] = [
+          'terpusat',
           'profil',
           'identitas',
           'pembayaran',
@@ -748,7 +749,7 @@ export default function App() {
           'petugas_nfc',
           'keamanan',
         ];
-        setSettingsTab(validSettingsTabs.includes(sub) ? sub : 'profil');
+        setSettingsTab(validSettingsTabs.includes(sub) ? sub : 'terpusat');
         setSettingsOpen(true);
         return;
       }
@@ -1182,7 +1183,7 @@ export default function App() {
         onOpenSettings={
           session.role === 'admin'
             ? () => {
-                setSettingsTab('identitas');
+                setSettingsTab('terpusat');
                 setSettingsOpen(true);
               }
             : undefined
