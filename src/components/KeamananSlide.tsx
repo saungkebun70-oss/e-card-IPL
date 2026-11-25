@@ -28,7 +28,12 @@ import {
   type TitikPatroli,
 } from '../types';
 import { formatTanggalWaktu } from '../lib/format';
-import { resetPatrolCycle, submitLogPatroliAdmin } from '../lib/dataService';
+import {
+  deleteAllLogPatroliAdmin,
+  deleteLogPatroliAdmin,
+  resetPatrolCycle,
+  submitLogPatroliAdmin,
+} from '../lib/dataService';
 import {
   fetchActiveLiveSession,
   subscribeLivePatrolSessions,
@@ -131,9 +136,50 @@ export function KeamananSlide({
   >('semua');
   const [activeLiveSession, setActiveLiveSession] = useState<PatrolLiveSession | null>(null);
   const [resettingCycle, setResettingCycle] = useState(false);
+  const [deletingPatrolId, setDeletingPatrolId] = useState<string | null>(null);
+  const [deletingAllPatrol, setDeletingAllPatrol] = useState(false);
   const [adminSubTab, setAdminSubTab] = useState<'patroli' | 'absensi' | 'shift_lembur'>('patroli');
   const [adminOnDutyCount, setAdminOnDutyCount] = useState<number>(0);
   const [unpaidOvertimeCount, setUnpaidOvertimeCount] = useState<number>(0);
+
+  const handleDeletePatrolLog = useCallback(
+    async (log: LogPatroli) => {
+      if (role !== 'admin' || !session || deletingPatrolId) return;
+      setDeletingPatrolId(log.id);
+      try {
+        const res = await deleteLogPatroliAdmin(
+          session,
+          log.id,
+          `${log.nama_lokasi} · ${log.nama_petugas}`
+        );
+        if (!res.ok) {
+          onToast('error', res.error || 'Gagal menghapus log patroli.');
+          return;
+        }
+        onToast('success', `Log patroli "${log.nama_lokasi}" berhasil dihapus.`);
+        await onRefresh();
+      } finally {
+        setDeletingPatrolId(null);
+      }
+    },
+    [role, session, deletingPatrolId, onToast, onRefresh]
+  );
+
+  const handleDeleteAllPatrolLogs = useCallback(async () => {
+    if (role !== 'admin' || !session || deletingAllPatrol) return;
+    setDeletingAllPatrol(true);
+    try {
+      const res = await deleteAllLogPatroliAdmin(session);
+      if (!res.ok) {
+        onToast('error', res.error || 'Gagal mengosongkan log patroli.');
+        return;
+      }
+      onToast('success', 'Seluruh log patroli keamanan berhasil dihapus.');
+      await onRefresh();
+    } finally {
+      setDeletingAllPatrol(false);
+    }
+  }, [role, session, deletingAllPatrol, onToast, onRefresh]);
 
   const loadActiveLiveSession = useCallback(async () => {
     const live = await fetchActiveLiveSession(session || null);
@@ -1287,7 +1333,15 @@ export function KeamananSlide({
           </div>
         </div>
 
-        <SecurityPatrolFeedCard patroliFeed={filteredPatroli} maxItems={25} />
+        <SecurityPatrolFeedCard
+          patroliFeed={filteredPatroli}
+          maxItems={25}
+          canDelete={role === 'admin' && Boolean(session)}
+          deletingLogId={deletingPatrolId}
+          deletingAllLogs={deletingAllPatrol}
+          onDeleteLog={(log) => void handleDeletePatrolLog(log)}
+          onDeleteAllLogs={() => void handleDeleteAllPatrolLogs()}
+        />
       </div>
         </>
       )}

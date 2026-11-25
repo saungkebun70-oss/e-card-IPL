@@ -7387,6 +7387,99 @@ export async function submitLogPatroliAdmin(
 }
 
 /**
+ * Menghapus satu catatan log patroli keamanan (khusus Pengurus/Admin).
+ */
+export async function deleteLogPatroliAdmin(
+  session: SessionUser,
+  logId: string,
+  summaryLabel?: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log patroli keamanan.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !logId.startsWith('LP-')) {
+    try {
+      const { error } = await supabase.from('log_patroli').delete().eq('id', logId);
+      if (error) {
+        const errCode = String((error as { code?: string })?.code || '');
+        if (errCode !== '42P01') {
+          return {
+            ok: false,
+            error: parseFriendlyError(error, 'Gagal menghapus log patroli dari server.'),
+          };
+        }
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: parseFriendlyError(err, 'Gagal menghubungi server saat menghapus log patroli.'),
+      };
+    }
+  }
+
+  const remaining = readLocalLogPatroli().filter((item) => item.id !== logId);
+  writeLocalLogPatroli(remaining);
+
+  void recordAuditLog({
+    session,
+    action: 'DELETE_LOG_PATROLI',
+    entity: 'log_patroli',
+    entity_id: logId,
+    summary: `Menghapus log patroli keamanan${summaryLabel ? ` (${summaryLabel})` : ''}.`,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Menghapus seluruh riwayat log patroli keamanan (khusus Pengurus/Admin).
+ */
+export async function deleteAllLogPatroliAdmin(
+  session: SessionUser
+): Promise<{ ok: boolean; error?: string }> {
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log patroli keamanan.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase
+        .from('log_patroli')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) {
+        const errCode = String((error as { code?: string })?.code || '');
+        if (errCode !== '42P01') {
+          return {
+            ok: false,
+            error: parseFriendlyError(error, 'Gagal mengosongkan log patroli di server.'),
+          };
+        }
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: parseFriendlyError(err, 'Gagal menghubungi server saat mengosongkan log patroli.'),
+      };
+    }
+  }
+
+  writeLocalLogPatroli([]);
+
+  void recordAuditLog({
+    session,
+    action: 'CLEAR_ALL_LOG_PATROLI',
+    entity: 'log_patroli',
+    summary: 'Mengosongkan seluruh catatan log patroli keamanan.',
+  });
+
+  return { ok: true };
+}
+
+/**
  * Mengambil daftar kontak darurat petugas keamanan aktif (HANYA nama, shift, no_hp — TANPA PIN).
  * Aman dipanggil oleh Portal Warga & Admin melalui RPC `get_petugas_kontak_darurat`.
  */

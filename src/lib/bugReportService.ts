@@ -832,6 +832,90 @@ export async function updateBugReportStatusAdmin(
 }
 
 /**
+ * Menghapus satu laporan bug beserta screenshot di Supabase Storage (jika ada). Khusus Admin.
+ */
+export async function deleteBugReportAdmin(
+  session: SessionUser,
+  report: Pick<BugReportRecord, 'id' | 'storage_bucket' | 'storage_path' | 'is_local_only'>
+): Promise<void> {
+  if (session.role !== 'admin') {
+    throw new Error('Hanya Pengurus/Admin yang dapat menghapus laporan bug.');
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !report.is_local_only && !report.id.startsWith('bug-')) {
+    const { error } = await supabase.from('bug_reports').delete().eq('id', report.id);
+    if (error) {
+      throw new Error(
+        error.message || 'Gagal menghapus laporan bug di server. Pastikan migrasi v13 sudah dijalankan.'
+      );
+    }
+
+    if (report.storage_bucket && report.storage_path) {
+      try {
+        await supabase.storage.from(report.storage_bucket).remove([report.storage_path]);
+      } catch {
+        // Jangan gagalkan penghapusan data bila file storage sudah tidak ada
+      }
+    }
+  }
+
+  const remainingLocal = readLocalBugReports().filter((item) => item.id !== report.id);
+  writeLocalBugReports(remainingLocal);
+  emitBugReportsChanged();
+}
+
+/**
+ * Menghapus beberapa laporan bug sekaligus (misal semua yang sudah Resolved atau semua laporan). Khusus Admin.
+ */
+export async function deleteBugReportsBatchAdmin(
+  session: SessionUser,
+  reports: Array<Pick<BugReportRecord, 'id' | 'storage_bucket' | 'storage_path' | 'is_local_only'>>
+): Promise<number> {
+  if (session.role !== 'admin') {
+    throw new Error('Hanya Pengurus/Admin yang dapat menghapus laporan bug.');
+  }
+  if (reports.length === 0) return 0;
+
+  const remoteIds = reports
+    .filter((r) => !r.is_local_only && !r.id.startsWith('bug-'))
+    .map((r) => r.id);
+  const allIdSet = new Set(reports.map((r) => r.id));
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && remoteIds.length > 0) {
+    const { error } = await supabase.from('bug_reports').delete().in('id', remoteIds);
+    if (error) {
+      throw new Error(
+        error.message || 'Gagal menghapus laporan bug di server. Pastikan migrasi v13 sudah dijalankan.'
+      );
+    }
+
+    // Bersihkan file screenshot di storage per bucket (best-effort)
+    const bucketPaths = new Map<string, string[]>();
+    for (const r of reports) {
+      if (r.storage_bucket && r.storage_path) {
+        const list = bucketPaths.get(r.storage_bucket) || [];
+        list.push(r.storage_path);
+        bucketPaths.set(r.storage_bucket, list);
+      }
+    }
+    for (const [bucket, paths] of bucketPaths.entries()) {
+      try {
+        await supabase.storage.from(bucket).remove(paths);
+      } catch {
+        // Abaikan error pembersihan storage
+      }
+    }
+  }
+
+  const remainingLocal = readLocalBugReports().filter((item) => !allIdSet.has(item.id));
+  writeLocalBugReports(remainingLocal);
+  emitBugReportsChanged();
+  return reports.length;
+}
+
+/**
  * Menghitung jumlah laporan bug yang masih Pending (belum Selesai/Resolved) untuk badge tab Admin.
  */
 export async function fetchPendingBugReportCount(session: SessionUser): Promise<number> {

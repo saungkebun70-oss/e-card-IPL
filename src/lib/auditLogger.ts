@@ -123,3 +123,79 @@ export async function fetchAuditLogs(session: SessionUser): Promise<AuditLogEntr
 
   return readLocalAuditLogs();
 }
+
+function writeLocalAuditLogs(logs: AuditLogEntry[]) {
+  try {
+    localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(logs.slice(0, 200)));
+  } catch {
+    // Abaikan kuota storage penuh
+  }
+}
+
+export async function deleteAuditLogEntry(
+  session: SessionUser,
+  logId: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log aktivitas.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !logId.startsWith('LOG-')) {
+    try {
+      const { error } = await supabase.from('audit_logs').delete().eq('id', logId);
+      if (error) {
+        return {
+          ok: false,
+          error:
+            error.message ||
+            'Gagal menghapus log aktivitas di server. Pastikan migrasi v13 sudah dijalankan.',
+        };
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal menghubungi server saat menghapus log.',
+      };
+    }
+  }
+
+  const remaining = readLocalAuditLogs().filter((entry) => entry.id !== logId);
+  writeLocalAuditLogs(remaining);
+  return { ok: true };
+}
+
+export async function deleteAllAuditLogs(
+  session: SessionUser
+): Promise<{ ok: boolean; error?: string }> {
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log aktivitas.' };
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase
+        .from('audit_logs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) {
+        return {
+          ok: false,
+          error:
+            error.message ||
+            'Gagal mengosongkan log aktivitas di server. Pastikan migrasi v13 sudah dijalankan.',
+        };
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal menghubungi server saat menghapus log.',
+      };
+    }
+  }
+
+  writeLocalAuditLogs([]);
+  return { ok: true };
+}
+

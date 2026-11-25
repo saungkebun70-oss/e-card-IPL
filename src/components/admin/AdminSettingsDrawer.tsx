@@ -55,7 +55,11 @@ import {
   uploadQrisImageAdmin,
   uploadStempelImageAdmin,
 } from '../../lib/dataService';
-import { fetchAuditLogs } from '../../lib/auditLogger';
+import {
+  deleteAllAuditLogs,
+  deleteAuditLogEntry,
+  fetchAuditLogs,
+} from '../../lib/auditLogger';
 import { formatRupiah, formatTanggalWaktu, normalizeWaNumber } from '../../lib/format';
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
@@ -149,6 +153,10 @@ export function AdminSettingsDrawer({
   const [savingPin, setSavingPin] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [deletingAuditId, setDeletingAuditId] = useState<string | null>(null);
+  const [confirmDeleteAuditId, setConfirmDeleteAuditId] = useState<string | null>(null);
+  const [confirmClearAudit, setConfirmClearAudit] = useState(false);
+  const [clearingAllAudit, setClearingAllAudit] = useState(false);
 
   const wasOpenRef = useRef(false);
 
@@ -1181,30 +1189,96 @@ export function AdminSettingsDrawer({
 
               {/* Log Aktivitas Sistem */}
               <div className="glass-card rounded-3xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
+                <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                       <History className="w-4 h-4 text-[#4C1D95]" />
                       <span>Log Aktivitas &amp; Audit Sistem</span>
+                      {auditLogs.length > 0 && (
+                        <span className="text-[11px] font-mono font-semibold text-[#4C1D95] bg-white/90 border border-indigo-100 px-2 py-0.5 rounded-full tabular-nums">
+                          {auditLogs.length}
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Rekam jejak login, verifikasi setoran, pengeluaran kas, dan perubahan pengaturan.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoadingLogs(true);
-                      void fetchAuditLogs(session)
-                        .then((logs) => setAuditLogs(logs))
-                        .finally(() => setLoadingLogs(false));
-                    }}
-                    className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
-                    <span>Muat Ulang</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {auditLogs.length > 0 && !confirmClearAudit && (
+                      <button
+                        type="button"
+                        disabled={clearingAllAudit || loadingLogs}
+                        onClick={() => {
+                          setConfirmDeleteAuditId(null);
+                          setConfirmClearAudit(true);
+                        }}
+                        className="min-h-[36px] px-3.5 rounded-full border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Hapus Semua</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoadingLogs(true);
+                        void fetchAuditLogs(session)
+                          .then((logs) => setAuditLogs(logs))
+                          .finally(() => setLoadingLogs(false));
+                      }}
+                      className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
+                      <span>Muat Ulang</span>
+                    </button>
+                  </div>
                 </div>
+
+                {confirmClearAudit && (
+                  <div className="px-5 py-3 bg-rose-50/90 border-b border-rose-200/80 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                    <p className="font-semibold text-rose-900">
+                      Hapus seluruh {auditLogs.length} catatan log aktivitas sistem secara permanen?
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={clearingAllAudit}
+                        onClick={() => setConfirmClearAudit(false)}
+                        className="px-3 py-1.5 rounded-full border border-rose-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={clearingAllAudit}
+                        onClick={async () => {
+                          setClearingAllAudit(true);
+                          try {
+                            const res = await deleteAllAuditLogs(session);
+                            if (!res.ok) {
+                              onToast('error', res.error || 'Gagal menghapus log aktivitas.');
+                              return;
+                            }
+                            setAuditLogs([]);
+                            setConfirmClearAudit(false);
+                            onToast('success', 'Seluruh log aktivitas sistem berhasil dihapus.');
+                          } finally {
+                            setClearingAllAudit(false);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        {clearingAllAudit ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>Ya, Hapus Semua</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="max-h-96 overflow-y-auto divide-y divide-indigo-100/60">
                   {loadingLogs ? (
@@ -1222,6 +1296,8 @@ export function AdminSettingsDrawer({
                         avatarMap[buildAvatarKey('warga', log.actor_id)] ||
                         avatarMap[buildAvatarKey('petugas', log.actor_id)] ||
                         null;
+                      const isDeletingThis = deletingAuditId === log.id;
+                      const isConfirmingThis = confirmDeleteAuditId === log.id;
                       return (
                         <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3 hover:bg-indigo-50/30 transition-colors">
                           <UserAvatar
@@ -1238,9 +1314,60 @@ export function AdminSettingsDrawer({
                                   ({log.actor_id})
                                 </span>
                               </span>
-                              <span className="font-mono text-[11px] text-slate-400">
-                                {formatTanggalWaktu(log.timestamp)}
-                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-mono text-[11px] text-slate-400">
+                                  {formatTanggalWaktu(log.timestamp)}
+                                </span>
+                                {isConfirmingThis ? (
+                                  <div className="inline-flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={isDeletingThis}
+                                      onClick={async () => {
+                                        setDeletingAuditId(log.id);
+                                        try {
+                                          const res = await deleteAuditLogEntry(session, log.id);
+                                          if (!res.ok) {
+                                            onToast('error', res.error || 'Gagal menghapus log.');
+                                            return;
+                                          }
+                                          setAuditLogs((prev) => prev.filter((item) => item.id !== log.id));
+                                          setConfirmDeleteAuditId(null);
+                                          onToast('success', 'Catatan log aktivitas dihapus.');
+                                        } finally {
+                                          setDeletingAuditId(null);
+                                        }
+                                      }}
+                                      className="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                                    >
+                                      {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                      <span>Hapus</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isDeletingThis}
+                                      onClick={() => setConfirmDeleteAuditId(null)}
+                                      className="px-2 py-0.5 rounded-full border border-slate-200 bg-white text-slate-600 text-[10px] font-semibold hover:bg-slate-50 cursor-pointer"
+                                    >
+                                      Batal
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={isDeletingThis || clearingAllAudit}
+                                    onClick={() => {
+                                      setConfirmClearAudit(false);
+                                      setConfirmDeleteAuditId(log.id);
+                                    }}
+                                    aria-label="Hapus catatan log"
+                                    title="Hapus catatan log ini"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
                             <p className="text-[10px] font-mono text-[#4C1D95] mt-0.5">

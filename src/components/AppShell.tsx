@@ -5,6 +5,7 @@ import {
   FileCheck2,
   LogOut,
   Menu,
+  MessageSquare,
   PhoneCall,
   ReceiptText,
   Settings,
@@ -28,6 +29,10 @@ import {
   fetchPendingBugReportCount,
   subscribeBugReportsRealtime,
 } from '../lib/bugReportService';
+import {
+  fetchChatUnreadSummary,
+  subscribeChatMessagesRealtime,
+} from '../lib/chatService';
 
 export interface NavItem {
   id: string;
@@ -69,6 +74,7 @@ export function AppShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [pendingBugCount, setPendingBugCount] = useState<number>(0);
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
   const isAdmin = session.role === 'admin';
   const isWarga = session.role === 'warga';
@@ -78,6 +84,7 @@ export function AppShell({
   const isLpjActive = activeTab === 'lpj';
   const isBugReportsActive = activeTab === 'laporan_bug';
   const isProfilActive = activeTab === 'profil';
+  const isChatActive = activeTab === 'chat';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
   // Batasi dock bawah maksimal 5 ikon agar Dual-Ring Floating Orb Dock selalu simetris
@@ -147,13 +154,37 @@ export function AppShell({
     };
   }, [isAdmin, session]);
 
-  const activePageTitle = isLpjActive
-    ? 'Laporan Pertanggungjawaban (LPJ)'
-    : isBugReportsActive
-      ? 'Laporan Bug'
-      : isProfilActive
-        ? 'Profil & Akun Warga'
-        : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
+  // Sinkronisasi jumlah pesan belum dibaca untuk Chat Lingkungan
+  useEffect(() => {
+    let active = true;
+    const syncChatUnread = async () => {
+      const summary = await fetchChatUnreadSummary(sessionRef.current);
+      if (active) {
+        setUnreadChatCount(summary.totalUnread);
+      }
+    };
+
+    void syncChatUnread();
+    const unsub = subscribeChatMessagesRealtime(sessionRef.current, {
+      onAnyChange: () => {
+        void syncChatUnread();
+      },
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [sessionKey]);
+
+  const activePageTitle = isChatActive
+    ? 'Chat Lingkungan'
+    : isLpjActive
+      ? 'Laporan Pertanggungjawaban (LPJ)'
+      : isBugReportsActive
+        ? 'Laporan Bug'
+        : isProfilActive
+          ? 'Profil & Akun Warga'
+          : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -250,8 +281,40 @@ export function AppShell({
       {/* Menu Tambahan Sesuai Role (Di Luar 5 Ikon Bawah) */}
       <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
         <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
-          {isAdmin ? 'Laporan & Pengaturan' : 'Profil & Layanan'}
+          {isAdmin ? 'Komunikasi & Pengaturan' : 'Komunikasi & Profil'}
         </p>
+
+        {/* Chat Lingkungan Real-Time (Pengurus, Warga & Keamanan) */}
+        <button
+          type="button"
+          onClick={() => handleSelectNav('chat')}
+          className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+            isChatActive
+              ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
+              : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+          }`}
+        >
+          <span
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              isChatActive
+                ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
+                : 'bg-sky-50 text-[#0284C7]'
+            }`}
+          >
+            <MessageSquare className="w-[18px] h-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate leading-tight">Chat Lingkungan</p>
+            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+              Pengurus · Warga · Keamanan
+            </p>
+          </div>
+          {unreadChatCount > 0 && (
+            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
+              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+            </span>
+          )}
+        </button>
 
         {isAdmin ? (
           <>
@@ -611,6 +674,25 @@ export function AppShell({
           {/* Zona Kanan: Lonceng Notifikasi + Pengaturan Cepat + Avatar Profil */}
           <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0">
             {headerAction && <div className="shrink-0">{headerAction}</div>}
+
+            <button
+              type="button"
+              onClick={() => handleSelectNav('chat')}
+              aria-label="Buka Chat Lingkungan"
+              title="Chat Lingkungan (Pengurus, Warga & Keamanan)"
+              className={`relative h-9 w-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                isChatActive
+                  ? 'border-sky-300 bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
+                  : 'border-indigo-200/70 bg-white/80 hover:bg-white text-[var(--theme-text-secondary)] hover:text-[#312E81]'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              {unreadChatCount > 0 && !isChatActive && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
+            </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">
               <NotificationBell

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Trash2,
   User,
   X,
 } from 'lucide-react';
@@ -21,6 +22,8 @@ import type { SessionUser } from '../../types';
 import {
   BUG_CATEGORY_LABELS,
   BUG_STATUS_LABELS,
+  deleteBugReportAdmin,
+  deleteBugReportsBatchAdmin,
   fetchBugReports,
   isBugReportResolved,
   subscribeBugReportsRealtime,
@@ -66,6 +69,10 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [openNoteInputId, setOpenNoteInputId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<'resolved' | 'all' | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
 
   const loadBugReports = useCallback(
@@ -189,6 +196,57 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
     setExpandedSnapshotIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleDeleteSingle = async (report: BugReportRecord) => {
+    if (deletingId || bulkDeleting) return;
+    setDeletingId(report.id);
+    try {
+      await deleteBugReportAdmin(session, report);
+      setReports((prev) => prev.filter((item) => item.id !== report.id));
+      setConfirmDeleteId(null);
+      onToast?.('success', `Laporan bug "${report.title}" berhasil dihapus.`);
+    } catch (err) {
+      onToast?.(
+        'error',
+        err instanceof Error ? err.message : 'Gagal menghapus laporan bug.'
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async (mode: 'resolved' | 'all') => {
+    if (bulkDeleting || deletingId) return;
+    const targets =
+      mode === 'resolved'
+        ? reports.filter((r) => isBugReportResolved(r.status))
+        : reports;
+    if (targets.length === 0) {
+      setBulkDeleteMode(null);
+      return;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const deletedCount = await deleteBugReportsBatchAdmin(session, targets);
+      const targetIds = new Set(targets.map((r) => r.id));
+      setReports((prev) => prev.filter((item) => !targetIds.has(item.id)));
+      setBulkDeleteMode(null);
+      onToast?.(
+        'success',
+        mode === 'resolved'
+          ? `${deletedCount} laporan bug berstatus Selesai berhasil dihapus.`
+          : `Seluruh ${deletedCount} laporan bug berhasil dihapus.`
+      );
+    } catch (err) {
+      onToast?.(
+        'error',
+        err instanceof Error ? err.message : 'Gagal menghapus laporan bug.'
+      );
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Header & Tombol Refresh */}
@@ -209,16 +267,79 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void loadBugReports(true)}
-            disabled={refreshing || loading}
-            className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#4C1D95] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 self-start sm:self-center shrink-0"
-          >
-            <RefreshCw className={`w-4 h-4 text-[#4C1D95] ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Muat Ulang</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-center shrink-0">
+            {stats.resolved > 0 && !bulkDeleteMode && (
+              <button
+                type="button"
+                disabled={bulkDeleting || loading}
+                onClick={() => {
+                  setConfirmDeleteId(null);
+                  setBulkDeleteMode('resolved');
+                }}
+                className="min-h-[40px] px-3.5 rounded-full border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus Selesai ({stats.resolved})</span>
+              </button>
+            )}
+            {stats.total > 0 && !bulkDeleteMode && (
+              <button
+                type="button"
+                disabled={bulkDeleting || loading}
+                onClick={() => {
+                  setConfirmDeleteId(null);
+                  setBulkDeleteMode('all');
+                }}
+                className="min-h-[40px] px-3.5 rounded-full border border-rose-200 bg-white/95 hover:bg-rose-50 text-xs font-semibold text-rose-700 inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus Semua</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void loadBugReports(true)}
+              disabled={refreshing || loading}
+              className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#4C1D95] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <RefreshCw className={`w-4 h-4 text-[#4C1D95] ${refreshing ? 'animate-spin' : ''}`} />
+              <span>Muat Ulang</span>
+            </button>
+          </div>
         </div>
+
+        {bulkDeleteMode && (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <p className="font-semibold text-rose-900">
+              {bulkDeleteMode === 'resolved'
+                ? `Hapus permanen ${stats.resolved} laporan bug yang sudah berstatus Selesai (Resolved)?`
+                : `Hapus permanen seluruh ${stats.total} laporan bug beserta lampiran screenshot-nya?`}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => setBulkDeleteMode(null)}
+                className="px-3 py-1.5 rounded-full border border-rose-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => void handleBulkDelete(bulkDeleteMode)}
+                className="px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>Ya, Hapus Permanen</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Ringkasan KPI */}
         <div className="grid grid-cols-3 gap-3 mt-5">
@@ -561,7 +682,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                     ) : (
                       <button
                         type="button"
-                        disabled={isUpdating}
+                        disabled={isUpdating || deletingId === item.id}
                         onClick={() => void handleUpdateStatus(item, 'baru')}
                         className="min-h-[36px] px-3.5 rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-slate-600 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
                       >
@@ -571,6 +692,48 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                           <RotateCcw className="w-3.5 h-3.5" />
                         )}
                         <span>Buka Kembali (Pending)</span>
+                      </button>
+                    )}
+
+                    {confirmDeleteId === item.id ? (
+                      <div className="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-200 rounded-full px-2.5 py-1">
+                        <span className="text-[11px] font-semibold text-rose-800 pl-0.5">
+                          Hapus?
+                        </span>
+                        <button
+                          type="button"
+                          disabled={deletingId === item.id}
+                          onClick={() => void handleDeleteSingle(item)}
+                          className="px-2.5 py-1 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                        >
+                          {deletingId === item.id && (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          )}
+                          <span>Ya</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingId === item.id}
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold hover:bg-slate-50 cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isUpdating || bulkDeleting || deletingId === item.id}
+                        onClick={() => {
+                          setBulkDeleteMode(null);
+                          setConfirmDeleteId(item.id);
+                        }}
+                        aria-label={`Hapus laporan ${item.title}`}
+                        title="Hapus laporan bug ini"
+                        className="min-h-[36px] px-3 rounded-full border border-rose-200 bg-rose-50/80 hover:bg-rose-100 text-rose-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Hapus</span>
                       </button>
                     )}
                   </div>

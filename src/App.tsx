@@ -59,6 +59,7 @@ import {
   type SettingsDrawerTab,
 } from './components/admin/AdminSettingsDrawer';
 import { KeamananSlide } from './components/KeamananSlide';
+import { CommunityChatSlide } from './components/CommunityChatSlide';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
 import {
   initNativeNotificationsOnLaunch,
@@ -751,8 +752,8 @@ export default function App() {
       if (targetUrl.startsWith('tab:')) {
         const tabId = targetUrl.replace('tab:', '');
         setSettingsOpen(false);
-        const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil'];
-        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj', 'laporan_bug'];
+        const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil', 'chat'];
+        const adminValid = ['dashboard', 'warga', 'keuangan', 'rekap', 'keamanan', 'lpj', 'laporan_bug', 'chat'];
         if (session.role === 'warga' && wargaValid.includes(tabId)) {
           handleTabChange(tabId);
         } else if (session.role === 'admin' && adminValid.includes(tabId)) {
@@ -1015,6 +1016,8 @@ export default function App() {
               onLogout={handleLogout}
             />
           );
+        case 'chat':
+          return <CommunityChatSlide session={session} onToast={pushToast} />;
         default:
           return null;
       }
@@ -1117,6 +1120,8 @@ export default function App() {
               onToast={pushToast}
             />
           );
+        case 'chat':
+          return <CommunityChatSlide session={session} onToast={pushToast} />;
         default:
           return null;
       }

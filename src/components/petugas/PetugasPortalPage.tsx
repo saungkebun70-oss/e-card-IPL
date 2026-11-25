@@ -13,6 +13,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  MessageSquare,
   Navigation,
   PhoneCall,
   Play,
@@ -102,6 +103,11 @@ import {
   findActiveOverrideForOfficer,
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
+import { CommunityChatSlide } from '../CommunityChatSlide';
+import {
+  fetchChatUnreadSummary,
+  subscribeChatMessagesRealtime,
+} from '../../lib/chatService';
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -110,7 +116,7 @@ interface PetugasPortalPageProps {
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
-type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta';
+type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta' | 'chat';
 
 function isSameLocalDay(isoDate: string): boolean {
   const d = new Date(isoDate);
@@ -143,6 +149,10 @@ const TAB_TITLES: Record<PetugasTab, { title: string; subtitle: string }> = {
     title: 'Peta Patroli Real-Time',
     subtitle: 'Pantau titik merah (belum scan) & hijau (terverifikasi)',
   },
+  chat: {
+    title: 'Chat Lingkungan',
+    subtitle: 'Koordinasi langsung dengan Pengurus & Warga Saung Kebun',
+  },
 };
 
 export function PetugasPortalPage({
@@ -158,6 +168,7 @@ export function PetugasPortalPage({
   const [refreshing, setRefreshing] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [riwayatFilter, setRiwayatFilter] = useState<'hari_ini' | 'semua'>('hari_ini');
   const [resettingCycle, setResettingCycle] = useState(false);
   const [biometryAvailability, setBiometryAvailability] = useState<BiometricAvailability | null>(
@@ -994,12 +1005,33 @@ export function PetugasPortalPage({
         targetTab === 'riwayat' ||
         targetTab === 'scan' ||
         targetTab === 'honor' ||
-        targetTab === 'peta'
+        targetTab === 'peta' ||
+        targetTab === 'chat'
       ) {
         handleSelectTab(targetTab);
       }
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    const syncChatUnread = async () => {
+      const summary = await fetchChatUnreadSummary(session);
+      if (active) {
+        setUnreadChatCount(summary.totalUnread);
+      }
+    };
+    void syncChatUnread();
+    const unsub = subscribeChatMessagesRealtime(session, {
+      onAnyChange: () => {
+        void syncChatUnread();
+      },
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [session]);
 
   const [officerShiftOverrides, setOfficerShiftOverrides] = useState<SecurityShiftOverride[]>([]);
 
@@ -1111,8 +1143,39 @@ export function PetugasPortalPage({
 
       <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
         <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
-          Profil &amp; Pengaturan
+          Komunikasi &amp; Profil
         </p>
+        <button
+          type="button"
+          onClick={() => handleSelectTabFromSidebar('chat')}
+          className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+            activeTab === 'chat'
+              ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
+              : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+          }`}
+        >
+          <span
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+              activeTab === 'chat'
+                ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
+                : 'bg-sky-50 text-[#0284C7]'
+            }`}
+          >
+            <MessageSquare className="w-[18px] h-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate leading-tight">Chat Lingkungan</p>
+            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+              Pengurus &amp; Warga
+            </p>
+          </div>
+          {unreadChatCount > 0 && activeTab !== 'chat' && (
+            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
+              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+            </span>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={handleOpenProfileFromSidebar}
@@ -1318,6 +1381,25 @@ export function PetugasPortalPage({
               className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-sky-100 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectTab('chat')}
+              aria-label="Buka Chat Lingkungan"
+              title="Chat Lingkungan (Pengurus & Warga)"
+              className={`relative h-10 w-10 rounded-full border flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
+                activeTab === 'chat'
+                  ? 'bg-white text-[#312E81] border-white shadow-xs'
+                  : 'bg-white/10 hover:bg-white/20 border-white/15 text-sky-100'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              {unreadChatCount > 0 && activeTab !== 'chat' && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">
@@ -2191,6 +2273,10 @@ export function PetugasPortalPage({
                   <span>Scan Checkpoint NFC Sekarang</span>
                 </button>
               </div>
+            )}
+
+            {activeTab === 'chat' && (
+              <CommunityChatSlide session={session} onToast={onToast} />
             )}
           </>
         )}

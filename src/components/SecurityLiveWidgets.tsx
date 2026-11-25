@@ -4,12 +4,14 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Loader2,
   MapPin,
   MessageCircle,
   PhoneCall,
   Radio,
   Shield,
   ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 import { type LogPatroli, type PetugasKontakDarurat } from '../types';
 import { formatTanggalWaktu, normalizePhoneNumber } from '../lib/format';
@@ -136,6 +138,11 @@ interface SecurityPatrolFeedCardProps {
   patroliFeed: LogPatroli[];
   maxItems?: number;
   initialLimit?: number;
+  canDelete?: boolean;
+  deletingLogId?: string | null;
+  deletingAllLogs?: boolean;
+  onDeleteLog?: (log: LogPatroli) => void;
+  onDeleteAllLogs?: () => void;
 }
 
 function formatCompactLogTime(isoDate?: string | null): string {
@@ -165,9 +172,16 @@ function formatCompactLogTime(isoDate?: string | null): string {
 export function SecurityPatrolFeedCard({
   patroliFeed,
   initialLimit = 5,
+  canDelete = false,
+  deletingLogId = null,
+  deletingAllLogs = false,
+  onDeleteLog,
+  onDeleteAllLogs,
 }: SecurityPatrolFeedCardProps) {
   const avatarMap = useAvatarMap();
   const [expanded, setExpanded] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const safeFeed = Array.isArray(patroliFeed) ? patroliFeed : [];
   const limit = initialLimit > 0 ? initialLimit : 5;
   const hasMore = safeFeed.length > limit;
@@ -178,7 +192,7 @@ export function SecurityPatrolFeedCard({
       aria-label="Info Keamanan dan Patroli Lingkungan"
       className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0">
             <Radio className="w-4 h-4" />
@@ -192,10 +206,60 @@ export function SecurityPatrolFeedCard({
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-mono font-semibold text-[#4C1D95] shrink-0 tabular-nums">
-          {safeFeed.length} log
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] font-mono font-semibold text-[#4C1D95] tabular-nums">
+            {safeFeed.length} log
+          </span>
+          {canDelete && onDeleteAllLogs && safeFeed.length > 0 && !confirmClearAll && (
+            <button
+              type="button"
+              disabled={deletingAllLogs}
+              onClick={() => {
+                setConfirmDeleteId(null);
+                setConfirmClearAll(true);
+              }}
+              className="px-2.5 py-1 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Hapus Semua</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {canDelete && onDeleteAllLogs && confirmClearAll && (
+        <div className="px-4 sm:px-5 py-3 bg-rose-50/90 border-b border-rose-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <p className="font-semibold text-rose-900">
+            Hapus seluruh {safeFeed.length} log patroli keamanan ini secara permanen?
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={deletingAllLogs}
+              onClick={() => setConfirmClearAll(false)}
+              className="px-3 py-1 rounded-full border border-rose-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={deletingAllLogs}
+              onClick={() => {
+                setConfirmClearAll(false);
+                onDeleteAllLogs();
+              }}
+              className="px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+            >
+              {deletingAllLogs ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Trash2 className="w-3 h-3" />
+              )}
+              <span>Ya, Hapus Semua</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {displayed.length === 0 ? (
         <div className="px-5 py-6 text-center space-y-1.5">
@@ -213,13 +277,15 @@ export function SecurityPatrolFeedCard({
               const isAman = (log?.status_kondisi || 'Aman') === 'Aman';
               const rawMethod = (log?.metode_scan || 'NFC').trim();
               const methodLabel = rawMethod === 'NFC Tap' ? 'NFC' : rawMethod;
+              const isDeletingThis = deletingLogId === log?.id;
+              const isConfirmingThis = confirmDeleteId === log?.id;
 
               return (
                 <article
                   key={log?.id || `log-${idx}`}
                   className="px-3.5 sm:px-4 py-2.5 hover:bg-indigo-50/40 transition-colors"
                 >
-                  {/* Baris 1: Nama Pos + Badge Status di kiri, Jam/Tanggal ringkas di kanan */}
+                  {/* Baris 1: Nama Pos + Badge Status di kiri, Jam/Tanggal ringkas + tombol hapus di kanan */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <MapPin className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
@@ -242,9 +308,55 @@ export function SecurityPatrolFeedCard({
                       </span>
                     </div>
 
-                    <span className="text-[11px] font-mono text-slate-500 tabular-nums whitespace-nowrap shrink-0">
-                      {formatCompactLogTime(log?.waktu_scan)}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[11px] font-mono text-slate-500 tabular-nums whitespace-nowrap">
+                        {formatCompactLogTime(log?.waktu_scan)}
+                      </span>
+                      {canDelete && onDeleteLog && log?.id && (
+                        isConfirmingThis ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={isDeletingThis}
+                              onClick={() => {
+                                setConfirmDeleteId(null);
+                                onDeleteLog(log);
+                              }}
+                              className="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                            >
+                              {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                              <span>Hapus</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isDeletingThis}
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="px-1.5 py-0.5 rounded-full border border-slate-200 bg-white text-slate-600 text-[10px] font-semibold hover:bg-slate-50 cursor-pointer"
+                            >
+                              Batal
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isDeletingThis || deletingAllLogs}
+                            onClick={() => {
+                              setConfirmClearAll(false);
+                              setConfirmDeleteId(log.id);
+                            }}
+                            aria-label="Hapus log patroli"
+                            title="Hapus log patroli ini"
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
+                          >
+                            {isDeletingThis ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   {/* Baris 2: Avatar mini + Nama Petugas + keterangan metode */}
