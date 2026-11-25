@@ -57,6 +57,10 @@ export interface DmThreadPreview {
   unread_count: number;
 }
 
+export type ChatAttachmentType = 'none' | 'photo' | 'document' | 'video';
+export type ChatAttachmentStorageProvider = 'google_drive' | 'supabase_transit';
+export type ChatAttachmentStatus = 'pending_transfer' | 'uploading_video' | 'ready' | 'failed';
+
 export interface ChatMessage {
   id: string;
   room_id: ChatRoomId;
@@ -73,6 +77,16 @@ export interface ChatMessage {
   reply_preview: string | null;
   created_at: string;
   is_local_only?: boolean;
+  attachment_type?: ChatAttachmentType;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size_bytes?: number | null;
+  attachment_storage_provider?: ChatAttachmentStorageProvider | null;
+  attachment_drive_file_id?: string | null;
+  attachment_drive_folder_path?: string | null;
+  attachment_url?: string | null;
+  attachment_thumbnail_url?: string | null;
+  attachment_status?: ChatAttachmentStatus | null;
 }
 
 export interface SendChatMessageInput {
@@ -81,6 +95,18 @@ export interface SendChatMessageInput {
   reply_to_id?: string | null;
   reply_preview?: string | null;
   recipient?: Pick<ChatContact, 'participant_id' | 'display_name' | 'role'> | null;
+  attachment?: {
+    attachment_type?: ChatAttachmentType;
+    attachment_name?: string | null;
+    attachment_mime?: string | null;
+    attachment_size_bytes?: number | null;
+    attachment_storage_provider?: ChatAttachmentStorageProvider | null;
+    attachment_drive_file_id?: string | null;
+    attachment_drive_folder_path?: string | null;
+    attachment_url?: string | null;
+    attachment_thumbnail_url?: string | null;
+    attachment_status?: ChatAttachmentStatus | null;
+  } | null;
 }
 
 const LOCAL_CHAT_MESSAGES_KEY = 'ecard_community_chat_messages_v1';
@@ -356,7 +382,33 @@ function normalizeRoomId(raw: unknown): ChatRoomId {
   return 'forum_umum';
 }
 
+function normalizeAttachmentType(raw: unknown): ChatAttachmentType {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (clean === 'photo' || clean === 'document' || clean === 'video') return clean;
+  return 'none';
+}
+
+function normalizeAttachmentProvider(raw: unknown): ChatAttachmentStorageProvider | null {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (clean === 'google_drive' || clean === 'supabase_transit') return clean;
+  return null;
+}
+
+function normalizeAttachmentStatus(raw: unknown): ChatAttachmentStatus | null {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (
+    clean === 'pending_transfer' ||
+    clean === 'uploading_video' ||
+    clean === 'ready' ||
+    clean === 'failed'
+  ) {
+    return clean;
+  }
+  return null;
+}
+
 export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
+  const rawSize = Number(row.attachment_size_bytes);
   return {
     id: String(row.id || createUuidSafe()),
     room_id: normalizeRoomId(row.room_id),
@@ -373,6 +425,19 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     reply_preview: typeof row.reply_preview === 'string' ? row.reply_preview : null,
     created_at: String(row.created_at || new Date().toISOString()),
     is_local_only: false,
+    attachment_type: normalizeAttachmentType(row.attachment_type),
+    attachment_name: typeof row.attachment_name === 'string' ? row.attachment_name : null,
+    attachment_mime: typeof row.attachment_mime === 'string' ? row.attachment_mime : null,
+    attachment_size_bytes: Number.isFinite(rawSize) && rawSize > 0 ? rawSize : null,
+    attachment_storage_provider: normalizeAttachmentProvider(row.attachment_storage_provider),
+    attachment_drive_file_id:
+      typeof row.attachment_drive_file_id === 'string' ? row.attachment_drive_file_id : null,
+    attachment_drive_folder_path:
+      typeof row.attachment_drive_folder_path === 'string' ? row.attachment_drive_folder_path : null,
+    attachment_url: typeof row.attachment_url === 'string' ? row.attachment_url : null,
+    attachment_thumbnail_url:
+      typeof row.attachment_thumbnail_url === 'string' ? row.attachment_thumbnail_url : null,
+    attachment_status: normalizeAttachmentStatus(row.attachment_status),
   };
 }
 
@@ -1043,13 +1108,27 @@ export async function sendChatMessage(
     reply_preview: input.reply_preview ? input.reply_preview.slice(0, 140) : null,
     created_at: nowIso,
     is_local_only: false,
+    ...(input.attachment
+      ? {
+          attachment_type: input.attachment.attachment_type || 'none',
+          attachment_name: input.attachment.attachment_name ?? null,
+          attachment_mime: input.attachment.attachment_mime ?? null,
+          attachment_size_bytes: input.attachment.attachment_size_bytes ?? null,
+          attachment_storage_provider: input.attachment.attachment_storage_provider ?? null,
+          attachment_drive_file_id: input.attachment.attachment_drive_file_id ?? null,
+          attachment_drive_folder_path: input.attachment.attachment_drive_folder_path ?? null,
+          attachment_url: input.attachment.attachment_url ?? null,
+          attachment_thumbnail_url: input.attachment.attachment_thumbnail_url ?? null,
+          attachment_status: input.attachment.attachment_status ?? null,
+        }
+      : {}),
   };
 
   let savedRemote = false;
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const payloadWithRecipient = {
+      const basePayload = {
         id: nextMessage.id,
         room_id: nextMessage.room_id,
         sender_role: nextMessage.sender_role,
@@ -1069,10 +1148,41 @@ export async function sendChatMessage(
         created_at: nextMessage.created_at,
       };
 
-      let { error } = await supabase.from('community_chat_messages').insert(payloadWithRecipient);
+      const payloadWithAttachment = input.attachment
+        ? {
+            ...basePayload,
+            attachment_type: nextMessage.attachment_type || 'none',
+            attachment_name: nextMessage.attachment_name ?? null,
+            attachment_mime: nextMessage.attachment_mime ?? null,
+            attachment_size_bytes: nextMessage.attachment_size_bytes ?? null,
+            attachment_storage_provider: nextMessage.attachment_storage_provider ?? null,
+            attachment_drive_file_id: nextMessage.attachment_drive_file_id ?? null,
+            attachment_drive_folder_path: nextMessage.attachment_drive_folder_path ?? null,
+            attachment_url: nextMessage.attachment_url ?? null,
+            attachment_thumbnail_url: nextMessage.attachment_thumbnail_url ?? null,
+            attachment_status: nextMessage.attachment_status ?? null,
+          }
+        : basePayload;
 
-      // Kompatibilitas bila kolom recipient_* pada DB belum dibuat oleh migrasi v14
-      if (error && (String(error.message || '').toLowerCase().includes('recipient_') || error.code === '42703' || error.code === 'PGRST204')) {
+      let { error } = await supabase.from('community_chat_messages').insert(payloadWithAttachment);
+
+      // Kompatibilitas bila kolom attachment_* (v17) atau recipient_* (v14) belum dibuat
+      if (
+        error &&
+        (String(error.message || '').toLowerCase().includes('attachment_') ||
+          error.code === '42703' ||
+          error.code === 'PGRST204')
+      ) {
+        const retryRecipient = await supabase.from('community_chat_messages').insert(basePayload);
+        error = retryRecipient.error;
+      }
+
+      if (
+        error &&
+        (String(error.message || '').toLowerCase().includes('recipient_') ||
+          error.code === '42703' ||
+          error.code === 'PGRST204')
+      ) {
         const fallbackPayload = {
           id: nextMessage.id,
           room_id: nextMessage.room_id,
@@ -1082,7 +1192,7 @@ export async function sendChatMessage(
           sender_subtitle: nextMessage.sender_subtitle,
           sender_avatar_url: nextMessage.sender_avatar_url,
           message: nextMessage.message,
-          reply_to_id: payloadWithRecipient.reply_to_id,
+          reply_to_id: basePayload.reply_to_id,
           reply_preview: nextMessage.reply_preview,
           created_at: nextMessage.created_at,
         };
@@ -1336,6 +1446,18 @@ export function subscribeChatMessagesRealtime(
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'community_chat_messages' },
+          (payload) => {
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (!row) return;
+            const normalized = normalizeChatRow(row);
+            if (!canAccessChatRoom(session, normalized.room_id)) return;
+            callbacks.onInsert?.(normalized);
+            callbacks.onAnyChange?.();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'community_chat_messages' },
           (payload) => {
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;

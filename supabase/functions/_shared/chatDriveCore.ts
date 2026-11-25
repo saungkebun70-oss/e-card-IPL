@@ -1,0 +1,802 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+export interface VerifiedChatCaller {
+  role: 'admin' | 'warga' | 'petugas';
+  senderId: string;
+  slug: string;
+  displayName: string;
+  matchIds: Set<string>;
+}
+
+export interface DriveServiceAccountConfig {
+  clientEmail: string;
+  privateKey: string;
+  rootFolderId: string;
+}
+
+const ALLOWED_STATIC_ORIGINS = new Set([
+  'https://e-card-ipl.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]);
+
+const VIDEO_EXTENSION_REGEX = /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i;
+const VIDEO_MIME_SET = new Set([
+  'application/mp4',
+  'application/x-matroska',
+  'video/mp4',
+  'video/quicktime',
+  'video/x-msvideo',
+  'video/webm',
+  'video/3gpp',
+  'video/x-m4v',
+]);
+
+const MAX_NON_VIDEO_TRANSIT_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_VIDEO_RESUMABLE_BYTES = 500 * 1024 * 1024; // 500 MB
+
+export function buildCorsHeaders(req: Request): Record<string, string> {
+  const origin = (req.headers.get('origin') || '').trim();
+  const configuredPublicUrl = (Deno.env.get('PUBLIC_APP_URL') || '').trim().replace(/\/+$/, '');
+  let allowedOrigin = '*';
+
+  if (origin) {
+    try {
+      const parsed = new URL(origin);
+      const host = parsed.hostname.toLowerCase();
+      if (
+        ALLOWED_STATIC_ORIGINS.has(origin) ||
+        (configuredPublicUrl && origin === configuredPublicUrl) ||
+        host.endsWith('.vercel.app') ||
+        host.endsWith('.stackblitz.io') ||
+        host.endsWith('.webcontainer.io') ||
+        host.endsWith('.run.app')
+      ) {
+        allowedOrigin = origin;
+      }
+    } catch {
+      allowedOrigin = '*';
+    }
+  }
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Cache-Control': 'no-store',
+    Vary: 'Origin',
+  };
+}
+
+export function jsonResponse(
+  req: Request,
+  status: number,
+  payload: Record<string, unknown>
+): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      ...buildCorsHeaders(req),
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+export function normalizeToken(raw?: string | null): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+export function canonicalBlockKey(raw?: string | null): string {
+  const clean = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+  if (!clean) return '';
+  const match = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  if (match) {
+    return `${match[1]}${Number(match[2])}/${Number(match[3])}`;
+  }
+  return clean;
+}
+
+export function canonicalAdminUsername(raw?: string | null): string {
+  const clean = normalizeToken(raw);
+  if (clean === 'admin' || clean === 'andriansyah') return 'andriansyah';
+  if (clean === 'paiwan' || clean === 'bpiwan') return 'bpiwan';
+  return clean;
+}
+
+export function isVideoMedia(mimeType?: string | null, fileName?: string | null): boolean {
+  const cleanMime = String(mimeType || '').trim().toLowerCase();
+  const cleanName = String(fileName || '').trim().toLowerCase();
+  if (cleanMime.startsWith('video/')) return true;
+  if (VIDEO_MIME_SET.has(cleanMime)) return true;
+  if (VIDEO_EXTENSION_REGEX.test(cleanName)) return true;
+  return false;
+}
+
+export function classifyNonVideoAttachmentType(mimeType?: string | null, fileName?: string | null): 'photo' | 'document' {
+  const cleanMime = String(mimeType || '').trim().toLowerCase();
+  const cleanName = String(fileName || '').trim().toLowerCase();
+  if (cleanMime.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(cleanName)) {
+    return 'photo';
+  }
+  return 'document';
+}
+
+export function sanitizeFileName(rawName?: string | null, fallbackExt = 'bin'): string {
+  const last = String(rawName || '').split(/[\\/]/).pop() || '';
+  const safe = last.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!safe) return `media-${Date.now()}.${fallbackExt}`;
+  return safe.slice(0, 140);
+}
+
+export function getJakartaYearMonth(isoDate?: string | null): string {
+  const baseDate = isoDate && !Number.isNaN(Date.parse(isoDate)) ? new Date(isoDate) : new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(baseDate);
+  const year = parts.find((p) => p.type === 'year')?.value || String(baseDate.getUTCFullYear());
+  const month = parts.find((p) => p.type === 'month')?.value || String(baseDate.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+export function resolveDriveCategoryFolder(roomId: string): string {
+  const clean = String(roomId || '').trim();
+  if (clean === 'grup_pengurus') return 'Grup-Pengurus';
+  if (clean === 'pengurus_warga') return 'Grup-Pengurus-Warga';
+  if (clean === 'pengurus_keamanan') return 'Grup-Pengurus-Keamanan';
+  if (clean === 'warga_keamanan') return 'Grup-Warga-Keamanan';
+  if (clean === 'forum_umum') return 'Forum-Lingkungan';
+  if (clean.startsWith('dm:')) return 'DM-Personal';
+  return 'Chat-Lainnya';
+}
+
+export function normalizeChatRoomId(rawRoomId: string): string {
+  const clean = String(rawRoomId || '').trim();
+  if (
+    clean === 'grup_pengurus' ||
+    clean === 'pengurus_warga' ||
+    clean === 'pengurus_keamanan' ||
+    clean === 'warga_keamanan' ||
+    clean === 'forum_umum'
+  ) {
+    return clean;
+  }
+  if (clean.startsWith('dm:') && clean.slice(3).includes('__')) {
+    const body = clean.slice(3);
+    const idx = body.indexOf('__');
+    const a = normalizeParticipantId(body.slice(0, idx));
+    const b = normalizeParticipantId(body.slice(idx + 2));
+    if (a && b) {
+      const sorted = [a, b].sort((x, y) => x.localeCompare(y));
+      return `dm:${sorted[0]}__${sorted[1]}`;
+    }
+  }
+  return '';
+}
+
+export function normalizeParticipantId(rawId: string): string {
+  const clean = normalizeToken(rawId);
+  if (clean.startsWith('admin:')) {
+    return `admin:${canonicalAdminUsername(clean.slice('admin:'.length))}`;
+  }
+  if (clean.startsWith('warga:')) {
+    const sub = clean.slice('warga:'.length);
+    return `warga:${canonicalBlockKey(sub).toLowerCase() || sub}`;
+  }
+  if (clean.startsWith('keamanan:')) {
+    return `petugas:${clean.slice('keamanan:'.length)}`;
+  }
+  return clean;
+}
+
+export function canCallerAccessRoom(caller: VerifiedChatCaller, roomId: string): boolean {
+  if (!roomId) return false;
+  if (roomId === 'grup_pengurus') return caller.role === 'admin';
+  if (roomId === 'pengurus_keamanan') return caller.role === 'admin' || caller.role === 'petugas';
+  if (roomId === 'pengurus_warga') return caller.role === 'admin' || caller.role === 'warga';
+  if (roomId === 'warga_keamanan') return caller.role === 'warga' || caller.role === 'petugas';
+  if (roomId === 'forum_umum') return true;
+  if (roomId.startsWith('dm:')) {
+    const body = roomId.slice(3);
+    const idx = body.indexOf('__');
+    if (idx <= 0) return false;
+    const p1 = normalizeParticipantId(body.slice(0, idx));
+    const p2 = normalizeParticipantId(body.slice(idx + 2));
+    return caller.matchIds.has(p1) || caller.matchIds.has(p2);
+  }
+  return false;
+}
+
+export function getSupabaseAdminClient() {
+  const url = (Deno.env.get('SUPABASE_URL') || '').trim().replace(/\/+$/, '');
+  const serviceKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+  if (!url || !serviceKey) {
+    throw new Error('SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diatur pada Edge Function.');
+  }
+  return {
+    url,
+    serviceKey,
+    client: createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    }),
+  };
+}
+
+export function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
+  const clientEmail = (Deno.env.get('GOOGLE_DRIVE_CLIENT_EMAIL') || '').trim();
+  const rawKey = (Deno.env.get('GOOGLE_DRIVE_PRIVATE_KEY') || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\n/g, '\n');
+  const rootFolderId = (Deno.env.get('GOOGLE_DRIVE_ROOT_FOLDER_ID') || '').trim();
+
+  if (!clientEmail || !rawKey || !rootFolderId) {
+    throw new Error(
+      'Konfigurasi GOOGLE_DRIVE_CLIENT_EMAIL, GOOGLE_DRIVE_PRIVATE_KEY, atau GOOGLE_DRIVE_ROOT_FOLDER_ID belum lengkap di Edge Function Secrets.'
+    );
+  }
+
+  return {
+    clientEmail,
+    privateKey: rawKey,
+    rootFolderId,
+  };
+}
+
+export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller> {
+  const rawRole = normalizeToken(req.headers.get('x-user-role'));
+  const rawBlok = (req.headers.get('x-blok-rumah') || '').trim();
+  const rawPetugasId = (req.headers.get('x-petugas-id') || '').trim();
+
+  const { client } = getSupabaseAdminClient();
+
+  if (rawRole === 'admin') {
+    const reqUsername = canonicalAdminUsername(rawBlok);
+    if (!reqUsername) {
+      throw Object.assign(new Error('Identitas Pengurus tidak lengkap.'), { statusCode: 401 });
+    }
+    const { data, error } = await client
+      .from('users_warga')
+      .select('blok_rumah, nama_warga, role, aktif')
+      .eq('aktif', true)
+      .in('role', ['admin', 'bendahara']);
+
+    if (error) {
+      throw new Error(`Gagal memverifikasi akun Pengurus: ${error.message}`);
+    }
+
+    const matched = (data || []).find(
+      (row) => canonicalAdminUsername(String(row.blok_rumah || '')) === reqUsername
+    );
+    if (!matched) {
+      throw Object.assign(
+        new Error('Akun Pengurus tidak aktif atau hak Pengurus telah dicabut.'),
+        { statusCode: 403 }
+      );
+    }
+
+    const matchIds = new Set<string>([`admin:${reqUsername}`]);
+    if (reqUsername === 'andriansyah') matchIds.add('admin:admin');
+    if (reqUsername === 'bpiwan') matchIds.add('admin:paiwan');
+
+    return {
+      role: 'admin',
+      senderId: `admin:${reqUsername}`,
+      slug: reqUsername,
+      displayName: String(matched.nama_warga || 'Pengurus'),
+      matchIds,
+    };
+  }
+
+  if (rawRole === 'warga') {
+    const canonBlok = canonicalBlockKey(rawBlok);
+    if (!canonBlok) {
+      throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
+    }
+
+    const { data, error } = await client
+      .from('users_warga')
+      .select('blok_rumah, nama_warga, role, aktif')
+      .eq('aktif', true)
+      .eq('role', 'warga');
+
+    if (error) {
+      throw new Error(`Gagal memverifikasi akun Warga: ${error.message}`);
+    }
+
+    const matched = (data || []).find(
+      (row) => canonicalBlockKey(String(row.blok_rumah || '')) === canonBlok
+    );
+    if (!matched) {
+      throw Object.assign(
+        new Error('Akun Warga tidak aktif atau sedang berstatus Pengurus aktif.'),
+        { statusCode: 403 }
+      );
+    }
+
+    const canonLower = canonBlok.toLowerCase();
+    const rawLower = normalizeToken(rawBlok);
+    const matchIds = new Set<string>([`warga:${canonLower}`]);
+    if (rawLower) matchIds.add(`warga:${rawLower}`);
+
+    return {
+      role: 'warga',
+      senderId: `warga:${canonLower}`,
+      slug: canonLower.replace(/[^a-z0-9_-]+/g, '-'),
+      displayName: String(matched.nama_warga || `Warga ${canonBlok}`),
+      matchIds,
+    };
+  }
+
+  if (rawRole === 'petugas' || rawRole === 'keamanan') {
+    const lookupToken = normalizeToken(rawPetugasId || rawBlok);
+    if (!lookupToken) {
+      throw Object.assign(new Error('Identitas Petugas Keamanan tidak lengkap.'), { statusCode: 401 });
+    }
+
+    const { data, error } = await client
+      .from('petugas_keamanan')
+      .select('id, nama, username, aktif')
+      .eq('aktif', true);
+
+    if (error) {
+      throw new Error(`Gagal memverifikasi akun Keamanan: ${error.message}`);
+    }
+
+    const matched = (data || []).find(
+      (row) =>
+        normalizeToken(String(row.id || '')) === lookupToken ||
+        normalizeToken(String(row.username || '')) === lookupToken ||
+        normalizeToken(String(row.nama || '')) === lookupToken
+    );
+
+    if (!matched) {
+      throw Object.assign(new Error('Akun Petugas Keamanan tidak aktif atau tidak ditemukan.'), {
+        statusCode: 403,
+      });
+    }
+
+    const petIdLower = normalizeToken(String(matched.id));
+    const matchIds = new Set<string>([
+      `petugas:${petIdLower}`,
+      `keamanan:${petIdLower}`,
+    ]);
+    if (rawBlok) {
+      matchIds.add(`petugas:${normalizeToken(rawBlok)}`);
+      matchIds.add(`keamanan:${normalizeToken(rawBlok)}`);
+    }
+
+    return {
+      role: 'petugas',
+      senderId: `petugas:${petIdLower}`,
+      slug: petIdLower.replace(/[^a-z0-9_-]+/g, '-'),
+      displayName: String(matched.nama || 'Petugas Keamanan'),
+      matchIds,
+    };
+  }
+
+  throw Object.assign(new Error('Sesi portal aktif diperlukan untuk mengunggah lampiran chat.'), {
+    statusCode: 401,
+  });
+}
+
+export async function verifyMessageOwnershipIfPresent(
+  messageId: string | undefined,
+  roomId: string,
+  caller: VerifiedChatCaller
+): Promise<void> {
+  if (!messageId) return;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(messageId)) {
+    throw Object.assign(new Error('Format messageId tidak valid.'), { statusCode: 400 });
+  }
+  const { client } = getSupabaseAdminClient();
+  const { data, error } = await client
+    .from('community_chat_messages')
+    .select('id, room_id, sender_id')
+    .eq('id', messageId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Gagal memeriksa kepemilikan pesan: ${error.message}`);
+  }
+  if (!data) {
+    throw Object.assign(new Error('Pesan chat tidak ditemukan.'), { statusCode: 404 });
+  }
+  const rowRoom = normalizeChatRoomId(String(data.room_id || ''));
+  if (rowRoom !== roomId) {
+    throw Object.assign(new Error('Pesan tidak sesuai dengan ruang chat yang diminta.'), {
+      statusCode: 403,
+    });
+  }
+  const rowSender = normalizeParticipantId(String(data.sender_id || ''));
+  if (caller.role !== 'admin' && !caller.matchIds.has(rowSender)) {
+    throw Object.assign(new Error('Anda tidak berhak mengubah lampiran pesan ini.'), {
+      statusCode: 403,
+    });
+  }
+}
+
+function base64UrlEncode(input: Uint8Array | string): string {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const cleaned = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '');
+  const binary = atob(cleaned);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+export async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Promise<string> {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const claimSet = base64UrlEncode(
+    JSON.stringify({
+      iss: cfg.clientEmail,
+      scope: 'https://www.googleapis.com/auth/drive',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: nowSec,
+      exp: nowSec + 3600,
+    })
+  );
+  const signingInput = `${header}.${claimSet}`;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(cfg.privateKey),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+  const jwt = `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gagal otentikasi Service Account Google Drive (${res.status}): ${errText.slice(0, 180)}`);
+  }
+
+  const json = (await res.json()) as { access_token?: string };
+  if (!json.access_token) {
+    throw new Error('Google OAuth2 tidak mengembalikan access_token.');
+  }
+  return json.access_token;
+}
+
+export async function ensureDriveSubfolder(
+  accessToken: string,
+  folderName: string,
+  parentId: string
+): Promise<string> {
+  const safeName = folderName.replace(/'/g, "\\'");
+  const q = `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`;
+  const searchParams = new URLSearchParams({
+    q,
+    fields: 'files(id,name)',
+    pageSize: '5',
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true',
+  });
+
+  const findRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?${searchParams.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  if (findRes.ok) {
+    const found = (await findRes.json()) as { files?: Array<{ id: string }> };
+    if (found.files?.[0]?.id) {
+      return found.files[0].id;
+    }
+  }
+
+  const createRes = await fetch(
+    'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      }),
+    }
+  );
+  if (!createRes.ok) {
+    const errText = await createRes.text().catch(() => '');
+    throw new Error(`Gagal membuat subfolder Drive "${folderName}": ${errText.slice(0, 180)}`);
+  }
+  const created = (await createRes.json()) as { id: string };
+  return created.id;
+}
+
+export async function resolveMonthlyChatDriveFolder(
+  accessToken: string,
+  rootFolderId: string,
+  roomId: string,
+  isoDate?: string | null
+): Promise<{ folderId: string; folderPath: string; categoryFolder: string; monthFolder: string }> {
+  const categoryFolder = resolveDriveCategoryFolder(roomId);
+  const monthFolder = getJakartaYearMonth(isoDate);
+  const categoryFolderId = await ensureDriveSubfolder(accessToken, categoryFolder, rootFolderId);
+  const monthFolderId = await ensureDriveSubfolder(accessToken, monthFolder, categoryFolderId);
+  return {
+    folderId: monthFolderId,
+    folderPath: `${categoryFolder}/${monthFolder}`,
+    categoryFolder,
+    monthFolder,
+  };
+}
+
+export async function makeDriveFilePublicReader(
+  accessToken: string,
+  fileId: string
+): Promise<void> {
+  await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    }
+  ).catch(() => undefined);
+}
+
+export async function uploadBytesToDrive(params: {
+  accessToken: string;
+  folderId: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+  description?: string;
+}): Promise<{
+  id: string;
+  name: string;
+  size: number;
+  webViewLink: string;
+  thumbnailLink?: string;
+}> {
+  if (params.bytes.byteLength > 4 * 1024 * 1024) {
+    const initRes = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,size,webViewLink,thumbnailLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${params.accessToken}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Type': params.mimeType,
+          'X-Upload-Content-Length': String(params.bytes.byteLength),
+        },
+        body: JSON.stringify({
+          name: params.fileName,
+          parents: [params.folderId],
+          mimeType: params.mimeType,
+          description: params.description || 'Lampiran Chat Komunitas e-Card IPL Saung Kebun',
+        }),
+      }
+    );
+
+    if (!initRes.ok) {
+      const errText = await initRes.text().catch(() => '');
+      throw new Error(`Gagal memulai unggahan Drive (${initRes.status}): ${errText.slice(0, 180)}`);
+    }
+
+    const sessionUri = (initRes.headers.get('location') || '').trim();
+    if (!sessionUri) {
+      throw new Error('Google Drive tidak mengembalikan URI unggah.');
+    }
+
+    const putRes = await fetch(sessionUri, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': params.mimeType,
+        'Content-Length': String(params.bytes.byteLength),
+      },
+      body: params.bytes,
+    });
+
+    if (!putRes.ok) {
+      const errText = await putRes.text().catch(() => '');
+      throw new Error(`Gagal mengunggah konten ke Google Drive (${putRes.status}): ${errText.slice(0, 180)}`);
+    }
+
+    const uploaded = (await putRes.json()) as {
+      id: string;
+      name: string;
+      size?: string;
+      webViewLink?: string;
+      thumbnailLink?: string;
+    };
+
+    return {
+      id: uploaded.id,
+      name: uploaded.name || params.fileName,
+      size: Number(uploaded.size || params.bytes.byteLength),
+      webViewLink: uploaded.webViewLink || `https://drive.google.com/file/d/${uploaded.id}/view`,
+      thumbnailLink: uploaded.thumbnailLink,
+    };
+  }
+
+  const boundary = `sk_drive_${crypto.randomUUID().replace(/-/g, '')}`;
+  const metadataJson = JSON.stringify({
+    name: params.fileName,
+    parents: [params.folderId],
+    description: params.description || 'Lampiran Chat Komunitas e-Card IPL Saung Kebun',
+  });
+
+  const encoder = new TextEncoder();
+  const part1 = encoder.encode(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadataJson}\r\n--${boundary}\r\nContent-Type: ${params.mimeType}\r\n\r\n`
+  );
+  const part3 = encoder.encode(`\r\n--${boundary}--`);
+  const payload = new Uint8Array(part1.length + params.bytes.length + part3.length);
+  payload.set(part1, 0);
+  payload.set(params.bytes, part1.length);
+  payload.set(part3, part1.length + params.bytes.length);
+
+  const uploadRes = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,size,webViewLink,thumbnailLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body: payload,
+    }
+  );
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text().catch(() => '');
+    throw new Error(`Gagal mengunggah lampiran ke Google Drive (${uploadRes.status}): ${errText.slice(0, 180)}`);
+  }
+
+  const uploaded = (await uploadRes.json()) as {
+    id: string;
+    name: string;
+    size?: string;
+    webViewLink?: string;
+    thumbnailLink?: string;
+  };
+
+  return {
+    id: uploaded.id,
+    name: uploaded.name || params.fileName,
+    size: Number(uploaded.size || params.bytes.length),
+    webViewLink: uploaded.webViewLink || `https://drive.google.com/file/d/${uploaded.id}/view`,
+    thumbnailLink: uploaded.thumbnailLink,
+  };
+}
+
+export async function updateChatAttachmentRecord(params: {
+  messageId?: string;
+  attachmentType: 'photo' | 'document' | 'video';
+  attachmentName: string;
+  attachmentMime: string;
+  attachmentSizeBytes: number;
+  storageProvider: 'google_drive';
+  driveFileId: string | null;
+  driveFolderPath: string;
+  attachmentUrl: string | null;
+  thumbnailUrl: string | null;
+  status: 'uploading_video' | 'ready' | 'failed';
+}): Promise<boolean> {
+  if (!params.messageId) return false;
+  const { client } = getSupabaseAdminClient();
+
+  const rpcRes = await client.rpc('update_chat_message_attachment', {
+    p_message_id: params.messageId,
+    p_attachment_type: params.attachmentType,
+    p_attachment_name: params.attachmentName,
+    p_attachment_mime: params.attachmentMime,
+    p_attachment_size_bytes: params.attachmentSizeBytes,
+    p_attachment_storage_provider: params.storageProvider,
+    p_attachment_drive_file_id: params.driveFileId,
+    p_attachment_drive_folder_path: params.driveFolderPath,
+    p_attachment_url: params.attachmentUrl,
+    p_attachment_thumbnail_url: params.thumbnailUrl,
+    p_attachment_status: params.status,
+  });
+
+  if (!rpcRes.error) return true;
+
+  const { error: patchErr } = await client
+    .from('community_chat_messages')
+    .update({
+      attachment_type: params.attachmentType,
+      attachment_name: params.attachmentName,
+      attachment_mime: params.attachmentMime,
+      attachment_size_bytes: params.attachmentSizeBytes,
+      attachment_storage_provider: params.storageProvider,
+      attachment_drive_file_id: params.driveFileId,
+      attachment_drive_folder_path: params.driveFolderPath,
+      attachment_url: params.attachmentUrl,
+      attachment_thumbnail_url: params.thumbnailUrl,
+      attachment_status: params.status,
+    })
+    .eq('id', params.messageId);
+
+  return !patchErr;
+}
+
+export function validateSafeTransitPath(transitPath: string, caller: VerifiedChatCaller): string {
+  const clean = String(transitPath || '').trim().replace(/^\/+/, '');
+  if (!clean || clean.includes('..') || clean.includes('\\') || clean.includes('?') || clean.includes('#')) {
+    throw Object.assign(new Error('Path transit tidak valid.'), { statusCode: 400 });
+  }
+  if (!/^[a-zA-Z0-9._:/-]+$/.test(clean)) {
+    throw Object.assign(new Error('Karakter path transit tidak diizinkan.'), { statusCode: 400 });
+  }
+  const expectedPrefix = `${caller.role}/${caller.slug}/`;
+  if (!clean.startsWith(expectedPrefix) && caller.role !== 'admin') {
+    throw Object.assign(new Error('Path transit harus berada di folder sesi Anda sendiri.'), {
+      statusCode: 403,
+    });
+  }
+  if (caller.role === 'admin' && !clean.startsWith('admin/') && !clean.startsWith(expectedPrefix)) {
+    throw Object.assign(new Error('Path transit admin tidak valid.'), { statusCode: 403 });
+  }
+  return clean;
+}
+
+export function getAllowedResumableOrigin(req: Request): string | undefined {
+  const origin = (req.headers.get('origin') || '').trim();
+  if (!origin) return undefined;
+  try {
+    const parsed = new URL(origin);
+    if (
+      parsed.protocol === 'https:' ||
+      (parsed.protocol === 'http:' &&
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'))
+    ) {
+      return `${parsed.protocol}//${parsed.host}`;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+export { MAX_NON_VIDEO_TRANSIT_BYTES, MAX_VIDEO_RESUMABLE_BYTES };

@@ -16,6 +16,11 @@ import {
   saveHybridThresholdSettings,
   uploadMediaViaConnectedDriveOAuth,
 } from './src/server/storageHybridBackend';
+import {
+  completeChatVideoResumableUpload,
+  initChatVideoResumableUpload,
+  transferChatTransitToDrive,
+} from './src/server/chatDriveService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -231,6 +236,109 @@ async function startServer() {
       res.status(500).json({
         ok: false,
         error: err instanceof Error ? err.message : 'Gagal memperbarui aturan ambang batas.',
+      });
+    }
+  });
+
+  app.post('/api/storage/transfer-transit-to-drive', async (req, res) => {
+    const body = (req.body || {}) as {
+      transitPath?: string;
+      roomId?: string;
+      messageId?: string;
+      fileName?: string;
+      mimeType?: string;
+    };
+    try {
+      const result = await transferChatTransitToDrive({
+        callerHeaders: {
+          role: String(req.headers['x-user-role'] || ''),
+          blokRumah: String(req.headers['x-blok-rumah'] || ''),
+          petugasId: String(req.headers['x-petugas-id'] || ''),
+        },
+        transitPath: String(body.transitPath || ''),
+        roomId: String(body.roomId || ''),
+        messageId: typeof body.messageId === 'string' ? body.messageId : undefined,
+        fileName: typeof body.fileName === 'string' ? body.fileName : undefined,
+        mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      const statusCode =
+        typeof (err as { statusCode?: number })?.statusCode === 'number'
+          ? (err as { statusCode: number }).statusCode
+          : 500;
+      res.status(statusCode).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.',
+      });
+    }
+  });
+
+  app.post('/api/storage/init-video-resumable-upload', async (req, res) => {
+    const body = (req.body || {}) as {
+      roomId?: string;
+      messageId?: string;
+      fileName?: string;
+      mimeType?: string;
+      sizeBytes?: number;
+      transitPath?: string;
+    };
+    try {
+      const result = await initChatVideoResumableUpload({
+        callerHeaders: {
+          role: String(req.headers['x-user-role'] || ''),
+          blokRumah: String(req.headers['x-blok-rumah'] || ''),
+          petugasId: String(req.headers['x-petugas-id'] || ''),
+        },
+        roomId: String(body.roomId || ''),
+        messageId: typeof body.messageId === 'string' ? body.messageId : undefined,
+        fileName: String(body.fileName || ''),
+        mimeType: String(body.mimeType || 'video/mp4'),
+        sizeBytes: Number(body.sizeBytes || 0),
+        transitPath: typeof body.transitPath === 'string' ? body.transitPath : undefined,
+        originHeader: typeof req.headers.origin === 'string' ? req.headers.origin : undefined,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      const statusCode =
+        typeof (err as { statusCode?: number })?.statusCode === 'number'
+          ? (err as { statusCode: number }).statusCode
+          : 500;
+      res.status(statusCode).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal membuat sesi unggah video Google Drive.',
+      });
+    }
+  });
+
+  app.post('/api/storage/complete-video-resumable-upload', async (req, res) => {
+    const body = (req.body || {}) as {
+      roomId?: string;
+      messageId?: string;
+      driveFileId?: string;
+      folderPath?: string;
+    };
+    try {
+      const result = await completeChatVideoResumableUpload({
+        callerHeaders: {
+          role: String(req.headers['x-user-role'] || ''),
+          blokRumah: String(req.headers['x-blok-rumah'] || ''),
+          petugasId: String(req.headers['x-petugas-id'] || ''),
+        },
+        roomId: String(body.roomId || ''),
+        messageId: typeof body.messageId === 'string' ? body.messageId : undefined,
+        driveFileId: String(body.driveFileId || ''),
+        folderPath: typeof body.folderPath === 'string' ? body.folderPath : undefined,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      const statusCode =
+        typeof (err as { statusCode?: number })?.statusCode === 'number'
+          ? (err as { statusCode: number }).statusCode
+          : 500;
+      res.status(statusCode).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal menyelesaikan metadata video Google Drive.',
       });
     }
   });
