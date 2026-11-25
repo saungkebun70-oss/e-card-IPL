@@ -35,6 +35,9 @@ interface DriveServiceAccountConfig {
   clientEmail: string;
   privateKey: string;
   rootFolderId: string;
+  clientEmailField?: string;
+  privateKeyField?: string;
+  rootFolderField?: string;
 }
 
 type DrivePermissionScope = 'anyone_link' | 'restricted_private';
@@ -43,6 +46,7 @@ interface CredentialValidationError extends Error {
   statusCode?: number;
   missingFields?: string[];
   invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
 }
 
 interface UsersWargaCallerRow {
@@ -231,17 +235,58 @@ function readFirstSecretEnv(names: string[]): { value: string; sourceName: strin
 }
 
 function normalizePrivateKeyPem(raw: string): string {
-  return stripOuterQuotes(raw)
-    .replace(/\\r\\n/g, '\n')
-    .replace(/\\n/g, '\n')
+  let clean = stripOuterQuotes(raw);
+  if (!clean) return '';
+
+  // Dukungan bila seluruh JSON Service Account tertempel ke secret private key
+  if (clean.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(clean) as { private_key?: unknown };
+      if (typeof parsed?.private_key === 'string' && parsed.private_key.trim()) {
+        clean = stripOuterQuotes(parsed.private_key);
+      }
+    } catch {
+      // Lanjutkan normalisasi string biasa
+    }
+  }
+
+  // Tangani string ter-escape ganda hasil JSON serialization (mis. "\"-----BEGIN...\\n...\"")
+  if ((clean.startsWith('"') && clean.endsWith('"')) || clean.includes('\\"')) {
+    try {
+      const unwrapped = JSON.parse(clean.startsWith('"') ? clean : `"${clean}"`);
+      if (typeof unwrapped === 'string' && unwrapped.trim()) {
+        clean = stripOuterQuotes(unwrapped);
+      }
+    } catch {
+      clean = clean.replace(/^\\["']|\\["']$/g, '');
+    }
+  }
+
+  // Normalisasi escape ganda (\\r\\n, \\n, \\r), escape tunggal (\r\n, \n, \r), serta newline CRLF/CR asli
+  clean = clean
+    .replace(/\\+r\\+n/g, '\n')
+    .replace(/\\+n/g, '\n')
+    .replace(/\\+r/g, '\n')
     .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  clean = stripOuterQuotes(clean);
+
+  // Rapikan batas header/footer PEM bila newline sempat hilang atau menyatu dengan spasi
+  clean = clean
+    .replace(/(-----BEGIN [A-Z0-9 ]+-----)\s*/g, '$1\n')
+    .replace(/\s*(-----END [A-Z0-9 ]+-----)/g, '\n$1')
+    .replace(/\n{2,}/g, '\n')
     .trim();
+
+  return clean;
 }
 
 function buildCredentialError(params: {
   scope: string;
   missingFields: string[];
   invalidFields: string[];
+  fieldReasons?: Record<string, string>;
   statusCode?: number;
 }): CredentialValidationError {
   const details: string[] = [];
@@ -249,14 +294,21 @@ function buildCredentialError(params: {
     details.push(`field kosong: [${params.missingFields.join(', ')}]`);
   }
   if (params.invalidFields.length > 0) {
-    details.push(`field tidak valid: [${params.invalidFields.join(', ')}]`);
+    const invalidDesc = params.invalidFields.map((field) => {
+      const reason = params.fieldReasons?.[field];
+      return reason ? `${field} (${reason})` : field;
+    });
+    details.push(`field tidak valid: [${invalidDesc.join(', ')}]`);
   }
   const err = new Error(
     `Validasi secrets ${params.scope} gagal di Edge Function — ${details.join('; ')}.`
   ) as CredentialValidationError;
   err.statusCode = params.statusCode ?? 500;
-  if (params.missingFields.length > 0) err.missingFields = params.missingFields;
-  if (params.invalidFields.length > 0) err.invalidFields = params.invalidFields;
+  err.missingFields = [...params.missingFields];
+  err.invalidFields = [...params.invalidFields];
+  if (params.fieldReasons && Object.keys(params.fieldReasons).length > 0) {
+    err.fieldReasons = params.fieldReasons;
+  }
   return err;
 }
 
@@ -282,26 +334,31 @@ function getSupabaseAdminClient() {
 
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
 
   if (!url) {
     missingFields.push('SUPABASE_URL');
+    fieldReasons.SUPABASE_URL = 'Secret kosong atau belum diatur.';
   } else {
     try {
       const parsed = new URL(url);
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-        invalidFields.push('SUPABASE_URL (protokol harus http/https)');
+        invalidFields.push('SUPABASE_URL');
+        fieldReasons.SUPABASE_URL = 'Protokol URL harus http atau https.';
       }
     } catch {
-      invalidFields.push('SUPABASE_URL (format URL tidak valid)');
+      invalidFields.push('SUPABASE_URL');
+      fieldReasons.SUPABASE_URL = 'Format URL tidak valid.';
     }
   }
 
   if (!serviceKey) {
-    missingFields.push('SERVICE_ROLE_KEY (fallback: SUPABASE_SERVICE_ROLE_KEY)');
+    missingFields.push('SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
+    fieldReasons.SERVICE_ROLE_KEY = 'Secret kosong (fallback SUPABASE_SERVICE_ROLE_KEY juga kosong).';
   } else if (serviceKey.length < 20 || /\s/.test(serviceKey)) {
-    invalidFields.push(
-      `${serviceKeyEnv.sourceName || 'SERVICE_ROLE_KEY'} (format token service role tidak valid)`
-    );
+    const keyField = serviceKeyEnv.sourceName || 'SERVICE_ROLE_KEY';
+    invalidFields.push(keyField);
+    fieldReasons[keyField] = 'Format token service role tidak valid atau mengandung spasi.';
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
@@ -309,6 +366,7 @@ function getSupabaseAdminClient() {
       scope: 'Supabase',
       missingFields,
       invalidFields,
+      fieldReasons,
     });
   }
 
@@ -333,42 +391,44 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
   const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
   const rootFolderId = folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID;
 
+  const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
+  const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID';
+
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
-    invalidFields.push(
-      `${emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL'} (format email service account tidak valid)`
-    );
+    invalidFields.push(emailField);
+    fieldReasons[emailField] = 'Format email service account tidak valid.';
   }
 
   if (!privateKey) {
-    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY (fallback: GOOGLE_PRIVATE_KEY)');
+    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY');
+    fieldReasons.GOOGLE_DRIVE_PRIVATE_KEY = 'Secret kosong (fallback GOOGLE_PRIVATE_KEY juga kosong).';
+  } else if (
+    !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
+    !privateKey.includes('-----END PRIVATE KEY-----')
+  ) {
+    invalidFields.push(keyField);
+    fieldReasons[keyField] = 'Harus berformat PEM PKCS8 dengan header BEGIN/END PRIVATE KEY.';
   } else {
-    const keyName = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
-    if (
-      !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
-      !privateKey.includes('-----END PRIVATE KEY-----')
-    ) {
-      invalidFields.push(
-        `${keyName} (harus berformat PEM PKCS8 dengan header BEGIN/END PRIVATE KEY)`
-      );
-    } else {
-      try {
-        const keyBuffer = pemToArrayBuffer(privateKey);
-        if (keyBuffer.byteLength < 64) {
-          invalidFields.push(`${keyName} (panjang byte kunci privat terlalu pendek/terpotong)`);
-        }
-      } catch {
-        invalidFields.push(`${keyName} (isi base64 kunci privat tidak valid)`);
+    try {
+      const keyBuffer = pemToArrayBuffer(privateKey);
+      if (keyBuffer.byteLength < 64) {
+        invalidFields.push(keyField);
+        fieldReasons[keyField] = 'Panjang byte kunci privat terlalu pendek atau terpotong.';
       }
+    } catch {
+      invalidFields.push(keyField);
+      fieldReasons[keyField] = 'Isi base64 kunci privat tidak valid.';
     }
   }
 
   if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
-    invalidFields.push(
-      `${folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID'} (harus berupa ID folder Google Drive yang valid)`
-    );
+    invalidFields.push(folderField);
+    fieldReasons[folderField] = 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
@@ -376,6 +436,7 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
       scope: 'Google Drive',
       missingFields,
       invalidFields,
+      fieldReasons,
     });
   }
 
@@ -383,6 +444,9 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
     clientEmail,
     privateKey,
     rootFolderId,
+    clientEmailField: emailField,
+    privateKeyField: keyField,
+    rootFolderField: folderField,
   };
 }
 
@@ -970,6 +1034,8 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   const signingInput = `${header}.${claimSet}`;
 
   let cryptoKey: CryptoKey;
+  const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   try {
     cryptoKey = await crypto.subtle.importKey(
       'pkcs8',
@@ -983,7 +1049,8 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
     throw buildCredentialError({
       scope: 'Google Drive',
       missingFields: [],
-      invalidFields: [`GOOGLE_DRIVE_PRIVATE_KEY / GOOGLE_PRIVATE_KEY (${keyReason})`],
+      invalidFields: [keyField],
+      fieldReasons: { [keyField]: keyReason },
     });
   }
 
@@ -1005,9 +1072,15 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(
-      `Gagal otentikasi Service Account Google Drive (${res.status}) — periksa GOOGLE_DRIVE_CLIENT_EMAIL/GOOGLE_CLIENT_EMAIL dan GOOGLE_DRIVE_PRIVATE_KEY/GOOGLE_PRIVATE_KEY: ${errText.slice(0, 180)}`
-    );
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields: [],
+      invalidFields: [emailField, keyField],
+      fieldReasons: {
+        [emailField]: `Ditolak Google OAuth2 (${res.status})`,
+        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText.slice(0, 140)}`,
+      },
+    });
   }
 
   const json = (await res.json()) as { access_token?: string };
@@ -1595,19 +1668,27 @@ Deno.serve(async (req: Request) => {
       statusCode?: number;
       missingFields?: string[];
       invalidFields?: string[];
+      fieldReasons?: Record<string, string>;
     };
     const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
     const errorMessage =
       err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.';
-    const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
-    const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+    const hasMissing = Array.isArray(typedErr?.missingFields);
+    const hasInvalid = Array.isArray(typedErr?.invalidFields);
+    const missingFields = hasMissing ? typedErr.missingFields : undefined;
+    const invalidFields = hasInvalid ? typedErr.invalidFields : undefined;
+    const fieldReasons =
+      typedErr?.fieldReasons && Object.keys(typedErr.fieldReasons).length > 0
+        ? typedErr.fieldReasons
+        : undefined;
 
     console.error('[chat-media-transfer] transfer failed', {
       stage,
       statusCode,
       errorMessage,
-      ...(missingFields?.length ? { missingFields } : {}),
-      ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(hasMissing ? { missingFields } : {}),
+      ...(hasInvalid ? { invalidFields } : {}),
+      ...(fieldReasons ? { fieldReasons } : {}),
       roomId: body.roomId || null,
       roleHeader: req.headers.get('x-user-role') || body.sender?.role || null,
       blokHeader: req.headers.get('x-blok-rumah') || body.sender?.blokRumah || null,
@@ -1619,8 +1700,13 @@ Deno.serve(async (req: Request) => {
       ok: false,
       stage,
       error: errorMessage,
-      ...(missingFields?.length ? { missingFields } : {}),
-      ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(hasMissing || hasInvalid
+        ? {
+            missingFields: missingFields || [],
+            invalidFields: invalidFields || [],
+            ...(fieldReasons ? { fieldReasons } : {}),
+          }
+        : {}),
     });
   }
 });
