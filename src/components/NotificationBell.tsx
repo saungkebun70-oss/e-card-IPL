@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Bell,
   BellRing,
@@ -71,11 +72,11 @@ export interface NotificationBellProps {
   onNavigateTarget?: (targetUrl: string) => void;
 }
 
-const FILTER_TABS: Array<{ id: FilterTab; label: string }> = [
-  { id: 'all', label: 'Semua' },
-  { id: 'finance_ipl', label: 'Keuangan/IPL' },
-  { id: 'patrol', label: 'Keamanan/Patroli' },
-  { id: 'info_system', label: 'Info/Sistem' },
+const FILTER_TABS: Array<{ id: FilterTab; label: string; shortLabel: string }> = [
+  { id: 'all', label: 'Semua', shortLabel: 'Semua' },
+  { id: 'finance_ipl', label: 'Keuangan/IPL', shortLabel: 'IPL & Kas' },
+  { id: 'patrol', label: 'Keamanan/Patroli', shortLabel: 'Patroli' },
+  { id: 'info_system', label: 'Info/Sistem', shortLabel: 'Info' },
 ];
 
 const SWIPE_LOCK_THRESHOLD = 8;
@@ -473,7 +474,9 @@ export function NotificationBell({
 
   const { prefs, setPref } = useNotificationPreferences();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
   const shakeTimerRef = useRef<number | null>(null);
+  const [desktopAnchor, setDesktopAnchor] = useState<{ top: number; right: number } | null>(null);
 
   // Menyimpan seluruh ID & signature notifikasi yang sudah pernah dilihat dalam useRef Set (bukan state)
   // serta flag isInitialLoadDone agar notifikasi lama tidak pernah dibunyikan saat mount.
@@ -701,6 +704,26 @@ export function NotificationBell({
     };
   }, [sessionKey, loadNotifications, hasNotificationBeenSeen, markNotificationAsSeen, triggerBellShake]);
 
+  // Hitung posisi anchor dropdown pada layar sm+ agar tetap menempel rapi ke tombol lonceng saat dirender via Portal
+  useEffect(() => {
+    if (!open && !showFloatingPrompt) return;
+    const syncAnchor = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDesktopAnchor({
+        top: Math.round(rect.bottom + 10),
+        right: Math.max(12, Math.round(window.innerWidth - rect.right)),
+      });
+    };
+    syncAnchor();
+    window.addEventListener('resize', syncAnchor);
+    window.addEventListener('scroll', syncAnchor, true);
+    return () => {
+      window.removeEventListener('resize', syncAnchor);
+      window.removeEventListener('scroll', syncAnchor, true);
+    };
+  }, [open, showFloatingPrompt]);
+
   // Tutup panel saat klik luar (desktop), tekan Escape, atau tekan tombol Back HP/Browser
   useEffect(() => {
     if (!open) return;
@@ -708,7 +731,10 @@ export function NotificationBell({
       if (e.key === 'Escape') setOpen(false);
     };
     const onPointerDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inTrigger = containerRef.current?.contains(target);
+      const inPanel = panelRef.current?.contains(target);
+      if (!inTrigger && !inPanel) {
         setOpen(false);
       }
     };
@@ -913,210 +939,242 @@ export function NotificationBell({
         )}
       </button>
 
-      {/* Banner Izin Notifikasi Sopan Saat Pertama Kali Login (Non-Intrusif & Dapat Ditutup) */}
-      {showFloatingPrompt && !open && osPermission === 'prompt' && !prefs.permissionPromptDismissed && (
-        <div
-          role="region"
-          aria-label="Aktifkan notifikasi HP"
-          className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[58] sm:w-[340px] max-w-[calc(100vw-1.5rem)] rounded-3xl border border-indigo-200/80 bg-white/95 backdrop-blur-xl shadow-2xl p-4 text-left animate-dropdown-pop"
-        >
-          <div className="flex items-start gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 text-[#4C1D95] flex items-center justify-center shrink-0 mt-0.5">
-              <BellRing className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#0F172A]">Aktifkan Notifikasi HP?</p>
-              <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
-                Dapatkan pop-up status bar, bunyi lonceng, dan getaran saat ada info IPL, kas, atau
-                patroli baru.
-              </p>
-              <div className="flex items-center gap-2 mt-3">
-                <button
-                  type="button"
-                  disabled={requestingPerm}
-                  onClick={() => void handleAllowOsNotifications()}
-                  className="min-h-[34px] px-3.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
-                >
-                  {requestingPerm && <LoadingSpinner size="xs" tone="white" />}
-                  <span>{requestingPerm ? 'Meminta izin...' : 'Aktifkan'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDismissPrompt}
-                  className="min-h-[34px] px-3 rounded-full bg-indigo-50/80 hover:bg-indigo-100 text-[#4C1D95] text-[11px] font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
-                >
-                  Nanti Saja
-                </button>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleDismissPrompt}
-              aria-label="Tutup tawaran izin notifikasi"
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-50 cursor-pointer shrink-0"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {open && (
-        <>
-          {/* Backdrop khusus HP agar tampil sebagai drawer overlay tanpa menggeser header */}
+      {/* Banner Izin Notifikasi Sopan Saat Pertama Kali Login (Dirender via Portal agar tidak terpotong backdrop-filter header) */}
+      {showFloatingPrompt &&
+        !open &&
+        osPermission === 'prompt' &&
+        !prefs.permissionPromptDismissed &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            aria-hidden="true"
-            onClick={() => setOpen(false)}
-            className="sm:hidden fixed inset-0 z-[55] bg-slate-950/55 backdrop-blur-md animate-modal-backdrop"
-          />
-
-          <section
-            role="dialog"
-            aria-label="Notifikasi Aktivitas"
-            className="fixed sm:absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] sm:left-auto sm:right-0 sm:top-full sm:mt-2 z-[60] sm:w-[400px] max-w-[calc(100vw-1.5rem)] bg-white/95 backdrop-blur-xl border border-white/90 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[75dvh] animate-dropdown-pop"
+            role="region"
+            aria-label="Aktifkan notifikasi HP"
+            style={
+              desktopAnchor && window.innerWidth >= 640
+                ? { top: desktopAnchor.top, right: desktopAnchor.right }
+                : undefined
+            }
+            className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] sm:left-auto sm:w-[348px] max-w-[calc(100vw-1.5rem)] z-[72] rounded-3xl border border-indigo-200/80 bg-[var(--theme-surface-solid)] shadow-2xl p-4 text-left animate-dropdown-pop"
           >
-            {/* Header Panel Notifikasi */}
-            <div className="px-4 py-3 border-b border-indigo-100/70 flex items-center justify-between gap-2 bg-indigo-50/40 shrink-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-sm font-bold text-[#0F172A] truncate">Notifikasi</span>
-                {displayUnreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-mono font-bold tabular-nums shrink-0">
-                    {displayUnreadCount} baru
-                  </span>
+            <div className="flex items-start gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 text-[#312E81] flex items-center justify-center shrink-0 mt-0.5">
+                <BellRing className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-[#0F172A]">Aktifkan Notifikasi HP?</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                  Dapatkan pop-up status bar, bunyi lonceng, dan getaran saat ada info IPL, kas, atau
+                  patroli baru.
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    type="button"
+                    disabled={requestingPerm}
+                    onClick={() => void handleAllowOsNotifications()}
+                    className="min-h-[34px] px-3.5 rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
+                  >
+                    {requestingPerm && <LoadingSpinner size="xs" tone="white" />}
+                    <span>{requestingPerm ? 'Meminta izin...' : 'Aktifkan'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDismissPrompt}
+                    className="min-h-[34px] px-3 rounded-full bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                  >
+                    Nanti Saja
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDismissPrompt}
+                aria-label="Tutup tawaran izin notifikasi"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Panel Notifikasi (Dirender via Portal ke document.body agar backdrop full-screen & bebas tumpang tindih header) */}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <>
+            {/* Backdrop Full-Viewport Khusus Mobile & Tablet */}
+            <div
+              aria-hidden="true"
+              onClick={() => setOpen(false)}
+              className="sm:hidden fixed inset-0 z-[70] bg-slate-950/50 backdrop-blur-sm animate-modal-backdrop"
+            />
+
+            <section
+              ref={panelRef}
+              role="dialog"
+              aria-label="Notifikasi Aktivitas"
+              style={
+                desktopAnchor && window.innerWidth >= 640
+                  ? { top: desktopAnchor.top, right: desktopAnchor.right }
+                  : undefined
+              }
+              className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] max-w-[420px] mx-auto sm:mx-0 sm:left-auto sm:w-[400px] z-[75] bg-[var(--theme-surface-solid)] border border-indigo-100/90 rounded-3xl shadow-[0_24px_60px_-14px_rgba(15,23,42,0.34),0_8px_20px_-8px_rgba(49,46,129,0.16)] overflow-hidden flex flex-col max-h-[min(76dvh,560px)] animate-dropdown-pop"
+            >
+              {/* Header Panel Notifikasi — 2 Baris Rapi & Bebas Terpotong */}
+              <div className="px-4 pt-3.5 pb-3 border-b border-indigo-100/80 bg-gradient-to-b from-indigo-50/70 to-transparent shrink-0 space-y-2.5">
+                {/* Baris 1: Judul Penuh + Badge + Tombol Tutup */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Bell className="w-3.5 h-3.5" />
+                    </span>
+                    <h2 className="text-sm font-extrabold tracking-tight text-[#0F172A] leading-none">
+                      Notifikasi
+                    </h2>
+                    {displayUnreadCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-mono font-bold tabular-nums shrink-0">
+                        {displayUnreadCount} baru
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Tutup panel notifikasi"
+                    className="w-8 h-8 rounded-full bg-slate-100/90 hover:bg-slate-200/80 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Baris 2: Aksi Cepat (Tandai Dibaca & Hapus Semua) */}
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    disabled={markingAll || displayUnreadCount === 0}
+                    aria-busy={markingAll}
+                    onClick={() => void handleMarkAllRead()}
+                    title="Tandai semua sudah dibaca"
+                    className="px-2.5 py-1.5 rounded-xl bg-indigo-50/90 hover:bg-indigo-100/80 border border-indigo-100 text-[11px] font-semibold text-[#312E81] disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                  >
+                    {markingAll ? (
+                      <LoadingSpinner size="xs" tone="theme" />
+                    ) : (
+                      <CheckCheck className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>Tandai dibaca</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={deletingAll || items.length === 0}
+                    aria-busy={deletingAll}
+                    onClick={() => void handleDeleteAll()}
+                    title="Hapus semua notifikasi"
+                    className="px-2.5 py-1.5 rounded-xl bg-rose-50/90 hover:bg-rose-100/80 border border-rose-100 text-[11px] font-semibold text-rose-600 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                  >
+                    {deletingAll ? (
+                      <LoadingSpinner size="xs" tone="danger" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>{deletingAll ? 'Menghapus...' : 'Hapus semua'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Strip Aktivasi Pop-up Notifikasi HP bila izin belum diberikan */}
+              {osPermission === 'prompt' && (
+                <div className="px-4 py-2.5 border-b border-indigo-100/80 bg-indigo-50/70 flex items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <BellRing className="w-4 h-4 text-[#312E81] shrink-0" />
+                    <p className="text-[11px] font-medium text-[#0F172A] leading-snug">
+                      Izinkan pop-up HP agar notifikasi muncul di status bar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={requestingPerm}
+                    onClick={() => void handleAllowOsNotifications()}
+                    className="px-3 py-1 rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap"
+                  >
+                    {requestingPerm ? '...' : 'Izinkan'}
+                  </button>
+                </div>
+              )}
+
+              {/* Filter Kategori Cepat — Grid 4 Kolom Simetris Tanpa Scrollbar & Tanpa Terpotong */}
+              <div className="px-3.5 py-2.5 border-b border-indigo-100/70 bg-slate-50/70 shrink-0">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {FILTER_TABS.map((tab) => {
+                    const isActive = filter === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setFilter(tab.id)}
+                        title={tab.label}
+                        className={`px-2 py-1.5 rounded-full text-[11px] font-semibold text-center whitespace-nowrap truncate transition-all duration-150 active:scale-[0.97] cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#312E81] to-[#0284C7] text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200/80 hover:border-indigo-200 hover:text-[#312E81]'
+                        }`}
+                      >
+                        {tab.shortLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Daftar Aktivitas */}
+              <div
+                key={filter}
+                className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-indigo-100/60 animate-page-enter"
+              >
+                {loading ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-500">
+                    <LoadingSpinner size="md" tone="theme" label="Memuat aktivitas terbaru" />
+                    <span className="text-xs">Memuat aktivitas terbaru...</span>
+                  </div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="py-12 px-6 text-center space-y-2">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 border border-indigo-100 text-[#312E81]/75 flex items-center justify-center mx-auto shadow-2xs">
+                      <Inbox className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm font-bold text-[#0F172A]">
+                      Belum ada aktivitas terbaru
+                    </p>
+                    <p className="text-xs text-slate-500 leading-relaxed max-w-[260px] mx-auto">
+                      Notifikasi pembayaran IPL, kas, patroli, dan pengumuman akan muncul otomatis di
+                      sini.
+                    </p>
+                  </div>
+                ) : (
+                  filteredItems.map((notif) => (
+                    <SwipeableNotificationItem
+                      key={notif.id}
+                      notif={notif}
+                      deleting={Boolean(deletingIds[notif.id])}
+                      onSelect={handleItemClick}
+                      onDelete={(target) => void handleDeleteOne(target)}
+                    />
+                  ))
                 )}
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  disabled={markingAll || displayUnreadCount === 0}
-                  aria-busy={markingAll}
-                  onClick={() => void handleMarkAllRead()}
-                  title="Tandai semua sudah dibaca"
-                  className="px-2.5 py-1 rounded-full text-[11px] font-semibold text-[#4C1D95] hover:bg-indigo-100/70 disabled:opacity-40 inline-flex items-center gap-1 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
-                >
-                  {markingAll ? (
-                    <LoadingSpinner size="xs" tone="theme" />
-                  ) : (
-                    <CheckCheck className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span className="hidden sm:inline">Tandai semua dibaca</span>
-                  <span className="sm:hidden">Tandai dibaca</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={deletingAll || items.length === 0}
-                  aria-busy={deletingAll}
-                  onClick={() => void handleDeleteAll()}
-                  title="Hapus semua notifikasi"
-                  className="px-2.5 py-1 rounded-full text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 inline-flex items-center gap-1 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
-                >
-                  {deletingAll ? (
-                    <LoadingSpinner size="xs" tone="danger" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{deletingAll ? 'Menghapus...' : 'Hapus semua'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  aria-label="Tutup panel notifikasi"
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              {/* Petunjuk Swipe-to-Delete di Bagian Bawah Daftar */}
+              <div className="px-4 py-2.5 border-t border-indigo-100/70 bg-slate-50/75 text-center shrink-0">
+                <p className="text-[11px] font-medium text-slate-500">
+                  ← Geser pesan ke kiri atau kanan untuk menghapus →
+                </p>
               </div>
-            </div>
-
-            {/* Strip Aktivasi Pop-up Notifikasi HP bila izin belum diberikan */}
-            {osPermission === 'prompt' && (
-              <div className="px-4 py-2.5 border-b border-indigo-100/80 bg-indigo-50/70 flex items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <BellRing className="w-4 h-4 text-[#4C1D95] shrink-0" />
-                  <p className="text-[11px] font-medium text-[#0F172A] leading-snug">
-                    Izinkan pop-up HP agar notifikasi muncul di status bar.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={requestingPerm}
-                  onClick={() => void handleAllowOsNotifications()}
-                  className="px-3 py-1 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap"
-                >
-                  {requestingPerm ? '...' : 'Izinkan'}
-                </button>
-              </div>
-            )}
-
-            {/* Filter Kategori Cepat */}
-            <div className="px-3.5 py-2 border-b border-indigo-100/70 flex items-center gap-1.5 overflow-x-auto bg-white/75 shrink-0">
-              {FILTER_TABS.map((tab) => {
-                const isActive = filter === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all duration-200 active:scale-[0.97] cursor-pointer ${
-                      isActive
-                        ? 'bg-[#4C1D95] text-white shadow-xs'
-                        : 'bg-indigo-50/70 text-slate-600 hover:bg-indigo-100/70 hover:text-[#4C1D95]'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Daftar Aktivitas */}
-            <div
-              key={filter}
-              className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-indigo-100/60 animate-page-enter"
-            >
-              {loading ? (
-                <div className="py-10 flex flex-col items-center justify-center gap-2.5 text-slate-500">
-                  <LoadingSpinner size="md" tone="theme" label="Memuat aktivitas terbaru" />
-                  <span className="text-xs">Memuat aktivitas terbaru...</span>
-                </div>
-              ) : filteredItems.length === 0 ? (
-                <div className="py-10 px-5 text-center space-y-1.5">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 text-[#4C1D95]/60 flex items-center justify-center mx-auto">
-                    <Inbox className="w-5 h-5" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-700">
-                    Belum ada aktivitas terbaru
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Notifikasi pembayaran IPL, kas, patroli, dan pengumuman akan muncul otomatis di
-                    sini.
-                  </p>
-                </div>
-              ) : (
-                filteredItems.map((notif) => (
-                  <SwipeableNotificationItem
-                    key={notif.id}
-                    notif={notif}
-                    deleting={Boolean(deletingIds[notif.id])}
-                    onSelect={handleItemClick}
-                    onDelete={(target) => void handleDeleteOne(target)}
-                  />
-                ))
-              )}
-            </div>
-
-            {/* Petunjuk Swipe-to-Delete di Bagian Bawah Daftar */}
-            <div className="px-3 py-2 border-t border-indigo-100/70 bg-indigo-50/40 text-center shrink-0">
-              <p className="text-[11px] font-medium text-slate-500">
-                ← Geser pesan ke kiri atau kanan untuk menghapus →
-              </p>
-            </div>
-          </section>
-        </>
-      )}
+            </section>
+          </>,
+          document.body
+        )}
     </div>
   );
 }

@@ -314,37 +314,44 @@ export function WargaHomeSlide({
         </section>
 
         {/* Panel Info Siklus Tagihan */}
-        <aside className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-6 flex flex-col justify-between">
+        <aside className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Informasi Siklus Tagihan IPL</h2>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">{brand.kop_resmi}</p>
 
-            <dl className="mt-5 divide-y divide-indigo-100/60 text-sm">
-              <div className="py-2.5 flex items-center justify-between gap-4">
-                <dt className="text-slate-600">Nominal Standar IPL</dt>
-                <dd className="font-mono font-bold text-[#0F172A] tabular-nums">
+            <dl className="mt-4 divide-y divide-indigo-100/60 text-xs sm:text-sm">
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <dt className="text-slate-600 shrink-0">Nominal Standar IPL</dt>
+                <dd className="font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap text-right">
                   {formatRupiah(profil.nominal_iuran || NOMINAL_IPL_STANDAR)} / bln
                 </dd>
               </div>
-              <div className="py-2.5 flex items-center justify-between gap-4">
-                <dt className="text-slate-600">Terbit Tagihan</dt>
-                <dd className="font-semibold text-[#0F172A] tabular-nums">
-                  Tanggal {TANGGAL_TERBIT_TAGIHAN} setiap bulan
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <dt className="text-slate-600 shrink-0">Terbit Tagihan</dt>
+                <dd className="font-semibold text-[#0F172A] tabular-nums whitespace-nowrap text-right">
+                  Tgl {TANGGAL_TERBIT_TAGIHAN} setiap bulan
                 </dd>
               </div>
-              <div className="py-2.5 flex items-center justify-between gap-4">
-                <dt className="text-slate-600">Batas Jatuh Tempo</dt>
-                <dd className="font-semibold text-red-700 tabular-nums">
-                  Tanggal {TANGGAL_JATUH_TEMPO} setiap bulan
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <dt className="text-slate-600 shrink-0">Batas Jatuh Tempo</dt>
+                <dd className="font-semibold text-red-700 tabular-nums whitespace-nowrap text-right">
+                  Tgl {TANGGAL_JATUH_TEMPO} setiap bulan
                 </dd>
               </div>
-              <div className="py-2.5 flex items-center justify-between gap-4">
-                <dt className="text-slate-600">Rekap Tahun {TAHUN_AKTIF}</dt>
-                <dd className="font-mono text-xs font-semibold tabular-nums">
-                  <span className="text-emerald-700">{jumlahLunas} Lunas</span>
-                  <span className="text-slate-300 mx-1.5">/</span>
-                  <span className={jumlahTunggakan > 0 ? 'text-red-700' : 'text-slate-600'}>
-                    {jumlahTunggakan} Belum Bayar
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <dt className="text-slate-600 shrink-0">Rekap {TAHUN_AKTIF}</dt>
+                <dd className="flex items-center justify-end gap-1.5 font-mono text-[11px] sm:text-xs font-semibold tabular-nums whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                    {jumlahLunas} Lunas
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full border ${
+                      jumlahTunggakan > 0
+                        ? 'bg-red-50 text-red-700 border-red-200/70'
+                        : 'bg-slate-50 text-slate-600 border-slate-200/70'
+                    }`}
+                  >
+                    {jumlahTunggakan} Belum
                   </span>
                 </dd>
               </div>
@@ -356,19 +363,19 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => onQuickPayMonth(currentMonth)}
-                className="w-full min-h-[46px] rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
+                className="w-full min-h-[46px] rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-indigo-900/15"
               >
                 <span>Setor Iuran {currentMonthName} Sekarang</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             )}
 
             <button
               type="button"
               onClick={() => setPanduanWaOpen(true)}
-              className="w-full min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full min-h-[44px] rounded-full border border-indigo-200/80 bg-white/95 hover:bg-indigo-50/70 text-[#0F172A] text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Bot className="w-4 h-4 text-[#4C1D95]" />
+              <Bot className="w-4 h-4 text-[#312E81] shrink-0" />
               <span>Panduan Bot WA (Cek Saldo &amp; Setor)</span>
             </button>
           </div>
