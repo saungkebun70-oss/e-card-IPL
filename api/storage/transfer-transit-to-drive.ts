@@ -23,6 +23,8 @@ interface VerifiedCaller {
   matchIds: Set<string>;
 }
 
+type DrivePermissionScope = 'anyone_link' | 'restricted_private';
+
 const VIDEO_EXT_RE = /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i;
 const VIDEO_MIME_SET = new Set([
   'application/mp4',
@@ -207,6 +209,26 @@ async function verifyCaller(req: VercelReq): Promise<VerifiedCaller> {
     );
     const matched = (res.data || []).find((r) => canonicalAdminUsername(r.blok_rumah) === uname);
     if (!matched) throw Object.assign(new Error('Akun Pengurus tidak aktif.'), { statusCode: 403 });
+    try {
+      const rpcCheck = await sbRest<unknown>('/rest/v1/rpc/validate_login_account_status', {
+        method: 'POST',
+        body: JSON.stringify({ p_identifier: uname, p_portal: 'admin' }),
+      });
+      if (rpcCheck.ok && rpcCheck.data) {
+        const row = Array.isArray(rpcCheck.data) ? rpcCheck.data[0] : rpcCheck.data;
+        if (row && typeof row === 'object' && 'is_active_pengurus' in row) {
+          const activeFlag = (row as { is_active_pengurus?: unknown }).is_active_pengurus;
+          if (activeFlag === false || String(activeFlag).toLowerCase() === 'false') {
+            throw Object.assign(
+              new Error('Status Pengurus Anda telah dinonaktifkan (is_active_pengurus = false).'),
+              { statusCode: 403 }
+            );
+          }
+        }
+      }
+    } catch (rpcErr) {
+      if ((rpcErr as { statusCode?: number })?.statusCode === 403) throw rpcErr;
+    }
     const matchIds = new Set<string>([`admin:${uname}`]);
     if (uname === 'andriansyah') matchIds.add('admin:admin');
     if (uname === 'bpiwan') matchIds.add('admin:paiwan');
@@ -338,6 +360,71 @@ async function ensureDriveFolder(token: string, name: string, parentId: string):
   if (!createRes.ok) throw new Error(`Gagal membuat folder Drive "${name}".`);
   const created = (await createRes.json()) as { id: string };
   return created.id;
+}
+
+function resolveRoomDrivePermissionScope(roomId: string): DrivePermissionScope {
+  const clean = String(roomId || '').trim();
+  if (clean === 'grup_pengurus' || clean.startsWith('dm:')) {
+    return 'restricted_private';
+  }
+  return 'anyone_link';
+}
+
+async function applyRoomDrivePermissionPolicy(
+  token: string,
+  fileId: string,
+  roomId: string
+): Promise<DrivePermissionScope> {
+  const scope = resolveRoomDrivePermissionScope(roomId);
+  if (scope === 'anyone_link') {
+    const permRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'anyone', role: 'reader', allowFileDiscovery: false }),
+      }
+    );
+    if (!permRes.ok) {
+      throw new Error(`Gagal menetapkan izin publik tautan Google Drive (${permRes.status}).`);
+    }
+    return 'anyone_link';
+  }
+
+  const listRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}/permissions?supportsAllDrives=true&fields=permissions(id,type)`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  ).catch(() => null);
+  if (listRes && listRes.ok) {
+    const listJson = (await listRes.json().catch(() => ({}))) as {
+      permissions?: Array<{ id?: string; type?: string }>;
+    };
+    for (const perm of listJson.permissions || []) {
+      if (perm?.type === 'anyone' && perm.id) {
+        await fetch(
+          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+            fileId
+          )}/permissions/${encodeURIComponent(perm.id)}?supportsAllDrives=true`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+        ).catch(() => undefined);
+      }
+    }
+  }
+  return 'restricted_private';
+}
+
+function buildPrivateProxyUrl(params: {
+  fileId: string;
+  roomId: string;
+  messageId?: string;
+  mode?: 'stream' | 'thumbnail';
+}): string {
+  const qs = new URLSearchParams({ fileId: params.fileId, roomId: params.roomId });
+  if (params.messageId) qs.set('messageId', params.messageId);
+  if (params.mode && params.mode !== 'stream') qs.set('mode', params.mode);
+  return `/api/storage/chat-drive-private-access?${qs.toString()}`;
 }
 
 export default async function handler(req: VercelReq, res: VercelRes) {
@@ -516,14 +603,11 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       uploaded = (await upRes.json()) as typeof uploaded;
     }
 
-    await fetch(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(uploaded.id)}/permissions?supportsAllDrives=true`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-      }
-    ).catch(() => undefined);
+    const drivePermissionScope = await applyRoomDrivePermissionPolicy(
+      accessToken,
+      uploaded.id,
+      roomId
+    );
 
     const delRes = await fetch(`${sbUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
       method: 'DELETE',
@@ -533,18 +617,34 @@ export default async function handler(req: VercelReq, res: VercelRes) {
     const isPhoto =
       effectiveMime.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(safeName);
     const attachmentType: 'photo' | 'document' = isPhoto ? 'photo' : 'document';
-    const webViewLink = uploaded.webViewLink || `https://drive.google.com/file/d/${uploaded.id}/view`;
-    const attachmentUrl = isPhoto
-      ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
-      : webViewLink;
-    const thumbnailUrl = isPhoto
-      ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w480`
-      : uploaded.thumbnailLink || null;
+    const driveWebViewLink = uploaded.webViewLink || `https://drive.google.com/file/d/${uploaded.id}/view`;
+    const driveThumbnailLink =
+      drivePermissionScope === 'anyone_link' && isPhoto
+        ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w480`
+        : uploaded.thumbnailLink || null;
+
+    const attachmentUrl =
+      drivePermissionScope === 'restricted_private'
+        ? buildPrivateProxyUrl({ fileId: uploaded.id, roomId, messageId: messageId || undefined, mode: 'stream' })
+        : isPhoto
+          ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
+          : driveWebViewLink;
+    const thumbnailUrl =
+      drivePermissionScope === 'restricted_private'
+        ? isPhoto
+          ? buildPrivateProxyUrl({
+              fileId: uploaded.id,
+              roomId,
+              messageId: messageId || undefined,
+              mode: 'thumbnail',
+            })
+          : null
+        : driveThumbnailLink;
     const finalSize = Number(uploaded.size || buf.byteLength);
 
     let messageUpdated = false;
     if (messageId) {
-      const rpcRes = await sbRest('/rest/v1/rpc/update_chat_message_attachment', {
+      const rpcV2 = await sbRest('/rest/v1/rpc/update_chat_message_attachment_v2', {
         method: 'POST',
         body: JSON.stringify({
           p_message_id: messageId,
@@ -558,31 +658,57 @@ export default async function handler(req: VercelReq, res: VercelRes) {
           p_attachment_url: attachmentUrl,
           p_attachment_thumbnail_url: thumbnailUrl,
           p_attachment_status: 'ready',
+          p_drive_permission_scope: drivePermissionScope,
+          p_drive_web_view_link: driveWebViewLink,
+          p_drive_thumbnail_link: driveThumbnailLink,
         }),
       });
-      if (rpcRes.ok) {
+      if (rpcV2.ok) {
         messageUpdated = true;
       } else {
-        const patchRes = await sbRest(
-          `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(messageId)}`,
-          {
-            method: 'PATCH',
-            headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify({
-              attachment_type: attachmentType,
-              attachment_name: uploaded.name || safeName,
-              attachment_mime: effectiveMime,
-              attachment_size_bytes: finalSize,
-              attachment_storage_provider: 'google_drive',
-              attachment_drive_file_id: uploaded.id,
-              attachment_drive_folder_path: folderPath,
-              attachment_url: attachmentUrl,
-              attachment_thumbnail_url: thumbnailUrl,
-              attachment_status: 'ready',
-            }),
-          }
-        );
-        messageUpdated = patchRes.ok;
+        const rpcRes = await sbRest('/rest/v1/rpc/update_chat_message_attachment', {
+          method: 'POST',
+          body: JSON.stringify({
+            p_message_id: messageId,
+            p_attachment_type: attachmentType,
+            p_attachment_name: uploaded.name || safeName,
+            p_attachment_mime: effectiveMime,
+            p_attachment_size_bytes: finalSize,
+            p_attachment_storage_provider: 'google_drive',
+            p_attachment_drive_file_id: uploaded.id,
+            p_attachment_drive_folder_path: folderPath,
+            p_attachment_url: attachmentUrl,
+            p_attachment_thumbnail_url: thumbnailUrl,
+            p_attachment_status: 'ready',
+          }),
+        });
+        if (rpcRes.ok) {
+          messageUpdated = true;
+        } else {
+          const patchRes = await sbRest(
+            `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(messageId)}`,
+            {
+              method: 'PATCH',
+              headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({
+                attachment_type: attachmentType,
+                attachment_name: uploaded.name || safeName,
+                attachment_mime: effectiveMime,
+                attachment_size_bytes: finalSize,
+                attachment_storage_provider: 'google_drive',
+                attachment_drive_file_id: uploaded.id,
+                attachment_drive_folder_path: folderPath,
+                attachment_url: attachmentUrl,
+                attachment_thumbnail_url: thumbnailUrl,
+                attachment_status: 'ready',
+                drive_permission_scope: drivePermissionScope,
+                drive_web_view_link: driveWebViewLink,
+                drive_thumbnail_link: driveThumbnailLink,
+              }),
+            }
+          );
+          messageUpdated = patchRes.ok;
+        }
       }
     }
 
@@ -591,13 +717,16 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       storageProvider: 'google_drive',
       attachmentType,
       driveFileId: uploaded.id,
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
       folderPath,
       fileName: uploaded.name || safeName,
       mimeType: effectiveMime,
       sizeBytes: finalSize,
       attachmentUrl,
       thumbnailUrl,
-      webViewLink,
+      webViewLink: driveWebViewLink,
       transitDeleted: delRes.ok,
       messageUpdated,
     });

@@ -60,6 +60,7 @@ export interface DmThreadPreview {
 export type ChatAttachmentType = 'none' | 'photo' | 'document' | 'video';
 export type ChatAttachmentStorageProvider = 'google_drive' | 'supabase_transit';
 export type ChatAttachmentStatus = 'pending_transfer' | 'uploading_video' | 'ready' | 'failed';
+export type DrivePermissionScope = 'anyone_link' | 'restricted_private';
 
 export interface ChatMessage {
   id: string;
@@ -87,6 +88,9 @@ export interface ChatMessage {
   attachment_url?: string | null;
   attachment_thumbnail_url?: string | null;
   attachment_status?: ChatAttachmentStatus | null;
+  drive_permission_scope?: DrivePermissionScope | null;
+  drive_web_view_link?: string | null;
+  drive_thumbnail_link?: string | null;
 }
 
 export interface SendChatMessageInput {
@@ -106,6 +110,9 @@ export interface SendChatMessageInput {
     attachment_url?: string | null;
     attachment_thumbnail_url?: string | null;
     attachment_status?: ChatAttachmentStatus | null;
+    drive_permission_scope?: DrivePermissionScope | null;
+    drive_web_view_link?: string | null;
+    drive_thumbnail_link?: string | null;
   } | null;
 }
 
@@ -407,6 +414,12 @@ function normalizeAttachmentStatus(raw: unknown): ChatAttachmentStatus | null {
   return null;
 }
 
+function normalizeDrivePermissionScope(raw: unknown): DrivePermissionScope | null {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (clean === 'anyone_link' || clean === 'restricted_private') return clean;
+  return null;
+}
+
 export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
   const rawSize = Number(row.attachment_size_bytes);
   return {
@@ -438,6 +451,11 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     attachment_thumbnail_url:
       typeof row.attachment_thumbnail_url === 'string' ? row.attachment_thumbnail_url : null,
     attachment_status: normalizeAttachmentStatus(row.attachment_status),
+    drive_permission_scope: normalizeDrivePermissionScope(row.drive_permission_scope),
+    drive_web_view_link:
+      typeof row.drive_web_view_link === 'string' ? row.drive_web_view_link : null,
+    drive_thumbnail_link:
+      typeof row.drive_thumbnail_link === 'string' ? row.drive_thumbnail_link : null,
   };
 }
 
@@ -1120,6 +1138,9 @@ export async function sendChatMessage(
           attachment_url: input.attachment.attachment_url ?? null,
           attachment_thumbnail_url: input.attachment.attachment_thumbnail_url ?? null,
           attachment_status: input.attachment.attachment_status ?? null,
+          drive_permission_scope: input.attachment.drive_permission_scope ?? null,
+          drive_web_view_link: input.attachment.drive_web_view_link ?? null,
+          drive_thumbnail_link: input.attachment.drive_thumbnail_link ?? null,
         }
       : {}),
   };
@@ -1148,7 +1169,7 @@ export async function sendChatMessage(
         created_at: nextMessage.created_at,
       };
 
-      const payloadWithAttachment = input.attachment
+      const attachmentOnlyPayload = input.attachment
         ? {
             ...basePayload,
             attachment_type: nextMessage.attachment_type || 'none',
@@ -1164,9 +1185,34 @@ export async function sendChatMessage(
           }
         : basePayload;
 
+      const payloadWithAttachment = input.attachment
+        ? {
+            ...attachmentOnlyPayload,
+            ...(nextMessage.drive_permission_scope
+              ? { drive_permission_scope: nextMessage.drive_permission_scope }
+              : {}),
+            ...(nextMessage.drive_web_view_link !== undefined
+              ? { drive_web_view_link: nextMessage.drive_web_view_link }
+              : {}),
+            ...(nextMessage.drive_thumbnail_link !== undefined
+              ? { drive_thumbnail_link: nextMessage.drive_thumbnail_link }
+              : {}),
+          }
+        : basePayload;
+
       let { error } = await supabase.from('community_chat_messages').insert(payloadWithAttachment);
 
-      // Kompatibilitas bila kolom attachment_* (v17) atau recipient_* (v14) belum dibuat
+      // Kompatibilitas bila kolom drive_* (v18), attachment_* (v17), atau recipient_* (v14) belum dibuat
+      if (
+        error &&
+        (String(error.message || '').toLowerCase().includes('drive_') ||
+          error.code === '42703' ||
+          error.code === 'PGRST204')
+      ) {
+        const retryAttach = await supabase.from('community_chat_messages').insert(attachmentOnlyPayload);
+        error = retryAttach.error;
+      }
+
       if (
         error &&
         (String(error.message || '').toLowerCase().includes('attachment_') ||

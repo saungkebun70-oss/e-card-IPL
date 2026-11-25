@@ -8,6 +8,8 @@ export interface VerifiedChatCaller {
   matchIds: Set<string>;
 }
 
+export type DrivePermissionScope = 'anyone_link' | 'restricted_private';
+
 export interface DriveServiceAccountConfig {
   clientEmail: string;
   privateKey: string;
@@ -19,6 +21,9 @@ export interface TransferTransitResult {
   storageProvider: 'google_drive';
   attachmentType: 'photo' | 'document';
   driveFileId: string;
+  drivePermissionScope: DrivePermissionScope;
+  driveWebViewLink: string;
+  driveThumbnailLink: string | null;
   folderPath: string;
   fileName: string;
   mimeType: string;
@@ -46,6 +51,9 @@ export interface VideoResumableCompleteResult {
   storageProvider: 'google_drive';
   attachmentType: 'video';
   driveFileId: string;
+  drivePermissionScope: DrivePermissionScope;
+  driveWebViewLink: string;
+  driveThumbnailLink: string | null;
   folderPath: string;
   fileName: string;
   mimeType: string;
@@ -302,6 +310,30 @@ export async function verifyChatCallerFromHeaders(headers: {
       );
     }
 
+    // Verifikasi ganda terhadap RPC Migrasi V16 (`is_active_pengurus === true`) bila terpasang
+    try {
+      const rpcCheck = await supabaseRestJson<unknown>('/rest/v1/rpc/validate_login_account_status', {
+        method: 'POST',
+        body: JSON.stringify({ p_identifier: reqUsername, p_portal: 'admin' }),
+      });
+      if (rpcCheck.ok && rpcCheck.data) {
+        const row = Array.isArray(rpcCheck.data) ? rpcCheck.data[0] : rpcCheck.data;
+        if (row && typeof row === 'object' && 'is_active_pengurus' in row) {
+          const activeFlag = (row as { is_active_pengurus?: unknown }).is_active_pengurus;
+          if (activeFlag === false || String(activeFlag).toLowerCase() === 'false') {
+            throw Object.assign(
+              new Error('Status Pengurus Anda telah dinonaktifkan (is_active_pengurus = false).'),
+              { statusCode: 403 }
+            );
+          }
+        }
+      }
+    } catch (rpcErr) {
+      if ((rpcErr as { statusCode?: number })?.statusCode === 403) {
+        throw rpcErr;
+      }
+    }
+
     const matchIds = new Set<string>([`admin:${reqUsername}`]);
     if (reqUsername === 'andriansyah') matchIds.add('admin:admin');
     if (reqUsername === 'bpiwan') matchIds.add('admin:paiwan');
@@ -546,20 +578,192 @@ async function resolveMonthlyChatDriveFolder(
   };
 }
 
-async function makeDriveFilePublicReader(accessToken: string, fileId: string): Promise<void> {
-  await fetch(
+const EPHEMERAL_FALLBACK_SIGNING_KEY = crypto.randomBytes(32).toString('hex');
+
+export function resolveRoomDrivePermissionScope(roomId: string): DrivePermissionScope {
+  const clean = String(roomId || '').trim();
+  if (clean === 'grup_pengurus' || clean.startsWith('dm:')) {
+    return 'restricted_private';
+  }
+  return 'anyone_link';
+}
+
+async function stripPublicAnyonePermissions(accessToken: string, fileId: string): Promise<void> {
+  const listRes = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       fileId
-    )}/permissions?supportsAllDrives=true`,
+    )}/permissions?supportsAllDrives=true&fields=permissions(id,type,role)`,
     {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+      headers: { Authorization: `Bearer ${accessToken}` },
     }
-  ).catch(() => undefined);
+  ).catch(() => null);
+
+  if (!listRes || !listRes.ok) return;
+  const listJson = (await listRes.json().catch(() => ({}))) as {
+    permissions?: Array<{ id?: string; type?: string }>;
+  };
+
+  for (const perm of listJson.permissions || []) {
+    if (perm?.type === 'anyone' && perm.id) {
+      await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+          fileId
+        )}/permissions/${encodeURIComponent(perm.id)}?supportsAllDrives=true`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      ).catch(() => undefined);
+    }
+  }
+}
+
+export async function applyRoomDrivePermissionPolicy(
+  accessToken: string,
+  fileId: string,
+  roomId: string
+): Promise<DrivePermissionScope> {
+  const scope = resolveRoomDrivePermissionScope(roomId);
+  if (scope === 'anyone_link') {
+    const permRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}/permissions?supportsAllDrives=true`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'anyone',
+          role: 'reader',
+          allowFileDiscovery: false,
+        }),
+      }
+    );
+    if (!permRes.ok) {
+      const errText = await permRes.text().catch(() => '');
+      throw new Error(
+        `Gagal menetapkan izin baca publik tautan Google Drive (${permRes.status}): ${errText.slice(0, 140)}`
+      );
+    }
+    return 'anyone_link';
+  }
+
+  // Ruang privat (Grup Pengurus & DM Personal): DILARANG memberi izin anyone; hapus izin anyone bila ada
+  await stripPublicAnyonePermissions(accessToken, fileId);
+  return 'restricted_private';
+}
+
+export function buildPrivateDriveProxyUrl(params: {
+  fileId: string;
+  roomId: string;
+  messageId?: string;
+  mode?: 'stream' | 'download' | 'thumbnail';
+}): string {
+  const qs = new URLSearchParams({
+    fileId: params.fileId,
+    roomId: params.roomId,
+  });
+  if (params.messageId) qs.set('messageId', params.messageId);
+  if (params.mode && params.mode !== 'stream') qs.set('mode', params.mode);
+  return `/api/storage/chat-drive-private-access?${qs.toString()}`;
+}
+
+function getPrivateStreamSigningSecret(): string {
+  return (
+    process.env.CHAT_MEDIA_SIGNING_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    EPHEMERAL_FALLBACK_SIGNING_KEY
+  ).trim();
+}
+
+export function signPrivateStreamToken(payload: {
+  fileId: string;
+  roomId: string;
+  role: string;
+  blokRumah: string;
+  petugasId: string;
+  exp: number;
+}): string {
+  const secret = getPrivateStreamSigningSecret();
+  const canonical = JSON.stringify({
+    f: payload.fileId,
+    r: payload.roomId,
+    ro: payload.role,
+    b: payload.blokRumah,
+    p: payload.petugasId,
+    e: payload.exp,
+  });
+  return base64UrlEncode(crypto.createHmac('sha256', secret).update(canonical).digest());
+}
+
+export function verifyPrivateStreamToken(
+  payload: {
+    fileId: string;
+    roomId: string;
+    role: string;
+    blokRumah: string;
+    petugasId: string;
+    exp: number;
+  },
+  signatureB64Url: string
+): boolean {
+  if (!signatureB64Url || !Number.isFinite(payload.exp) || Date.now() > payload.exp) {
+    return false;
+  }
+  try {
+    const expected = signPrivateStreamToken(payload);
+    const a = Buffer.from(expected, 'utf-8');
+    const b = Buffer.from(signatureB64Url, 'utf-8');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+export async function recordUnauthorizedDriveAccessAudit(params: {
+  headers: { role: string; blokRumah: string; petugasId: string };
+  roomId?: string;
+  fileId?: string;
+  messageId?: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    const actorRole = normalizeToken(params.headers.role) || 'anonymous';
+    const actorBlok = String(params.headers.blokRumah || '').trim();
+    const actorPetugas = String(params.headers.petugasId || '').trim();
+    const actorId = actorBlok || actorPetugas || 'anonymous';
+
+    await supabaseRestJson('/rest/v1/audit_logs', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        actor_role: actorRole,
+        actor_id: actorId,
+        actor_name: `Penolakan Akses (${actorRole})`,
+        action: 'UNAUTHORIZED_PRIVATE_DRIVE_ACCESS',
+        entity: 'chat_private_media',
+        entity_id: params.fileId || params.messageId || params.roomId || null,
+        summary: `Akses berkas privat Google Drive ditolak (403) pada ruang ${
+          params.roomId || 'tidak diketahui'
+        }: ${params.reason}`,
+        metadata: {
+          room_id: params.roomId || null,
+          drive_file_id: params.fileId || null,
+          message_id: params.messageId || null,
+          reason: params.reason,
+          requested_role: actorRole,
+          requested_blok: actorBlok || null,
+          requested_petugas_id: actorPetugas || null,
+        },
+      }),
+    });
+  } catch {
+    // Jangan gagalkan respons 403 bila penulisan audit mengalami kendala jaringan
+  }
 }
 
 async function uploadBufferToDrive(params: {
@@ -700,8 +904,32 @@ async function updateChatAttachmentRecord(params: {
   attachmentUrl: string | null;
   thumbnailUrl: string | null;
   status: 'uploading_video' | 'ready' | 'failed';
+  drivePermissionScope?: DrivePermissionScope;
+  driveWebViewLink?: string | null;
+  driveThumbnailLink?: string | null;
 }): Promise<boolean> {
   if (!params.messageId) return false;
+
+  const rpcV2 = await supabaseRestJson('/rest/v1/rpc/update_chat_message_attachment_v2', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_message_id: params.messageId,
+      p_attachment_type: params.attachmentType,
+      p_attachment_name: params.attachmentName,
+      p_attachment_mime: params.attachmentMime,
+      p_attachment_size_bytes: params.attachmentSizeBytes,
+      p_attachment_storage_provider: params.storageProvider,
+      p_attachment_drive_file_id: params.driveFileId,
+      p_attachment_drive_folder_path: params.driveFolderPath,
+      p_attachment_url: params.attachmentUrl,
+      p_attachment_thumbnail_url: params.thumbnailUrl,
+      p_attachment_status: params.status,
+      p_drive_permission_scope: params.drivePermissionScope || null,
+      p_drive_web_view_link: params.driveWebViewLink || null,
+      p_drive_thumbnail_link: params.driveThumbnailLink || null,
+    }),
+  });
+  if (rpcV2.ok) return true;
 
   const rpcRes = await supabaseRestJson('/rest/v1/rpc/update_chat_message_attachment', {
     method: 'POST',
@@ -737,6 +965,11 @@ async function updateChatAttachmentRecord(params: {
         attachment_url: params.attachmentUrl,
         attachment_thumbnail_url: params.thumbnailUrl,
         attachment_status: params.status,
+        ...(params.drivePermissionScope ? { drive_permission_scope: params.drivePermissionScope } : {}),
+        ...(params.driveWebViewLink !== undefined ? { drive_web_view_link: params.driveWebViewLink } : {}),
+        ...(params.driveThumbnailLink !== undefined
+          ? { drive_thumbnail_link: params.driveThumbnailLink }
+          : {}),
       }),
     }
   );
@@ -880,7 +1113,11 @@ export async function transferChatTransitToDrive(params: {
     description: `Lampiran chat ${roomId} oleh ${caller.displayName} (${caller.senderId})`,
   });
 
-  await makeDriveFilePublicReader(accessToken, uploaded.id);
+  const drivePermissionScope = await applyRoomDrivePermissionPolicy(
+    accessToken,
+    uploaded.id,
+    roomId
+  );
 
   // WAJIB hapus objek sementara di chat-transit setelah sukses di Drive
   const deleteRes = await fetch(`${supabaseUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
@@ -894,14 +1131,35 @@ export async function transferChatTransitToDrive(params: {
 
   const effectiveMime = contentTypeHeader || declaredMime;
   const attachmentType = classifyNonVideoAttachmentType(effectiveMime, safeName);
-  const attachmentUrl =
-    attachmentType === 'photo'
-      ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
-      : uploaded.webViewLink;
-  const thumbnailUrl =
-    attachmentType === 'photo'
+  const driveWebViewLink = uploaded.webViewLink;
+  const driveThumbnailLink =
+    drivePermissionScope === 'anyone_link' && attachmentType === 'photo'
       ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w480`
       : uploaded.thumbnailLink || null;
+
+  const attachmentUrl =
+    drivePermissionScope === 'restricted_private'
+      ? buildPrivateDriveProxyUrl({
+          fileId: uploaded.id,
+          roomId,
+          messageId: params.messageId,
+          mode: 'stream',
+        })
+      : attachmentType === 'photo'
+        ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
+        : driveWebViewLink;
+
+  const thumbnailUrl =
+    drivePermissionScope === 'restricted_private'
+      ? attachmentType === 'photo'
+        ? buildPrivateDriveProxyUrl({
+            fileId: uploaded.id,
+            roomId,
+            messageId: params.messageId,
+            mode: 'thumbnail',
+          })
+        : null
+      : driveThumbnailLink;
 
   const messageUpdated = await updateChatAttachmentRecord({
     messageId: params.messageId,
@@ -915,6 +1173,9 @@ export async function transferChatTransitToDrive(params: {
     attachmentUrl,
     thumbnailUrl,
     status: 'ready',
+    drivePermissionScope,
+    driveWebViewLink,
+    driveThumbnailLink,
   });
 
   return {
@@ -922,13 +1183,16 @@ export async function transferChatTransitToDrive(params: {
     storageProvider: 'google_drive',
     attachmentType,
     driveFileId: uploaded.id,
+    drivePermissionScope,
+    driveWebViewLink,
+    driveThumbnailLink,
     folderPath,
     fileName: uploaded.name,
     mimeType: effectiveMime,
     sizeBytes: uploaded.size,
     attachmentUrl,
     thumbnailUrl,
-    webViewLink: uploaded.webViewLink,
+    webViewLink: driveWebViewLink,
     transitDeleted,
     messageUpdated,
   };
@@ -1157,13 +1421,39 @@ export async function completeChatVideoResumableUpload(params: {
 
   const resolvedFolderPath = params.folderPath?.trim() || expectedFolder.folderPath;
 
-  await makeDriveFilePublicReader(accessToken, driveFileId);
+  const drivePermissionScope = await applyRoomDrivePermissionPolicy(
+    accessToken,
+    driveFileId,
+    roomId
+  );
 
-  const webViewLink =
+  const driveWebViewLink =
     fileMeta.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
+  const driveThumbnailLink =
+    drivePermissionScope === 'anyone_link'
+      ? fileMeta.thumbnailLink ||
+        `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveFileId)}&sz=w640`
+      : fileMeta.thumbnailLink || null;
+
+  const attachmentUrl =
+    drivePermissionScope === 'restricted_private'
+      ? buildPrivateDriveProxyUrl({
+          fileId: driveFileId,
+          roomId,
+          messageId: params.messageId,
+          mode: 'stream',
+        })
+      : driveWebViewLink;
+
   const thumbnailUrl =
-    fileMeta.thumbnailLink ||
-    `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveFileId)}&sz=w640`;
+    drivePermissionScope === 'restricted_private'
+      ? buildPrivateDriveProxyUrl({
+          fileId: driveFileId,
+          roomId,
+          messageId: params.messageId,
+          mode: 'thumbnail',
+        })
+      : driveThumbnailLink;
   const sizeBytes = Number(fileMeta.size || 0);
 
   const messageUpdated = await updateChatAttachmentRecord({
@@ -1175,9 +1465,12 @@ export async function completeChatVideoResumableUpload(params: {
     storageProvider: 'google_drive',
     driveFileId,
     driveFolderPath: resolvedFolderPath,
-    attachmentUrl: webViewLink,
+    attachmentUrl,
     thumbnailUrl,
     status: 'ready',
+    drivePermissionScope,
+    driveWebViewLink,
+    driveThumbnailLink,
   });
 
   return {
@@ -1185,13 +1478,510 @@ export async function completeChatVideoResumableUpload(params: {
     storageProvider: 'google_drive',
     attachmentType: 'video',
     driveFileId,
+    drivePermissionScope,
+    driveWebViewLink,
+    driveThumbnailLink,
     folderPath: resolvedFolderPath,
     fileName: effectiveName,
     mimeType: effectiveMime,
     sizeBytes: Number.isFinite(sizeBytes) ? sizeBytes : 0,
-    attachmentUrl: webViewLink,
+    attachmentUrl,
     thumbnailUrl,
-    webViewLink,
+    webViewLink: driveWebViewLink,
     messageUpdated,
   };
+}
+
+const STREAM_URL_TTL_MS = 5 * 60 * 1000;
+
+async function isDriveFileInsideRootCategory(
+  accessToken: string,
+  rootFolderId: string,
+  fileParents: string[] | undefined,
+  roomId: string
+): Promise<boolean> {
+  if (!Array.isArray(fileParents) || fileParents.length === 0) return false;
+  const expectedCategory = resolveDriveCategoryFolder(roomId);
+  const monthFolderId = fileParents[0];
+  const monthRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      monthFolderId
+    )}?supportsAllDrives=true&fields=parents`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!monthRes.ok) return false;
+  const monthJson = (await monthRes.json().catch(() => ({}))) as { parents?: string[] };
+  const catId = monthJson.parents?.[0];
+  if (!catId) return false;
+
+  const catRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      catId
+    )}?supportsAllDrives=true&fields=name,parents`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!catRes.ok) return false;
+  const catJson = (await catRes.json().catch(() => ({}))) as { name?: string; parents?: string[] };
+  return (
+    catJson.name === expectedCategory &&
+    Array.isArray(catJson.parents) &&
+    catJson.parents.includes(rootFolderId)
+  );
+}
+
+export interface PrivateDriveNodeRequest {
+  method: string;
+  headers: Record<string, string | string[] | undefined>;
+  query: Record<string, unknown>;
+  body?: unknown;
+  pathBase?: string;
+}
+
+export interface PrivateDriveNodeResponse {
+  status: (code: number) => PrivateDriveNodeResponse;
+  setHeader: (name: string, value: string) => void;
+  json: (data: unknown) => void;
+  write: (chunk: Buffer | Uint8Array) => boolean;
+  end: (chunk?: string | Buffer) => void;
+  once?: (event: string, cb: () => void) => void;
+}
+
+function readNodeHeader(
+  headers: Record<string, string | string[] | undefined>,
+  name: string
+): string {
+  const val = headers[name] ?? headers[name.toLowerCase()];
+  if (Array.isArray(val)) return val[0] || '';
+  return typeof val === 'string' ? val : '';
+}
+
+function readNodeQuery(query: Record<string, unknown>, key: string): string {
+  const val = query[key];
+  if (Array.isArray(val)) return String(val[0] || '');
+  return typeof val === 'string' ? val : '';
+}
+
+async function pumpFetchBodyToNodeRes(
+  fetchRes: Response,
+  res: PrivateDriveNodeResponse
+): Promise<void> {
+  if (!fetchRes.body) {
+    res.end();
+    return;
+  }
+  const reader = fetchRes.body.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value && value.byteLength > 0) {
+        const canContinue = res.write(Buffer.from(value));
+        if (!canContinue && typeof res.once === 'function') {
+          await new Promise<void>((resolve) => res.once?.('drain', resolve));
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+    res.end();
+  }
+}
+
+export async function handlePrivateChatDriveAccess(
+  req: PrivateDriveNodeRequest,
+  res: PrivateDriveNodeResponse
+): Promise<void> {
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type');
+
+  const method = String(req.method || 'GET').toUpperCase();
+  if (method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Method tidak diizinkan.' });
+    return;
+  }
+
+  let bodyObj: Record<string, unknown> = {};
+  if (method === 'POST') {
+    if (typeof req.body === 'string') {
+      try {
+        bodyObj = JSON.parse(req.body) as Record<string, unknown>;
+      } catch {
+        res.status(400).json({ ok: false, error: 'Body JSON tidak valid.' });
+        return;
+      }
+    } else if (req.body && typeof req.body === 'object') {
+      bodyObj = req.body as Record<string, unknown>;
+    }
+  }
+
+  const action = String(bodyObj.action || readNodeQuery(req.query, 'action') || '')
+    .trim()
+    .toLowerCase();
+  let fileId = String(
+    bodyObj.fileId || bodyObj.driveFileId || readNodeQuery(req.query, 'fileId') || ''
+  ).trim();
+  let rawRoomId = String(bodyObj.roomId || readNodeQuery(req.query, 'roomId') || '').trim();
+  const messageId = String(bodyObj.messageId || readNodeQuery(req.query, 'messageId') || '').trim();
+  const modeRaw = String(bodyObj.mode || readNodeQuery(req.query, 'mode') || 'stream')
+    .trim()
+    .toLowerCase();
+  const mode: 'stream' | 'download' | 'thumbnail' =
+    modeRaw === 'download' ? 'download' : modeRaw === 'thumbnail' ? 'thumbnail' : 'stream';
+
+  let callerHeaders = {
+    role: readNodeHeader(req.headers, 'x-user-role'),
+    blokRumah: readNodeHeader(req.headers, 'x-blok-rumah'),
+    petugasId: readNodeHeader(req.headers, 'x-petugas-id'),
+  };
+
+  const sig = readNodeQuery(req.query, 'sig');
+  const expParam = Number(readNodeQuery(req.query, 'exp') || '0');
+  if ((method === 'GET' || method === 'HEAD') && sig) {
+    const ro = readNodeQuery(req.query, 'ro');
+    const b = readNodeQuery(req.query, 'b');
+    const p = readNodeQuery(req.query, 'p');
+    const sigValid = verifyPrivateStreamToken(
+      { fileId, roomId: rawRoomId, role: ro, blokRumah: b, petugasId: p, exp: expParam },
+      sig
+    );
+    if (!sigValid) {
+      await recordUnauthorizedDriveAccessAudit({
+        headers: callerHeaders,
+        roomId: rawRoomId,
+        fileId,
+        messageId,
+        reason: 'Tanda tangan akses stream privat tidak valid atau kedaluwarsa.',
+      });
+      res.status(403).json({
+        ok: false,
+        error: 'Akses ditolak: token aliran media privat tidak valid atau telah kedaluwarsa.',
+      });
+      return;
+    }
+    callerHeaders = { role: ro, blokRumah: b, petugasId: p };
+  }
+
+  try {
+    let caller: VerifiedChatCaller;
+    try {
+      caller = await verifyChatCallerFromHeaders(callerHeaders);
+    } catch (authErr) {
+      const msg = authErr instanceof Error ? authErr.message : 'Identitas tidak valid.';
+      await recordUnauthorizedDriveAccessAudit({
+        headers: callerHeaders,
+        roomId: rawRoomId,
+        fileId,
+        messageId,
+        reason: msg,
+      });
+      res.status(403).json({ ok: false, error: msg });
+      return;
+    }
+
+    interface PrivateMessageLookupRow {
+      id: string;
+      room_id: string;
+      sender_id: string;
+      recipient_id?: string | null;
+      attachment_drive_file_id?: string | null;
+    }
+    let dbMessageRow: PrivateMessageLookupRow | null = null;
+
+    if (messageId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(messageId)) {
+        res.status(400).json({ ok: false, error: 'Format messageId tidak valid.' });
+        return;
+      }
+      const msgRes = await supabaseRestJson<PrivateMessageLookupRow[]>(
+        `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(
+          messageId
+        )}&select=id,room_id,sender_id,recipient_id,attachment_drive_file_id&limit=1`
+      );
+      const row = msgRes.data?.[0];
+      if (!row) {
+        await recordUnauthorizedDriveAccessAudit({
+          headers: callerHeaders,
+          roomId: rawRoomId,
+          fileId,
+          messageId,
+          reason: 'Pesan lampiran privat tidak ditemukan.',
+        });
+        res.status(403).json({ ok: false, error: 'Akses lampiran privat ditolak.' });
+        return;
+      }
+      dbMessageRow = row;
+    } else if (fileId && /^[a-zA-Z0-9_-]{10,120}$/.test(fileId)) {
+      const msgRes = await supabaseRestJson<PrivateMessageLookupRow[]>(
+        `/rest/v1/community_chat_messages?attachment_drive_file_id=eq.${encodeURIComponent(
+          fileId
+        )}&select=id,room_id,sender_id,recipient_id,attachment_drive_file_id&limit=1`
+      );
+      if (msgRes.data?.[0]) {
+        dbMessageRow = msgRes.data[0];
+      }
+    }
+
+    if (dbMessageRow) {
+      if (!fileId && dbMessageRow.attachment_drive_file_id) {
+        fileId = String(dbMessageRow.attachment_drive_file_id).trim();
+      }
+      if (
+        fileId &&
+        dbMessageRow.attachment_drive_file_id &&
+        dbMessageRow.attachment_drive_file_id !== fileId
+      ) {
+        await recordUnauthorizedDriveAccessAudit({
+          headers: callerHeaders,
+          roomId: dbMessageRow.room_id,
+          fileId,
+          messageId,
+          reason: 'driveFileId tidak cocok dengan record pesan.',
+        });
+        res.status(403).json({
+          ok: false,
+          error: 'Berkas Google Drive tidak cocok dengan pesan terkait.',
+        });
+        return;
+      }
+      const dbRoom = normalizeChatRoomId(String(dbMessageRow.room_id || ''));
+      if (rawRoomId && normalizeChatRoomId(rawRoomId) !== dbRoom) {
+        await recordUnauthorizedDriveAccessAudit({
+          headers: callerHeaders,
+          roomId: rawRoomId,
+          fileId,
+          messageId,
+          reason: 'roomId tidak cocok dengan ruang asal pesan.',
+        });
+        res.status(403).json({
+          ok: false,
+          error: 'Ruang chat lampiran tidak cocok.',
+        });
+        return;
+      }
+      rawRoomId = dbRoom;
+    }
+
+    const roomId = normalizeChatRoomId(rawRoomId);
+    if (!/^[a-zA-Z0-9_-]{10,120}$/.test(fileId) || !roomId) {
+      await recordUnauthorizedDriveAccessAudit({
+        headers: callerHeaders,
+        roomId: rawRoomId,
+        fileId,
+        messageId,
+        reason: 'Parameter fileId atau roomId tidak valid.',
+      });
+      res.status(403).json({
+        ok: false,
+        error: 'Parameter akses berkas privat tidak valid.',
+      });
+      return;
+    }
+
+    let authorized = canCallerAccessRoom(caller, roomId);
+    let denyReason = 'Bukan anggota ruang chat terkait.';
+
+    if (roomId === 'grup_pengurus') {
+      if (caller.role !== 'admin') {
+        authorized = false;
+        denyReason = 'Berkas Grup Pengurus khusus untuk Pengurus aktif.';
+      }
+    } else if (roomId.startsWith('dm:')) {
+      if (!authorized) {
+        denyReason = 'Peminta bukan pengirim maupun penerima sah pada percakapan DM ini.';
+      } else if (dbMessageRow) {
+        const senderNorm = normalizeParticipantId(String(dbMessageRow.sender_id || ''));
+        const recNorm = dbMessageRow.recipient_id
+          ? normalizeParticipantId(String(dbMessageRow.recipient_id))
+          : '';
+        const isSenderOrRecipient =
+          caller.matchIds.has(senderNorm) || (recNorm ? caller.matchIds.has(recNorm) : false);
+        if (!isSenderOrRecipient && !canCallerAccessRoom(caller, roomId)) {
+          authorized = false;
+          denyReason = 'Peminta bukan pengirim maupun penerima pesan DM.';
+        }
+      }
+    }
+
+    if (!authorized) {
+      await recordUnauthorizedDriveAccessAudit({
+        headers: callerHeaders,
+        roomId,
+        fileId,
+        messageId,
+        reason: denyReason,
+      });
+      res.status(403).json({ ok: false, error: `Akses ditolak: ${denyReason}` });
+      return;
+    }
+
+    const driveCfg = getDriveConfig();
+    const accessToken = await getDriveServiceAccountToken(driveCfg);
+
+    const metaRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}?supportsAllDrives=true&fields=id,name,mimeType,size,parents,trashed,thumbnailLink`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!metaRes.ok) {
+      res.status(404).json({ ok: false, error: 'Berkas tidak ditemukan di Google Drive.' });
+      return;
+    }
+
+    const fileMeta = (await metaRes.json()) as {
+      id: string;
+      name?: string;
+      mimeType?: string;
+      size?: string;
+      parents?: string[];
+      trashed?: boolean;
+      thumbnailLink?: string;
+    };
+    if (fileMeta.trashed) {
+      res.status(404).json({ ok: false, error: 'Berkas telah dihapus dari Google Drive.' });
+      return;
+    }
+
+    if (!dbMessageRow) {
+      const inRootTree = await isDriveFileInsideRootCategory(
+        accessToken,
+        driveCfg.rootFolderId,
+        fileMeta.parents,
+        roomId
+      );
+      if (!inRootTree) {
+        await recordUnauthorizedDriveAccessAudit({
+          headers: callerHeaders,
+          roomId,
+          fileId,
+          messageId,
+          reason: 'Berkas Drive di luar struktur arsip ruang chat yang diminta.',
+        });
+        res.status(403).json({
+          ok: false,
+          error: 'Berkas tidak terdaftar pada folder ruang chat ini.',
+        });
+        return;
+      }
+    }
+
+    if (method === 'POST' && action === 'mint_stream_url') {
+      const exp = Date.now() + STREAM_URL_TTL_MS;
+      const signedSig = signPrivateStreamToken({
+        fileId,
+        roomId,
+        role: callerHeaders.role.trim(),
+        blokRumah: callerHeaders.blokRumah.trim(),
+        petugasId: callerHeaders.petugasId.trim(),
+        exp,
+      });
+      const streamParams = new URLSearchParams({
+        fileId,
+        roomId,
+        ro: callerHeaders.role.trim(),
+        b: callerHeaders.blokRumah.trim(),
+        p: callerHeaders.petugasId.trim(),
+        exp: String(exp),
+        sig: signedSig,
+      });
+      if (messageId) streamParams.set('messageId', messageId);
+      if (mode !== 'stream') streamParams.set('mode', mode);
+
+      const endpointBase = req.pathBase || '/api/storage/chat-drive-private-access';
+      res.status(200).json({
+        ok: true,
+        streamUrl: `${endpointBase}?${streamParams.toString()}`,
+        expiresAt: new Date(exp).toISOString(),
+        mimeType: fileMeta.mimeType || 'application/octet-stream',
+        fileName: fileMeta.name || `lampiran-${fileId}`,
+        sizeBytes: Number(fileMeta.size || 0),
+        drivePermissionScope: 'restricted_private',
+      });
+      return;
+    }
+
+    if (mode === 'thumbnail' && fileMeta.thumbnailLink) {
+      const thumbRes = await fetch(fileMeta.thumbnailLink, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (thumbRes.ok) {
+        res.setHeader('Content-Type', thumbRes.headers.get('content-type') || 'image/jpeg');
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.status(200);
+        if (method === 'HEAD') {
+          await thumbRes.body?.cancel().catch(() => undefined);
+          res.end();
+          return;
+        }
+        await pumpFetchBodyToNodeRes(thumbRes, res);
+        return;
+      }
+    }
+
+    const rangeHeader = readNodeHeader(req.headers, 'range').trim();
+    const driveFetchHeaders: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+    };
+    if (rangeHeader && /^bytes=\d*-\d*$/i.test(rangeHeader)) {
+      driveFetchHeaders.Range = rangeHeader;
+    }
+
+    const mediaRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}?alt=media&supportsAllDrives=true`,
+      {
+        method: 'GET',
+        headers: driveFetchHeaders,
+      }
+    );
+
+    if (!mediaRes.ok && mediaRes.status !== 206) {
+      const errText = await mediaRes.text().catch(() => '');
+      res.status(mediaRes.status === 416 ? 416 : 502).json({
+        ok: false,
+        error: `Gagal mengalirkan berkas dari Google Drive (${mediaRes.status}): ${errText.slice(0, 140)}`,
+      });
+      return;
+    }
+
+    const safeFileName = sanitizeFileName(fileMeta.name || `lampiran-${fileId}`, 'bin');
+    res.setHeader(
+      'Content-Type',
+      fileMeta.mimeType || mediaRes.headers.get('content-type') || 'application/octet-stream'
+    );
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader(
+      'Content-Disposition',
+      `${mode === 'download' ? 'attachment' : 'inline'}; filename="${safeFileName}"`
+    );
+
+    const contentRange = mediaRes.headers.get('content-range');
+    if (contentRange) res.setHeader('Content-Range', contentRange);
+    const contentLength = mediaRes.headers.get('content-length') || fileMeta.size;
+    if (contentLength) res.setHeader('Content-Length', String(contentLength));
+
+    res.status(mediaRes.status);
+    if (method === 'HEAD') {
+      await mediaRes.body?.cancel().catch(() => undefined);
+      res.end();
+      return;
+    }
+
+    await pumpFetchBodyToNodeRes(mediaRes, res);
+  } catch (err) {
+    const statusCode =
+      typeof (err as { statusCode?: number })?.statusCode === 'number'
+        ? (err as { statusCode: number }).statusCode
+        : 500;
+    res.status(statusCode).json({
+      ok: false,
+      error: err instanceof Error ? err.message : 'Gagal mengakses berkas privat Google Drive.',
+    });
+  }
 }

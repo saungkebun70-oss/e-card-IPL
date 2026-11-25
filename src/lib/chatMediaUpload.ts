@@ -7,6 +7,7 @@ import {
   type ChatContact,
   type ChatMessage,
   type ChatRoomId,
+  type DrivePermissionScope,
 } from './chatService';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
@@ -32,6 +33,9 @@ export interface ChatMediaUploadResult {
   storageProvider: 'google_drive';
   attachmentType: Exclude<ChatAttachmentType, 'none'>;
   driveFileId: string;
+  drivePermissionScope?: DrivePermissionScope;
+  driveWebViewLink?: string | null;
+  driveThumbnailLink?: string | null;
   folderPath: string;
   fileName: string;
   mimeType: string;
@@ -590,6 +594,7 @@ export async function sendChatMessageWithAttachment(
     signal: params.signal,
   });
 
+  const isPrivateRoom = isPrivateChatRoom(params.roomId);
   const completedMessage: ChatMessage = {
     ...message,
     attachment_type: upload.attachmentType,
@@ -602,7 +607,181 @@ export async function sendChatMessageWithAttachment(
     attachment_url: upload.attachmentUrl,
     attachment_thumbnail_url: upload.thumbnailUrl,
     attachment_status: 'ready',
+    drive_permission_scope:
+      upload.drivePermissionScope || (isPrivateRoom ? 'restricted_private' : 'anyone_link'),
+    drive_web_view_link: upload.driveWebViewLink ?? upload.webViewLink ?? null,
+    drive_thumbnail_link: upload.driveThumbnailLink ?? null,
   };
 
   return { message: completedMessage, upload };
+}
+
+export function isPrivateChatRoom(roomId: ChatRoomId | string): boolean {
+  const clean = String(roomId || '').trim();
+  return clean === 'grup_pengurus' || clean.startsWith('dm:');
+}
+
+export interface ResolvedChatAttachmentAccess {
+  isPrivate: boolean;
+  url: string;
+  thumbnailUrl: string | null;
+  driveWebViewLink: string | null;
+  drivePermissionScope: DrivePermissionScope;
+  expiresAt?: string;
+  mimeType?: string;
+  fileName?: string;
+}
+
+export type ChatAttachmentTarget = Pick<
+  ChatMessage,
+  | 'id'
+  | 'room_id'
+  | 'attachment_drive_file_id'
+  | 'attachment_url'
+  | 'attachment_thumbnail_url'
+  | 'drive_permission_scope'
+  | 'drive_web_view_link'
+  | 'drive_thumbnail_link'
+>;
+
+/**
+ * Mengembalikan URL aman untuk membuka/mempratinjau lampiran chat:
+ * - Ruang publik (Pengurus & Warga / Pengurus & Keamanan): langsung tautan `anyone_link`.
+ * - Ruang privat (Grup Pengurus / DM Personal): memanggil endpoint proxy terverifikasi
+ *   untuk menerbitkan URL bertanda tangan jangka pendek (mendukung seeking video/audio & verifikasi DB).
+ */
+export async function resolveChatAttachmentAccess(
+  session: SessionUser,
+  target: ChatAttachmentTarget,
+  options?: { mode?: 'stream' | 'download' | 'thumbnail'; signal?: AbortSignal }
+): Promise<ResolvedChatAttachmentAccess> {
+  const isPrivate =
+    isPrivateChatRoom(target.room_id) ||
+    target.drive_permission_scope === 'restricted_private' ||
+    Boolean(target.attachment_url?.includes('/api/storage/chat-drive-private-access'));
+
+  if (!isPrivate) {
+    return {
+      isPrivate: false,
+      url: target.attachment_url || target.drive_web_view_link || '',
+      thumbnailUrl: target.attachment_thumbnail_url || target.drive_thumbnail_link || null,
+      driveWebViewLink: target.drive_web_view_link || null,
+      drivePermissionScope: target.drive_permission_scope || 'anyone_link',
+    };
+  }
+
+  const fileId = String(target.attachment_drive_file_id || '').trim();
+  if (!fileId) {
+    throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
+  }
+
+  const minted = await callBackendOrEdgeFunction<{
+    ok: boolean;
+    streamUrl: string;
+    expiresAt: string;
+    mimeType?: string;
+    fileName?: string;
+    drivePermissionScope?: DrivePermissionScope;
+    error?: string;
+  }>({
+    edgeFunctionName: 'chat-drive-private-access',
+    apiPath: '/api/storage/chat-drive-private-access',
+    session,
+    body: {
+      action: 'mint_stream_url',
+      fileId,
+      roomId: target.room_id,
+      messageId: target.id,
+      mode: options?.mode || 'stream',
+    },
+    signal: options?.signal,
+  });
+
+  return {
+    isPrivate: true,
+    url: minted.streamUrl,
+    thumbnailUrl: null,
+    driveWebViewLink: target.drive_web_view_link || null,
+    drivePermissionScope: 'restricted_private',
+    expiresAt: minted.expiresAt,
+    mimeType: minted.mimeType,
+    fileName: minted.fileName,
+  };
+}
+
+/**
+ * Mengambil berkas/thumbnail privat langsung via header identitas sesi dan mengembalikan Blob Object URL
+ * beserta fungsi cleanup `revoke()`.
+ */
+export async function fetchPrivateAttachmentBlobUrl(
+  session: SessionUser,
+  target: ChatAttachmentTarget,
+  options?: { mode?: 'stream' | 'download' | 'thumbnail'; signal?: AbortSignal }
+): Promise<{ objectUrl: string; mimeType: string; revoke: () => void }> {
+  const fileId = String(target.attachment_drive_file_id || '').trim();
+  if (!fileId) {
+    throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
+  }
+
+  const qs = new URLSearchParams({
+    fileId,
+    roomId: target.room_id,
+    messageId: target.id,
+  });
+  if (options?.mode && options.mode !== 'stream') {
+    qs.set('mode', options.mode);
+  }
+
+  const identityHeaders = buildSessionIdentityHeaders(session);
+  const sbCfg = getSupabasePublicConfig();
+
+  let response: Response | null = null;
+  if (sbCfg) {
+    try {
+      const edgeRes = await fetch(
+        `${sbCfg.url}/functions/v1/chat-drive-private-access?${qs.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            apikey: sbCfg.anonKey,
+            Authorization: `Bearer ${sbCfg.anonKey}`,
+            ...identityHeaders,
+          },
+          signal: options?.signal,
+        }
+      );
+      if (edgeRes.ok) {
+        response = edgeRes;
+      } else if (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) {
+        const errJson = (await edgeRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(errJson.error || `Akses berkas privat ditolak (${edgeRes.status}).`);
+      }
+    } catch (err) {
+      if (isAbortError(err)) throw err;
+      if (err instanceof Error && /ditolak|tidak berhak|tidak aktif/i.test(err.message)) {
+        throw err;
+      }
+    }
+  }
+
+  if (!response) {
+    const apiRes = await fetch(`/api/storage/chat-drive-private-access?${qs.toString()}`, {
+      method: 'GET',
+      headers: identityHeaders,
+      signal: options?.signal,
+    });
+    if (!apiRes.ok) {
+      const errJson = (await apiRes.json().catch(() => ({}))) as { error?: string };
+      throw new Error(errJson.error || `Gagal memuat berkas privat (${apiRes.status}).`);
+    }
+    response = apiRes;
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  return {
+    objectUrl,
+    mimeType: blob.type || 'application/octet-stream',
+    revoke: () => URL.revokeObjectURL(objectUrl),
+  };
 }

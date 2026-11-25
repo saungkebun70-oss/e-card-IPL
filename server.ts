@@ -18,6 +18,7 @@ import {
 } from './src/server/storageHybridBackend';
 import {
   completeChatVideoResumableUpload,
+  handlePrivateChatDriveAccess,
   initChatVideoResumableUpload,
   transferChatTransitToDrive,
 } from './src/server/chatDriveService';
@@ -341,6 +342,19 @@ async function startServer() {
         error: err instanceof Error ? err.message : 'Gagal menyelesaikan metadata video Google Drive.',
       });
     }
+  });
+
+  app.all('/api/storage/chat-drive-private-access', async (req, res) => {
+    await handlePrivateChatDriveAccess(
+      {
+        method: req.method,
+        headers: req.headers,
+        query: req.query as Record<string, unknown>,
+        body: req.body,
+        pathBase: '/api/storage/chat-drive-private-access',
+      },
+      res as unknown as Parameters<typeof handlePrivateChatDriveAccess>[1]
+    );
   });
 
   app.post('/api/audit-logs', (req, res) => {
