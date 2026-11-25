@@ -42,6 +42,9 @@ Deno.serve(async (req: Request) => {
   try {
     body = (await req.json().catch(() => ({}))) as typeof body;
 
+    stage = 'validate_supabase_secrets';
+    const { client } = getSupabaseAdminClient();
+
     stage = 'verify_caller';
     const caller = await verifyChatCaller(req, body.sender || null);
 
@@ -73,8 +76,10 @@ Deno.serve(async (req: Request) => {
     stage = 'verify_message_ownership';
     await verifyMessageOwnershipIfPresent(body.messageId, roomId, caller);
 
+    stage = 'validate_drive_secrets';
+    const driveCfg = loadDriveServiceAccountConfig();
+
     stage = 'download_from_transit';
-    const { client } = getSupabaseAdminClient();
     const { data: downloadedBlob, error: downloadErr } = await client.storage
       .from('chat-transit')
       .download(transitPath);
@@ -111,9 +116,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    stage = 'upload_to_drive';
-    const driveCfg = loadDriveServiceAccountConfig();
+    stage = 'authenticate_drive';
     const accessToken = await getDriveServiceAccountToken(driveCfg);
+
+    stage = 'upload_to_drive';
     const { folderId, folderPath } = await resolveMonthlyChatDriveFolder(
       accessToken,
       driveCfg.rootFolderId,
@@ -141,6 +147,12 @@ Deno.serve(async (req: Request) => {
     // WAJIB hapus file sementara dari chat-transit setelah drive_file_id diperoleh
     const { error: removeErr } = await client.storage.from('chat-transit').remove([transitPath]);
     const transitDeleted = !removeErr;
+    if (removeErr) {
+      console.warn('[chat-media-transfer] failed to delete transit file', {
+        transitPath,
+        error: removeErr.message,
+      });
+    }
 
     const attachmentType = classifyNonVideoAttachmentType(effectiveMime, safeName);
     const driveWebViewLink = uploaded.webViewLink;
@@ -219,17 +231,23 @@ Deno.serve(async (req: Request) => {
       messageUpdated,
     });
   } catch (err) {
-    const statusCode =
-      typeof (err as { statusCode?: number })?.statusCode === 'number'
-        ? (err as { statusCode: number }).statusCode
-        : 500;
+    const typedErr = err as {
+      statusCode?: number;
+      missingFields?: string[];
+      invalidFields?: string[];
+    };
+    const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
     const errorMessage =
       err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.';
+    const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+    const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
 
     console.error('[chat-media-transfer] transfer failed', {
       stage,
       statusCode,
       errorMessage,
+      ...(missingFields?.length ? { missingFields } : {}),
+      ...(invalidFields?.length ? { invalidFields } : {}),
       roomId: body.roomId || null,
       roleHeader: req.headers.get('x-user-role') || body.sender?.role || null,
       blokHeader: req.headers.get('x-blok-rumah') || body.sender?.blokRumah || null,
@@ -241,6 +259,8 @@ Deno.serve(async (req: Request) => {
       ok: false,
       stage,
       error: errorMessage,
+      ...(missingFields?.length ? { missingFields } : {}),
+      ...(invalidFields?.length ? { invalidFields } : {}),
     });
   }
 });

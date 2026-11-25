@@ -284,12 +284,103 @@ export function canCallerAccessRoom(caller: VerifiedChatCaller, roomId: string):
   return false;
 }
 
-export function getSupabaseAdminClient() {
-  const url = (Deno.env.get('SUPABASE_URL') || '').trim().replace(/\/+$/, '');
-  const serviceKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
-  if (!url || !serviceKey) {
-    throw new Error('SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diatur pada Edge Function.');
+export interface CredentialValidationError extends Error {
+  statusCode?: number;
+  missingFields?: string[];
+  invalidFields?: string[];
+}
+
+function stripOuterQuotes(raw?: string | null): string {
+  let clean = String(raw || '').trim();
+  while (
+    clean.length >= 2 &&
+    ((clean.startsWith('"') && clean.endsWith('"')) ||
+      (clean.startsWith("'") && clean.endsWith("'")))
+  ) {
+    clean = clean.slice(1, -1).trim();
   }
+  return clean;
+}
+
+function readFirstSecretEnv(names: string[]): { value: string; sourceName: string | null } {
+  for (const name of names) {
+    const cleaned = stripOuterQuotes(Deno.env.get(name));
+    if (cleaned) {
+      return { value: cleaned, sourceName: name };
+    }
+  }
+  return { value: '', sourceName: null };
+}
+
+function normalizePrivateKeyPem(raw: string): string {
+  return stripOuterQuotes(raw)
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .trim();
+}
+
+function buildCredentialError(params: {
+  scope: string;
+  missingFields: string[];
+  invalidFields: string[];
+  statusCode?: number;
+}): CredentialValidationError {
+  const details: string[] = [];
+  if (params.missingFields.length > 0) {
+    details.push(`field kosong: [${params.missingFields.join(', ')}]`);
+  }
+  if (params.invalidFields.length > 0) {
+    details.push(`field tidak valid: [${params.invalidFields.join(', ')}]`);
+  }
+  const err = new Error(
+    `Validasi secrets ${params.scope} gagal di Edge Function — ${details.join('; ')}.`
+  ) as CredentialValidationError;
+  err.statusCode = params.statusCode ?? 500;
+  if (params.missingFields.length > 0) err.missingFields = params.missingFields;
+  if (params.invalidFields.length > 0) err.invalidFields = params.invalidFields;
+  return err;
+}
+
+export function getSupabaseAdminClient() {
+  const urlEnv = readFirstSecretEnv(['SUPABASE_URL']);
+  const serviceKeyEnv = readFirstSecretEnv(['SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY']);
+
+  const url = urlEnv.value.replace(/\/+$/, '');
+  const serviceKey = serviceKeyEnv.value;
+
+  const missingFields: string[] = [];
+  const invalidFields: string[] = [];
+
+  if (!url) {
+    missingFields.push('SUPABASE_URL');
+  } else {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        invalidFields.push('SUPABASE_URL (protokol harus http/https)');
+      }
+    } catch {
+      invalidFields.push('SUPABASE_URL (format URL tidak valid)');
+    }
+  }
+
+  if (!serviceKey) {
+    missingFields.push('SERVICE_ROLE_KEY (fallback: SUPABASE_SERVICE_ROLE_KEY)');
+  } else if (serviceKey.length < 20 || /\s/.test(serviceKey)) {
+    invalidFields.push(
+      `${serviceKeyEnv.sourceName || 'SERVICE_ROLE_KEY'} (format token service role tidak valid)`
+    );
+  }
+
+  if (missingFields.length > 0 || invalidFields.length > 0) {
+    throw buildCredentialError({
+      scope: 'Supabase',
+      missingFields,
+      invalidFields,
+    });
+  }
+
   return {
     url,
     serviceKey,
@@ -300,22 +391,67 @@ export function getSupabaseAdminClient() {
 }
 
 export function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
-  const clientEmail = (Deno.env.get('GOOGLE_DRIVE_CLIENT_EMAIL') || '').trim();
-  const rawKey = (Deno.env.get('GOOGLE_DRIVE_PRIVATE_KEY') || '')
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\\n/g, '\n');
-  const rootFolderId = (Deno.env.get('GOOGLE_DRIVE_ROOT_FOLDER_ID') || '').trim();
+  const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
+  const keyEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY']);
+  const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
 
-  if (!clientEmail || !rawKey || !rootFolderId) {
-    throw new Error(
-      'Konfigurasi GOOGLE_DRIVE_CLIENT_EMAIL, GOOGLE_DRIVE_PRIVATE_KEY, atau GOOGLE_DRIVE_ROOT_FOLDER_ID belum lengkap di Edge Function Secrets.'
+  const clientEmail = emailEnv.value;
+  const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
+  const rootFolderId = folderEnv.value;
+
+  const missingFields: string[] = [];
+  const invalidFields: string[] = [];
+
+  if (!clientEmail) {
+    missingFields.push('GOOGLE_DRIVE_CLIENT_EMAIL (fallback: GOOGLE_CLIENT_EMAIL)');
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+    invalidFields.push(
+      `${emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL'} (format email service account tidak valid)`
     );
+  }
+
+  if (!privateKey) {
+    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY (fallback: GOOGLE_PRIVATE_KEY)');
+  } else {
+    const keyName = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
+    if (
+      !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
+      !privateKey.includes('-----END PRIVATE KEY-----')
+    ) {
+      invalidFields.push(
+        `${keyName} (harus berformat PEM PKCS8 dengan header BEGIN/END PRIVATE KEY)`
+      );
+    } else {
+      try {
+        const keyBuffer = pemToArrayBuffer(privateKey);
+        if (keyBuffer.byteLength < 64) {
+          invalidFields.push(`${keyName} (panjang byte kunci privat terlalu pendek/terpotong)`);
+        }
+      } catch {
+        invalidFields.push(`${keyName} (isi base64 kunci privat tidak valid)`);
+      }
+    }
+  }
+
+  if (!rootFolderId) {
+    missingFields.push('GOOGLE_DRIVE_ROOT_FOLDER_ID (fallback: GOOGLE_DRIVE_FOLDER_ID)');
+  } else if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+    invalidFields.push(
+      `${folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID'} (harus berupa ID folder Google Drive yang valid)`
+    );
+  }
+
+  if (missingFields.length > 0 || invalidFields.length > 0) {
+    throw buildCredentialError({
+      scope: 'Google Drive',
+      missingFields,
+      invalidFields,
+    });
   }
 
   return {
     clientEmail,
-    privateKey: rawKey,
+    privateKey,
     rootFolderId,
   };
 }
@@ -400,7 +536,7 @@ async function resolveVerifiedSupabaseAuthUser(
   const token = authHeader.slice(7).trim();
   if (!token || token.split('.').length !== 3) return null;
 
-  const anonKey = (Deno.env.get('SUPABASE_ANON_KEY') || '').trim();
+  const anonKey = stripOuterQuotes(Deno.env.get('SUPABASE_ANON_KEY'));
   if (anonKey && token === anonKey) return null;
 
   try {
@@ -802,13 +938,25 @@ export async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig
   );
   const signingInput = `${header}.${claimSet}`;
 
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(cfg.privateKey),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  let cryptoKey: CryptoKey;
+  try {
+    cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      pemToArrayBuffer(cfg.privateKey),
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+  } catch (keyErr) {
+    const keyReason = keyErr instanceof Error ? keyErr.message : 'gagal mengimpor kunci PKCS8';
+    throw buildCredentialError({
+      scope: 'Google Drive',
+      missingFields: [],
+      invalidFields: [
+        `GOOGLE_DRIVE_PRIVATE_KEY / GOOGLE_PRIVATE_KEY (${keyReason})`,
+      ],
+    });
+  }
 
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
@@ -828,7 +976,9 @@ export async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(`Gagal otentikasi Service Account Google Drive (${res.status}): ${errText.slice(0, 180)}`);
+    throw new Error(
+      `Gagal otentikasi Service Account Google Drive (${res.status}) — periksa GOOGLE_DRIVE_CLIENT_EMAIL/GOOGLE_CLIENT_EMAIL dan GOOGLE_DRIVE_PRIVATE_KEY/GOOGLE_PRIVATE_KEY: ${errText.slice(0, 180)}`
+    );
   }
 
   const json = (await res.json()) as { access_token?: string };
@@ -1050,17 +1200,21 @@ export async function recordUnauthorizedDriveAccessAudit(params: {
 }
 
 async function getPrivateStreamSigningSecret(): Promise<CryptoKey> {
-  const rawSecret = (
-    Deno.env.get('CHAT_MEDIA_SIGNING_SECRET') ||
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
-    ''
-  ).trim();
-  if (!rawSecret) {
-    throw new Error('Kunci penandatanganan akses media privat belum tersedia.');
+  const signingEnv = readFirstSecretEnv([
+    'CHAT_MEDIA_SIGNING_SECRET',
+    'SERVICE_ROLE_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+  ]);
+  if (!signingEnv.value) {
+    throw buildCredentialError({
+      scope: 'Penandatanganan Media Privat',
+      missingFields: ['CHAT_MEDIA_SIGNING_SECRET (atau SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE_KEY)'],
+      invalidFields: [],
+    });
   }
   return crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(rawSecret),
+    new TextEncoder().encode(signingEnv.value),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify']
