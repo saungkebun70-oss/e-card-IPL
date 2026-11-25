@@ -10,6 +10,7 @@ import {
   recordUnauthorizedDriveAccessAudit,
   resolveDriveCategoryFolder,
   sanitizeFileName,
+  type SenderCallerHint,
   signPrivateStreamToken,
   verifyChatCaller,
   verifyPrivateStreamToken,
@@ -110,7 +111,9 @@ Deno.serve(async (req: Request) => {
   try {
     let caller;
     try {
-      caller = await verifyChatCaller(effectiveReq);
+      const senderHint =
+        body.sender && typeof body.sender === 'object' ? (body.sender as SenderCallerHint) : null;
+      caller = await verifyChatCaller(effectiveReq, senderHint);
     } catch (authErr) {
       const msg = authErr instanceof Error ? authErr.message : 'Identitas tidak valid.';
       await recordUnauthorizedDriveAccessAudit({

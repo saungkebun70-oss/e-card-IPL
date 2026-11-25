@@ -196,13 +196,16 @@ function normalizeToken(raw?: string | null): string {
 
 function canonicalAdminUsername(raw?: string | null): string {
   const clean = normalizeToken(raw);
-  if (clean === 'admin' || clean === 'andriansyah') return 'andriansyah';
-  if (clean === 'paiwan' || clean === 'bpiwan') return 'bpiwan';
+  if (clean === 'admin' || clean === 'andriansyah' || clean === 'bendahara') return 'andriansyah';
+  if (clean === 'paiwan' || clean === 'bpiwan' || clean === 'iwan') return 'bpiwan';
   return clean;
 }
 
 const PENGURUS_BY_USERNAME = new Map(
   SUSUNAN_PENGURUS.map((p) => [canonicalAdminUsername(p.username), p])
+);
+const PENGURUS_BY_BLOK = new Map(
+  SUSUNAN_PENGURUS.map((p) => [canonicalBlockKey(p.blokRumah), p])
 );
 
 export function normalizeChatUserRole(rawRole?: string | null): UserRole {
@@ -1561,16 +1564,153 @@ export function subscribeChatMessagesRealtime(
   };
 }
 
+export interface ChatSessionSenderContext {
+  role: UserRole;
+  senderId: string;
+  blokRumah: string;
+  pengurusUsername: string;
+  namaWarga: string;
+  jabatan: string;
+  adminPermission: string;
+  petugasId: string;
+}
+
+/**
+ * Menormalkan sesi login aktif tanpa pernah melempar penolakan prematur di frontend
+ * untuk akun Pengurus aktif (termasuk Bendahara maupun Pengurus yang memiliki blok terkait).
+ */
+export function normalizeChatSessionForUpload(session: SessionUser): SessionUser {
+  const normalizedRole = normalizeChatUserRole(session.role);
+  if (normalizedRole !== 'admin') {
+    return {
+      ...session,
+      role: normalizedRole,
+      blok_rumah: (session.blok_rumah || '').trim(),
+    };
+  }
+
+  const rawBlok = (session.blok_rumah || '').trim();
+  const byUsername = PENGURUS_BY_USERNAME.get(canonicalAdminUsername(rawBlok));
+  const byBlok = rawBlok ? PENGURUS_BY_BLOK.get(canonicalBlockKey(rawBlok)) : undefined;
+  const byJabatan =
+    !byUsername && !byBlok && session.jabatan
+      ? SUSUNAN_PENGURUS.find(
+          (p) => normalizeToken(p.jabatan) === normalizeToken(session.jabatan)
+        )
+      : undefined;
+  const matchedMeta = byUsername || byBlok || byJabatan;
+
+  const resolvedUsername =
+    matchedMeta?.username ||
+    canonicalAdminUsername(rawBlok) ||
+    (normalizeToken(session.jabatan) === 'bendahara' ? 'andriansyah' : '');
+  const resolvedJabatan =
+    session.jabatan ||
+    matchedMeta?.jabatan ||
+    (resolvedUsername === 'andriansyah' ? 'Bendahara' : undefined);
+  const resolvedPermission =
+    session.admin_permission ||
+    matchedMeta?.permission ||
+    (resolvedJabatan === 'Bendahara' || resolvedUsername === 'andriansyah'
+      ? 'full'
+      : 'add_only');
+
+  return {
+    ...session,
+    role: 'admin',
+    blok_rumah: rawBlok || resolvedUsername,
+    nama_warga: (session.nama_warga || matchedMeta?.nama || 'Pengurus').trim(),
+    jabatan: resolvedJabatan,
+    admin_permission: resolvedPermission,
+  };
+}
+
+/**
+ * Membangun konteks pengirim yang konsisten untuk header & payload Edge Function `chat-media-transfer`
+ * serta endpoint media Google Drive lainnya.
+ */
+export function buildChatSessionSenderContext(session: SessionUser): ChatSessionSenderContext {
+  const safeSession = normalizeChatSessionForUpload(session);
+  const role = normalizeChatUserRole(safeSession.role);
+  const rawBlok = (safeSession.blok_rumah || '').trim();
+  const pengurusUsername =
+    role === 'admin'
+      ? PENGURUS_BY_BLOK.get(canonicalBlockKey(rawBlok))?.username ||
+        canonicalAdminUsername(rawBlok) ||
+        (normalizeToken(safeSession.jabatan) === 'bendahara' ? 'andriansyah' : '')
+      : '';
+
+  return {
+    role,
+    senderId:
+      role === 'admin' && pengurusUsername
+        ? `admin:${pengurusUsername}`
+        : getChatParticipantId(safeSession),
+    blokRumah: role === 'admin' ? rawBlok || pengurusUsername : rawBlok,
+    pengurusUsername,
+    namaWarga: (safeSession.nama_warga || '').trim(),
+    jabatan: (safeSession.jabatan || '').trim(),
+    adminPermission: (safeSession.admin_permission || '').trim(),
+    petugasId: (safeSession.petugas_id || '').trim(),
+  };
+}
+
+/**
+ * Menghasilkan header identitas sesi yang konsisten dan aman CORS untuk Edge Function & API server.
+ */
+export function buildChatSessionHeaders(session: SessionUser): Record<string, string> {
+  const ctx = buildChatSessionSenderContext(session);
+  return {
+    'x-user-role': ctx.role || 'anon',
+    'x-blok-rumah': ctx.role === 'admin' ? ctx.pengurusUsername || ctx.blokRumah : ctx.blokRumah,
+    'x-petugas-id': ctx.petugasId,
+    'x-admin-permission': ctx.adminPermission,
+    'x-admin-jabatan': ctx.jabatan,
+  };
+}
+
+/**
+ * Mengambil token Bearer aktif dari sesi autentikasi Supabase bila tersedia
+ * (fallback aman ke `null` bila aplikasi memakai sesi PIN kustom tanpa JWT Supabase Auth).
+ */
+export async function resolveChatSupabaseAccessToken(
+  session: SessionUser
+): Promise<string | null> {
+  const sessionToken = (session as SessionUser & { access_token?: unknown }).access_token;
+  if (typeof sessionToken === 'string' && sessionToken.trim().split('.').length === 3) {
+    return sessionToken.trim();
+  }
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) return null;
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (typeof token === 'string' && token.trim().split('.').length === 3) {
+      return token.trim();
+    }
+  } catch {
+    // Abaikan jika sesi auth client tidak memakai Supabase Auth JWT
+  }
+  return null;
+}
+
 /**
  * Mengunggah satu lampiran chat melalui pipeline Modul 2 & Modul 3:
  * - Foto / Dokumen -> bucket transit `chat-transit` -> Google Drive -> hapus transit
  * - Semua Video -> Direct Google Drive Resumable Upload (tanpa transit Supabase)
+ * Tidak melakukan penolakan status Pengurus secara prematur di frontend bila sesi login aktif tersedia.
  */
 export async function uploadChatAttachmentViaService(
   params: UploadChatAttachmentParams
 ): Promise<ChatMediaUploadResult> {
+  const safeSession = normalizeChatSessionForUpload(params.session);
   const { uploadChatAttachment } = await import('./chatMediaUpload');
-  return uploadChatAttachment(params);
+  return uploadChatAttachment({
+    ...params,
+    session: safeSession,
+  });
 }
 
 /**

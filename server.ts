@@ -248,6 +248,7 @@ async function startServer() {
       messageId?: string;
       fileName?: string;
       mimeType?: string;
+      sender?: Record<string, unknown>;
     };
     try {
       const result = await transferChatTransitToDrive({
@@ -255,6 +256,10 @@ async function startServer() {
           role: String(req.headers['x-user-role'] || ''),
           blokRumah: String(req.headers['x-blok-rumah'] || ''),
           petugasId: String(req.headers['x-petugas-id'] || ''),
+          authorization: String(req.headers.authorization || ''),
+          adminJabatan: String(req.headers['x-admin-jabatan'] || ''),
+          adminPermission: String(req.headers['x-admin-permission'] || ''),
+          senderHint: body.sender && typeof body.sender === 'object' ? body.sender : null,
         },
         transitPath: String(body.transitPath || ''),
         roomId: String(body.roomId || ''),
@@ -283,6 +288,7 @@ async function startServer() {
       mimeType?: string;
       sizeBytes?: number;
       transitPath?: string;
+      sender?: Record<string, unknown>;
     };
     try {
       const result = await initChatVideoResumableUpload({
@@ -290,6 +296,10 @@ async function startServer() {
           role: String(req.headers['x-user-role'] || ''),
           blokRumah: String(req.headers['x-blok-rumah'] || ''),
           petugasId: String(req.headers['x-petugas-id'] || ''),
+          authorization: String(req.headers.authorization || ''),
+          adminJabatan: String(req.headers['x-admin-jabatan'] || ''),
+          adminPermission: String(req.headers['x-admin-permission'] || ''),
+          senderHint: body.sender && typeof body.sender === 'object' ? body.sender : null,
         },
         roomId: String(body.roomId || ''),
         messageId: typeof body.messageId === 'string' ? body.messageId : undefined,
@@ -318,6 +328,7 @@ async function startServer() {
       messageId?: string;
       driveFileId?: string;
       folderPath?: string;
+      sender?: Record<string, unknown>;
     };
     try {
       const result = await completeChatVideoResumableUpload({
@@ -325,6 +336,10 @@ async function startServer() {
           role: String(req.headers['x-user-role'] || ''),
           blokRumah: String(req.headers['x-blok-rumah'] || ''),
           petugasId: String(req.headers['x-petugas-id'] || ''),
+          authorization: String(req.headers.authorization || ''),
+          adminJabatan: String(req.headers['x-admin-jabatan'] || ''),
+          adminPermission: String(req.headers['x-admin-permission'] || ''),
+          senderHint: body.sender && typeof body.sender === 'object' ? body.sender : null,
         },
         roomId: String(body.roomId || ''),
         messageId: typeof body.messageId === 'string' ? body.messageId : undefined,

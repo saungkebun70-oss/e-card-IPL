@@ -10,6 +10,7 @@ import {
   normalizeChatRoomId,
   resolveMonthlyChatDriveFolder,
   sanitizeFileName,
+  type SenderCallerHint,
   updateChatAttachmentRecord,
   verifyChatCaller,
   verifyMessageOwnershipIfPresent,
@@ -24,7 +25,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const caller = await verifyChatCaller(req);
     const body = (await req.json().catch(() => ({}))) as {
       roomId?: string;
       messageId?: string;
@@ -32,7 +32,9 @@ Deno.serve(async (req: Request) => {
       mimeType?: string;
       sizeBytes?: number;
       transitPath?: string;
+      sender?: SenderCallerHint;
     };
+    const caller = await verifyChatCaller(req, body.sender || null);
 
     if (body.transitPath) {
       return jsonResponse(req, 400, {

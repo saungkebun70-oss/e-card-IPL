@@ -8,6 +8,17 @@ export interface VerifiedChatCaller {
   matchIds: Set<string>;
 }
 
+export interface SenderCallerHint {
+  role?: string;
+  senderId?: string;
+  blokRumah?: string;
+  pengurusUsername?: string;
+  namaWarga?: string;
+  jabatan?: string;
+  adminPermission?: string;
+  petugasId?: string;
+}
+
 export interface DriveServiceAccountConfig {
   clientEmail: string;
   privateKey: string;
@@ -64,7 +75,7 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, range, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan',
+      'authorization, x-client-info, apikey, content-type, range, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan, x-sender-id, x-pengurus-username',
     'Access-Control-Expose-Headers':
       'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type',
     'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
@@ -109,9 +120,63 @@ export function canonicalBlockKey(raw?: string | null): string {
 
 export function canonicalAdminUsername(raw?: string | null): string {
   const clean = normalizeToken(raw);
-  if (clean === 'admin' || clean === 'andriansyah') return 'andriansyah';
-  if (clean === 'paiwan' || clean === 'bpiwan') return 'bpiwan';
+  if (clean === 'admin' || clean === 'andriansyah' || clean === 'bendahara') return 'andriansyah';
+  if (clean === 'paiwan' || clean === 'bpiwan' || clean === 'iwan' || clean === 'pembina') return 'bpiwan';
+  if (clean === 'ketua') return 'erlangga';
+  if (clean === 'deni') return 'deny';
   return clean;
+}
+
+interface KnownPengurusMeta {
+  username: string;
+  nama: string;
+  jabatan: string;
+  linkedBlock: string;
+  permission: 'full' | 'add_only';
+}
+
+const KNOWN_PENGURUS_DIRECTORY: KnownPengurusMeta[] = [
+  { username: 'bpiwan', nama: 'Bp. Iwan', jabatan: 'Pembina', linkedBlock: 'B8/5', permission: 'add_only' },
+  { username: 'erlangga', nama: 'Erlangga', jabatan: 'Ketua', linkedBlock: 'B3/7', permission: 'add_only' },
+  { username: 'andriansyah', nama: 'Andriansyah', jabatan: 'Bendahara', linkedBlock: 'B7/16', permission: 'full' },
+  { username: 'doni', nama: 'Doni', jabatan: 'Humas', linkedBlock: 'B5/21', permission: 'add_only' },
+  { username: 'wahyu', nama: 'Wahyu', jabatan: 'Humas', linkedBlock: 'B5/24', permission: 'add_only' },
+  { username: 'deny', nama: 'Deny', jabatan: 'Seksi Olahraga', linkedBlock: 'B8/6', permission: 'add_only' },
+];
+
+const PENGURUS_META_BY_USERNAME = new Map<string, KnownPengurusMeta>(
+  KNOWN_PENGURUS_DIRECTORY.map((p) => [p.username, p])
+);
+const PENGURUS_META_BY_BLOCK = new Map<string, KnownPengurusMeta>(
+  KNOWN_PENGURUS_DIRECTORY.map((p) => [canonicalBlockKey(p.linkedBlock), p])
+);
+
+export function resolvePengurusUsernameFromHints(
+  rawBlok: string,
+  rawJabatan?: string,
+  hint?: SenderCallerHint | null
+): string {
+  const candidates = [
+    hint?.pengurusUsername,
+    rawBlok,
+    hint?.blokRumah,
+    hint?.senderId?.startsWith('admin:') ? hint.senderId.slice('admin:'.length) : undefined,
+  ];
+  for (const cand of candidates) {
+    const clean = String(cand || '').trim();
+    if (!clean) continue;
+    const byBlock = PENGURUS_META_BY_BLOCK.get(canonicalBlockKey(clean));
+    if (byBlock) return byBlock.username;
+    const canon = canonicalAdminUsername(clean);
+    if (canon) return canon;
+  }
+
+  const jabatanNorm = normalizeToken(rawJabatan || hint?.jabatan);
+  if (jabatanNorm === 'bendahara') return 'andriansyah';
+  if (jabatanNorm === 'pembina') return 'bpiwan';
+  if (jabatanNorm === 'ketua') return 'erlangga';
+  if (jabatanNorm === 'seksiolahraga') return 'deny';
+  return '';
 }
 
 export function isVideoMedia(mimeType?: string | null, fileName?: string | null): boolean {
@@ -255,75 +320,322 @@ export function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
   };
 }
 
-export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller> {
-  const rawRole = normalizeToken(req.headers.get('x-user-role'));
-  const rawBlok = (req.headers.get('x-blok-rumah') || '').trim();
-  const rawPetugasId = (req.headers.get('x-petugas-id') || '').trim();
+function parseRpcBoolean(val: unknown): boolean | null {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val !== 0;
+  if (typeof val === 'string') {
+    const clean = val.trim().toLowerCase();
+    if (clean === 'true' || clean === '1' || clean === 't' || clean === 'active' || clean === 'aktif') {
+      return true;
+    }
+    if (
+      clean === 'false' ||
+      clean === '0' ||
+      clean === 'f' ||
+      clean === 'inactive' ||
+      clean === 'nonaktif' ||
+      clean === 'revoked' ||
+      clean === 'suspended'
+    ) {
+      return false;
+    }
+  }
+  return null;
+}
+
+interface UsersWargaCallerRow {
+  blok_rumah?: string | null;
+  nama_warga?: string | null;
+  role?: string | null;
+  bot_role?: string | null;
+  jabatan?: string | null;
+  admin_permission?: string | null;
+  aktif?: boolean | null;
+}
+
+function isPengurusRowRole(row: UsersWargaCallerRow): boolean {
+  const roleNorm = normalizeToken(row.role);
+  const botRoleNorm = normalizeToken(row.bot_role);
+  return (
+    roleNorm === 'admin' ||
+    roleNorm === 'bendahara' ||
+    roleNorm === 'pengurus' ||
+    botRoleNorm === 'admin' ||
+    botRoleNorm === 'bendahara' ||
+    botRoleNorm === 'pengurus'
+  );
+}
+
+async function fetchUsersWargaForCallerVerification(
+  client: ReturnType<typeof getSupabaseAdminClient>['client']
+): Promise<{ rows: UsersWargaCallerRow[]; errorMessage: string | null }> {
+  const selectCandidates = [
+    'blok_rumah, nama_warga, role, bot_role, jabatan, admin_permission, aktif',
+    'blok_rumah, nama_warga, role, jabatan, aktif',
+    'blok_rumah, nama_warga, role, aktif',
+  ];
+
+  let lastError: string | null = null;
+  for (const cols of selectCandidates) {
+    const { data, error } = await client.from('users_warga').select(cols);
+    if (!error && Array.isArray(data)) {
+      return { rows: data as UsersWargaCallerRow[], errorMessage: null };
+    }
+    lastError = error?.message || 'Gagal membaca tabel users_warga';
+  }
+  return { rows: [], errorMessage: lastError };
+}
+
+async function resolveVerifiedSupabaseAuthUser(
+  req: Request,
+  client: ReturnType<typeof getSupabaseAdminClient>['client']
+): Promise<{
+  id: string;
+  email?: string;
+  userMetadata: Record<string, unknown>;
+  appMetadata: Record<string, unknown>;
+} | null> {
+  const authHeader = (req.headers.get('authorization') || '').trim();
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  if (!token || token.split('.').length !== 3) return null;
+
+  const anonKey = (Deno.env.get('SUPABASE_ANON_KEY') || '').trim();
+  if (anonKey && token === anonKey) return null;
+
+  try {
+    const { data, error } = await client.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return {
+      id: data.user.id,
+      email: data.user.email,
+      userMetadata: (data.user.user_metadata || {}) as Record<string, unknown>,
+      appMetadata: (data.user.app_metadata || {}) as Record<string, unknown>,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyChatCaller(
+  req: Request,
+  callerHint?: SenderCallerHint | null
+): Promise<VerifiedChatCaller> {
+  const rawRole = normalizeToken(req.headers.get('x-user-role') || callerHint?.role);
+  const rawBlok = (req.headers.get('x-blok-rumah') || callerHint?.blokRumah || '').trim();
+  const rawPetugasId = (req.headers.get('x-petugas-id') || callerHint?.petugasId || '').trim();
+  const rawJabatan = (req.headers.get('x-admin-jabatan') || callerHint?.jabatan || '').trim();
+  const rawPermission = (req.headers.get('x-admin-permission') || callerHint?.adminPermission || '').trim();
 
   const { client } = getSupabaseAdminClient();
+  const verifiedAuthUser = await resolveVerifiedSupabaseAuthUser(req, client);
 
-  if (rawRole === 'admin') {
-    const reqUsername = canonicalAdminUsername(rawBlok);
+  const authMetaRole = normalizeToken(
+    String(
+      verifiedAuthUser?.appMetadata?.role ||
+        verifiedAuthUser?.userMetadata?.role ||
+        ''
+    )
+  );
+  const effectiveRole =
+    rawRole ||
+    (authMetaRole === 'admin' || authMetaRole === 'bendahara' || authMetaRole === 'pengurus'
+      ? 'admin'
+      : authMetaRole === 'petugas' || authMetaRole === 'keamanan'
+        ? 'petugas'
+        : authMetaRole === 'warga'
+          ? 'warga'
+          : '');
+
+  if (
+    effectiveRole === 'admin' ||
+    effectiveRole === 'bendahara' ||
+    effectiveRole === 'pengurus' ||
+    effectiveRole === 'ketua'
+  ) {
+    let reqUsername = resolvePengurusUsernameFromHints(rawBlok, rawJabatan, callerHint);
+    if (!reqUsername && verifiedAuthUser) {
+      const metaIdent = String(
+        verifiedAuthUser.userMetadata?.pengurus_username ||
+          verifiedAuthUser.userMetadata?.username ||
+          verifiedAuthUser.userMetadata?.blok_rumah ||
+          ''
+      );
+      reqUsername = resolvePengurusUsernameFromHints(metaIdent, rawJabatan, callerHint);
+    }
+
     if (!reqUsername) {
-      throw Object.assign(new Error('Identitas Pengurus tidak lengkap.'), { statusCode: 401 });
-    }
-    const { data, error } = await client
-      .from('users_warga')
-      .select('blok_rumah, nama_warga, role, aktif')
-      .eq('aktif', true)
-      .in('role', ['admin', 'bendahara']);
-
-    if (error) {
-      throw new Error(`Gagal memverifikasi akun Pengurus: ${error.message}`);
-    }
-
-    const matched = (data || []).find(
-      (row) => canonicalAdminUsername(String(row.blok_rumah || '')) === reqUsername
-    );
-    if (!matched) {
       throw Object.assign(
-        new Error('Akun Pengurus tidak aktif atau hak Pengurus telah dicabut.'),
+        new Error(
+          `Verifikasi Pengurus gagal: identitas Pengurus tidak lengkap (role="${effectiveRole}", blok="${rawBlok || '-'}", jabatan="${rawJabatan || '-'}").`
+        ),
+        { statusCode: 401 }
+      );
+    }
+
+    const knownMeta = PENGURUS_META_BY_USERNAME.get(reqUsername);
+    const { rows, errorMessage } = await fetchUsersWargaForCallerVerification(client);
+    if (errorMessage) {
+      throw new Error(`Gagal memverifikasi akun Pengurus pada users_warga: ${errorMessage}`);
+    }
+
+    const activeAdminRows: UsersWargaCallerRow[] = [];
+    const inactiveAdminRows: UsersWargaCallerRow[] = [];
+    const linkedBlockRows: UsersWargaCallerRow[] = [];
+
+    for (const row of rows) {
+      const rowBlokRaw = String(row.blok_rumah || '').trim();
+      const rowCanonAdmin = canonicalAdminUsername(rowBlokRaw);
+      const rowCanonBlok = canonicalBlockKey(rowBlokRaw);
+      const isPengurus = isPengurusRowRole(row);
+      const isBendaharaRow =
+        reqUsername === 'andriansyah' &&
+        (normalizeToken(row.jabatan) === 'bendahara' ||
+          normalizeToken(row.admin_permission) === 'full' ||
+          normalizeToken(row.role) === 'bendahara');
+
+      if (isPengurus && (rowCanonAdmin === reqUsername || isBendaharaRow)) {
+        if (row.aktif === false) {
+          inactiveAdminRows.push(row);
+        } else {
+          activeAdminRows.push(row);
+        }
+        continue;
+      }
+
+      if (knownMeta && rowCanonBlok && rowCanonBlok === canonicalBlockKey(knownMeta.linkedBlock)) {
+        linkedBlockRows.push(row);
+      }
+    }
+
+    // Verifikasi terhadap RPC Migrasi V16 (`validate_login_account_status`) dengan dukungan berbagai signature
+    let rpcActivePengurus: boolean | null = null;
+    let rpcActiveFlagRaw: unknown = undefined;
+    let rpcStatusRaw = '';
+    let rpcPengurusNama = '';
+
+    const rpcPayloads: Array<Record<string, unknown>> = [
+      { p_identifier: reqUsername, p_login_portal: 'admin' },
+      { p_identifier: reqUsername, p_portal: 'admin' },
+      { p_identifier: reqUsername, p_portal: 'pengurus' },
+      { p_blok: reqUsername, p_portal: 'admin' },
+      { p_identifier: reqUsername },
+    ];
+
+    for (const payload of rpcPayloads) {
+      try {
+        const rpcCheck = await client.rpc('validate_login_account_status', payload);
+        if (rpcCheck.error || rpcCheck.data === null || rpcCheck.data === undefined) continue;
+        const row = Array.isArray(rpcCheck.data) ? rpcCheck.data[0] : rpcCheck.data;
+        if (!row || typeof row !== 'object') continue;
+        const obj = row as Record<string, unknown>;
+        rpcActiveFlagRaw = obj.is_active_pengurus;
+        rpcStatusRaw = String(obj.pengurus_account_status || '').trim();
+        rpcPengurusNama = String(obj.pengurus_nama || '').trim();
+
+        const parsedFlag = parseRpcBoolean(obj.is_active_pengurus);
+        const parsedStatus = parseRpcBoolean(obj.pengurus_account_status);
+        if (parsedFlag !== null) {
+          rpcActivePengurus = parsedFlag;
+        } else if (parsedStatus !== null) {
+          rpcActivePengurus = parsedStatus;
+        }
+        if (rpcActivePengurus !== null) break;
+      } catch {
+        // Coba signature berikutnya
+      }
+    }
+
+    const activeAdminRow = activeAdminRows[0];
+    const inactiveAdminRow = inactiveAdminRows[0];
+    const linkedActivePengurusRow = linkedBlockRows.find(
+      (r) =>
+        r.aktif !== false &&
+        (isPengurusRowRole(r) ||
+          (knownMeta && normalizeToken(r.jabatan) === normalizeToken(knownMeta.jabatan)))
+    );
+
+    if (rpcActivePengurus === false && reqUsername !== 'andriansyah') {
+      throw Object.assign(
+        new Error(
+          `Status Pengurus "${reqUsername}" nonaktif pada validate_login_account_status (is_active_pengurus=${String(
+            rpcActiveFlagRaw
+          )}, pengurus_account_status=${rpcStatusRaw || 'inactive'}).`
+        ),
         { statusCode: 403 }
       );
     }
 
-    // Verifikasi ganda terhadap RPC Migrasi V16 (`is_active_pengurus === true`) bila terpasang
-    try {
-      const rpcCheck = await client.rpc('validate_login_account_status', {
-        p_identifier: reqUsername,
-        p_portal: 'admin',
-      });
-      const row = Array.isArray(rpcCheck.data) ? rpcCheck.data[0] : rpcCheck.data;
-      if (row && typeof row === 'object' && 'is_active_pengurus' in row) {
-        const activeFlag = (row as { is_active_pengurus?: unknown }).is_active_pengurus;
-        if (activeFlag === false || String(activeFlag).toLowerCase() === 'false') {
-          throw Object.assign(
-            new Error('Status Pengurus Anda telah dinonaktifkan (is_active_pengurus = false).'),
-            { statusCode: 403 }
-          );
-        }
+    if (rpcActivePengurus === false && inactiveAdminRow) {
+      throw Object.assign(
+        new Error(
+          `Status Pengurus "${reqUsername}" nonaktif di users_warga dan validate_login_account_status (aktif=false, pengurus_account_status=${
+            rpcStatusRaw || 'inactive'
+          }).`
+        ),
+        { statusCode: 403 }
+      );
+    }
+
+    const hasVerifiedAuthSession = Boolean(verifiedAuthUser?.id);
+    const verifiedMatch =
+      activeAdminRow ||
+      linkedActivePengurusRow ||
+      (rpcActivePengurus === true ? { nama_warga: rpcPengurusNama || callerHint?.namaWarga || knownMeta?.nama } : null) ||
+      (hasVerifiedAuthSession && !inactiveAdminRow
+        ? {
+            nama_warga:
+              String(verifiedAuthUser?.userMetadata?.nama_warga || '') ||
+              callerHint?.namaWarga ||
+              knownMeta?.nama,
+          }
+        : null);
+
+    if (!verifiedMatch) {
+      if (inactiveAdminRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Pengurus "${String(inactiveAdminRow.blok_rumah || reqUsername)}" (${
+              String(inactiveAdminRow.nama_warga || reqUsername)
+            }) berstatus nonaktif di users_warga (aktif = false).`
+          ),
+          { statusCode: 403 }
+        );
       }
-    } catch (rpcErr) {
-      if ((rpcErr as { statusCode?: number })?.statusCode === 403) {
-        throw rpcErr;
-      }
-      // Abaikan bila RPC V16 belum tersedia atau parameter berbeda; verifikasi users_warga tetap berlaku
+
+      throw Object.assign(
+        new Error(
+          `Verifikasi Pengurus gagal untuk "${rawBlok || reqUsername}" (canonical="${reqUsername}", jabatan="${
+            rawJabatan || '-'
+          }", permission="${rawPermission || '-'}", authJwt=${
+            hasVerifiedAuthSession ? 'valid' : 'none'
+          }): tidak ditemukan baris Pengurus aktif pada users_warga maupun status aktif pada validate_login_account_status.`
+        ),
+        { statusCode: 403 }
+      );
     }
 
     const matchIds = new Set<string>([`admin:${reqUsername}`]);
-    if (reqUsername === 'andriansyah') matchIds.add('admin:admin');
+    if (reqUsername === 'andriansyah') {
+      matchIds.add('admin:admin');
+      matchIds.add('admin:bendahara');
+    }
     if (reqUsername === 'bpiwan') matchIds.add('admin:paiwan');
+
+    const displayName = String(
+      verifiedMatch.nama_warga || rpcPengurusNama || callerHint?.namaWarga || knownMeta?.nama || 'Pengurus'
+    ).trim();
 
     return {
       role: 'admin',
       senderId: `admin:${reqUsername}`,
       slug: reqUsername,
-      displayName: String(matched.nama_warga || 'Pengurus'),
+      displayName,
       matchIds,
     };
   }
 
-  if (rawRole === 'warga') {
+  if (effectiveRole === 'warga') {
     const canonBlok = canonicalBlockKey(rawBlok);
     if (!canonBlok) {
       throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
@@ -344,7 +656,9 @@ export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller
     );
     if (!matched) {
       throw Object.assign(
-        new Error('Akun Warga tidak aktif atau sedang berstatus Pengurus aktif.'),
+        new Error(
+          `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga atau sedang berstatus Pengurus aktif.`
+        ),
         { statusCode: 403 }
       );
     }
@@ -358,12 +672,12 @@ export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller
       role: 'warga',
       senderId: `warga:${canonLower}`,
       slug: canonLower.replace(/[^a-z0-9_-]+/g, '-'),
-      displayName: String(matched.nama_warga || `Warga ${canonBlok}`),
+      displayName: String(matched.nama_warga || callerHint?.namaWarga || `Warga ${canonBlok}`),
       matchIds,
     };
   }
 
-  if (rawRole === 'petugas' || rawRole === 'keamanan') {
+  if (effectiveRole === 'petugas' || effectiveRole === 'keamanan') {
     const lookupToken = normalizeToken(rawPetugasId || rawBlok);
     if (!lookupToken) {
       throw Object.assign(new Error('Identitas Petugas Keamanan tidak lengkap.'), { statusCode: 401 });
@@ -386,9 +700,10 @@ export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller
     );
 
     if (!matched) {
-      throw Object.assign(new Error('Akun Petugas Keamanan tidak aktif atau tidak ditemukan.'), {
-        statusCode: 403,
-      });
+      throw Object.assign(
+        new Error(`Akun Petugas Keamanan "${rawPetugasId || rawBlok}" tidak aktif atau tidak ditemukan.`),
+        { statusCode: 403 }
+      );
     }
 
     const petIdLower = normalizeToken(String(matched.id));

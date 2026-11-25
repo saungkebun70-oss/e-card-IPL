@@ -9,6 +9,7 @@ import {
   loadDriveServiceAccountConfig,
   normalizeChatRoomId,
   resolveMonthlyChatDriveFolder,
+  type SenderCallerHint,
   updateChatAttachmentRecord,
   verifyChatCaller,
   verifyMessageOwnershipIfPresent,
@@ -23,13 +24,14 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const caller = await verifyChatCaller(req);
     const body = (await req.json().catch(() => ({}))) as {
       roomId?: string;
       messageId?: string;
       driveFileId?: string;
       folderPath?: string;
+      sender?: SenderCallerHint;
     };
+    const caller = await verifyChatCaller(req, body.sender || null);
 
     const roomId = normalizeChatRoomId(String(body.roomId || ''));
     if (!roomId || !canCallerAccessRoom(caller, roomId)) {

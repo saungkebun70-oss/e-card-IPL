@@ -1,7 +1,9 @@
 import type { SessionUser } from '../types';
 import {
-  getChatParticipantId,
-  normalizeChatUserRole,
+  buildChatSessionHeaders,
+  buildChatSessionSenderContext,
+  normalizeChatSessionForUpload,
+  resolveChatSupabaseAccessToken,
   sendChatMessage,
   type ChatAttachmentType,
   type ChatContact,
@@ -119,8 +121,9 @@ function sanitizeClientFileName(rawName: string, fallbackExt = 'bin'): string {
 }
 
 function buildTransitSlug(session: SessionUser): { roleFolder: 'admin' | 'warga' | 'petugas'; slug: string } {
-  const roleFolder = normalizeChatUserRole(session.role);
-  const participantId = getChatParticipantId(session);
+  const ctx = buildChatSessionSenderContext(session);
+  const roleFolder = ctx.role;
+  const participantId = ctx.senderId;
   const rawPart = participantId.includes(':')
     ? participantId.split(':').slice(1).join('-')
     : participantId;
@@ -133,13 +136,7 @@ function buildTransitSlug(session: SessionUser): { roleFolder: 'admin' | 'warga'
 }
 
 function buildSessionIdentityHeaders(session: SessionUser): Record<string, string> {
-  return {
-    'x-user-role': session.role || 'anon',
-    'x-blok-rumah': session.blok_rumah || '',
-    'x-petugas-id': session.petugas_id || '',
-    'x-admin-permission': session.admin_permission || '',
-    'x-admin-jabatan': session.jabatan || '',
-  };
+  return buildChatSessionHeaders(session);
 }
 
 function getSupabasePublicConfig(): { url: string; anonKey: string } | null {
@@ -177,21 +174,29 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
   body: Record<string, unknown>;
   signal?: AbortSignal;
 }): Promise<T> {
-  const identityHeaders = buildSessionIdentityHeaders(params.session);
+  const normalizedSession = normalizeChatSessionForUpload(params.session);
+  const identityHeaders = buildSessionIdentityHeaders(normalizedSession);
+  const senderContext = buildChatSessionSenderContext(normalizedSession);
+  const enrichedBody: Record<string, unknown> = {
+    ...params.body,
+    sender: senderContext,
+  };
   const sbCfg = getSupabasePublicConfig();
+  const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
 
   // 1. Prioritaskan Supabase Edge Function bila Supabase aktif
   if (sbCfg) {
     try {
+      const bearerToken = userJwt || sbCfg.anonKey;
       const edgeRes = await fetch(`${sbCfg.url}/functions/v1/${params.edgeFunctionName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           apikey: sbCfg.anonKey,
-          Authorization: `Bearer ${sbCfg.anonKey}`,
+          Authorization: `Bearer ${bearerToken}`,
           ...identityHeaders,
         },
-        body: JSON.stringify(params.body),
+        body: JSON.stringify(enrichedBody),
         signal: params.signal,
       });
 
@@ -200,7 +205,7 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
         return edgeJson;
       }
 
-      // Error validasi/otorisasi (400/401/403) langsung diteruskan tanpa menyembunyikan alasan
+      // Error validasi/otorisasi (400/401/403) langsung diteruskan dengan pesan spesifik dari Edge Function
       if (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) {
         throw new Error(edgeJson.error || `Permintaan ditolak (${edgeRes.status}).`);
       }
@@ -212,7 +217,9 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
       // Untuk penolakan validasi/otorisasi eksplisit dari Edge Function, lempar langsung
       if (
         err instanceof Error &&
-        /DILARANG|tidak memiliki akses|tidak aktif|tidak valid|ditolak/i.test(err.message)
+        /DILARANG|tidak memiliki akses|tidak aktif|nonaktif|dicabut|tidak valid|ditolak|Verifikasi/i.test(
+          err.message
+        )
       ) {
         throw err;
       }
@@ -224,9 +231,10 @@ async function callBackendOrEdgeFunction<T extends { ok?: boolean; error?: strin
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
       ...identityHeaders,
     },
-    body: JSON.stringify(params.body),
+    body: JSON.stringify(enrichedBody),
     signal: params.signal,
   });
 
@@ -732,8 +740,10 @@ export async function fetchPrivateAttachmentBlobUrl(
     qs.set('mode', options.mode);
   }
 
-  const identityHeaders = buildSessionIdentityHeaders(session);
+  const normalizedSession = normalizeChatSessionForUpload(session);
+  const identityHeaders = buildSessionIdentityHeaders(normalizedSession);
   const sbCfg = getSupabasePublicConfig();
+  const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
 
   let response: Response | null = null;
   if (sbCfg) {
@@ -744,7 +754,7 @@ export async function fetchPrivateAttachmentBlobUrl(
           method: 'GET',
           headers: {
             apikey: sbCfg.anonKey,
-            Authorization: `Bearer ${sbCfg.anonKey}`,
+            Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
             ...identityHeaders,
           },
           signal: options?.signal,
@@ -758,7 +768,10 @@ export async function fetchPrivateAttachmentBlobUrl(
       }
     } catch (err) {
       if (isAbortError(err)) throw err;
-      if (err instanceof Error && /ditolak|tidak berhak|tidak aktif/i.test(err.message)) {
+      if (
+        err instanceof Error &&
+        /ditolak|tidak berhak|tidak aktif|nonaktif|dicabut|Verifikasi/i.test(err.message)
+      ) {
         throw err;
       }
     }
@@ -767,7 +780,10 @@ export async function fetchPrivateAttachmentBlobUrl(
   if (!response) {
     const apiRes = await fetch(`/api/storage/chat-drive-private-access?${qs.toString()}`, {
       method: 'GET',
-      headers: identityHeaders,
+      headers: {
+        ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
+        ...identityHeaders,
+      },
       signal: options?.signal,
     });
     if (!apiRes.ok) {

@@ -13,6 +13,7 @@ import {
   normalizeChatRoomId,
   resolveMonthlyChatDriveFolder,
   sanitizeFileName,
+  type SenderCallerHint,
   updateChatAttachmentRecord,
   uploadBytesToDrive,
   validateSafeTransitPath,
@@ -28,24 +29,33 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, 405, { ok: false, error: 'Method tidak diizinkan. Gunakan POST.' });
   }
 
-  try {
-    const caller = await verifyChatCaller(req);
-    const body = (await req.json().catch(() => ({}))) as {
-      transitPath?: string;
-      roomId?: string;
-      messageId?: string;
-      fileName?: string;
-      mimeType?: string;
-    };
+  let stage = 'parse_body';
+  let body: {
+    transitPath?: string;
+    roomId?: string;
+    messageId?: string;
+    fileName?: string;
+    mimeType?: string;
+    sender?: SenderCallerHint;
+  } = {};
 
+  try {
+    body = (await req.json().catch(() => ({}))) as typeof body;
+
+    stage = 'verify_caller';
+    const caller = await verifyChatCaller(req, body.sender || null);
+
+    stage = 'authorize_room';
     const roomId = normalizeChatRoomId(String(body.roomId || ''));
     if (!roomId || !canCallerAccessRoom(caller, roomId)) {
       return jsonResponse(req, 403, {
         ok: false,
-        error: 'Anda tidak memiliki akses mengunggah lampiran ke ruang chat ini.',
+        stage,
+        error: `Anda tidak memiliki akses mengunggah lampiran ke ruang chat ini (role=${caller.role}, room=${roomId || '-'}).`,
       });
     }
 
+    stage = 'validate_transit_path';
     const transitPath = validateSafeTransitPath(String(body.transitPath || ''), caller);
     const declaredMime = String(body.mimeType || 'application/octet-stream').trim().toLowerCase();
     const safeName = sanitizeFileName(body.fileName || transitPath.split('/').pop(), 'bin');
@@ -54,13 +64,16 @@ Deno.serve(async (req: Request) => {
     if (isVideoMedia(declaredMime, safeName) || isVideoMedia(declaredMime, transitPath)) {
       return jsonResponse(req, 400, {
         ok: false,
+        stage,
         error:
           'Video ukuran berapa pun DILARANG transit di Supabase Storage. Gunakan direct Google Drive resumable upload.',
       });
     }
 
+    stage = 'verify_message_ownership';
     await verifyMessageOwnershipIfPresent(body.messageId, roomId, caller);
 
+    stage = 'download_from_transit';
     const { client } = getSupabaseAdminClient();
     const { data: downloadedBlob, error: downloadErr } = await client.storage
       .from('chat-transit')
@@ -69,6 +82,7 @@ Deno.serve(async (req: Request) => {
     if (downloadErr || !downloadedBlob) {
       return jsonResponse(req, 404, {
         ok: false,
+        stage,
         error: `Berkas sementara di chat-transit tidak ditemukan: ${downloadErr?.message || 'kosong'}`,
       });
     }
@@ -81,6 +95,7 @@ Deno.serve(async (req: Request) => {
       await client.storage.from('chat-transit').remove([transitPath]);
       return jsonResponse(req, 400, {
         ok: false,
+        stage,
         error: 'Berkas video ditolak dari jalur transit dan dihapus dari bucket sementara.',
       });
     }
@@ -89,12 +104,14 @@ Deno.serve(async (req: Request) => {
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_NON_VIDEO_TRANSIT_BYTES) {
       return jsonResponse(req, 400, {
         ok: false,
+        stage,
         error: `Ukuran lampiran non-video harus antara 1 byte hingga ${Math.round(
           MAX_NON_VIDEO_TRANSIT_BYTES / (1024 * 1024)
         )} MB.`,
       });
     }
 
+    stage = 'upload_to_drive';
     const driveCfg = loadDriveServiceAccountConfig();
     const accessToken = await getDriveServiceAccountToken(driveCfg);
     const { folderId, folderPath } = await resolveMonthlyChatDriveFolder(
@@ -112,6 +129,7 @@ Deno.serve(async (req: Request) => {
       description: `Lampiran chat ${roomId} oleh ${caller.displayName} (${caller.senderId})`,
     });
 
+    stage = 'apply_drive_permissions';
     // Terapkan kebijakan izin Drive otomatis sesuai jenis ruang chat
     const drivePermissionScope = await applyRoomDrivePermissionPolicy(
       accessToken,
@@ -119,6 +137,7 @@ Deno.serve(async (req: Request) => {
       roomId
     );
 
+    stage = 'delete_transit';
     // WAJIB hapus file sementara dari chat-transit setelah drive_file_id diperoleh
     const { error: removeErr } = await client.storage.from('chat-transit').remove([transitPath]);
     const transitDeleted = !removeErr;
@@ -154,6 +173,7 @@ Deno.serve(async (req: Request) => {
           : null
         : driveThumbnailLink;
 
+    stage = 'update_message_record';
     const messageUpdated = await updateChatAttachmentRecord({
       messageId: body.messageId,
       attachmentType,
@@ -169,6 +189,15 @@ Deno.serve(async (req: Request) => {
       drivePermissionScope,
       driveWebViewLink,
       driveThumbnailLink,
+    });
+
+    console.info('[chat-media-transfer] transfer completed', {
+      roomId,
+      senderId: caller.senderId,
+      driveFileId: uploaded.id,
+      drivePermissionScope,
+      transitDeleted,
+      messageUpdated,
     });
 
     return jsonResponse(req, 200, {
@@ -194,9 +223,24 @@ Deno.serve(async (req: Request) => {
       typeof (err as { statusCode?: number })?.statusCode === 'number'
         ? (err as { statusCode: number }).statusCode
         : 500;
+    const errorMessage =
+      err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.';
+
+    console.error('[chat-media-transfer] transfer failed', {
+      stage,
+      statusCode,
+      errorMessage,
+      roomId: body.roomId || null,
+      roleHeader: req.headers.get('x-user-role') || body.sender?.role || null,
+      blokHeader: req.headers.get('x-blok-rumah') || body.sender?.blokRumah || null,
+      pengurusUsername: body.sender?.pengurusUsername || null,
+      hasAuthorization: Boolean(req.headers.get('authorization')),
+    });
+
     return jsonResponse(req, statusCode, {
       ok: false,
-      error: err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.',
+      stage,
+      error: errorMessage,
     });
   }
 });
