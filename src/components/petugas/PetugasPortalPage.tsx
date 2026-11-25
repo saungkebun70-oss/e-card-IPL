@@ -1065,9 +1065,9 @@ export function PetugasPortalPage({
   ];
 
   const renderPetugasSidebarNav = () => (
-    <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5">
-      <div className="space-y-1">
-        <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+      <div className="space-y-1.5">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
           Menu Keamanan
         </p>
         {sidebarNavItems.map((item) => {
@@ -1078,20 +1078,20 @@ export function PetugasPortalPage({
               key={item.id}
               type="button"
               onClick={() => handleSelectTabFromSidebar(item.id)}
-              className={`w-full min-h-[42px] px-3 py-2.5 rounded-2xl text-left flex items-center gap-3 text-sm transition-all duration-150 cursor-pointer ${
+              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
                 isActive
                   ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent'
+                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
               }`}
             >
               <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                   isActive
                     ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-slate-100/80 text-slate-500'
+                    : 'bg-slate-100/85 text-slate-500'
                 }`}
               >
-                <Icon className="w-4 h-4" strokeWidth={isActive ? 2.4 : 2} />
+                <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">{item.label}</p>
@@ -1109,17 +1109,17 @@ export function PetugasPortalPage({
         })}
       </div>
 
-      <div className="space-y-1">
-        <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div className="space-y-1.5">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
           Profil &amp; Pengaturan
         </p>
         <button
           type="button"
           onClick={handleOpenProfileFromSidebar}
-          className="w-full min-h-[42px] px-3 py-2.5 rounded-2xl text-left flex items-center gap-3 text-sm font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent transition-all duration-150 cursor-pointer"
+          className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
         >
-          <span className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
-            <UserCircle2 className="w-4 h-4" />
+          <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+            <UserCircle2 className="w-[18px] h-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Profil &amp; Tema Petugas</p>
@@ -1137,7 +1137,7 @@ export function PetugasPortalPage({
       {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-white/75 backdrop-blur-2xl border-r border-white/85 shadow-[8px_0_32px_-16px_rgba(49,46,129,0.12)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-white/70 backdrop-blur-2xl backdrop-saturate-150 border-l border-l-white/20 border-r border-r-white/85 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),8px_0_36px_-14px_rgba(49,46,129,0.16)] no-print"
       >
         <div className="px-4 pt-5 pb-4 border-b border-indigo-100/70 shrink-0">
           <button
@@ -1159,28 +1159,33 @@ export function PetugasPortalPage({
 
         {renderPetugasSidebarNav()}
 
-        <div className="mt-auto px-3.5 pt-3 pb-4 border-t border-indigo-100/70 bg-white/45 space-y-2.5 shrink-0">
+        <div className="mt-auto px-4 pt-3.5 pb-4 border-t border-indigo-100/70 bg-white/40 backdrop-blur-xl space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleOpenProfileFromSidebar}
-            className="w-full p-2.5 rounded-2xl bg-white/80 hover:bg-white border border-white/90 shadow-2xs flex items-center gap-2.5 text-left transition-colors cursor-pointer"
+            className="group w-full p-3 rounded-2xl bg-white/80 hover:bg-gradient-to-r hover:from-indigo-50/95 hover:via-sky-50/90 hover:to-white border border-white/90 hover:border-sky-200/80 shadow-2xs hover:shadow-sm flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
           >
-            <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" className="shrink-0" />
+            <UserAvatar
+              name={profil.nama}
+              src={effectiveAvatarUrl}
+              size="sm"
+              className="shrink-0 ring-2 ring-white/80 group-hover:ring-sky-200/80 transition-all"
+            />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#0F172A] truncate leading-tight">
+              <p className="text-xs font-bold text-[#0F172A] group-hover:text-[#312E81] truncate leading-tight transition-colors">
                 {profil.nama}
               </p>
               <p className="text-[11px] text-slate-500 truncate mt-0.5 leading-tight">
                 Keamanan · {effectiveShiftLabel}
               </p>
             </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#312E81] group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
           </button>
 
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
-            className="w-full min-h-[40px] px-3.5 rounded-2xl bg-red-50/90 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
+            className="w-full min-h-[42px] px-3.5 rounded-2xl bg-red-50/90 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>Keluar / Logout</span>
@@ -1213,7 +1218,7 @@ export function PetugasPortalPage({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[320px] h-full bg-white/85 backdrop-blur-2xl rounded-r-3xl border-r border-white/90 shadow-2xl flex flex-col overflow-hidden"
+              className="relative z-10 w-[84vw] max-w-[328px] h-full bg-white/80 backdrop-blur-2xl backdrop-saturate-150 rounded-r-3xl border-l border-l-white/20 border-r border-r-white/90 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),0_25px_50px_-12px_rgba(15,23,42,0.35)] flex flex-col overflow-hidden"
             >
               <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shrink-0">
                 <div className="flex items-center justify-between gap-2.5">
@@ -1241,7 +1246,7 @@ export function PetugasPortalPage({
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="mt-4 w-full text-left p-3 rounded-2xl bg-white/15 hover:bg-white/20 border border-white/20 flex items-center gap-3 transition-colors cursor-pointer"
+                  className="group mt-4 w-full text-left p-3 rounded-2xl bg-white/15 hover:bg-gradient-to-r hover:from-white/25 hover:to-sky-200/20 border border-white/20 hover:border-white/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={profil.nama}
@@ -1257,13 +1262,13 @@ export function PetugasPortalPage({
                       Keamanan · {effectiveShiftLabel}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-sky-100 shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-sky-100 group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
               </div>
 
               {renderPetugasSidebarNav()}
 
-              <div className="mt-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-indigo-100/80 bg-white/60 space-y-2.5 shrink-0">
+              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-indigo-100/80 bg-white/55 backdrop-blur-xl space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
