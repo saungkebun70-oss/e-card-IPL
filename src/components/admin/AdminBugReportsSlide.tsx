@@ -550,6 +550,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                       <img
                         src={item.screenshot_url}
                         alt={`Screenshot ${item.title}`}
+                        referrerPolicy="no-referrer"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       />
                       <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/75 text-white text-[10px] font-semibold inline-flex items-center gap-1">

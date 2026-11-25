@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Radio,
   UserCircle2,
+  HardDrive,
 } from 'lucide-react';
 import {
   DEFAULT_APP_BRAND_CONFIG,
@@ -71,12 +72,14 @@ import { NotificationSettingsCard } from '../NotificationSettingsCard';
 import { BugReportCard } from '../BugReportCard';
 import { UserAvatar } from '../UserAvatar';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
+import { AdminHybridDrivePanel } from './AdminHybridDrivePanel';
 
 export type SettingsDrawerTab =
   | 'profil'
   | 'identitas'
   | 'pembayaran'
   | 'bot_wa'
+  | 'arsip_drive'
   | 'petugas_nfc'
   | 'keamanan';
 
@@ -395,8 +398,8 @@ export function AdminSettingsDrawer({
               </h2>
               <p className="text-xs text-slate-500 truncate">
                 {canAccessBotWa
-                  ? 'Identitas & Stempel, Pembayaran IPL, Bot WhatsApp, Petugas & Peta Patroli, PIN & Log'
-                  : 'Identitas & Stempel, Pembayaran IPL, Petugas & Peta Patroli, Keamanan PIN & Log'}
+                  ? 'Identitas & Stempel, Pembayaran IPL, Bot WA, Arsip Drive, Petugas & Log'
+                  : 'Identitas & Stempel, Pembayaran IPL, Arsip Drive, Petugas & Log'}
               </p>
             </div>
           </div>
@@ -415,7 +418,7 @@ export function AdminSettingsDrawer({
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-indigo-100/70 bg-indigo-50/40 shrink-0">
           <div
             role="tablist"
-            className={`grid ${canAccessBotWa ? 'grid-cols-6' : 'grid-cols-5'} gap-1 p-1 bg-indigo-100/60 rounded-2xl`}
+            className={`grid ${canAccessBotWa ? 'grid-cols-4 md:grid-cols-7' : 'grid-cols-3 md:grid-cols-6'} gap-1 p-1 bg-indigo-100/60 rounded-2xl`}
           >
             {(
               [
@@ -425,6 +428,7 @@ export function AdminSettingsDrawer({
                 ...(canAccessBotWa
                   ? [{ id: 'bot_wa', label: 'Bot WhatsApp', short: 'Bot WA', icon: Bot }]
                   : []),
+                { id: 'arsip_drive', label: 'Arsip Drive', short: 'Drive', icon: HardDrive },
                 { id: 'petugas_nfc', label: 'Petugas & Peta', short: 'Petugas', icon: Radio },
                 { id: 'keamanan', label: 'PIN & Log', short: 'PIN & Log', icon: ShieldCheck },
               ] as const
@@ -1383,7 +1387,16 @@ export function AdminSettingsDrawer({
             </div>
           )}
 
-          {/* TAB 5: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING */}
+          {/* TAB 5: ARSIP MODE HYBRID GOOGLE DRIVE */}
+          {activeTab === 'arsip_drive' && (
+            <AdminHybridDrivePanel
+              session={session}
+              onRefresh={onRefresh}
+              onToast={onToast}
+            />
+          )}
+
+          {/* TAB 6: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING */}
           {activeTab === 'petugas_nfc' && (
             <AdminSecurityManagePanel
               session={session}

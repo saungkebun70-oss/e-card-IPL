@@ -632,6 +632,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                           <img
                             src={item.screenshot_url}
                             alt={`Screenshot ${item.title}`}
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                           />
                         </button>

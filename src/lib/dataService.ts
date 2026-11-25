@@ -73,6 +73,7 @@ import {
   SEED_WARGA,
 } from './seedData';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { tryDirectDriveUploadIfConnected } from './googleDriveHybridService';
 import {
   buildKeamananUserId,
   buildPetugasUserId,
@@ -5308,6 +5309,15 @@ export async function uploadBuktiKasAdmin(
 ): Promise<ServiceResult<string>> {
   if (session.role !== 'admin') {
     return { error: 'Akses ditolak: hanya Pengurus yang dapat mengunggah bukti kas.' };
+  }
+
+  const directDriveUrl = await tryDirectDriveUploadIfConnected({
+    folderKey: 'pengeluaran_kas',
+    file,
+    labelPrefix: 'bukti-kas',
+  });
+  if (directDriveUrl) {
+    return { data: directDriveUrl };
   }
 
   const supabase = getSupabaseClient(session);

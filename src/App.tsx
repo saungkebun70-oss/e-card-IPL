@@ -744,6 +744,7 @@ export default function App() {
           'identitas',
           'pembayaran',
           'bot_wa',
+          'arsip_drive',
           'petugas_nfc',
           'keamanan',
         ];
