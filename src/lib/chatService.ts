@@ -1437,6 +1437,7 @@ export function subscribeChatMessagesRealtime(
   session: SessionUser,
   callbacks: {
     onInsert?: (msg: ChatMessage) => void;
+    onUpdate?: (msg: ChatMessage) => void;
     onDelete?: (deletedId: string) => void;
     onClear?: (roomId: ChatRoomId) => void;
     onAnyChange?: () => void;
@@ -1509,7 +1510,11 @@ export function subscribeChatMessagesRealtime(
             if (!row) return;
             const normalized = normalizeChatRow(row);
             if (!canAccessChatRoom(session, normalized.room_id)) return;
-            callbacks.onInsert?.(normalized);
+            if (callbacks.onUpdate) {
+              callbacks.onUpdate(normalized);
+            } else {
+              callbacks.onInsert?.(normalized);
+            }
             callbacks.onAnyChange?.();
           }
         )

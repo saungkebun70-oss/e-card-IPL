@@ -45,7 +45,17 @@ import {
   type GroupChatRoomId,
 } from '../lib/chatService';
 import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
+import { uploadChatAttachment } from '../lib/chatMediaUpload';
+import {
+  validatePickedAttachment,
+  type AttachmentPickerKind,
+  type UploadQueueItem,
+} from '../lib/chat/attachmentUtils';
 import { UserAvatar } from './UserAvatar';
+import { ChatAttachmentMenu } from './chat/ChatAttachmentMenu';
+import { ChatUploadProgressList } from './chat/ChatUploadProgressList';
+import { ChatMessageAttachmentBubble } from './chat/ChatMessageAttachmentBubble';
+import { PrivateDrivePreviewModal } from './chat/PrivateDrivePreviewModal';
 
 interface CommunityChatSlideProps {
   session: SessionUser;
@@ -152,11 +162,15 @@ export function CommunityChatSlide({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmClearRoom, setConfirmClearRoom] = useState(false);
   const [clearingRoom, setClearingRoom] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [previewAttachmentMsg, setPreviewAttachmentMsg] = useState<ChatMessage | null>(null);
 
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const activeRoomIdRef = useRef<ChatRoomId>(activeRoomId);
   activeRoomIdRef.current = activeRoomId;
+  const uploadQueueRef = useRef<UploadQueueItem[]>(uploadQueue);
+  uploadQueueRef.current = uploadQueue;
 
   useEffect(() => {
     if (initialRoomId && canAccessChatRoom(session, initialRoomId)) {
@@ -283,8 +297,26 @@ export function CommunityChatSlide({
     setConfirmDeleteId(null);
     setConfirmClearRoom(false);
     setShowGroupMembers(false);
+    setPreviewAttachmentMsg(null);
+    // Batalkan antrean unggahan dari ruang sebelumnya agar isolasi ruang tetap terjaga
+    uploadQueueRef.current.forEach((item) => {
+      if (item.roomId !== activeRoomId && item.status === 'uploading') {
+        item.abortController.abort();
+      }
+    });
+    setUploadQueue((prev) => prev.filter((item) => item.roomId === activeRoomId));
     void loadRoomMessages(activeRoomId, false);
   }, [activeRoomId, loadRoomMessages]);
+
+  useEffect(() => {
+    return () => {
+      uploadQueueRef.current.forEach((item) => {
+        if (item.status === 'uploading') {
+          item.abortController.abort();
+        }
+      });
+    };
+  }, []);
 
   // Realtime WebSocket + sinkronisasi lintas tab
   useEffect(() => {
@@ -300,6 +332,21 @@ export function CommunityChatSlide({
           });
           markChatRoomRead(session, incoming.room_id, incoming.created_at);
           scrollToBottom('smooth');
+        }
+        void syncDirectoriesAndUnread();
+      },
+      onUpdate: (updated) => {
+        if (isMessageClearedForRoom(session, updated.room_id, updated.created_at)) return;
+        if (updated.room_id === activeRoomIdRef.current) {
+          setMessages((prev) => {
+            const exists = prev.some((m) => m.id === updated.id);
+            if (!exists) {
+              return [...prev, updated].sort(
+                (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+              );
+            }
+            return prev.map((m) => (m.id === updated.id ? updated : m));
+          });
         }
         void syncDirectoriesAndUnread();
       },
@@ -342,14 +389,193 @@ export function CommunityChatSlide({
     setPrimaryTab('dm');
   };
 
+  const hasUploadingAttachments = useMemo(
+    () => uploadQueue.some((item) => item.status === 'uploading'),
+    [uploadQueue]
+  );
+  const hasFailedAttachments = useMemo(
+    () => uploadQueue.some((item) => item.status === 'failed'),
+    [uploadQueue]
+  );
+  const completedAttachments = useMemo(
+    () => uploadQueue.filter((item) => item.status === 'completed' && item.result !== null),
+    [uploadQueue]
+  );
+
+  const runQueueUpload = useCallback(
+    async (item: UploadQueueItem) => {
+      try {
+        const result = await uploadChatAttachment({
+          session,
+          roomId: item.roomId,
+          file: item.file,
+          signal: item.abortController.signal,
+          onProgress: (progress) => {
+            setUploadQueue((prev) =>
+              prev.map((q) =>
+                q.localId === item.localId
+                  ? {
+                      ...q,
+                      percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
+                      phase: progress.phase,
+                      phaseLabel: progress.label,
+                      bytesUploaded: progress.bytesUploaded,
+                      totalBytes: progress.totalBytes,
+                    }
+                  : q
+              )
+            );
+          },
+        });
+
+        setUploadQueue((prev) =>
+          prev.map((q) =>
+            q.localId === item.localId
+              ? {
+                  ...q,
+                  status: 'completed',
+                  percent: 100,
+                  phase: 'completed',
+                  phaseLabel: 'Tersimpan di Google Drive.',
+                  bytesUploaded: q.totalBytes,
+                  error: null,
+                  result,
+                }
+              : q
+          )
+        );
+      } catch (err) {
+        if (
+          item.abortController.signal.aborted ||
+          (err instanceof DOMException && err.name === 'AbortError')
+        ) {
+          setUploadQueue((prev) => prev.filter((q) => q.localId !== item.localId));
+          return;
+        }
+        const message =
+          err instanceof Error ? err.message : 'Gagal mengunggah lampiran ke Google Drive.';
+        setUploadQueue((prev) =>
+          prev.map((q) =>
+            q.localId === item.localId
+              ? {
+                  ...q,
+                  status: 'failed',
+                  phase: 'failed',
+                  phaseLabel: 'Unggahan gagal',
+                  error: message,
+                }
+              : q
+          )
+        );
+      }
+    },
+    [session]
+  );
+
+  const handleSelectAttachmentFiles = useCallback(
+    (files: File[], kind: AttachmentPickerKind) => {
+      const targetRoomId = activeRoomIdRef.current;
+      const newItems: UploadQueueItem[] = [];
+
+      for (const file of files) {
+        const check = validatePickedAttachment(file, kind);
+        if (check.valid === false) {
+          onToast?.('error', check.error);
+          continue;
+        }
+        const localId = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        newItems.push({
+          localId,
+          roomId: targetRoomId,
+          file,
+          pickerKind: kind,
+          attachmentType: check.resolvedType,
+          status: 'uploading',
+          percent: 1,
+          phase: check.resolvedType === 'video' ? 'initializing_video_session' : 'preparing',
+          phaseLabel:
+            check.resolvedType === 'video'
+              ? 'Menyiapkan jalur langsung Google Drive...'
+              : 'Menyiapkan berkas...',
+          bytesUploaded: 0,
+          totalBytes: file.size,
+          error: null,
+          abortController: new AbortController(),
+          result: null,
+        });
+      }
+
+      if (newItems.length === 0) return;
+
+      setUploadQueue((prev) => [...prev, ...newItems]);
+      newItems.forEach((item) => {
+        void runQueueUpload(item);
+      });
+    },
+    [onToast, runQueueUpload]
+  );
+
+  const handleCancelUpload = useCallback((localId: string) => {
+    const target = uploadQueueRef.current.find((q) => q.localId === localId);
+    if (target) {
+      target.abortController.abort();
+    }
+    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
+  }, []);
+
+  const handleRetryUpload = useCallback(
+    (localId: string) => {
+      const target = uploadQueueRef.current.find((q) => q.localId === localId);
+      if (!target) return;
+      const restarted: UploadQueueItem = {
+        ...target,
+        status: 'uploading',
+        percent: 1,
+        phase: target.attachmentType === 'video' ? 'initializing_video_session' : 'preparing',
+        phaseLabel: 'Mengulang unggahan...',
+        bytesUploaded: 0,
+        error: null,
+        abortController: new AbortController(),
+        result: null,
+      };
+      setUploadQueue((prev) => prev.map((q) => (q.localId === localId ? restarted : q)));
+      void runQueueUpload(restarted);
+    },
+    [runQueueUpload]
+  );
+
+  const handleRemoveUploadItem = useCallback((localId: string) => {
+    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
+  }, []);
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const cleanText = draft.trim();
-    if (!cleanText || sending) return;
+    if (sending) return;
+
+    if (hasUploadingAttachments) {
+      onToast?.('info', 'Tunggu hingga semua lampiran selesai diunggah sebelum mengirim.');
+      return;
+    }
+    if (hasFailedAttachments) {
+      onToast?.('error', 'Ada lampiran gagal diunggah. Pilih Coba Lagi atau Hapus terlebih dahulu.');
+      return;
+    }
+
+    const readyItems = completedAttachments;
+    if (!cleanText && readyItems.length === 0) return;
 
     const replyToId = replyTarget?.id || null;
     const replyPreview = replyTarget
       ? `${replyTarget.sender_name}: ${replyTarget.message.slice(0, 90)}`
+      : null;
+
+    const recipientPayload = activeDmPeer
+      ? {
+          participant_id: activeDmPeer.participant_id,
+          display_name: activeDmPeer.display_name,
+          role: activeDmPeer.role,
+        }
       : null;
 
     setSending(true);
@@ -357,24 +583,66 @@ export function CommunityChatSlide({
     setReplyTarget(null);
 
     try {
-      const { message } = await sendChatMessage(session, {
-        room_id: activeRoomId,
-        message: cleanText,
-        reply_to_id: replyToId,
-        reply_preview: replyPreview,
-        recipient: activeDmPeer
-          ? {
-              participant_id: activeDmPeer.participant_id,
-              display_name: activeDmPeer.display_name,
-              role: activeDmPeer.role,
-            }
-          : null,
-      });
+      if (readyItems.length === 0) {
+        const { message } = await sendChatMessage(session, {
+          room_id: activeRoomId,
+          message: cleanText,
+          reply_to_id: replyToId,
+          reply_preview: replyPreview,
+          recipient: recipientPayload,
+        });
 
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === message.id)) return prev;
-        return [...prev, message];
-      });
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      } else {
+        const sentIds = new Set<string>();
+        for (let idx = 0; idx < readyItems.length; idx += 1) {
+          const item = readyItems[idx];
+          const upload = item.result;
+          if (!upload) continue;
+
+          const fallbackLabel =
+            upload.attachmentType === 'video'
+              ? `[Video] ${upload.fileName}`
+              : upload.attachmentType === 'photo'
+                ? `[Foto] ${upload.fileName}`
+                : `[Dokumen] ${upload.fileName}`;
+
+          const messageBody = idx === 0 && cleanText ? cleanText : fallbackLabel;
+          const { message } = await sendChatMessage(session, {
+            room_id: activeRoomId,
+            message: messageBody,
+            reply_to_id: idx === 0 ? replyToId : null,
+            reply_preview: idx === 0 ? replyPreview : null,
+            recipient: recipientPayload,
+            attachment: {
+              attachment_type: upload.attachmentType,
+              attachment_name: upload.fileName,
+              attachment_mime: upload.mimeType,
+              attachment_size_bytes: upload.sizeBytes,
+              attachment_storage_provider: 'google_drive',
+              attachment_drive_file_id: upload.driveFileId,
+              attachment_drive_folder_path: upload.folderPath,
+              attachment_url: upload.attachmentUrl,
+              attachment_thumbnail_url: upload.thumbnailUrl,
+              attachment_status: 'ready',
+              drive_permission_scope: upload.drivePermissionScope || null,
+              drive_web_view_link: upload.driveWebViewLink ?? upload.webViewLink ?? null,
+              drive_thumbnail_link: upload.driveThumbnailLink ?? null,
+            },
+          });
+
+          sentIds.add(item.localId);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
+        }
+        setUploadQueue((prev) => prev.filter((q) => !sentIds.has(q.localId)));
+      }
+
       void syncDirectoriesAndUnread();
       scrollToBottom('smooth');
       inputRef.current?.focus();
@@ -1099,7 +1367,7 @@ export function CommunityChatSlide({
                         </div>
 
                         <div
-                          className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full ${
+                          className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full min-w-0 overflow-hidden ${
                             isMine
                               ? 'bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white border-indigo-700/30 rounded-br-md'
                               : 'bg-white/95 text-[#0F172A] border-indigo-100/90 rounded-bl-md'
@@ -1107,17 +1375,34 @@ export function CommunityChatSlide({
                         >
                           {msg.reply_preview && (
                             <div
-                              className={`mb-1.5 px-2.5 py-1.5 rounded-xl text-[11px] border-l-2 leading-snug ${
+                              className={`mb-1.5 px-2.5 py-1.5 rounded-xl text-[11px] border leading-snug ${
                                 isMine
-                                  ? 'bg-white/15 border-sky-200 text-sky-50'
-                                  : 'bg-indigo-50/80 border-[#4C1D95] text-slate-600'
+                                  ? 'bg-white/15 border-sky-200/40 text-sky-50'
+                                  : 'bg-indigo-50/80 border-indigo-200 text-slate-600'
                               }`}
                             >
                               {msg.reply_preview}
                             </div>
                           )}
 
-                          <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                          <ChatMessageAttachmentBubble
+                            session={session}
+                            message={msg}
+                            isMine={isMine}
+                            onOpenAttachment={setPreviewAttachmentMsg}
+                          />
+
+                          {(() => {
+                            const hasAttachment =
+                              Boolean(msg.attachment_type) && msg.attachment_type !== 'none';
+                            const autoLabel =
+                              msg.attachment_name &&
+                              (msg.message === `[Foto] ${msg.attachment_name}` ||
+                                msg.message === `[Video] ${msg.attachment_name}` ||
+                                msg.message === `[Dokumen] ${msg.attachment_name}`);
+                            if (hasAttachment && autoLabel) return null;
+                            return <p className="whitespace-pre-wrap break-words">{msg.message}</p>;
+                          })()}
 
                           <div
                             className={`mt-1 flex items-center justify-between gap-3 text-[10px] ${
@@ -1202,10 +1487,10 @@ export function CommunityChatSlide({
             {/* Composer Input Pesan */}
             <form
               onSubmit={handleSendMessage}
-              className="p-2.5 sm:p-3.5 border-t border-indigo-100/80 bg-white/85 backdrop-blur-md space-y-2 shrink-0"
+              className="p-2.5 sm:p-3.5 border-t border-indigo-100/80 bg-white/85 backdrop-blur-md space-y-2 shrink-0 min-w-0"
             >
               {replyTarget && (
-                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/70 text-xs">
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/70 text-xs min-w-0">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] font-bold text-[#4C1D95] truncate">
                       Membalas {replyTarget.sender_name}
@@ -1223,7 +1508,31 @@ export function CommunityChatSlide({
                 </div>
               )}
 
-              <div className="flex items-end gap-2">
+              <ChatUploadProgressList
+                items={uploadQueue}
+                onCancel={handleCancelUpload}
+                onRetry={handleRetryUpload}
+                onRemove={handleRemoveUploadItem}
+              />
+
+              {(hasUploadingAttachments || hasFailedAttachments) && (
+                <p
+                  className={`text-[10.5px] font-medium px-1 ${
+                    hasFailedAttachments ? 'text-rose-700' : 'text-[#3730A3]'
+                  }`}
+                >
+                  {hasFailedAttachments
+                    ? 'Perbaiki atau hapus unggahan yang gagal sebelum mengirim pesan.'
+                    : 'Mengunggah lampiran ke Google Drive... Tombol kirim aktif setelah selesai.'}
+                </p>
+              )}
+
+              <div className="flex items-end gap-1.5 sm:gap-2 min-w-0">
+                <ChatAttachmentMenu
+                  disabled={sending}
+                  onSelectFiles={handleSelectAttachmentFiles}
+                />
+
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -1231,14 +1540,23 @@ export function CommunityChatSlide({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Tulis pesan ke ${activeTitle}...`}
-                  className="flex-1 min-w-0 min-h-[40px] sm:min-h-[44px] max-h-24 resize-none rounded-2xl border border-indigo-200/80 bg-white/95 px-3 py-2 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
+                  placeholder={
+                    completedAttachments.length > 0 || hasUploadingAttachments
+                      ? 'Tambah keterangan lampiran (opsional)...'
+                      : `Tulis pesan ke ${activeTitle}...`
+                  }
+                  className="flex-1 min-w-0 min-h-[44px] max-h-24 resize-none rounded-2xl border border-indigo-200/80 bg-white/95 px-3 py-2.5 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                 />
                 <button
                   type="submit"
-                  disabled={sending || !draft.trim()}
+                  disabled={
+                    sending ||
+                    hasUploadingAttachments ||
+                    hasFailedAttachments ||
+                    (!draft.trim() && completedAttachments.length === 0)
+                  }
                   aria-label="Kirim pesan"
-                  className="h-10 sm:h-11 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+                  className="h-11 min-h-[44px] px-3.5 sm:px-4 rounded-2xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
                 >
                   {sending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1252,6 +1570,12 @@ export function CommunityChatSlide({
           </div>
         </div>
       </section>
+
+      <PrivateDrivePreviewModal
+        session={session}
+        message={previewAttachmentMsg}
+        onClose={() => setPreviewAttachmentMsg(null)}
+      />
     </div>
   );
 }
