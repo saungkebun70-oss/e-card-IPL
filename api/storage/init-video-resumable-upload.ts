@@ -46,9 +46,13 @@ function normalizeToken(raw?: string | null): string {
 }
 
 function canonicalBlockKey(raw?: string | null): string {
-  const clean = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  const clean = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/^BLOK\s*/i, '')
+    .replace(/\s+/g, '');
   if (!clean) return '';
-  const m = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  const m = clean.match(/^([A-Z]+)0*(\d+)[\/-]0*(\d+)$/);
   return m ? `${m[1]}${Number(m[2])}/${Number(m[3])}` : clean;
 }
 
@@ -218,29 +222,282 @@ function resolveDriveCategoryFolder(roomId: string): string {
   return 'Chat-Lainnya';
 }
 
+interface CredentialValidationError extends Error {
+  statusCode?: number;
+  missingFields?: string[];
+  invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
+}
+
+const DEFAULT_DRIVE_CLIENT_EMAIL = 'saung-kebun-drive@saung-kebun-87b23.iam.gserviceaccount.com';
+const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
+
+function stripOuterQuotes(raw?: string | null): string {
+  let clean = String(raw || '').trim();
+  while (
+    clean.length >= 2 &&
+    ((clean.startsWith('"') && clean.endsWith('"')) ||
+      (clean.startsWith("'") && clean.endsWith("'")))
+  ) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
+}
+
+function readFirstSecretEnv(names: string[]): { value: string; sourceName: string | null } {
+  for (const name of names) {
+    const cleaned = stripOuterQuotes(process.env[name]);
+    if (cleaned) return { value: cleaned, sourceName: name };
+  }
+  return { value: '', sourceName: null };
+}
+
+function extractServiceAccountJson(raw: string): {
+  clientEmail?: string;
+  privateKey?: string;
+  privateKeyId?: string;
+} | null {
+  const clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  if (!clean.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(clean) as {
+      client_email?: unknown;
+      private_key?: unknown;
+      private_key_id?: unknown;
+    };
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      clientEmail: typeof parsed.client_email === 'string' ? stripOuterQuotes(parsed.client_email) : undefined,
+      privateKey: typeof parsed.private_key === 'string' ? parsed.private_key : undefined,
+      privateKeyId:
+        typeof parsed.private_key_id === 'string' ? stripOuterQuotes(parsed.private_key_id) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizePrivateKeyPem(raw: string): string {
+  let clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  if (!clean) return '';
+
+  const parsedJson = extractServiceAccountJson(clean);
+  if (parsedJson?.privateKey && parsedJson.privateKey.trim()) {
+    clean = stripOuterQuotes(parsedJson.privateKey);
+  }
+
+  if ((clean.startsWith('"') && clean.endsWith('"')) || clean.includes('\\"')) {
+    try {
+      const unwrapped = JSON.parse(clean.startsWith('"') ? clean : `"${clean}"`);
+      if (typeof unwrapped === 'string' && unwrapped.trim()) {
+        clean = stripOuterQuotes(unwrapped);
+      }
+    } catch {
+      clean = clean.replace(/^\\["']|\\["']$/g, '');
+    }
+  }
+
+  clean = clean
+    .replace(/\\+r\\+n/g, '\n')
+    .replace(/\\+n/g, '\n')
+    .replace(/\\+r/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  clean = stripOuterQuotes(clean).replace(/[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '');
+
+  const pkcs8Match = clean.match(
+    /-----\s*BEGIN\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs8Match) {
+    const cleanBody = pkcs8Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----`;
+  }
+
+  const pkcs1Match = clean.match(
+    /-----\s*BEGIN\s+RSA\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+RSA\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs1Match) {
+    const cleanBody = pkcs1Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN RSA PRIVATE KEY-----\n${wrappedBody}\n-----END RSA PRIVATE KEY-----`;
+  }
+
+  return clean
+    .replace(/(-----BEGIN [A-Z0-9 ]+-----)\s*/g, '$1\n')
+    .replace(/\s*(-----END [A-Z0-9 ]+-----)/g, '\n$1')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+function pemToDerBuffer(pem: string): Buffer {
+  const match = pem.match(
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*?)-----END (?:RSA )?PRIVATE KEY-----/
+  );
+  const rawBody = match ? match[1] : pem;
+  const cleaned = rawBody
+    .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, '')
+    .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, '')
+    .replace(/\\+[rn]/gi, '')
+    .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+  if (!cleaned) throw new Error('Body base64 di dalam blok PRIVATE KEY kosong.');
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) throw new Error('Body PEM mengandung karakter non-base64.');
+  return Buffer.from(cleaned, 'base64');
+}
+
+function buildCredentialError(params: {
+  scope: string;
+  missingFields: string[];
+  invalidFields: string[];
+  fieldReasons?: Record<string, string>;
+  statusCode?: number;
+}): CredentialValidationError {
+  const details: string[] = [];
+  if (params.missingFields.length > 0) details.push(`field kosong: [${params.missingFields.join(', ')}]`);
+  if (params.invalidFields.length > 0) {
+    const invalidDesc = params.invalidFields.map((field) => {
+      const reason = params.fieldReasons?.[field];
+      return reason ? `${field} (${reason})` : field;
+    });
+    details.push(`field tidak valid: [${invalidDesc.join(', ')}]`);
+  }
+  const err = new Error(
+    `Validasi secrets ${params.scope} gagal di server API — ${details.join('; ')}.`
+  ) as CredentialValidationError;
+  err.statusCode = params.statusCode ?? 500;
+  err.missingFields = [...params.missingFields];
+  err.invalidFields = [...params.invalidFields];
+  if (params.fieldReasons && Object.keys(params.fieldReasons).length > 0) {
+    err.fieldReasons = params.fieldReasons;
+  }
+  return err;
+}
+
 function getSupabaseEnv() {
-  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!url || !serviceKey) {
-    throw Object.assign(new Error('SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diset.'), { statusCode: 500 });
+  const urlEnv = readFirstSecretEnv(['SUPABASE_URL', 'VITE_SUPABASE_URL']);
+  const serviceKeyEnv = readFirstSecretEnv(['SUPABASE_SERVICE_ROLE_KEY', 'SERVICE_ROLE_KEY']);
+  const url = urlEnv.value.replace(/\/+$/, '');
+  const serviceKey = serviceKeyEnv.value;
+  const missingFields: string[] = [];
+  const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
+
+  if (!url) {
+    missingFields.push('SUPABASE_URL');
+    fieldReasons.SUPABASE_URL = 'Environment variable kosong atau belum diatur.';
+  } else {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        invalidFields.push(urlEnv.sourceName || 'SUPABASE_URL');
+        fieldReasons[urlEnv.sourceName || 'SUPABASE_URL'] = 'Protokol URL harus http atau https.';
+      }
+    } catch {
+      invalidFields.push(urlEnv.sourceName || 'SUPABASE_URL');
+      fieldReasons[urlEnv.sourceName || 'SUPABASE_URL'] = 'Format URL tidak valid.';
+    }
+  }
+
+  if (!serviceKey) {
+    missingFields.push('SUPABASE_SERVICE_ROLE_KEY', 'SERVICE_ROLE_KEY');
+    fieldReasons.SUPABASE_SERVICE_ROLE_KEY = 'Secret kosong (fallback SERVICE_ROLE_KEY juga kosong).';
+  } else if (serviceKey.length < 20 || /\s/.test(serviceKey)) {
+    const keyField = serviceKeyEnv.sourceName || 'SUPABASE_SERVICE_ROLE_KEY';
+    invalidFields.push(keyField);
+    fieldReasons[keyField] = 'Format token service role tidak valid atau mengandung spasi.';
+  }
+
+  if (missingFields.length > 0 || invalidFields.length > 0) {
+    throw buildCredentialError({ scope: 'Supabase', missingFields, invalidFields, fieldReasons });
   }
   return { url, serviceKey };
 }
 
 function getDriveEnv() {
-  const clientEmail = (process.env.GOOGLE_DRIVE_CLIENT_EMAIL || '').trim();
-  const privateKey = (process.env.GOOGLE_DRIVE_PRIVATE_KEY || '')
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\\n/g, '\n');
-  const rootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '').trim();
-  if (!clientEmail || !privateKey || !rootFolderId) {
-    throw Object.assign(
-      new Error('Konfigurasi Service Account Google Drive belum lengkap di environment server.'),
-      { statusCode: 500 }
-    );
+  const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
+  const keyEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY']);
+  const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
+  const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
+
+  const embeddedJson = keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null;
+  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
+  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '')
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+
+  const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
+  const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID';
+
+  const missingFields: string[] = [];
+  const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+    invalidFields.push(emailField);
+    fieldReasons[emailField] = 'Format email service account tidak valid.';
   }
-  return { clientEmail, privateKey, rootFolderId };
+
+  if (!privateKey) {
+    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY');
+    fieldReasons.GOOGLE_DRIVE_PRIVATE_KEY = 'Secret kosong (fallback GOOGLE_PRIVATE_KEY juga kosong).';
+  } else if (
+    (!privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
+      !privateKey.includes('-----END PRIVATE KEY-----')) &&
+    (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') ||
+      !privateKey.includes('-----END RSA PRIVATE KEY-----'))
+  ) {
+    invalidFields.push(keyField);
+    fieldReasons[keyField] =
+      'Harus berisi blok utuh -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY----- (format PKCS#8).';
+  } else {
+    try {
+      const der = pemToDerBuffer(privateKey);
+      if (der.byteLength < 64) {
+        invalidFields.push(keyField);
+        fieldReasons[keyField] = `Panjang byte kunci privat terlalu pendek (${der.byteLength} byte, minimal 64 byte).`;
+      }
+    } catch (decodeErr) {
+      invalidFields.push(keyField);
+      fieldReasons[keyField] = `Decode base64 kunci privat gagal (${
+        decodeErr instanceof Error ? decodeErr.message : 'invalid base64'
+      }).`;
+    }
+  }
+
+  if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+    invalidFields.push(folderField);
+    fieldReasons[folderField] = 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
+  }
+
+  if (missingFields.length > 0 || invalidFields.length > 0) {
+    throw buildCredentialError({ scope: 'Google Drive', missingFields, invalidFields, fieldReasons });
+  }
+
+  return {
+    clientEmail,
+    privateKey,
+    rootFolderId,
+    privateKeyId: privateKeyId || undefined,
+    clientEmailField: emailField,
+    privateKeyField: keyField,
+    rootFolderField: folderField,
+  };
 }
 
 async function sbRest<T>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T | null }> {
@@ -518,25 +775,84 @@ async function verifyCaller(req: VercelReq, callerHint?: SenderCallerHint | null
   }
 
   if (effectiveRole === 'warga') {
-    const canon = canonicalBlockKey(rawBlok);
+    const rawWargaBlock =
+      rawBlok ||
+      (callerHint?.senderId?.toLowerCase().startsWith('warga:')
+        ? callerHint.senderId.slice('warga:'.length)
+        : '') ||
+      String(verifiedAuthUser?.userMetadata?.blok_rumah || '');
+    const canon = canonicalBlockKey(rawWargaBlock);
     if (!canon) throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
-    const res = await sbRest<Array<{ blok_rumah?: string; nama_warga?: string }>>(
-      '/rest/v1/users_warga?aktif=eq.true&role=eq.warga&select=blok_rumah,nama_warga'
-    );
-    const matched = (res.data || []).find((r) => canonicalBlockKey(r.blok_rumah) === canon);
-    if (!matched) {
+
+    const { rows, ok } = await fetchUsersWargaRows();
+    const matchingRows = rows.filter((r) => canonicalBlockKey(r.blok_rumah) === canon);
+    const activeWargaRow = matchingRows.find((r) => r.aktif !== false && !isPengurusRowRole(r));
+    const inactiveWargaRow = matchingRows.find((r) => r.aktif === false && !isPengurusRowRole(r));
+    const activePengurusRow = matchingRows.find((r) => r.aktif !== false && isPengurusRowRole(r));
+
+    let verifiedDisplayName = activeWargaRow ? String(activeWargaRow.nama_warga || '').trim() : '';
+    let verifiedWarga = Boolean(activeWargaRow);
+
+    if (!verifiedWarga && !inactiveWargaRow) {
+      try {
+        const dirRes = await sbRest<Array<Record<string, unknown>>>('/rest/v1/rpc/get_chat_directory', {
+          method: 'POST',
+          body: '{}',
+        });
+        if (dirRes.ok && Array.isArray(dirRes.data)) {
+          const lowerCanon = canon.toLowerCase();
+          const dirMatch = dirRes.data.find((entry) => {
+            const entryRole = normalizeToken(String(entry.role || ''));
+            if (entryRole && entryRole !== 'warga') return false;
+            const entryBlok = canonicalBlockKey(String(entry.blok_rumah || ''));
+            const entryPid = normalizeParticipantId(String(entry.participant_id || ''));
+            return entryBlok === canon || entryPid === `warga:${lowerCanon}`;
+          });
+          if (dirMatch) {
+            verifiedWarga = true;
+            verifiedDisplayName = String(dirMatch.display_name || '').trim();
+          }
+        }
+      } catch {
+        // Lanjutkan ke pengecekan akhir
+      }
+    }
+
+    if (!verifiedWarga) {
+      if (inactiveWargaRow) {
+        throw Object.assign(
+          new Error(`Akun Warga Blok "${canon}" berstatus nonaktif di users_warga (aktif = false).`),
+          { statusCode: 403 }
+        );
+      }
+      if (activePengurusRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Blok "${canon}" terdaftar sebagai Pengurus aktif (${String(
+              activePengurusRow.jabatan || activePengurusRow.role || 'Pengurus'
+            )}). Gunakan portal Pengurus untuk mengunggah lampiran.`
+          ),
+          { statusCode: 403 }
+        );
+      }
+      if (!ok) {
+        throw new Error('Gagal membaca tabel users_warga saat verifikasi akun Warga.');
+      }
       throw Object.assign(
-        new Error(`Akun Warga Blok "${canon}" berstatus nonaktif di users_warga atau terdaftar sebagai Pengurus aktif.`),
+        new Error(
+          `Akun Warga Blok "${canon}" tidak ditemukan aktif di users_warga maupun direktori chat (baris users_warga=${rows.length}).`
+        ),
         { statusCode: 403 }
       );
     }
+
     const lower = canon.toLowerCase();
     const matchIds = new Set<string>([`warga:${lower}`]);
-    if (normalizeToken(rawBlok)) matchIds.add(`warga:${normalizeToken(rawBlok)}`);
+    if (normalizeToken(rawWargaBlock)) matchIds.add(`warga:${normalizeToken(rawWargaBlock)}`);
     return {
       role: 'warga',
       senderId: `warga:${lower}`,
-      displayName: String(matched.nama_warga || callerHint?.namaWarga || `Warga ${canon}`),
+      displayName: String(verifiedDisplayName || callerHint?.namaWarga || `Warga ${canon}`).trim(),
       matchIds,
     };
   }
@@ -575,9 +891,19 @@ function b64Url(input: Buffer | string): string {
   return b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-async function getDriveToken(cfg: { clientEmail: string; privateKey: string }): Promise<string> {
+async function getDriveToken(cfg: {
+  clientEmail: string;
+  privateKey: string;
+  privateKeyId?: string;
+  clientEmailField?: string;
+  privateKeyField?: string;
+}): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const signingInput = `${b64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64Url(
+  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
+  if (cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)) {
+    jwtHeaderPayload.kid = cfg.privateKeyId;
+  }
+  const signingInput = `${b64Url(JSON.stringify(jwtHeaderPayload))}.${b64Url(
     JSON.stringify({
       iss: cfg.clientEmail,
       scope: 'https://www.googleapis.com/auth/drive',
@@ -586,10 +912,35 @@ async function getDriveToken(cfg: { clientEmail: string; privateKey: string }): 
       exp: now + 3600,
     })
   )}`;
-  const signer = crypto.createSign('RSA-SHA256');
-  signer.update(signingInput);
-  signer.end();
-  const jwt = `${signingInput}.${b64Url(signer.sign(cfg.privateKey))}`;
+  const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
+
+  let keyFp = 'unknown';
+  let signature: Buffer;
+  try {
+    const der = pemToDerBuffer(cfg.privateKey);
+    keyFp = crypto.createHash('sha256').update(der).digest('hex').slice(0, 12);
+    const privateKeyObj = crypto.createPrivateKey(cfg.privateKey);
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(signingInput);
+    signer.end();
+    signature = signer.sign(privateKeyObj);
+  } catch (keyErr) {
+    const cleanDetail = (keyErr instanceof Error ? keyErr.message : String(keyErr || 'invalid key'))
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 180);
+    throw buildCredentialError({
+      scope: 'Google Drive',
+      missingFields: [],
+      invalidFields: [keyField],
+      fieldReasons: {
+        [keyField]: `Gagal memproses kunci privat PEM (${cleanDetail}). Pastikan secret berisi private_key PKCS#8 utuh untuk ${cfg.clientEmail}.`,
+      },
+    });
+  }
+
+  const jwt = `${signingInput}.${b64Url(signature)}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -599,7 +950,22 @@ async function getDriveToken(cfg: { clientEmail: string; privateKey: string }): 
       assertion: jwt,
     }),
   });
-  if (!res.ok) throw new Error(`Gagal otentikasi Service Account Drive (${res.status}).`);
+  if (!res.ok) {
+    const errText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 180);
+    const isSigErr = /invalid jwt signature/i.test(errText);
+    const hintSuffix = isSigErr
+      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${cfg.privateKeyId ? `, kid=${cfg.privateKeyId.slice(0, 8)}...` : ''}].`
+      : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields: [],
+      invalidFields: [emailField, keyField],
+      fieldReasons: {
+        [emailField]: `Service Account (iss): ${cfg.clientEmail} ditolak Google OAuth2 (${res.status}).`,
+        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText || 'invalid_grant'}.${hintSuffix}`,
+      },
+    });
+  }
   const json = (await res.json()) as { access_token?: string };
   if (!json.access_token) throw new Error('Access token Drive tidak tersedia.');
   return json.access_token;
@@ -801,13 +1167,20 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       storageProvider: 'google_drive',
     });
   } catch (err) {
-    const statusCode =
-      typeof (err as { statusCode?: number })?.statusCode === 'number'
-        ? (err as { statusCode: number }).statusCode
-        : 500;
+    const typedErr = err as CredentialValidationError;
+    const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+    const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+    const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+    const fieldReasons =
+      typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+        ? typedErr.fieldReasons
+        : undefined;
     res.status(statusCode).json({
       ok: false,
       error: err instanceof Error ? err.message : 'Gagal membuat sesi unggah video Google Drive.',
+      ...(missingFields?.length ? { missingFields } : {}),
+      ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
     });
   }
 }

@@ -35,6 +35,7 @@ interface DriveServiceAccountConfig {
   clientEmail: string;
   privateKey: string;
   rootFolderId: string;
+  privateKeyId?: string;
   clientEmailField?: string;
   privateKeyField?: string;
   rootFolderField?: string;
@@ -166,9 +167,10 @@ function canonicalBlockKey(raw?: string | null): string {
   const clean = String(raw || '')
     .trim()
     .toUpperCase()
+    .replace(/^BLOK\s*/i, '')
     .replace(/\s+/g, '');
   if (!clean) return '';
-  const match = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  const match = clean.match(/^([A-Z]+)0*(\d+)[\/-]0*(\d+)$/);
   if (match) {
     return `${match[1]}${Number(match[2])}/${Number(match[3])}`;
   }
@@ -234,6 +236,33 @@ function readFirstSecretEnv(names: string[]): { value: string; sourceName: strin
   return { value: '', sourceName: null };
 }
 
+function extractServiceAccountJson(raw: string): {
+  clientEmail?: string;
+  privateKey?: string;
+  privateKeyId?: string;
+} | null {
+  const clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  if (!clean.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(clean) as {
+      client_email?: unknown;
+      private_key?: unknown;
+      private_key_id?: unknown;
+    };
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      clientEmail: typeof parsed.client_email === 'string' ? stripOuterQuotes(parsed.client_email) : undefined,
+      privateKey: typeof parsed.private_key === 'string' ? parsed.private_key : undefined,
+      privateKeyId:
+        typeof parsed.private_key_id === 'string' ? stripOuterQuotes(parsed.private_key_id) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function normalizePrivateKeyPem(raw: string): string {
   let clean = stripOuterQuotes(raw)
     .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
@@ -241,15 +270,9 @@ function normalizePrivateKeyPem(raw: string): string {
   if (!clean) return '';
 
   // Dukungan bila seluruh JSON Service Account tertempel ke secret private key
-  if (clean.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(clean) as { private_key?: unknown };
-      if (typeof parsed?.private_key === 'string' && parsed.private_key.trim()) {
-        clean = stripOuterQuotes(parsed.private_key);
-      }
-    } catch {
-      // Lanjutkan normalisasi string biasa
-    }
+  const parsedJson = extractServiceAccountJson(clean);
+  if (parsedJson?.privateKey && parsedJson.privateKey.trim()) {
+    clean = stripOuterQuotes(parsedJson.privateKey);
   }
 
   // Tangani string ter-escape ganda hasil JSON serialization (mis. "\"-----BEGIN...\\n...\"")
@@ -423,11 +446,20 @@ const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
 function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
   const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
   const keyEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY']);
+  const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
   const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
 
-  const clientEmail = emailEnv.value || DEFAULT_DRIVE_CLIENT_EMAIL;
+  const embeddedJson = keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null;
+  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
   const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
-  const rootFolderId = folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID;
+  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '')
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
 
   const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
@@ -489,6 +521,7 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
     clientEmail,
     privateKey,
     rootFolderId,
+    privateKeyId: privateKeyId || undefined,
     clientEmailField: emailField,
     privateKeyField: keyField,
     rootFolderField: folderField,
@@ -905,35 +938,90 @@ async function verifyChatCaller(
   }
 
   if (effectiveRole === 'warga') {
-    const canonBlok = canonicalBlockKey(rawBlok);
+    const rawWargaBlockCandidate =
+      rawBlok ||
+      (callerHint?.senderId?.toLowerCase().startsWith('warga:')
+        ? callerHint.senderId.slice('warga:'.length)
+        : '') ||
+      String(verifiedAuthUser?.userMetadata?.blok_rumah || '');
+    const canonBlok = canonicalBlockKey(rawWargaBlockCandidate);
     if (!canonBlok) {
       throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
     }
 
-    const { data, error } = await client
-      .from('users_warga')
-      .select('blok_rumah, nama_warga, role, aktif')
-      .eq('aktif', true)
-      .eq('role', 'warga');
-
-    if (error) {
-      throw new Error(`Gagal memverifikasi akun Warga: ${error.message}`);
-    }
-
-    const matched = (data || []).find(
+    const { rows, errorMessage } = await fetchUsersWargaForCallerVerification(client);
+    const matchingRows = rows.filter(
       (row) => canonicalBlockKey(String(row.blok_rumah || '')) === canonBlok
     );
-    if (!matched) {
+    const activeWargaRow = matchingRows.find(
+      (row) => row.aktif !== false && !isPengurusRowRole(row)
+    );
+    const inactiveWargaRow = matchingRows.find(
+      (row) => row.aktif === false && !isPengurusRowRole(row)
+    );
+    const activePengurusRow = matchingRows.find(
+      (row) => row.aktif !== false && isPengurusRowRole(row)
+    );
+
+    let verifiedDisplayName = activeWargaRow
+      ? String(activeWargaRow.nama_warga || '').trim()
+      : '';
+    let verifiedWarga = Boolean(activeWargaRow);
+
+    if (!verifiedWarga && !inactiveWargaRow) {
+      try {
+        const dirCheck = await client.rpc('get_chat_directory');
+        if (!dirCheck.error && Array.isArray(dirCheck.data)) {
+          const canonLower = canonBlok.toLowerCase();
+          const dirMatch = (dirCheck.data as Array<Record<string, unknown>>).find((entry) => {
+            const entryRole = normalizeToken(String(entry.role || ''));
+            if (entryRole && entryRole !== 'warga') return false;
+            const entryBlok = canonicalBlockKey(String(entry.blok_rumah || ''));
+            const entryPid = normalizeParticipantId(String(entry.participant_id || ''));
+            return entryBlok === canonBlok || entryPid === `warga:${canonLower}`;
+          });
+          if (dirMatch) {
+            verifiedWarga = true;
+            verifiedDisplayName = String(dirMatch.display_name || '').trim();
+          }
+        }
+      } catch {
+        // Lanjutkan ke pengecekan akhir
+      }
+    }
+
+    if (!verifiedWarga) {
+      if (inactiveWargaRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga (aktif = false).`
+          ),
+          { statusCode: 403 }
+        );
+      }
+      if (activePengurusRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Blok "${canonBlok}" terdaftar sebagai Pengurus aktif (${String(
+              activePengurusRow.jabatan || activePengurusRow.role || 'Pengurus'
+            )}). Gunakan portal Pengurus untuk mengunggah lampiran.`
+          ),
+          { statusCode: 403 }
+        );
+      }
+      if (errorMessage) {
+        throw new Error(`Gagal memverifikasi akun Warga pada users_warga: ${errorMessage}`);
+      }
       throw Object.assign(
         new Error(
-          `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga atau sedang berstatus Pengurus aktif.`
+          `Akun Warga Blok "${canonBlok}" tidak ditemukan aktif di users_warga maupun direktori chat (baris users_warga=${rows.length}).`
         ),
         { statusCode: 403 }
       );
     }
 
     const canonLower = canonBlok.toLowerCase();
-    const rawLower = normalizeToken(rawBlok);
+    const rawLower = normalizeToken(rawWargaBlockCandidate);
     const matchIds = new Set<string>([`warga:${canonLower}`]);
     if (rawLower) matchIds.add(`warga:${rawLower}`);
 
@@ -941,7 +1029,7 @@ async function verifyChatCaller(
       role: 'warga',
       senderId: `warga:${canonLower}`,
       slug: canonLower.replace(/[^a-z0-9_-]+/g, '-'),
-      displayName: String(matched.nama_warga || callerHint?.namaWarga || `Warga ${canonBlok}`),
+      displayName: String(verifiedDisplayName || callerHint?.namaWarga || `Warga ${canonBlok}`).trim(),
       matchIds,
     };
   }
@@ -1064,9 +1152,24 @@ function base64UrlEncode(input: Uint8Array | string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+async function computeShortSha256Hex(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(digest).slice(0, 6))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return 'unknown';
+  }
+}
+
 async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Promise<string> {
   const nowSec = Math.floor(Date.now() / 1000);
-  const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
+  if (cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)) {
+    jwtHeaderPayload.kid = cfg.privateKeyId;
+  }
+  const header = base64UrlEncode(JSON.stringify(jwtHeaderPayload));
   const claimSet = base64UrlEncode(
     JSON.stringify({
       iss: cfg.clientEmail,
@@ -1079,10 +1182,11 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   const signingInput = `${header}.${claimSet}`;
 
   let cryptoKey: CryptoKey;
+  let pkcs8Buffer: ArrayBuffer;
   const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
   const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   try {
-    const pkcs8Buffer = pemToArrayBuffer(cfg.privateKey);
+    pkcs8Buffer = pemToArrayBuffer(cfg.privateKey);
     cryptoKey = await crypto.subtle.importKey(
       'pkcs8',
       pkcs8Buffer,
@@ -1105,6 +1209,7 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
     });
   }
 
+  const keyFp = await computeShortSha256Hex(pkcs8Buffer);
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     cryptoKey,
@@ -1122,14 +1227,18 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
+    const errText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 180);
+    const isSigErr = /invalid jwt signature/i.test(errText);
+    const hintSuffix = isSigErr
+      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${cfg.privateKeyId ? `, kid=${cfg.privateKeyId.slice(0, 8)}...` : ''}].`
+      : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
     throw buildCredentialError({
       scope: 'Google Drive OAuth2',
       missingFields: [],
       invalidFields: [emailField, keyField],
       fieldReasons: {
-        [emailField]: `Ditolak Google OAuth2 (${res.status})`,
-        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText.slice(0, 140)}`,
+        [emailField]: `Service Account (iss): ${cfg.clientEmail} ditolak Google OAuth2 (${res.status}).`,
+        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText || 'invalid_grant'}.${hintSuffix}`,
       },
     });
   }

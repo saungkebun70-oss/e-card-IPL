@@ -148,13 +148,25 @@ Deno.serve(async (req: Request) => {
       storageProvider: 'google_drive',
     });
   } catch (err) {
-    const statusCode =
-      typeof (err as { statusCode?: number })?.statusCode === 'number'
-        ? (err as { statusCode: number }).statusCode
-        : 500;
+    const typedErr = err as {
+      statusCode?: number;
+      missingFields?: string[];
+      invalidFields?: string[];
+      fieldReasons?: Record<string, string>;
+    };
+    const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+    const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+    const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+    const fieldReasons =
+      typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+        ? typedErr.fieldReasons
+        : undefined;
     return jsonResponse(req, statusCode, {
       ok: false,
       error: err instanceof Error ? err.message : 'Gagal membuat sesi unggah video Google Drive.',
+      ...(missingFields?.length ? { missingFields } : {}),
+      ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
     });
   }
 });

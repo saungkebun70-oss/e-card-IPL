@@ -34,6 +34,10 @@ interface DriveServiceAccountConfig {
   clientEmail: string;
   privateKey: string;
   rootFolderId: string;
+  privateKeyId?: string;
+  clientEmailField?: string;
+  privateKeyField?: string;
+  rootFolderField?: string;
 }
 
 type DrivePermissionScope = 'anyone_link' | 'restricted_private';
@@ -42,6 +46,7 @@ interface CredentialValidationError extends Error {
   statusCode?: number;
   missingFields?: string[];
   invalidFields?: string[];
+  fieldReasons?: Record<string, string>;
 }
 
 interface UsersWargaCallerRow {
@@ -149,9 +154,10 @@ function canonicalBlockKey(raw?: string | null): string {
   const clean = String(raw || '')
     .trim()
     .toUpperCase()
+    .replace(/^BLOK\s*/i, '')
     .replace(/\s+/g, '');
   if (!clean) return '';
-  const match = clean.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
+  const match = clean.match(/^([A-Z]+)0*(\d+)[\/-]0*(\d+)$/);
   if (match) {
     return `${match[1]}${Number(match[2])}/${Number(match[3])}`;
   }
@@ -217,11 +223,90 @@ function readFirstSecretEnv(names: string[]): { value: string; sourceName: strin
   return { value: '', sourceName: null };
 }
 
+function extractServiceAccountJson(raw: string): {
+  clientEmail?: string;
+  privateKey?: string;
+  privateKeyId?: string;
+} | null {
+  const clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  if (!clean.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(clean) as {
+      client_email?: unknown;
+      private_key?: unknown;
+      private_key_id?: unknown;
+    };
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      clientEmail: typeof parsed.client_email === 'string' ? stripOuterQuotes(parsed.client_email) : undefined,
+      privateKey: typeof parsed.private_key === 'string' ? parsed.private_key : undefined,
+      privateKeyId:
+        typeof parsed.private_key_id === 'string' ? stripOuterQuotes(parsed.private_key_id) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function normalizePrivateKeyPem(raw: string): string {
-  return stripOuterQuotes(raw)
-    .replace(/\\r\\n/g, '\n')
-    .replace(/\\n/g, '\n')
+  let clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  if (!clean) return '';
+
+  const parsedJson = extractServiceAccountJson(clean);
+  if (parsedJson?.privateKey && parsedJson.privateKey.trim()) {
+    clean = stripOuterQuotes(parsedJson.privateKey);
+  }
+
+  if ((clean.startsWith('"') && clean.endsWith('"')) || clean.includes('\\"')) {
+    try {
+      const unwrapped = JSON.parse(clean.startsWith('"') ? clean : `"${clean}"`);
+      if (typeof unwrapped === 'string' && unwrapped.trim()) {
+        clean = stripOuterQuotes(unwrapped);
+      }
+    } catch {
+      clean = clean.replace(/^\\["']|\\["']$/g, '');
+    }
+  }
+
+  clean = clean
+    .replace(/\\+r\\+n/g, '\n')
+    .replace(/\\+n/g, '\n')
+    .replace(/\\+r/g, '\n')
     .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  clean = stripOuterQuotes(clean).replace(/[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '');
+
+  const pkcs8Match = clean.match(
+    /-----\s*BEGIN\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs8Match) {
+    const cleanBody = pkcs8Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----`;
+  }
+
+  const pkcs1Match = clean.match(
+    /-----\s*BEGIN\s+RSA\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+RSA\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs1Match) {
+    const cleanBody = pkcs1Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN RSA PRIVATE KEY-----\n${wrappedBody}\n-----END RSA PRIVATE KEY-----`;
+  }
+
+  return clean
+    .replace(/(-----BEGIN [A-Z0-9 ]+-----)\s*/g, '$1\n')
+    .replace(/\s*(-----END [A-Z0-9 ]+-----)/g, '\n$1')
+    .replace(/\n{2,}/g, '\n')
     .trim();
 }
 
@@ -229,6 +314,7 @@ function buildCredentialError(params: {
   scope: string;
   missingFields: string[];
   invalidFields: string[];
+  fieldReasons?: Record<string, string>;
   statusCode?: number;
 }): CredentialValidationError {
   const details: string[] = [];
@@ -236,22 +322,42 @@ function buildCredentialError(params: {
     details.push(`field kosong: [${params.missingFields.join(', ')}]`);
   }
   if (params.invalidFields.length > 0) {
-    details.push(`field tidak valid: [${params.invalidFields.join(', ')}]`);
+    const invalidDesc = params.invalidFields.map((field) => {
+      const reason = params.fieldReasons?.[field];
+      return reason ? `${field} (${reason})` : field;
+    });
+    details.push(`field tidak valid: [${invalidDesc.join(', ')}]`);
   }
   const err = new Error(
     `Validasi secrets ${params.scope} gagal di Edge Function — ${details.join('; ')}.`
   ) as CredentialValidationError;
   err.statusCode = params.statusCode ?? 500;
-  if (params.missingFields.length > 0) err.missingFields = params.missingFields;
-  if (params.invalidFields.length > 0) err.invalidFields = params.invalidFields;
+  err.missingFields = [...params.missingFields];
+  err.invalidFields = [...params.invalidFields];
+  if (params.fieldReasons && Object.keys(params.fieldReasons).length > 0) {
+    err.fieldReasons = params.fieldReasons;
+  }
   return err;
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const cleaned = pem
+  const match = pem.match(
+    /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/
+  );
+  const rawBody = match ? match[1] : pem;
+  const cleaned = rawBody
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
+    .replace(/\\+[rn]/gi, '')
+    .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+
+  if (!cleaned) {
+    throw new Error('Body base64 di dalam blok PRIVATE KEY kosong.');
+  }
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) {
+    throw new Error('Body PEM mengandung karakter non-base64.');
+  }
+
   const binary = atob(cleaned);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
@@ -269,26 +375,31 @@ function getSupabaseAdminClient() {
 
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
 
   if (!url) {
     missingFields.push('SUPABASE_URL');
+    fieldReasons.SUPABASE_URL = 'Secret kosong atau belum diatur.';
   } else {
     try {
       const parsed = new URL(url);
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-        invalidFields.push('SUPABASE_URL (protokol harus http/https)');
+        invalidFields.push('SUPABASE_URL');
+        fieldReasons.SUPABASE_URL = 'Protokol URL harus http atau https.';
       }
     } catch {
-      invalidFields.push('SUPABASE_URL (format URL tidak valid)');
+      invalidFields.push('SUPABASE_URL');
+      fieldReasons.SUPABASE_URL = 'Format URL tidak valid.';
     }
   }
 
   if (!serviceKey) {
-    missingFields.push('SERVICE_ROLE_KEY (fallback: SUPABASE_SERVICE_ROLE_KEY)');
+    missingFields.push('SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
+    fieldReasons.SERVICE_ROLE_KEY = 'Secret kosong (fallback SUPABASE_SERVICE_ROLE_KEY juga kosong).';
   } else if (serviceKey.length < 20 || /\s/.test(serviceKey)) {
-    invalidFields.push(
-      `${serviceKeyEnv.sourceName || 'SERVICE_ROLE_KEY'} (format token service role tidak valid)`
-    );
+    const keyField = serviceKeyEnv.sourceName || 'SERVICE_ROLE_KEY';
+    invalidFields.push(keyField);
+    fieldReasons[keyField] = 'Format token service role tidak valid atau mengandung spasi.';
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
@@ -296,6 +407,7 @@ function getSupabaseAdminClient() {
       scope: 'Supabase',
       missingFields,
       invalidFields,
+      fieldReasons,
     });
   }
 
@@ -308,55 +420,72 @@ function getSupabaseAdminClient() {
   };
 }
 
+const DEFAULT_DRIVE_CLIENT_EMAIL = 'saung-kebun-drive@saung-kebun-87b23.iam.gserviceaccount.com';
+const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
+
 function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
   const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
   const keyEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY']);
+  const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
   const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
 
-  const clientEmail = emailEnv.value;
+  const embeddedJson = keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null;
+  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
   const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
-  const rootFolderId = folderEnv.value;
+  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '')
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID)
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+
+  const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
+  const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID';
 
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
 
-  if (!clientEmail) {
-    missingFields.push('GOOGLE_DRIVE_CLIENT_EMAIL (fallback: GOOGLE_CLIENT_EMAIL)');
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
-    invalidFields.push(
-      `${emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL'} (format email service account tidak valid)`
-    );
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+    invalidFields.push(emailField);
+    fieldReasons[emailField] = 'Format email service account tidak valid.';
   }
 
   if (!privateKey) {
-    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY (fallback: GOOGLE_PRIVATE_KEY)');
+    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY');
+    fieldReasons.GOOGLE_DRIVE_PRIVATE_KEY = 'Secret kosong (fallback GOOGLE_PRIVATE_KEY juga kosong).';
+  } else if (privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    invalidFields.push(keyField);
+    fieldReasons[keyField] =
+      'Terdeteksi format PKCS#1 (BEGIN RSA PRIVATE KEY); WebCrypto membutuhkan PKCS#8 (BEGIN PRIVATE KEY) dari JSON Service Account Google.';
+  } else if (
+    !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
+    !privateKey.includes('-----END PRIVATE KEY-----')
+  ) {
+    invalidFields.push(keyField);
+    fieldReasons[keyField] =
+      'Harus berisi blok utuh -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY----- (format PKCS#8).';
   } else {
-    const keyName = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
-    if (
-      !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
-      !privateKey.includes('-----END PRIVATE KEY-----')
-    ) {
-      invalidFields.push(
-        `${keyName} (harus berformat PEM PKCS8 dengan header BEGIN/END PRIVATE KEY)`
-      );
-    } else {
-      try {
-        const keyBuffer = pemToArrayBuffer(privateKey);
-        if (keyBuffer.byteLength < 64) {
-          invalidFields.push(`${keyName} (panjang byte kunci privat terlalu pendek/terpotong)`);
-        }
-      } catch {
-        invalidFields.push(`${keyName} (isi base64 kunci privat tidak valid)`);
+    try {
+      const keyBuffer = pemToArrayBuffer(privateKey);
+      if (keyBuffer.byteLength < 64) {
+        invalidFields.push(keyField);
+        fieldReasons[keyField] = `Panjang byte kunci privat terlalu pendek (${keyBuffer.byteLength} byte, minimal 64 byte).`;
       }
+    } catch (decodeErr) {
+      const decodeDetail =
+        decodeErr instanceof Error ? decodeErr.message : 'gagal decode base64 PEM';
+      invalidFields.push(keyField);
+      fieldReasons[keyField] = `Decode base64 kunci privat gagal (${decodeDetail}).`;
     }
   }
 
-  if (!rootFolderId) {
-    missingFields.push('GOOGLE_DRIVE_ROOT_FOLDER_ID (fallback: GOOGLE_DRIVE_FOLDER_ID)');
-  } else if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
-    invalidFields.push(
-      `${folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID'} (harus berupa ID folder Google Drive yang valid)`
-    );
+  if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+    invalidFields.push(folderField);
+    fieldReasons[folderField] = 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
@@ -364,6 +493,7 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
       scope: 'Google Drive',
       missingFields,
       invalidFields,
+      fieldReasons,
     });
   }
 
@@ -371,6 +501,10 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
     clientEmail,
     privateKey,
     rootFolderId,
+    privateKeyId: privateKeyId || undefined,
+    clientEmailField: emailField,
+    privateKeyField: keyField,
+    rootFolderField: folderField,
   };
 }
 
@@ -754,35 +888,90 @@ async function verifyChatCaller(
   }
 
   if (effectiveRole === 'warga') {
-    const canonBlok = canonicalBlockKey(rawBlok);
+    const rawWargaBlockCandidate =
+      rawBlok ||
+      (callerHint?.senderId?.toLowerCase().startsWith('warga:')
+        ? callerHint.senderId.slice('warga:'.length)
+        : '') ||
+      String(verifiedAuthUser?.userMetadata?.blok_rumah || '');
+    const canonBlok = canonicalBlockKey(rawWargaBlockCandidate);
     if (!canonBlok) {
       throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
     }
 
-    const { data, error } = await client
-      .from('users_warga')
-      .select('blok_rumah, nama_warga, role, aktif')
-      .eq('aktif', true)
-      .eq('role', 'warga');
-
-    if (error) {
-      throw new Error(`Gagal memverifikasi akun Warga: ${error.message}`);
-    }
-
-    const matched = (data || []).find(
+    const { rows, errorMessage } = await fetchUsersWargaForCallerVerification(client);
+    const matchingRows = rows.filter(
       (row) => canonicalBlockKey(String(row.blok_rumah || '')) === canonBlok
     );
-    if (!matched) {
+    const activeWargaRow = matchingRows.find(
+      (row) => row.aktif !== false && !isPengurusRowRole(row)
+    );
+    const inactiveWargaRow = matchingRows.find(
+      (row) => row.aktif === false && !isPengurusRowRole(row)
+    );
+    const activePengurusRow = matchingRows.find(
+      (row) => row.aktif !== false && isPengurusRowRole(row)
+    );
+
+    let verifiedDisplayName = activeWargaRow
+      ? String(activeWargaRow.nama_warga || '').trim()
+      : '';
+    let verifiedWarga = Boolean(activeWargaRow);
+
+    if (!verifiedWarga && !inactiveWargaRow) {
+      try {
+        const dirCheck = await client.rpc('get_chat_directory');
+        if (!dirCheck.error && Array.isArray(dirCheck.data)) {
+          const canonLower = canonBlok.toLowerCase();
+          const dirMatch = (dirCheck.data as Array<Record<string, unknown>>).find((entry) => {
+            const entryRole = normalizeToken(String(entry.role || ''));
+            if (entryRole && entryRole !== 'warga') return false;
+            const entryBlok = canonicalBlockKey(String(entry.blok_rumah || ''));
+            const entryPid = normalizeParticipantId(String(entry.participant_id || ''));
+            return entryBlok === canonBlok || entryPid === `warga:${canonLower}`;
+          });
+          if (dirMatch) {
+            verifiedWarga = true;
+            verifiedDisplayName = String(dirMatch.display_name || '').trim();
+          }
+        }
+      } catch {
+        // Lanjutkan ke pengecekan akhir
+      }
+    }
+
+    if (!verifiedWarga) {
+      if (inactiveWargaRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga (aktif = false).`
+          ),
+          { statusCode: 403 }
+        );
+      }
+      if (activePengurusRow) {
+        throw Object.assign(
+          new Error(
+            `Akun Blok "${canonBlok}" terdaftar sebagai Pengurus aktif (${String(
+              activePengurusRow.jabatan || activePengurusRow.role || 'Pengurus'
+            )}). Gunakan portal Pengurus untuk mengakses lampiran.`
+          ),
+          { statusCode: 403 }
+        );
+      }
+      if (errorMessage) {
+        throw new Error(`Gagal memverifikasi akun Warga pada users_warga: ${errorMessage}`);
+      }
       throw Object.assign(
         new Error(
-          `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga atau sedang berstatus Pengurus aktif.`
+          `Akun Warga Blok "${canonBlok}" tidak ditemukan aktif di users_warga maupun direktori chat (baris users_warga=${rows.length}).`
         ),
         { statusCode: 403 }
       );
     }
 
     const canonLower = canonBlok.toLowerCase();
-    const rawLower = normalizeToken(rawBlok);
+    const rawLower = normalizeToken(rawWargaBlockCandidate);
     const matchIds = new Set<string>([`warga:${canonLower}`]);
     if (rawLower) matchIds.add(`warga:${rawLower}`);
 
@@ -790,7 +979,7 @@ async function verifyChatCaller(
       role: 'warga',
       senderId: `warga:${canonLower}`,
       slug: canonLower.replace(/[^a-z0-9_-]+/g, '-'),
-      displayName: String(matched.nama_warga || callerHint?.namaWarga || `Warga ${canonBlok}`),
+      displayName: String(verifiedDisplayName || callerHint?.namaWarga || `Warga ${canonBlok}`).trim(),
       matchIds,
     };
   }
@@ -857,9 +1046,24 @@ function base64UrlEncode(input: Uint8Array | string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+async function computeShortSha256Hex(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(digest).slice(0, 6))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return 'unknown';
+  }
+}
+
 async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Promise<string> {
   const nowSec = Math.floor(Date.now() / 1000);
-  const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
+  if (cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)) {
+    jwtHeaderPayload.kid = cfg.privateKeyId;
+  }
+  const header = base64UrlEncode(JSON.stringify(jwtHeaderPayload));
   const claimSet = base64UrlEncode(
     JSON.stringify({
       iss: cfg.clientEmail,
@@ -872,23 +1076,34 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   const signingInput = `${header}.${claimSet}`;
 
   let cryptoKey: CryptoKey;
+  let pkcs8Buffer: ArrayBuffer;
+  const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   try {
+    pkcs8Buffer = pemToArrayBuffer(cfg.privateKey);
     cryptoKey = await crypto.subtle.importKey(
       'pkcs8',
-      pemToArrayBuffer(cfg.privateKey),
+      pkcs8Buffer,
       { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign']
     );
   } catch (keyErr) {
-    const keyReason = keyErr instanceof Error ? keyErr.message : 'gagal mengimpor kunci PKCS8';
+    const rawDetail =
+      keyErr instanceof Error
+        ? `${keyErr.name && keyErr.name !== 'Error' ? `${keyErr.name}: ` : ''}${keyErr.message}`
+        : String(keyErr || 'kesalahan tidak diketahui');
+    const cleanDetail = rawDetail.replace(/\s+/g, ' ').trim().slice(0, 180) || 'format DER/PKCS8 ditolak WebCrypto';
+    const keyReason = `crypto.subtle.importKey(pkcs8) gagal: ${cleanDetail}. Pastikan secret berisi private_key PKCS#8 utuh untuk ${cfg.clientEmail}.`;
     throw buildCredentialError({
       scope: 'Google Drive',
       missingFields: [],
-      invalidFields: [`GOOGLE_DRIVE_PRIVATE_KEY / GOOGLE_PRIVATE_KEY (${keyReason})`],
+      invalidFields: [keyField],
+      fieldReasons: { [keyField]: keyReason },
     });
   }
 
+  const keyFp = await computeShortSha256Hex(pkcs8Buffer);
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     cryptoKey,
@@ -906,10 +1121,20 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(
-      `Gagal otentikasi Service Account Google Drive (${res.status}) — periksa GOOGLE_DRIVE_CLIENT_EMAIL/GOOGLE_CLIENT_EMAIL dan GOOGLE_DRIVE_PRIVATE_KEY/GOOGLE_PRIVATE_KEY: ${errText.slice(0, 180)}`
-    );
+    const errText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 180);
+    const isSigErr = /invalid jwt signature/i.test(errText);
+    const hintSuffix = isSigErr
+      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${cfg.privateKeyId ? `, kid=${cfg.privateKeyId.slice(0, 8)}...` : ''}].`
+      : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields: [],
+      invalidFields: [emailField, keyField],
+      fieldReasons: {
+        [emailField]: `Service Account (iss): ${cfg.clientEmail} ditolak Google OAuth2 (${res.status}).`,
+        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText || 'invalid_grant'}.${hintSuffix}`,
+      },
+    });
   }
 
   const json = (await res.json()) as { access_token?: string };
@@ -1552,12 +1777,17 @@ Deno.serve(async (req: Request) => {
       statusCode?: number;
       missingFields?: string[];
       invalidFields?: string[];
+      fieldReasons?: Record<string, string>;
     };
     const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
     const errorMessage =
       err instanceof Error ? err.message : 'Gagal mengakses berkas privat Google Drive.';
     const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
     const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+    const fieldReasons =
+      typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+        ? typedErr.fieldReasons
+        : undefined;
 
     console.error('[chat-drive-private-access] failed', {
       stage,
@@ -1565,6 +1795,7 @@ Deno.serve(async (req: Request) => {
       errorMessage,
       ...(missingFields?.length ? { missingFields } : {}),
       ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
       roomId: rawRoomId || null,
       fileId: fileId || null,
     });
@@ -1575,6 +1806,7 @@ Deno.serve(async (req: Request) => {
       error: errorMessage,
       ...(missingFields?.length ? { missingFields } : {}),
       ...(invalidFields?.length ? { invalidFields } : {}),
+      ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
     });
   }
 });

@@ -269,13 +269,25 @@ async function startServer() {
       });
       res.status(200).json(result);
     } catch (err) {
-      const statusCode =
-        typeof (err as { statusCode?: number })?.statusCode === 'number'
-          ? (err as { statusCode: number }).statusCode
-          : 500;
+      const typedErr = err as {
+        statusCode?: number;
+        missingFields?: string[];
+        invalidFields?: string[];
+        fieldReasons?: Record<string, string>;
+      };
+      const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+      const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+      const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+      const fieldReasons =
+        typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+          ? typedErr.fieldReasons
+          : undefined;
       res.status(statusCode).json({
         ok: false,
         error: err instanceof Error ? err.message : 'Gagal memindahkan lampiran ke Google Drive.',
+        ...(missingFields?.length ? { missingFields } : {}),
+        ...(invalidFields?.length ? { invalidFields } : {}),
+        ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
       });
     }
   });
@@ -311,13 +323,25 @@ async function startServer() {
       });
       res.status(200).json(result);
     } catch (err) {
-      const statusCode =
-        typeof (err as { statusCode?: number })?.statusCode === 'number'
-          ? (err as { statusCode: number }).statusCode
-          : 500;
+      const typedErr = err as {
+        statusCode?: number;
+        missingFields?: string[];
+        invalidFields?: string[];
+        fieldReasons?: Record<string, string>;
+      };
+      const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+      const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+      const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+      const fieldReasons =
+        typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+          ? typedErr.fieldReasons
+          : undefined;
       res.status(statusCode).json({
         ok: false,
         error: err instanceof Error ? err.message : 'Gagal membuat sesi unggah video Google Drive.',
+        ...(missingFields?.length ? { missingFields } : {}),
+        ...(invalidFields?.length ? { invalidFields } : {}),
+        ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
       });
     }
   });
@@ -348,13 +372,25 @@ async function startServer() {
       });
       res.status(200).json(result);
     } catch (err) {
-      const statusCode =
-        typeof (err as { statusCode?: number })?.statusCode === 'number'
-          ? (err as { statusCode: number }).statusCode
-          : 500;
+      const typedErr = err as {
+        statusCode?: number;
+        missingFields?: string[];
+        invalidFields?: string[];
+        fieldReasons?: Record<string, string>;
+      };
+      const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+      const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
+      const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
+      const fieldReasons =
+        typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
+          ? typedErr.fieldReasons
+          : undefined;
       res.status(statusCode).json({
         ok: false,
         error: err instanceof Error ? err.message : 'Gagal menyelesaikan metadata video Google Drive.',
+        ...(missingFields?.length ? { missingFields } : {}),
+        ...(invalidFields?.length ? { invalidFields } : {}),
+        ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
       });
     }
   });
