@@ -24,7 +24,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
 
   if (riwayat.length === 0) {
     return (
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-8 sm:p-12 text-center">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-12 text-center">
         <FileText className="w-10 h-10 text-indigo-300 mx-auto" />
         <h2 className="text-base font-bold text-[#0F172A] mt-3">Belum Ada Riwayat Setoran</h2>
         <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">

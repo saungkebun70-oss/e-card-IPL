@@ -255,9 +255,9 @@ export function WargaHomeSlide({
       )}
 
       {/* Baris Atas: e-Card Verifikasi (Focal Anchor) + Ringkasan Siklus Tagihan */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* e-Card Verifikasi Digital */}
-        <section className="lg:col-span-7 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[248px]">
+        <section className="lg:col-span-7 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white p-4 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[228px] sm:min-h-[248px]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-400/20 blur-3xl"
@@ -314,7 +314,7 @@ export function WargaHomeSlide({
         </section>
 
         {/* Panel Info Siklus Tagihan */}
-        <aside className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between">
+        <aside className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-[#0F172A]">Informasi Siklus Tagihan IPL</h2>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">{brand.kop_resmi}</p>
@@ -383,7 +383,7 @@ export function WargaHomeSlide({
       </div>
 
       {/* Matriks Status 12 Bulan (Januari – Desember 2026) */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
+      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
@@ -415,7 +415,7 @@ export function WargaHomeSlide({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {BULAN_LIST.map((b) => {
             const stObj = statusBulanan.find((s) => s.bulan === b.angka);
             const status: StatusBulanEcard = stObj?.status || 'Belum Tagihan';

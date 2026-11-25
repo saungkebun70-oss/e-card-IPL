@@ -98,9 +98,9 @@ export function OfflineOverlay() {
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="offline-title"
-      className="fixed inset-0 z-[80] glass-canvas flex items-center justify-center px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-[calc(max(env(safe-area-inset-bottom,0px),16px)+1rem)]"
+      className="fixed inset-0 z-[80] glass-canvas flex items-center justify-center px-3.5 sm:px-5 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1rem)] pb-[calc(max(env(safe-area-inset-bottom,0px),16px)+1rem)]"
     >
-      <section className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 shadow-xl text-center space-y-5">
+      <section className="w-full max-w-md glass-card rounded-3xl p-4 sm:p-7 shadow-xl text-center space-y-4 sm:space-y-5">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shadow-md">
           <WifiOff className="w-8 h-8" />
         </div>

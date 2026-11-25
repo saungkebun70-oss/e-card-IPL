@@ -104,6 +104,7 @@ import {
   subscribeShiftOverrides,
 } from '../../lib/securityShiftOvertimeService';
 import { CommunityChatSlide } from '../CommunityChatSlide';
+import { FloatingChatWidget } from '../FloatingChatWidget';
 import {
   fetchChatUnreadSummary,
   subscribeChatMessagesRealtime,
@@ -1196,7 +1197,7 @@ export function PetugasPortalPage({
   );
 
   return (
-    <div className="min-h-[100dvh] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] overflow-x-hidden">
       {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
@@ -1429,8 +1430,8 @@ export function PetugasPortalPage({
         </div>
       </header>
 
-      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+1rem)] pb-28 lg:pb-12">
-        <div className="max-w-3xl mx-auto px-4 space-y-4">
+      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] pb-28 lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+        <div className="max-w-3xl mx-auto px-3 py-3 sm:px-4 space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState
             message="Memuat Portal Keamanan..."
@@ -2285,10 +2286,19 @@ export function PetugasPortalPage({
         </div>
       </main>
 
+      {/* IKON CHAT MELAYANG + PANEL CHAT PERSONAL & GRUP */}
+      <FloatingChatWidget
+        session={session}
+        unreadCount={unreadChatCount}
+        hidden={activeTab === 'chat'}
+        onOpenFullChatTab={() => handleSelectTab('chat')}
+        onToast={onToast}
+      />
+
       {/* 7. DUAL-RING FLOATING ORB DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
       <nav
         aria-label="Navigasi Bawah Floating Orb Dock Petugas"
-        className="lg:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-4 max-w-md mx-auto rounded-full bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-3 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
+        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
       >
         {/* 1. Pos Jaga / Info & Shift */}
         <button
@@ -2299,13 +2309,13 @@ export function PetugasPortalPage({
           }`}
         >
           <Shield
-            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
               activeTab === 'info' ? 'scale-105' : ''
             }`}
             strokeWidth={activeTab === 'info' ? 2.4 : 1.9}
           />
           <span
-            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
               activeTab === 'info' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >
@@ -2330,13 +2340,13 @@ export function PetugasPortalPage({
           }`}
         >
           <ClipboardList
-            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
               activeTab === 'riwayat' ? 'scale-105' : ''
             }`}
             strokeWidth={activeTab === 'riwayat' ? 2.4 : 1.9}
           />
           <span
-            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
               activeTab === 'riwayat' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >
@@ -2364,7 +2374,7 @@ export function PetugasPortalPage({
                 : 'Aktifkan Scan NFC Checkpoint Patroli'
             }
             aria-pressed={scanningNfc}
-            className={`w-16 h-16 -mt-8 rounded-full text-white shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
+            className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full text-white shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
               scanningNfc
                 ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-emerald-500/40 scale-[1.06] before:border-emerald-400/50 before:bg-emerald-400/15'
                 : activeTab === 'scan'
@@ -2385,10 +2395,10 @@ export function PetugasPortalPage({
               </>
             )}
             {submittingPatroli ? (
-              <Loader2 className="w-6 h-6 relative z-10 animate-spin shrink-0" />
+              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 relative z-10 animate-spin shrink-0" />
             ) : (
               <Radio
-                className={`w-6 h-6 relative z-10 shrink-0 ${scanningNfc ? 'animate-pulse' : ''}`}
+                className={`w-5 h-5 sm:w-6 sm:h-6 relative z-10 shrink-0 ${scanningNfc ? 'animate-pulse' : ''}`}
                 strokeWidth={2.4}
               />
             )}
@@ -2417,13 +2427,13 @@ export function PetugasPortalPage({
           }`}
         >
           <Wallet
-            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
               activeTab === 'honor' ? 'scale-105' : ''
             }`}
             strokeWidth={activeTab === 'honor' ? 2.4 : 1.9}
           />
           <span
-            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
               activeTab === 'honor' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >
@@ -2448,13 +2458,13 @@ export function PetugasPortalPage({
           }`}
         >
           <MapIcon
-            className={`w-[20px] h-[20px] transition-transform duration-150 ${
+            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
               activeTab === 'peta' ? 'scale-105' : ''
             }`}
             strokeWidth={activeTab === 'peta' ? 2.4 : 1.9}
           />
           <span
-            className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
               activeTab === 'peta' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
             }`}
           >

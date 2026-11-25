@@ -580,7 +580,7 @@ export function AdminDashboardSlide({
   return (
     <div className="space-y-5 sm:space-y-6">
       {/* Hero Card Saldo Kas Lingkungan — Ungu-Indigo Gelap Bercahaya */}
-      <section className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white px-5 py-6 sm:px-8 sm:py-8 relative overflow-hidden">
+      <section className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white p-4 sm:px-8 sm:py-8 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-400/20 blur-3xl"
@@ -654,7 +654,7 @@ export function AdminDashboardSlide({
       {/* Dual-Column Bento Grid: Antrean Verifikasi Setoran & Pengumuman Sistem */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
         {/* Bento Kiri: Antrean Verifikasi Setoran */}
-        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6 flex flex-col justify-between gap-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600">
@@ -670,7 +670,7 @@ export function AdminDashboardSlide({
             </div>
 
             {quickQueueList.length === 0 ? (
-              <div className="rounded-2xl border border-indigo-100/80 bg-white/60 p-6 text-center">
+              <div className="rounded-2xl border border-indigo-100/80 bg-white/60 p-4 sm:p-6 text-center">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                 <p className="text-sm font-bold text-[#0F172A] mt-2">
                   Antrean Verifikasi Bersih
@@ -741,7 +741,7 @@ export function AdminDashboardSlide({
         </div>
 
         {/* Bento Kanan: Pengumuman Sistem ke Seluruh Warga */}
-        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4">
+        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6 flex flex-col justify-between gap-4">
           <div className="space-y-3">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
@@ -1150,7 +1150,7 @@ export function AdminDashboardSlide({
         </div>
 
         {filteredTransaksi.length === 0 ? (
-          <div className="p-8 sm:p-12 text-center">
+          <div className="p-5 sm:p-12 text-center">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
             <h3 className="text-sm font-bold text-[#0F172A] mt-3">
               {trxFilter === 'Pending' && !trxSearch.trim()

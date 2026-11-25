@@ -32,7 +32,9 @@ import {
 import {
   fetchChatUnreadSummary,
   subscribeChatMessagesRealtime,
+  type ChatRoomId,
 } from '../lib/chatService';
+import { FloatingChatWidget } from './FloatingChatWidget';
 
 export interface NavItem {
   id: string;
@@ -52,6 +54,8 @@ interface AppShellProps {
   onOpenSettings?: () => void;
   onOpenProfile?: () => void;
   onNavigateTarget?: (targetUrl: string) => void;
+  onOpenChatRoom?: (roomId?: ChatRoomId) => void;
+  onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
   avatarUrl?: string | null;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
@@ -66,6 +70,8 @@ export function AppShell({
   onOpenSettings,
   onOpenProfile,
   onNavigateTarget,
+  onOpenChatRoom,
+  onToast,
   avatarUrl,
   headerAction,
   children,
@@ -457,7 +463,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-full bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
       {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
@@ -620,18 +626,18 @@ export function AppShell({
       </AnimatePresence>
 
       {/* FLOATING GLASS HEADER BAR (Offset lg:left-[260px] pada Desktop) */}
-      <div className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto glass-header bg-white/80 backdrop-blur-xl border border-white/90 rounded-2xl px-3.5 sm:px-5 min-h-14 sm:min-h-16 py-2 flex flex-nowrap items-center justify-between gap-2.5 sm:gap-4 pointer-events-auto">
+      <div className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.55rem)] pointer-events-none no-print">
+        <header className="max-w-7xl mx-auto glass-header bg-white/85 backdrop-blur-xl border border-white/90 rounded-2xl px-3 sm:px-5 min-h-13 sm:min-h-16 py-1.5 sm:py-2 flex flex-nowrap items-center justify-between gap-2 sm:gap-4 pointer-events-auto">
           {/* Zona Kiri: Tombol Menu Sidebar (Mobile/Tablet) + Brand/Judul Halaman */}
-          <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex flex-nowrap items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Buka Menu Sidebar"
               title="Menu Profil, Layanan & Keluar"
-              className="lg:hidden relative h-10 w-10 rounded-xl border border-indigo-200/70 bg-white/80 hover:bg-white text-[#312E81] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+              className="lg:hidden relative h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-indigo-200/70 bg-white/80 hover:bg-white text-[#312E81] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
               {isAdmin && pendingBugCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums">
                   {pendingBugCount > 9 ? '9+' : pendingBugCount}
@@ -642,7 +648,7 @@ export function AppShell({
             <button
               type="button"
               onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
-              className="flex flex-nowrap items-center gap-2.5 min-w-0 text-left cursor-pointer group"
+              className="flex flex-nowrap items-center gap-2 min-w-0 text-left cursor-pointer group"
             >
               <span className="lg:hidden shrink-0 flex">
                 <BrandLogo size="xs" className="shrink-0 sm:hidden" />
@@ -650,10 +656,10 @@ export function AppShell({
               </span>
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm font-extrabold tracking-tight text-[var(--theme-text)] leading-tight truncate">
-                  <span className="lg:hidden">{brand.app_name || 'Perumahan Saung Kebun'}</span>
+                  <span className="lg:hidden">{brand.app_name || 'e-Card Verifikasi'}</span>
                   <span className="hidden lg:inline">{activePageTitle}</span>
                 </p>
-                <p className="text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight truncate">
+                <p className="hidden sm:block text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight truncate">
                   <span className="lg:hidden">
                     {isAdmin
                       ? activePageTitle
@@ -744,7 +750,7 @@ export function AppShell({
       </div>
 
       {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Dual-Ring Floating Orb Dock) */}
-      <main className="flex-1 lg:pl-[260px] px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:pt-[6rem] pb-28 lg:pb-10 min-w-0 overflow-x-clip">
+      <main className="flex-1 lg:pl-[260px] px-3 py-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+4.85rem)] sm:pt-[5.75rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -761,10 +767,25 @@ export function AppShell({
         </div>
       </main>
 
+      {/* IKON CHAT MELAYANG + PANEL CHAT PERSONAL & GRUP */}
+      <FloatingChatWidget
+        session={session}
+        unreadCount={unreadChatCount}
+        hidden={isChatActive}
+        onOpenFullChatTab={(roomId) => {
+          if (onOpenChatRoom) {
+            onOpenChatRoom(roomId);
+          } else {
+            handleSelectNav('chat');
+          }
+        }}
+        onToast={onToast}
+      />
+
       {/* 7. DUAL-RING FLOATING ORB DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
       <nav
         aria-label="Navigasi Bawah Floating Orb Dock"
-        className="lg:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-4 max-w-md mx-auto rounded-full bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-3 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
+        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
       >
         {bottomDockItems.map((item) => {
           const Icon = item.icon;
@@ -779,11 +800,11 @@ export function AppShell({
                   onClick={() => onTabChange(item.id)}
                   aria-label={item.label}
                   title={item.label}
-                  className={`w-16 h-16 -mt-8 rounded-full bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xl shadow-sky-900/25 flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:border-sky-400/40 before:bg-sky-400/10 before:-z-10 ${
+                  className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xl shadow-sky-900/25 flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:border-sky-400/40 before:bg-sky-400/10 before:-z-10 ${
                     isActive ? 'scale-[1.04] shadow-sky-500/35' : 'hover:scale-[1.02]'
                   }`}
                 >
-                  <Icon className="w-6 h-6 shrink-0" strokeWidth={2.4} />
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" strokeWidth={2.4} />
                   <span className="text-[9px] font-bold tracking-wide leading-none text-sky-50">
                     {dockLabel}
                   </span>
@@ -811,7 +832,7 @@ export function AppShell({
             >
               <div className="relative">
                 <Icon
-                  className={`w-[20px] h-[20px] transition-transform duration-150 ${
+                  className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
                     isActive ? 'scale-105' : ''
                   }`}
                   strokeWidth={isActive ? 2.4 : 1.9}
@@ -823,7 +844,7 @@ export function AppShell({
                 )}
               </div>
               <span
-                className={`text-[10px] mt-1 leading-none truncate max-w-full ${
+                className={`text-[11px] mt-1 leading-none truncate max-w-full ${
                   isActive ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
                 }`}
               >

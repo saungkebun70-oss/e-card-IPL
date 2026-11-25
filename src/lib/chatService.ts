@@ -1,24 +1,56 @@
-import type { SessionUser, UserRole } from '../types';
+import {
+  SEED_PETUGAS_KEAMANAN,
+  SUSUNAN_PENGURUS,
+  type SessionUser,
+  type UserRole,
+} from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import {
   dispatchActivityNotifications,
   getAllAdminUserIds,
   getCanonicalUserId,
 } from './notificationService';
+import { canonicalBlockKey } from './phoneAndBlockUtils';
+import { SEED_WARGA } from './seedData';
 
-export type ChatRoomId =
-  | 'forum_umum'
-  | 'pengurus_warga'
+export type GroupChatRoomId =
+  | 'grup_pengurus'
   | 'pengurus_keamanan'
+  | 'pengurus_warga'
+  | 'forum_umum'
   | 'warga_keamanan';
 
+export type ChatRoomId = GroupChatRoomId | `dm:${string}`;
+
 export interface ChatRoomMeta {
-  id: ChatRoomId;
+  id: GroupChatRoomId;
   label: string;
   shortLabel: string;
   description: string;
   participantsLabel: string;
   accentClass: string;
+}
+
+export interface ChatContact {
+  participant_id: string;
+  role: UserRole;
+  display_name: string;
+  subtitle: string;
+  blok_or_code: string;
+  avatar_url?: string | null;
+}
+
+export interface DmThreadPreview {
+  room_id: `dm:${string}`;
+  peer_id: string;
+  peer_name: string;
+  peer_role: UserRole;
+  peer_subtitle: string;
+  peer_avatar_url: string | null;
+  last_message: string;
+  last_sender_id: string;
+  last_created_at: string;
+  unread_count: number;
 }
 
 export interface ChatMessage {
@@ -29,6 +61,9 @@ export interface ChatMessage {
   sender_name: string;
   sender_subtitle: string;
   sender_avatar_url: string | null;
+  recipient_id?: string | null;
+  recipient_name?: string | null;
+  recipient_role?: UserRole | null;
   message: string;
   reply_to_id: string | null;
   reply_preview: string | null;
@@ -41,15 +76,41 @@ export interface SendChatMessageInput {
   message: string;
   reply_to_id?: string | null;
   reply_preview?: string | null;
+  recipient?: Pick<ChatContact, 'participant_id' | 'display_name' | 'role'> | null;
 }
 
 const LOCAL_CHAT_MESSAGES_KEY = 'ecard_community_chat_messages_v1';
 const LOCAL_CHAT_READ_PREFIX = 'ecard_community_chat_read_v1:';
+const LOCAL_CHAT_CLEARED_PREFIX = 'ecard_community_chat_cleared_v1:';
 const CHAT_CHANGED_EVENT = 'ecard-community-chat-changed';
-const MAX_LOCAL_MESSAGES = 300;
+const MAX_LOCAL_MESSAGES = 400;
 const MAX_MESSAGE_LENGTH = 1000;
 
 export const CHAT_ROOMS: ChatRoomMeta[] = [
+  {
+    id: 'grup_pengurus',
+    label: 'Grup Pengurus',
+    shortLabel: 'Pengurus',
+    description: 'Koordinasi internal khusus Pengurus Lingkungan (Ketua, Bendahara, Humas & Pembina)',
+    participantsLabel: 'Khusus Pengurus',
+    accentClass: 'from-[#4C1D95] to-[#7C3AED]',
+  },
+  {
+    id: 'pengurus_keamanan',
+    label: 'Grup Pengurus & Keamanan',
+    shortLabel: 'Pengurus & Keamanan',
+    description: 'Koordinasi shift jaga, patroli NFC, dan instruksi pengurus kepada keamanan',
+    participantsLabel: 'Pengurus · Keamanan',
+    accentClass: 'from-amber-600 to-orange-600',
+  },
+  {
+    id: 'pengurus_warga',
+    label: 'Grup Pengurus & Warga',
+    shortLabel: 'Pengurus & Warga',
+    description: 'Koordinasi iuran IPL, fasilitas lingkungan, pengumuman & aspirasi warga',
+    participantsLabel: 'Pengurus · Warga',
+    accentClass: 'from-[#3730A3] to-[#6D28D9]',
+  },
   {
     id: 'forum_umum',
     label: 'Forum Lingkungan',
@@ -59,30 +120,115 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     accentClass: 'from-[#312E81] to-[#0284C7]',
   },
   {
-    id: 'pengurus_warga',
-    label: 'Pengurus ↔ Warga',
-    shortLabel: 'Pengurus & Warga',
-    description: 'Koordinasi iuran IPL, fasilitas lingkungan, dan aspirasi warga',
-    participantsLabel: 'Pengurus · Warga',
-    accentClass: 'from-[#4C1D95] to-[#6D28D9]',
-  },
-  {
     id: 'warga_keamanan',
-    label: 'Warga ↔ Keamanan',
+    label: 'Grup Warga & Keamanan',
     shortLabel: 'Warga & Keamanan',
     description: 'Laporan cepat tamu, kendala gerbang, dan bantuan keamanan 24 jam',
     participantsLabel: 'Warga · Keamanan · Pengurus',
     accentClass: 'from-emerald-600 to-teal-600',
   },
-  {
-    id: 'pengurus_keamanan',
-    label: 'Pengurus ↔ Keamanan',
-    shortLabel: 'Internal Keamanan',
-    description: 'Koordinasi internal shift jaga, patroli NFC, dan instruksi pengurus',
-    participantsLabel: 'Pengurus · Keamanan (Internal)',
-    accentClass: 'from-amber-600 to-orange-600',
-  },
 ];
+
+const GROUP_ROOM_ID_SET = new Set<string>(CHAT_ROOMS.map((r) => r.id));
+
+export function isGroupChatRoomId(roomId: string): roomId is GroupChatRoomId {
+  return GROUP_ROOM_ID_SET.has(roomId);
+}
+
+export function isDmRoomId(roomId: string): roomId is `dm:${string}` {
+  return typeof roomId === 'string' && roomId.startsWith('dm:') && roomId.slice(3).includes('__');
+}
+
+function normalizeToken(raw?: string | null): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+/**
+ * Menghasilkan ID kanonik peserta chat yang konsisten di Client & RLS SQL.
+ * Khusus Warga, B03/07 dan B3/7 dinormalisasi menjadi `warga:b3/7`.
+ */
+export function getChatParticipantId(session?: SessionUser | null): string {
+  if (!session) return 'anon';
+  if (session.role === 'admin') {
+    const clean = normalizeToken(session.blok_rumah);
+    return `admin:${clean === 'admin' ? 'andriansyah' : clean}`;
+  }
+  if (session.role === 'petugas') {
+    return `petugas:${normalizeToken(session.petugas_id || session.blok_rumah)}`;
+  }
+  const canonBlok = canonicalBlockKey(session.blok_rumah).toLowerCase();
+  return `warga:${canonBlok || normalizeToken(session.blok_rumah)}`;
+}
+
+/**
+ * Mengembalikan seluruh variasi ID peserta milik sesi aktif untuk pencocokan pesan lama/baru.
+ */
+export function getChatParticipantMatchIds(session?: SessionUser | null): Set<string> {
+  const ids = new Set<string>();
+  if (!session) return ids;
+  ids.add(getChatParticipantId(session));
+  ids.add(getCanonicalUserId(session));
+
+  if (session.role === 'admin') {
+    const clean = normalizeToken(session.blok_rumah);
+    if (clean === 'admin' || clean === 'andriansyah') {
+      ids.add('admin:admin');
+      ids.add('admin:andriansyah');
+    }
+  } else if (session.role === 'warga') {
+    const raw = normalizeToken(session.blok_rumah);
+    if (raw) ids.add(`warga:${raw}`);
+    const canon = canonicalBlockKey(session.blok_rumah).toLowerCase();
+    if (canon) ids.add(`warga:${canon}`);
+  } else if (session.role === 'petugas') {
+    if (session.petugas_id) {
+      ids.add(`petugas:${normalizeToken(session.petugas_id)}`);
+      ids.add(`keamanan:${normalizeToken(session.petugas_id)}`);
+    }
+    if (session.blok_rumah) {
+      ids.add(`petugas:${normalizeToken(session.blok_rumah)}`);
+    }
+  }
+  return ids;
+}
+
+export function normalizeChatParticipantId(rawId: string): string {
+  const clean = normalizeToken(rawId);
+  if (clean.startsWith('admin:')) {
+    const sub = clean.slice('admin:'.length);
+    return `admin:${sub === 'admin' ? 'andriansyah' : sub}`;
+  }
+  if (clean.startsWith('warga:')) {
+    const sub = clean.slice('warga:'.length);
+    const canon = canonicalBlockKey(sub).toLowerCase();
+    return `warga:${canon || sub}`;
+  }
+  if (clean.startsWith('keamanan:')) {
+    return `petugas:${clean.slice('keamanan:'.length)}`;
+  }
+  return clean;
+}
+
+export function buildDmRoomId(participantIdA: string, participantIdB: string): `dm:${string}` {
+  const a = normalizeChatParticipantId(participantIdA);
+  const b = normalizeChatParticipantId(participantIdB);
+  const sorted = [a, b].sort((x, y) => x.localeCompare(y));
+  return `dm:${sorted[0]}__${sorted[1]}`;
+}
+
+export function parseDmParticipants(roomId: string): [string, string] | null {
+  if (!isDmRoomId(roomId)) return null;
+  const body = roomId.slice(3);
+  const idx = body.indexOf('__');
+  if (idx <= 0) return null;
+  const p1 = body.slice(0, idx);
+  const p2 = body.slice(idx + 2);
+  if (!p1 || !p2) return null;
+  return [p1, p2];
+}
 
 export function getAccessibleChatRooms(session: SessionUser): ChatRoomMeta[] {
   if (session.role === 'admin') {
@@ -90,15 +236,32 @@ export function getAccessibleChatRooms(session: SessionUser): ChatRoomMeta[] {
   }
   if (session.role === 'petugas') {
     return CHAT_ROOMS.filter(
-      (r) => r.id === 'forum_umum' || r.id === 'pengurus_keamanan' || r.id === 'warga_keamanan'
+      (r) =>
+        r.id === 'pengurus_keamanan' ||
+        r.id === 'forum_umum' ||
+        r.id === 'warga_keamanan'
     );
   }
   return CHAT_ROOMS.filter(
-    (r) => r.id === 'forum_umum' || r.id === 'pengurus_warga' || r.id === 'warga_keamanan'
+    (r) =>
+      r.id === 'pengurus_warga' ||
+      r.id === 'forum_umum' ||
+      r.id === 'warga_keamanan'
   );
 }
 
 export function canAccessChatRoom(session: SessionUser, roomId: ChatRoomId): boolean {
+  if (isDmRoomId(roomId)) {
+    const pair = parseDmParticipants(roomId);
+    if (!pair) return false;
+    const myIds = getChatParticipantMatchIds(session);
+    return (
+      myIds.has(normalizeChatParticipantId(pair[0])) ||
+      myIds.has(normalizeChatParticipantId(pair[1])) ||
+      myIds.has(pair[0]) ||
+      myIds.has(pair[1])
+    );
+  }
   return getAccessibleChatRooms(session).some((r) => r.id === roomId);
 }
 
@@ -113,7 +276,12 @@ function createUuidSafe(): string {
   return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function emitChatChanged(detail?: { type?: 'insert' | 'delete' | 'read'; room_id?: ChatRoomId; message?: ChatMessage; deletedId?: string }): void {
+function emitChatChanged(detail?: {
+  type?: 'insert' | 'delete' | 'read' | 'clear';
+  room_id?: ChatRoomId;
+  message?: ChatMessage;
+  deletedId?: string;
+}): void {
   if (typeof window === 'undefined') return;
   try {
     window.dispatchEvent(new CustomEvent(CHAT_CHANGED_EVENT, { detail }));
@@ -155,12 +323,14 @@ function normalizeSenderRole(raw: unknown): UserRole {
 
 function normalizeRoomId(raw: unknown): ChatRoomId {
   const clean = String(raw || '').trim();
-  if (
-    clean === 'forum_umum' ||
-    clean === 'pengurus_warga' ||
-    clean === 'pengurus_keamanan' ||
-    clean === 'warga_keamanan'
-  ) {
+  if (isGroupChatRoomId(clean)) {
+    return clean;
+  }
+  if (isDmRoomId(clean)) {
+    const pair = parseDmParticipants(clean);
+    if (pair) {
+      return buildDmRoomId(pair[0], pair[1]);
+    }
     return clean;
   }
   return 'forum_umum';
@@ -175,6 +345,9 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     sender_name: String(row.sender_name || 'Pengguna'),
     sender_subtitle: String(row.sender_subtitle || ''),
     sender_avatar_url: typeof row.sender_avatar_url === 'string' ? row.sender_avatar_url : null,
+    recipient_id: typeof row.recipient_id === 'string' ? row.recipient_id : null,
+    recipient_name: typeof row.recipient_name === 'string' ? row.recipient_name : null,
+    recipient_role: row.recipient_role ? normalizeSenderRole(row.recipient_role) : null,
     message: String(row.message || ''),
     reply_to_id: typeof row.reply_to_id === 'string' ? row.reply_to_id : null,
     reply_preview: typeof row.reply_preview === 'string' ? row.reply_preview : null,
@@ -194,7 +367,7 @@ export function buildSenderSubtitle(session: SessionUser): string {
 }
 
 export function getChatReadStorageKey(session: SessionUser): string {
-  return `${LOCAL_CHAT_READ_PREFIX}${getCanonicalUserId(session)}`;
+  return `${LOCAL_CHAT_READ_PREFIX}${getChatParticipantId(session)}`;
 }
 
 function readLastReadMap(session: SessionUser): Record<string, string> {
@@ -222,8 +395,198 @@ export function markChatRoomRead(session: SessionUser, roomId: ChatRoomId, lates
   }
 }
 
+export function getChatClearedStorageKey(session: SessionUser): string {
+  return `${LOCAL_CHAT_CLEARED_PREFIX}${getChatParticipantId(session)}`;
+}
+
+function readClearedMap(session: SessionUser): Record<string, string> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = window.localStorage.getItem(getChatClearedStorageKey(session));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function isMessageClearedForRoom(
+  session: SessionUser,
+  roomId: ChatRoomId,
+  createdAt: string
+): boolean {
+  const clearedMap = readClearedMap(session);
+  const normalizedRoom = normalizeRoomId(roomId);
+  const cutoffIso = clearedMap[normalizedRoom];
+  if (!cutoffIso) return false;
+  const cutoffMs = Date.parse(cutoffIso);
+  const msgMs = Date.parse(createdAt);
+  if (Number.isNaN(cutoffMs) || Number.isNaN(msgMs)) return false;
+  return msgMs <= cutoffMs;
+}
+
 /**
- * Mengambil pesan untuk 1 ruang chat tertentu (urutan kronologis lama -> terbaru).
+ * Mengambil direktori kontak untuk Chat Personal / Individu (Pengurus, Keamanan, & Warga)
+ * tanpa pernah mengekspos PIN ataupun nomor WA privat.
+ */
+export async function fetchChatDirectory(session: SessionUser): Promise<ChatContact[]> {
+  const myIds = getChatParticipantMatchIds(session);
+  const contactMap = new Map<string, ChatContact>();
+
+  const upsertContact = (item: ChatContact) => {
+    const canonId = normalizeChatParticipantId(item.participant_id);
+    if (!canonId || myIds.has(canonId)) return;
+    const existing = contactMap.get(canonId);
+    if (!existing) {
+      contactMap.set(canonId, { ...item, participant_id: canonId });
+    } else {
+      contactMap.set(canonId, {
+        ...existing,
+        display_name: item.display_name || existing.display_name,
+        subtitle: item.subtitle || existing.subtitle,
+        blok_or_code: item.blok_or_code || existing.blok_or_code,
+        avatar_url: item.avatar_url || existing.avatar_url || null,
+      });
+    }
+  };
+
+  // 1. Seed Pengurus & Petugas default agar selalu tersedia cepat
+  for (const p of SUSUNAN_PENGURUS) {
+    upsertContact({
+      participant_id: `admin:${normalizeToken(p.username)}`,
+      role: 'admin',
+      display_name: p.nama,
+      subtitle: p.jabatan,
+      blok_or_code: p.blokRumah,
+    });
+  }
+
+  for (const pet of SEED_PETUGAS_KEAMANAN) {
+    if (!pet.aktif) continue;
+    upsertContact({
+      participant_id: `petugas:${normalizeToken(pet.id)}`,
+      role: 'petugas',
+      display_name: pet.nama,
+      subtitle: pet.shift || 'Petugas Keamanan',
+      blok_or_code: pet.username,
+      avatar_url: pet.avatar_url || null,
+    });
+  }
+
+  // 2. Seed Warga lokal (fallback jika offline / belum migrasi v14)
+  for (const w of SEED_WARGA) {
+    if (!w.aktif || w.status_hunian === 'Kosong') continue;
+    upsertContact({
+      participant_id: `warga:${canonicalBlockKey(w.blok_rumah).toLowerCase()}`,
+      role: 'warga',
+      display_name: w.nama_warga,
+      subtitle: `Warga Blok ${w.blok_rumah}`,
+      blok_or_code: w.blok_rumah,
+      avatar_url: w.avatar_url || null,
+    });
+  }
+
+  // 3. Sinkron dari Supabase (RPC get_chat_directory v14 -> fallback ke get_petugas_kontak_darurat & users_warga jika admin)
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    let loadedRpcDirectory = false;
+    try {
+      const { data, error } = await supabase.rpc('get_chat_directory');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        loadedRpcDirectory = true;
+        // Hapus seed petugas/warga sementara agar data live DB yang akurat menggantikannya
+        for (const [k, v] of Array.from(contactMap.entries())) {
+          if (v.role !== 'admin') contactMap.delete(k);
+        }
+        for (const raw of data as Array<Record<string, unknown>>) {
+          const role = normalizeSenderRole(raw.role);
+          const pid = String(raw.participant_id || '').trim();
+          if (!pid) continue;
+          upsertContact({
+            participant_id: pid,
+            role,
+            display_name: String(raw.display_name || 'Pengguna'),
+            subtitle: String(raw.subtitle || ''),
+            blok_or_code: String(raw.blok_or_code || ''),
+          });
+        }
+      }
+    } catch {
+      // Gunakan fallback
+    }
+
+    if (!loadedRpcDirectory) {
+      try {
+        const { data: petugasRows } = await supabase.rpc('get_petugas_kontak_darurat');
+        if (Array.isArray(petugasRows) && petugasRows.length > 0) {
+          for (const [k, v] of Array.from(contactMap.entries())) {
+            if (v.role === 'petugas') contactMap.delete(k);
+          }
+          for (const raw of petugasRows as Array<Record<string, unknown>>) {
+            const id = String(raw.id || '').trim();
+            if (!id) continue;
+            upsertContact({
+              participant_id: `petugas:${normalizeToken(id)}`,
+              role: 'petugas',
+              display_name: String(raw.nama || 'Petugas Keamanan'),
+              subtitle: String(raw.shift || 'Petugas Keamanan'),
+              blok_or_code: String(raw.nama || ''),
+            });
+          }
+        }
+      } catch {
+        // Abaikan
+      }
+
+      if (session.role === 'admin') {
+        try {
+          const { data: wargaRows } = await supabase
+            .from('users_warga')
+            .select('blok_rumah, nama_warga, status_hunian, role, jabatan, aktif')
+            .eq('aktif', true);
+          if (Array.isArray(wargaRows) && wargaRows.length > 0) {
+            for (const raw of wargaRows as Array<Record<string, unknown>>) {
+              const rowRole = String(raw.role || 'warga').toLowerCase();
+              const blok = String(raw.blok_rumah || '').trim();
+              const nama = String(raw.nama_warga || '').trim();
+              if (!blok || !nama) continue;
+              if (rowRole === 'admin' || rowRole === 'bendahara') {
+                upsertContact({
+                  participant_id: `admin:${normalizeToken(blok)}`,
+                  role: 'admin',
+                  display_name: nama,
+                  subtitle: String(raw.jabatan || 'Pengurus'),
+                  blok_or_code: blok,
+                });
+              } else if (String(raw.status_hunian || '').toLowerCase() !== 'kosong') {
+                upsertContact({
+                  participant_id: `warga:${canonicalBlockKey(blok).toLowerCase()}`,
+                  role: 'warga',
+                  display_name: nama,
+                  subtitle: `Warga Blok ${blok}`,
+                  blok_or_code: blok,
+                });
+              }
+            }
+          }
+        } catch {
+          // Abaikan
+        }
+      }
+    }
+  }
+
+  const rolePriority: Record<UserRole, number> = { admin: 0, petugas: 1, warga: 2 };
+  return Array.from(contactMap.values()).sort((a, b) => {
+    const rp = rolePriority[a.role] - rolePriority[b.role];
+    if (rp !== 0) return rp;
+    return a.blok_or_code.localeCompare(b.blok_or_code, 'id', { numeric: true });
+  });
+}
+
+/**
+ * Mengambil daftar pesan untuk 1 ruang chat (grup maupun DM personal).
  */
 export async function fetchChatMessages(
   session: SessionUser,
@@ -234,7 +597,18 @@ export async function fetchChatMessages(
     return { messages: [], remoteAvailable: false };
   }
 
-  const localRoomMessages = readLocalMessages().filter((m) => m.room_id === roomId);
+  const normalizedRoom = normalizeRoomId(roomId);
+  const clearedMap = readClearedMap(session);
+  const cutoffMs = clearedMap[normalizedRoom] ? Date.parse(clearedMap[normalizedRoom]) : NaN;
+  const keepAfterClear = (msg: ChatMessage) => {
+    if (Number.isNaN(cutoffMs)) return true;
+    const msgMs = Date.parse(msg.created_at);
+    return Number.isNaN(msgMs) ? true : msgMs > cutoffMs;
+  };
+
+  const localRoomMessages = readLocalMessages().filter(
+    (m) => normalizeRoomId(m.room_id) === normalizedRoom && keepAfterClear(m)
+  );
   const supabase = getSupabaseClient(session);
 
   if (!supabase || !isSupabaseConfigured()) {
@@ -248,7 +622,7 @@ export async function fetchChatMessages(
     const { data, error } = await supabase
       .from('community_chat_messages')
       .select('*')
-      .eq('room_id', roomId)
+      .eq('room_id', normalizedRoom)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -259,7 +633,9 @@ export async function fetchChatMessages(
       };
     }
 
-    const remoteRows = data.map((row) => normalizeChatRow(row as Record<string, unknown>));
+    const remoteRows = data
+      .map((row) => normalizeChatRow(row as Record<string, unknown>))
+      .filter(keepAfterClear);
     const remoteIdSet = new Set(remoteRows.map((m) => m.id));
     const merged = [
       ...remoteRows,
@@ -276,25 +652,147 @@ export async function fetchChatMessages(
 }
 
 /**
- * Menghitung pesan belum dibaca per ruang chat & total untuk badge Sidebar/Header.
+ * Mengambil ringkasan percakapan DM Personal yang pernah berlangsung + jumlah belum dibaca.
+ */
+export async function fetchDmConversations(
+  session: SessionUser,
+  contacts: ChatContact[]
+): Promise<DmThreadPreview[]> {
+  const myIds = getChatParticipantMatchIds(session);
+  const contactById = new Map<string, ChatContact>();
+  for (const c of contacts) {
+    contactById.set(normalizeChatParticipantId(c.participant_id), c);
+  }
+
+  const clearedMap = readClearedMap(session);
+  const keepAfterClear = (msg: ChatMessage) => {
+    const cutoffIso = clearedMap[normalizeRoomId(msg.room_id)];
+    if (!cutoffIso) return true;
+    const cutoffMs = Date.parse(cutoffIso);
+    const msgMs = Date.parse(msg.created_at);
+    return Number.isNaN(cutoffMs) || Number.isNaN(msgMs) ? true : msgMs > cutoffMs;
+  };
+
+  const localDms = readLocalMessages().filter(
+    (m) => isDmRoomId(m.room_id) && canAccessChatRoom(session, m.room_id) && keepAfterClear(m)
+  );
+  let allDms: ChatMessage[] = [...localDms];
+
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('community_chat_messages')
+        .select('*')
+        .like('room_id', 'dm:%')
+        .order('created_at', { ascending: false })
+        .limit(150);
+      if (!error && Array.isArray(data)) {
+        const remote = data
+          .map((r) => normalizeChatRow(r as Record<string, unknown>))
+          .filter((m) => isDmRoomId(m.room_id) && canAccessChatRoom(session, m.room_id) && keepAfterClear(m));
+        const remoteIds = new Set(remote.map((m) => m.id));
+        allDms = [
+          ...remote,
+          ...localDms.filter((m) => m.is_local_only && !remoteIds.has(m.id)),
+        ];
+      }
+    } catch {
+      // Gunakan fallback lokal
+    }
+  }
+
+  const lastReadMap = readLastReadMap(session);
+  const fallbackCutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const threadMap = new Map<string, DmThreadPreview>();
+
+  const sortedMsgs = [...allDms].sort(
+    (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+  );
+
+  for (const msg of sortedMsgs) {
+    const pair = parseDmParticipants(msg.room_id);
+    if (!pair) continue;
+    const norm0 = normalizeChatParticipantId(pair[0]);
+    const norm1 = normalizeChatParticipantId(pair[1]);
+    const peerId = myIds.has(norm0) ? norm1 : norm0;
+    const isMine = myIds.has(normalizeChatParticipantId(msg.sender_id)) || myIds.has(msg.sender_id);
+
+    const contact = contactById.get(peerId);
+    const peerRole: UserRole =
+      contact?.role ||
+      (!isMine
+        ? msg.sender_role
+        : msg.recipient_role ||
+          (peerId.startsWith('admin:') ? 'admin' : peerId.startsWith('petugas:') ? 'petugas' : 'warga'));
+    const peerName =
+      contact?.display_name ||
+      (!isMine ? msg.sender_name : msg.recipient_name) ||
+      peerId.split(':').slice(1).join(':').toUpperCase();
+    const peerSubtitle =
+      contact?.subtitle ||
+      (!isMine
+        ? msg.sender_subtitle
+        : peerRole === 'admin'
+          ? 'Pengurus'
+          : peerRole === 'petugas'
+            ? 'Petugas Keamanan'
+            : 'Warga');
+
+    const prev = threadMap.get(msg.room_id);
+    let unreadCount = prev?.unread_count || 0;
+    if (!isMine) {
+      const msgMs = Date.parse(msg.created_at);
+      const lastReadIso = lastReadMap[msg.room_id];
+      const cutoffMs = lastReadIso ? Date.parse(lastReadIso) : fallbackCutoffMs;
+      if (!Number.isNaN(msgMs) && msgMs > cutoffMs) {
+        unreadCount += 1;
+      }
+    }
+
+    threadMap.set(msg.room_id, {
+      room_id: msg.room_id as `dm:${string}`,
+      peer_id: peerId,
+      peer_name: peerName,
+      peer_role: peerRole,
+      peer_subtitle: peerSubtitle,
+      peer_avatar_url: contact?.avatar_url || (!isMine ? msg.sender_avatar_url : null) || null,
+      last_message: msg.message,
+      last_sender_id: msg.sender_id,
+      last_created_at: msg.created_at,
+      unread_count: unreadCount,
+    });
+  }
+
+  return Array.from(threadMap.values()).sort(
+    (a, b) => Date.parse(b.last_created_at) - Date.parse(a.last_created_at)
+  );
+}
+
+/**
+ * Menghitung pesan belum dibaca per ruang chat (grup + DM) & total untuk badge melayang/header.
  */
 export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
   totalUnread: number;
-  byRoom: Record<ChatRoomId, number>;
+  byRoom: Record<string, number>;
 }> {
-  const byRoom: Record<ChatRoomId, number> = {
-    forum_umum: 0,
-    pengurus_warga: 0,
+  const byRoom: Record<string, number> = {
+    grup_pengurus: 0,
     pengurus_keamanan: 0,
+    pengurus_warga: 0,
+    forum_umum: 0,
     warga_keamanan: 0,
   };
 
   const accessible = getAccessibleChatRooms(session);
-  const accessibleIds = new Set(accessible.map((r) => r.id));
-  const mySenderId = getCanonicalUserId(session);
+  const accessibleGroupIds = new Set(accessible.map((r) => r.id));
+  const myIds = getChatParticipantMatchIds(session);
   const lastReadMap = readLastReadMap(session);
+  const clearedMap = readClearedMap(session);
 
-  let messages: ChatMessage[] = readLocalMessages().filter((m) => accessibleIds.has(m.room_id));
+  let messages: ChatMessage[] = readLocalMessages().filter((m) =>
+    canAccessChatRoom(session, m.room_id)
+  );
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
@@ -302,12 +800,13 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
       const { data, error } = await supabase
         .from('community_chat_messages')
         .select('id, room_id, sender_id, created_at')
-        .in('room_id', Array.from(accessibleIds))
         .order('created_at', { ascending: false })
-        .limit(120);
+        .limit(180);
 
       if (!error && Array.isArray(data)) {
-        const remote = data.map((row) => normalizeChatRow(row as Record<string, unknown>));
+        const remote = data
+          .map((row) => normalizeChatRow(row as Record<string, unknown>))
+          .filter((m) => canAccessChatRoom(session, m.room_id));
         const remoteIds = new Set(remote.map((m) => m.id));
         messages = [
           ...remote,
@@ -319,38 +818,42 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
     }
   }
 
-  // Jika user belum pernah membuka ruang chat sama sekali, jangan tandai riwayat lama > 24 jam sebagai unread
   const fallbackCutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  let totalUnread = 0;
 
   for (const msg of messages) {
-    if (!accessibleIds.has(msg.room_id)) continue;
-    if (msg.sender_id === mySenderId) continue;
+    if (!isDmRoomId(msg.room_id) && !accessibleGroupIds.has(msg.room_id)) continue;
+    const isMine =
+      myIds.has(normalizeChatParticipantId(msg.sender_id)) || myIds.has(msg.sender_id);
+    if (isMine) continue;
+
     const msgMs = Date.parse(msg.created_at);
     if (Number.isNaN(msgMs)) continue;
+    const clearedIso = clearedMap[normalizeRoomId(msg.room_id)];
+    if (clearedIso) {
+      const clearedMs = Date.parse(clearedIso);
+      if (!Number.isNaN(clearedMs) && msgMs <= clearedMs) continue;
+    }
     const lastReadIso = lastReadMap[msg.room_id];
     const cutoffMs = lastReadIso ? Date.parse(lastReadIso) : fallbackCutoffMs;
     if (msgMs > cutoffMs) {
       byRoom[msg.room_id] = (byRoom[msg.room_id] || 0) + 1;
+      totalUnread += 1;
     }
   }
-
-  const totalUnread =
-    byRoom.forum_umum +
-    byRoom.pengurus_warga +
-    byRoom.pengurus_keamanan +
-    byRoom.warga_keamanan;
 
   return { totalUnread, byRoom };
 }
 
 /**
- * Mengirim pesan chat baru ke ruang yang dipilih & menyiarkan notifikasi aktivitas.
+ * Mengirim pesan chat baru (grup ataupun DM personal) & menyiarkan notifikasi terukur.
  */
 export async function sendChatMessage(
   session: SessionUser,
   input: SendChatMessageInput
 ): Promise<{ message: ChatMessage; savedRemote: boolean }> {
-  if (!canAccessChatRoom(session, input.room_id)) {
+  const normalizedRoom = normalizeRoomId(input.room_id);
+  if (!canAccessChatRoom(session, normalizedRoom)) {
     throw new Error('Anda tidak memiliki akses ke ruang percakapan ini.');
   }
 
@@ -364,17 +867,29 @@ export async function sendChatMessage(
 
   const nowIso = new Date().toISOString();
   const messageId = createUuidSafe();
-  const senderId = getCanonicalUserId(session);
+  const senderId = getChatParticipantId(session);
   const senderSubtitle = buildSenderSubtitle(session);
+
+  let recipientId: string | null = input.recipient?.participant_id || null;
+  if (!recipientId && isDmRoomId(normalizedRoom)) {
+    const pair = parseDmParticipants(normalizedRoom);
+    if (pair) {
+      const myIds = getChatParticipantMatchIds(session);
+      recipientId = myIds.has(normalizeChatParticipantId(pair[0])) ? pair[1] : pair[0];
+    }
+  }
 
   const nextMessage: ChatMessage = {
     id: messageId,
-    room_id: input.room_id,
+    room_id: normalizedRoom,
     sender_role: session.role,
     sender_id: senderId,
     sender_name: session.nama_warga || 'Pengguna',
     sender_subtitle: senderSubtitle,
     sender_avatar_url: session.avatar_url || null,
+    recipient_id: recipientId,
+    recipient_name: input.recipient?.display_name || null,
+    recipient_role: input.recipient?.role || null,
     message: cleanText,
     reply_to_id: input.reply_to_id || null,
     reply_preview: input.reply_preview ? input.reply_preview.slice(0, 140) : null,
@@ -386,7 +901,7 @@ export async function sendChatMessage(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { error } = await supabase.from('community_chat_messages').insert({
+      const payloadWithRecipient = {
         id: nextMessage.id,
         room_id: nextMessage.room_id,
         sender_role: nextMessage.sender_role,
@@ -394,6 +909,9 @@ export async function sendChatMessage(
         sender_name: nextMessage.sender_name,
         sender_subtitle: nextMessage.sender_subtitle,
         sender_avatar_url: nextMessage.sender_avatar_url,
+        recipient_id: nextMessage.recipient_id,
+        recipient_name: nextMessage.recipient_name,
+        recipient_role: nextMessage.recipient_role,
         message: nextMessage.message,
         reply_to_id:
           nextMessage.reply_to_id && !nextMessage.reply_to_id.startsWith('chat-')
@@ -401,7 +919,28 @@ export async function sendChatMessage(
             : null,
         reply_preview: nextMessage.reply_preview,
         created_at: nextMessage.created_at,
-      });
+      };
+
+      let { error } = await supabase.from('community_chat_messages').insert(payloadWithRecipient);
+
+      // Kompatibilitas bila kolom recipient_* pada DB belum dibuat oleh migrasi v14
+      if (error && (String(error.message || '').toLowerCase().includes('recipient_') || error.code === '42703' || error.code === 'PGRST204')) {
+        const fallbackPayload = {
+          id: nextMessage.id,
+          room_id: nextMessage.room_id,
+          sender_role: nextMessage.sender_role,
+          sender_id: nextMessage.sender_id,
+          sender_name: nextMessage.sender_name,
+          sender_subtitle: nextMessage.sender_subtitle,
+          sender_avatar_url: nextMessage.sender_avatar_url,
+          message: nextMessage.message,
+          reply_to_id: payloadWithRecipient.reply_to_id,
+          reply_preview: nextMessage.reply_preview,
+          created_at: nextMessage.created_at,
+        };
+        const retry = await supabase.from('community_chat_messages').insert(fallbackPayload);
+        error = retry.error;
+      }
 
       if (!error) {
         savedRemote = true;
@@ -419,17 +958,12 @@ export async function sendChatMessage(
     }
   }
 
-  markChatRoomRead(session, input.room_id, nowIso);
-  emitChatChanged({ type: 'insert', room_id: input.room_id, message: nextMessage });
+  markChatRoomRead(session, normalizedRoom, nowIso);
+  emitChatChanged({ type: 'insert', room_id: normalizedRoom, message: nextMessage });
 
-  // Kirim notifikasi lonceng secara terukur ke target peran terkait
-  const roomMeta = CHAT_ROOMS.find((r) => r.id === input.room_id);
-  const roomTitle = roomMeta?.label || 'Chat Lingkungan';
+  // Kirim notifikasi lonceng secara terukur
   const snippet = cleanText.length > 90 ? `${cleanText.slice(0, 87)}...` : cleanText;
-  const notifTitle = `Pesan Baru · ${roomTitle}`;
-  const notifMsg = `${nextMessage.sender_name} (${senderSubtitle}): ${snippet}`;
   const dedupKey = `chat:${nextMessage.id}`;
-
   const recipientItems: Array<{
     user_id: string;
     category: 'system';
@@ -439,50 +973,70 @@ export async function sendChatMessage(
     dedup_key: string;
   }> = [];
 
-  // Notifikasi ke Pengurus jika pengirim bukan admin, atau ke pengurus lainnya
-  if (session.role !== 'admin') {
+  if (isDmRoomId(normalizedRoom) && recipientId) {
+    const dmTitle = `Pesan Pribadi · ${nextMessage.sender_name}`;
+    const dmMsg = `${senderSubtitle}: ${snippet}`;
+    const targetUrl = `chat:${normalizedRoom}`;
+    recipientItems.push({
+      user_id: recipientId,
+      category: 'system',
+      title: dmTitle,
+      message: dmMsg,
+      target_url: targetUrl,
+      dedup_key: `${dedupKey}:dm`,
+    });
+  } else {
+    const roomMeta = CHAT_ROOMS.find((r) => r.id === normalizedRoom);
+    const roomTitle = roomMeta?.label || 'Chat Lingkungan';
+    const notifTitle = `Pesan Baru · ${roomTitle}`;
+    const notifMsg = `${nextMessage.sender_name} (${senderSubtitle}): ${snippet}`;
+    const targetUrl = `chat:${normalizedRoom}`;
+
+    // Notifikasi ke Pengurus (kecuali pengirim sendiri)
+    const myAdminId = session.role === 'admin' ? getChatParticipantId(session) : '';
     for (const adminUid of getAllAdminUserIds()) {
+      if (myAdminId && normalizeChatParticipantId(adminUid) === myAdminId) continue;
       recipientItems.push({
         user_id: adminUid,
         category: 'system',
         title: notifTitle,
         message: notifMsg,
-        target_url: 'tab:chat',
+        target_url: targetUrl,
         dedup_key: dedupKey,
       });
     }
-  }
 
-  if (
-    (input.room_id === 'forum_umum' ||
-      input.room_id === 'pengurus_warga' ||
-      input.room_id === 'warga_keamanan') &&
-    session.role !== 'warga'
-  ) {
-    recipientItems.push({
-      user_id: 'broadcast:warga',
-      category: 'system',
-      title: notifTitle,
-      message: notifMsg,
-      target_url: 'tab:chat',
-      dedup_key: `${dedupKey}:warga`,
-    });
-  }
+    if (
+      (normalizedRoom === 'forum_umum' ||
+        normalizedRoom === 'pengurus_warga' ||
+        normalizedRoom === 'warga_keamanan') &&
+      session.role !== 'warga'
+    ) {
+      recipientItems.push({
+        user_id: 'broadcast:warga',
+        category: 'system',
+        title: notifTitle,
+        message: notifMsg,
+        target_url: targetUrl,
+        dedup_key: `${dedupKey}:warga`,
+      });
+    }
 
-  if (
-    (input.room_id === 'forum_umum' ||
-      input.room_id === 'pengurus_keamanan' ||
-      input.room_id === 'warga_keamanan') &&
-    session.role !== 'petugas'
-  ) {
-    recipientItems.push({
-      user_id: 'broadcast:petugas',
-      category: 'system',
-      title: notifTitle,
-      message: notifMsg,
-      target_url: 'tab:chat',
-      dedup_key: `${dedupKey}:petugas`,
-    });
+    if (
+      (normalizedRoom === 'forum_umum' ||
+        normalizedRoom === 'pengurus_keamanan' ||
+        normalizedRoom === 'warga_keamanan') &&
+      session.role !== 'petugas'
+    ) {
+      recipientItems.push({
+        user_id: 'broadcast:petugas',
+        category: 'system',
+        title: notifTitle,
+        message: notifMsg,
+        target_url: targetUrl,
+        dedup_key: `${dedupKey}:petugas`,
+      });
+    }
   }
 
   if (recipientItems.length > 0) {
@@ -499,8 +1053,11 @@ export async function deleteChatMessage(
   session: SessionUser,
   msg: Pick<ChatMessage, 'id' | 'room_id' | 'sender_id' | 'is_local_only'>
 ): Promise<void> {
-  const mySenderId = getCanonicalUserId(session);
-  const canDelete = session.role === 'admin' || msg.sender_id === mySenderId;
+  const myIds = getChatParticipantMatchIds(session);
+  const canDelete =
+    session.role === 'admin' ||
+    myIds.has(normalizeChatParticipantId(msg.sender_id)) ||
+    myIds.has(msg.sender_id);
   if (!canDelete) {
     throw new Error('Anda hanya dapat menghapus pesan Anda sendiri.');
   }
@@ -519,6 +1076,64 @@ export async function deleteChatMessage(
 }
 
 /**
+ * Membersihkan riwayat chat pada ruang Individu (DM) maupun Group:
+ * - mode 'local': menyembunyikan seluruh pesan hingga saat ini untuk pengguna aktif.
+ * - mode 'server': khusus Admin/Pengurus, menghapus permanen seluruh pesan ruang di database & lokal.
+ */
+export async function clearChatRoom(
+  session: SessionUser,
+  roomId: ChatRoomId,
+  options?: { mode?: 'local' | 'server'; latestMessageIso?: string }
+): Promise<{ clearedRemote: boolean }> {
+  const normalizedRoom = normalizeRoomId(roomId);
+  if (!canAccessChatRoom(session, normalizedRoom)) {
+    throw new Error('Anda tidak memiliki akses ke ruang percakapan ini.');
+  }
+
+  const mode = options?.mode === 'server' ? 'server' : 'local';
+  if (mode === 'server' && session.role !== 'admin') {
+    throw new Error('Hanya Pengurus yang dapat menghapus permanen isi percakapan di server.');
+  }
+
+  const latestMs = options?.latestMessageIso ? Date.parse(options.latestMessageIso) : 0;
+  const cutoffMs = Math.max(Date.now(), Number.isNaN(latestMs) ? 0 : latestMs) + 1;
+  const cutoffIso = new Date(cutoffMs).toISOString();
+
+  let clearedRemote = false;
+  if (mode === 'server') {
+    const supabase = getSupabaseClient(session);
+    if (supabase && isSupabaseConfigured()) {
+      const { error } = await supabase
+        .from('community_chat_messages')
+        .delete()
+        .eq('room_id', normalizedRoom);
+      if (error) {
+        throw new Error(error.message || 'Gagal membersihkan pesan di server.');
+      }
+      clearedRemote = true;
+    }
+    const remaining = readLocalMessages().filter(
+      (item) => normalizeRoomId(item.room_id) !== normalizedRoom
+    );
+    writeLocalMessages(remaining);
+  }
+
+  try {
+    if (typeof window !== 'undefined') {
+      const current = readClearedMap(session);
+      current[normalizedRoom] = cutoffIso;
+      window.localStorage.setItem(getChatClearedStorageKey(session), JSON.stringify(current));
+    }
+  } catch {
+    // Abaikan kuota storage
+  }
+
+  markChatRoomRead(session, normalizedRoom, cutoffIso);
+  emitChatChanged({ type: 'clear', room_id: normalizedRoom });
+  return { clearedRemote };
+}
+
+/**
  * Subscription real-time Supabase Postgres Changes + sinkronisasi lintas tab lokal.
  */
 export function subscribeChatMessagesRealtime(
@@ -526,30 +1141,41 @@ export function subscribeChatMessagesRealtime(
   callbacks: {
     onInsert?: (msg: ChatMessage) => void;
     onDelete?: (deletedId: string) => void;
+    onClear?: (roomId: ChatRoomId) => void;
     onAnyChange?: () => void;
   }
 ): () => void {
   const cleanups: Array<() => void> = [];
-  const accessibleIds = new Set(getAccessibleChatRooms(session).map((r) => r.id));
 
   if (typeof window !== 'undefined') {
     const onLocal = (ev: Event) => {
       const detail = (
         ev as CustomEvent<{
-          type?: 'insert' | 'delete' | 'read';
+          type?: 'insert' | 'delete' | 'read' | 'clear';
+          room_id?: ChatRoomId;
           message?: ChatMessage;
           deletedId?: string;
         }>
       ).detail;
-      if (detail?.type === 'insert' && detail.message && accessibleIds.has(detail.message.room_id)) {
+      if (
+        detail?.type === 'insert' &&
+        detail.message &&
+        canAccessChatRoom(session, detail.message.room_id)
+      ) {
         callbacks.onInsert?.(detail.message);
       } else if (detail?.type === 'delete' && detail.deletedId) {
         callbacks.onDelete?.(detail.deletedId);
+      } else if (detail?.type === 'clear' && detail.room_id) {
+        callbacks.onClear?.(detail.room_id);
       }
       callbacks.onAnyChange?.();
     };
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LOCAL_CHAT_MESSAGES_KEY || e.key === getChatReadStorageKey(session)) {
+      if (
+        e.key === LOCAL_CHAT_MESSAGES_KEY ||
+        e.key === getChatReadStorageKey(session) ||
+        e.key === getChatClearedStorageKey(session)
+      ) {
         callbacks.onAnyChange?.();
       }
     };
@@ -573,7 +1199,7 @@ export function subscribeChatMessagesRealtime(
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;
             const normalized = normalizeChatRow(row);
-            if (!accessibleIds.has(normalized.room_id)) return;
+            if (!canAccessChatRoom(session, normalized.room_id)) return;
             callbacks.onInsert?.(normalized);
             callbacks.onAnyChange?.();
           }

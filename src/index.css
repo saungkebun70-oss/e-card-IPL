@@ -224,6 +224,8 @@ html[data-theme="royal"] {
     font-family: var(--font-sans);
     background-color: var(--theme-bg);
     color: var(--theme-text);
+    width: 100%;
+    max-width: 100vw;
     min-height: 100dvh;
     height: auto;
     overflow-y: auto;
@@ -241,6 +243,8 @@ html[data-theme="royal"] {
     background-image: var(--theme-bg-gradient);
     background-attachment: fixed;
     color: var(--theme-text);
+    width: 100%;
+    max-width: 100vw;
     min-height: 100dvh;
     height: auto;
     overflow-y: auto;
@@ -251,10 +255,21 @@ html[data-theme="royal"] {
   }
 
   #root {
+    width: 100%;
+    max-width: 100vw;
     min-height: 100dvh;
     height: auto;
     overflow-y: visible;
+    overflow-x: hidden;
     overflow-x: clip;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 
   /* Mencegah auto-zoom paksa pada iOS Safari saat mengetuk kolom input di layar mobile */

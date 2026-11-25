@@ -60,6 +60,7 @@ import {
 } from './components/admin/AdminSettingsDrawer';
 import { KeamananSlide } from './components/KeamananSlide';
 import { CommunityChatSlide } from './components/CommunityChatSlide';
+import type { ChatRoomId } from './lib/chatService';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
 import {
   initNativeNotificationsOnLaunch,
@@ -248,6 +249,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>(() =>
     initialAuthRef.current?.session?.role === 'admin' ? 'dashboard' : 'beranda'
   );
+  const [initialChatRoomId, setInitialChatRoomId] = useState<ChatRoomId | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('identitas');
   const settingsOpenRef = useRef(false);
@@ -749,6 +751,13 @@ export default function App() {
         setSettingsOpen(true);
         return;
       }
+      if (targetUrl.startsWith('chat:')) {
+        const roomId = targetUrl.slice('chat:'.length) as ChatRoomId;
+        setSettingsOpen(false);
+        if (roomId) setInitialChatRoomId(roomId);
+        handleTabChange('chat');
+        return;
+      }
       if (targetUrl.startsWith('tab:')) {
         const tabId = targetUrl.replace('tab:', '');
         setSettingsOpen(false);
@@ -902,7 +911,7 @@ export default function App() {
   const renderContent = () => {
     if (dataError && !wargaData && !adminData) {
       return (
-        <section className="glass-card border-red-200/80 rounded-3xl p-8 text-center max-w-lg mx-auto">
+        <section className="glass-card border-red-200/80 rounded-3xl p-4 sm:p-8 text-center max-w-lg mx-auto">
           <AlertCircle className="w-10 h-10 text-red-600 mx-auto" />
           <h2 className="text-base font-bold text-[#0F172A] mt-3">Gagal Memuat Data</h2>
           <p className="text-sm text-slate-600 mt-1">{dataError}</p>
@@ -1017,7 +1026,13 @@ export default function App() {
             />
           );
         case 'chat':
-          return <CommunityChatSlide session={session} onToast={pushToast} />;
+          return (
+            <CommunityChatSlide
+              session={session}
+              initialRoomId={initialChatRoomId}
+              onToast={pushToast}
+            />
+          );
         default:
           return null;
       }
@@ -1121,7 +1136,13 @@ export default function App() {
             />
           );
         case 'chat':
-          return <CommunityChatSlide session={session} onToast={pushToast} />;
+          return (
+            <CommunityChatSlide
+              session={session}
+              initialRoomId={initialChatRoomId}
+              onToast={pushToast}
+            />
+          );
         default:
           return null;
       }
@@ -1157,6 +1178,11 @@ export default function App() {
           }
         }}
         onNavigateTarget={handleNavigateNotificationTarget}
+        onOpenChatRoom={(roomId) => {
+          if (roomId) setInitialChatRoomId(roomId);
+          handleTabChange('chat');
+        }}
+        onToast={pushToast}
         onOpenSettings={
           session.role === 'admin'
             ? () => {

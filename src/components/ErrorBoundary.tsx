@@ -31,8 +31,8 @@ export class ErrorBoundary extends React.Component<
         this.state.error?.message?.trim() || 'Kesalahan render tidak terduga pada halaman.';
 
       return (
-        <div className="min-h-[100dvh] glass-canvas flex items-center justify-center p-6 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] pb-safe">
-          <div className="w-full max-w-md glass-card rounded-3xl p-6 text-center shadow-xl">
+        <div className="min-h-[100dvh] glass-canvas flex items-center justify-center p-3.5 sm:p-6 pt-[calc(max(env(safe-area-inset-top,0px),24px)+1.5rem)] pb-safe">
+          <div className="w-full max-w-md glass-card rounded-3xl p-4 sm:p-6 text-center shadow-xl">
             <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6 text-red-600" />
             </div>
