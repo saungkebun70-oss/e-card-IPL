@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { compressProofImage } from './imageCompressor';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { routeNewMediaUploadAuto } from './googleDriveHybridService';
 import { dispatchActivityNotifications, getAllAdminUserIds } from './notificationService';
 
 const LOCAL_STORAGE_KEY = 'skb_security_attendance_v1';
@@ -619,6 +620,17 @@ async function uploadAttendancePhoto(
 
   const compressed = await compressProofImage(file, 960, 0.72);
   const uploadFile = compressed.file;
+
+  const routedDrive = await routeNewMediaUploadAuto({
+    session,
+    folderKey: 'absensi_keamanan',
+    file: uploadFile,
+    labelPrefix: `absen-${officerName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`,
+    description: `Foto absen masuk ${officerName}`,
+  });
+  if (routedDrive?.url && isSafeAttendanceImageUrl(routedDrive.url)) {
+    return routedDrive.url;
+  }
 
   if (isSupabaseConfigured()) {
     try {

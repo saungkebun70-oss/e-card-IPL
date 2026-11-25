@@ -73,7 +73,10 @@ import {
   SEED_WARGA,
 } from './seedData';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
-import { tryDirectDriveUploadIfConnected } from './googleDriveHybridService';
+import {
+  routeNewMediaUploadAuto,
+  tryDirectDriveUploadIfConnected,
+} from './googleDriveHybridService';
 import {
   buildKeamananUserId,
   buildPetugasUserId,
@@ -1481,19 +1484,31 @@ export async function submitSetoranWarga(
       const filePath = `${safeBlok}/${Date.now()}.${ext}`;
 
       let buktiUrl = '';
-      const { error: uploadError } = await supabase.storage
-        .from('bukti-ipl')
-        .upload(filePath, payload.buktiFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      const routedDrive = await routeNewMediaUploadAuto({
+        session: effectiveSession,
+        folderKey: 'bukti_ipl',
+        file: payload.buktiFile,
+        labelPrefix: `ipl-${safeBlok}`,
+        description: `Bukti setor IPL ${effectiveBlok} (${noKwitansi})`,
+      });
 
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
-        buktiUrl = publicUrlData.publicUrl;
+      if (routedDrive?.url) {
+        buktiUrl = routedDrive.url;
       } else {
-        // Fallback aman: simpan foto bukti terkompresi sebagai Data URL jika bucket storage belum siap
-        buktiUrl = await fileToDataUrl(payload.buktiFile);
+        const { error: uploadError } = await supabase.storage
+          .from('bukti-ipl')
+          .upload(filePath, payload.buktiFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage.from('bukti-ipl').getPublicUrl(filePath);
+          buktiUrl = publicUrlData.publicUrl;
+        } else {
+          // Fallback aman: simpan foto bukti terkompresi sebagai Data URL jika bucket storage belum siap
+          buktiUrl = await fileToDataUrl(payload.buktiFile);
+        }
       }
 
       payload.onStageChange?.('saving_transaction');
@@ -5312,6 +5327,7 @@ export async function uploadBuktiKasAdmin(
   }
 
   const directDriveUrl = await tryDirectDriveUploadIfConnected({
+    session,
     folderKey: 'pengeluaran_kas',
     file,
     labelPrefix: 'bukti-kas',

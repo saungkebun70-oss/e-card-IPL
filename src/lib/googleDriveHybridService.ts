@@ -14,13 +14,21 @@ export type HybridFolderKey =
   | 'pengeluaran_kas'
   | 'absensi_keamanan'
   | 'bug_reports'
+  | 'avatars'
   | 'backup_database';
+
+export type HybridArchiveCategoryKey =
+  | 'bukti_ipl'
+  | 'pengeluaran_kas'
+  | 'absensi_keamanan'
+  | 'bug_reports';
 
 export const HYBRID_SUBFOLDER_NAMES: Record<HybridFolderKey, string> = {
   bukti_ipl: 'bukti-ipl',
   pengeluaran_kas: 'pengeluaran-kas',
   absensi_keamanan: 'absensi-keamanan',
   bug_reports: 'bug-reports',
+  avatars: 'avatars',
   backup_database: 'backup-database',
 };
 
@@ -114,7 +122,7 @@ export interface HybridMediaCandidate {
   id: string;
   table: HybridMediaSourceTable;
   column: 'bukti_url' | 'clock_in_photo_url' | 'screenshot_url';
-  folderKey: Exclude<HybridFolderKey, 'backup_database'>;
+  folderKey: HybridArchiveCategoryKey;
   label: string;
   sublabel: string;
   dateIso: string;
@@ -134,11 +142,46 @@ export interface HybridMediaScanSummary {
   eligibleCount: number;
   estimatedSupabaseBytes: number;
   byCategory: Record<
-    Exclude<HybridFolderKey, 'backup_database'>,
+    HybridArchiveCategoryKey,
     { supabase: number; drive: number; eligible: number }
   >;
   candidates: HybridMediaCandidate[];
   eligibleCandidates: HybridMediaCandidate[];
+}
+
+export interface BackendStorageBucketStat {
+  bucket: string;
+  fileCount: number;
+  usedBytes: number;
+}
+
+export interface BackendStorageThresholdSettings {
+  targetEmail: string;
+  thresholdPercent: number;
+  storageLimitBytes: number;
+  dbLimitBytes: number;
+  autoRouteOnNearLimit: boolean;
+  forceRouteToDrive: boolean;
+}
+
+export interface BackendStorageStatus {
+  ok: boolean;
+  configured?: boolean;
+  measuredVia?: 'rpc_exact' | 'storage_api_scan' | 'table_estimate' | 'unconfigured' | 'client_fallback';
+  status: 'normal' | 'warning' | 'near_limit';
+  shouldRouteNewMediaToDrive: boolean;
+  routeReason?: string;
+  storageUsedBytes?: number;
+  storageLimitBytes?: number;
+  storageUsagePercent: number;
+  dbUsedBytes?: number;
+  dbLimitBytes?: number;
+  dbUsagePercent: number;
+  totalObjects?: number;
+  buckets?: BackendStorageBucketStat[];
+  thresholdPercent?: number;
+  settings?: BackendStorageThresholdSettings;
+  measuredAt: string;
 }
 
 export function isGoogleDriveImageUrl(url?: string | null): boolean {
@@ -889,37 +932,268 @@ export async function backupDatabaseSnapshotToDrive(
   };
 }
 
+let cachedStorageStatus: { data: BackendStorageStatus; fetchedAt: number } | null = null;
+const STORAGE_STATUS_CACHE_TTL_MS = 30_000;
+
+function buildPortalApiHeaders(session?: SessionUser | null): Record<string, string> {
+  return {
+    'x-user-role': session?.role || 'warga',
+    'x-blok-rumah': session?.blok_rumah || '',
+    'x-admin-permission': session?.admin_permission || '',
+    'x-admin-jabatan': session?.jabatan || '',
+  };
+}
+
+export function invalidateBackendStorageStatusCache(): void {
+  cachedStorageStatus = null;
+}
+
 /**
- * Opsional Mode Hybrid Langsung:
- * Jika Pengurus sedang terhubung ke sesi Google Drive dan opsi "directUploadWhenConnected" aktif,
- * nota kas baru dapat diunggah langsung ke Google Drive (dengan fallback otomatis ke Supabase Storage).
+ * Memanggil backend GET /api/storage/status untuk mengecek penggunaan kapasitas
+ * Supabase Storage & Database serta menentukan apakah upload media baru harus
+ * diarahkan otomatis ke Google Drive OAuth2.
  */
-export async function tryDirectDriveUploadIfConnected(params: {
+export async function fetchBackendStorageStatus(
+  session?: SessionUser | null,
+  forceRefresh = false
+): Promise<BackendStorageStatus | null> {
+  if (
+    !forceRefresh &&
+    cachedStorageStatus &&
+    Date.now() - cachedStorageStatus.fetchedAt < STORAGE_STATUS_CACHE_TTL_MS
+  ) {
+    return cachedStorageStatus.data;
+  }
+
+  try {
+    const res = await fetch('/api/storage/status', {
+      method: 'GET',
+      headers: buildPortalApiHeaders(session),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as BackendStorageStatus;
+      if (data && typeof data === 'object') {
+        cachedStorageStatus = { data, fetchedAt: Date.now() };
+        return data;
+      }
+    }
+  } catch {
+    // Fallback untuk runtime offline / native Capacitor tanpa Express server
+  }
+
+  if (session) {
+    try {
+      const supabase = getSupabaseClient(session);
+      if (supabase && isSupabaseConfigured()) {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('get_supabase_storage_status');
+        if (!rpcErr && rpcData && typeof rpcData === 'object') {
+          const raw = rpcData as {
+            total_objects?: number;
+            storage_used_bytes?: number;
+            db_used_bytes?: number;
+            buckets?: BackendStorageBucketStat[];
+            measured_at?: string;
+          };
+          const limitBytes = 1024 * 1024 * 1024;
+          const dbLimit = 500 * 1024 * 1024;
+          const storageUsed = Number(raw.storage_used_bytes || 0);
+          const dbUsed = Number(raw.db_used_bytes || 0);
+          const storagePct = Number(((storageUsed / limitBytes) * 100).toFixed(2));
+          const dbPct = Number(((dbUsed / dbLimit) * 100).toFixed(2));
+          const shouldRoute = storagePct >= 80 || dbPct >= 80;
+          const fallback: BackendStorageStatus = {
+            ok: true,
+            configured: true,
+            measuredVia: 'rpc_exact',
+            status: shouldRoute ? 'near_limit' : storagePct >= 65 ? 'warning' : 'normal',
+            shouldRouteNewMediaToDrive: shouldRoute,
+            routeReason: shouldRoute
+              ? 'Pemakaian Supabase mendekati batas; upload baru diarahkan ke Google Drive.'
+              : 'Kapasitas Supabase normal.',
+            storageUsedBytes: storageUsed,
+            storageLimitBytes: limitBytes,
+            storageUsagePercent: storagePct,
+            dbUsedBytes: dbUsed,
+            dbLimitBytes: dbLimit,
+            dbUsagePercent: dbPct,
+            totalObjects: Number(raw.total_objects || 0),
+            buckets: Array.isArray(raw.buckets) ? raw.buckets : [],
+            thresholdPercent: 80,
+            settings: {
+              targetEmail: DRIVE_TARGET_EMAIL,
+              thresholdPercent: 80,
+              storageLimitBytes: limitBytes,
+              dbLimitBytes: dbLimit,
+              autoRouteOnNearLimit: true,
+              forceRouteToDrive: false,
+            },
+            measuredAt: raw.measured_at || new Date().toISOString(),
+          };
+          cachedStorageStatus = { data: fallback, fetchedAt: Date.now() };
+          return fallback;
+        }
+      }
+    } catch {
+      // Abaikan fallback RPC gagal
+    }
+  }
+
+  return null;
+}
+
+export async function updateBackendHybridThresholdConfig(
+  session: SessionUser,
+  patch: {
+    thresholdPercent?: number;
+    storageLimitMb?: number;
+    autoRouteOnNearLimit?: boolean;
+    forceRouteToDrive?: boolean;
+  }
+): Promise<BackendStorageStatus> {
+  const res = await fetch('/api/storage/config', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...buildPortalApiHeaders(session),
+    },
+    body: JSON.stringify(patch),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+    monitor?: BackendStorageStatus;
+  };
+  if (!res.ok || !data.monitor) {
+    throw new Error(data.error || 'Gagal menyimpan pengaturan monitor penyimpanan backend.');
+  }
+
+  cachedStorageStatus = { data: data.monitor, fetchedAt: Date.now() };
+  return data.monitor;
+}
+
+function blobToBase64Payload(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const commaIdx = result.indexOf(',');
+      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file media untuk unggahan Drive.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Router Media Otomatis (Backend Monitor -> Google Drive OAuth2):
+ * 1. Memeriksa status penyimpanan Supabase lewat backend (`/api/storage/status`).
+ * 2. Jika ukuran penyimpanan mendekati batas (`shouldRouteNewMediaToDrive === true`)
+ *    atau opsi upload langsung aktif, dan token OAuth2 Google Drive tersedia di memori,
+ *    file media baru dikirim lewat endpoint backend `/api/storage/upload-drive`
+ *    (atau fallback langsung ke Drive API bila runtime offline/mobile) dan masuk ke
+ *    folder `eCard-Saung-Kebun-Hybrid/<subfolder>`.
+ * 3. Mengembalikan `null` bila penyimpanan Supabase aman atau belum ada sesi OAuth2 aktif.
+ */
+export async function routeNewMediaUploadAuto(params: {
+  session?: SessionUser | null;
   folderKey: Exclude<HybridFolderKey, 'backup_database'>;
   file: File;
   labelPrefix?: string;
-}): Promise<string | null> {
-  const cfg = loadHybridDriveConfig();
-  if (!cfg.directUploadWhenConnected) return null;
-
+  description?: string;
+}): Promise<{ url: string; routedReason: string } | null> {
   const accessToken = await getGoogleDriveAccessToken();
-  if (!accessToken) return null;
+  if (!accessToken) {
+    return null;
+  }
 
+  const localCfg = loadHybridDriveConfig();
+  const backendStatus = await fetchBackendStorageStatus(params.session, false);
+  const shouldRouteByBackend = Boolean(backendStatus?.shouldRouteNewMediaToDrive);
+  const shouldRouteByToggle =
+    params.folderKey === 'pengeluaran_kas' && localCfg.directUploadWhenConnected;
+
+  if (!shouldRouteByBackend && !shouldRouteByToggle) {
+    return null;
+  }
+
+  const ext = params.file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const stamp = new Date().toISOString().slice(0, 10);
+  const prefix = params.labelPrefix ? `${params.labelPrefix}-` : '';
+  const fileName = `${stamp}-${prefix}${Date.now()}.${ext}`;
+  const mimeType = params.file.type || 'image/jpeg';
+
+  // Prioritas 1: kirim melalui backend `/api/storage/upload-drive` dengan Bearer OAuth2
   try {
-    const ext = params.file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const stamp = new Date().toISOString().slice(0, 10);
-    const prefix = params.labelPrefix ? `${params.labelPrefix}-` : '';
-    const fileName = `${stamp}-${prefix}${Date.now()}.${ext}`;
+    const fileBase64 = await blobToBase64Payload(params.file);
+    const res = await fetch('/api/storage/upload-drive', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        ...buildPortalApiHeaders(params.session),
+      },
+      body: JSON.stringify({
+        folderKey: params.folderKey,
+        fileName,
+        mimeType,
+        fileBase64,
+        description: params.description,
+        makePublicReader: true,
+      }),
+    });
+
+    if (res.ok) {
+      const uploaded = (await res.json()) as { ok?: boolean; directImageUrl?: string };
+      if (uploaded.ok && uploaded.directImageUrl) {
+        return {
+          url: uploaded.directImageUrl,
+          routedReason:
+            backendStatus?.routeReason ||
+            'Diarahkan otomatis ke Google Drive OAuth2.',
+        };
+      }
+    } else if (res.status === 401) {
+      clearGoogleDriveAccessToken();
+      return null;
+    }
+  } catch {
+    // Fallback langsung ke Drive API bila runtime tidak memiliki /api server (mis. APK Capacitor)
+  }
+
+  // Fallback 2: upload langsung via Google Drive API dengan token OAuth2 aktif
+  try {
     const uploaded = await uploadBlobToHybridDrive({
       accessToken,
       folderKey: params.folderKey,
       fileName,
       blob: params.file,
-      mimeType: params.file.type || 'image/jpeg',
+      mimeType,
       makePublicReader: true,
+      description: params.description,
     });
-    return uploaded.directImageUrl;
+    return {
+      url: uploaded.directImageUrl,
+      routedReason:
+        backendStatus?.routeReason ||
+        'Diarahkan otomatis ke Google Drive OAuth2.',
+    };
   } catch {
     return null;
   }
 }
+
+/**
+ * Opsional Mode Hybrid Langsung:
+ * Mempertahankan kompatibilitas pemanggil lama dengan mendelegasikan ke routeNewMediaUploadAuto.
+ */
+export async function tryDirectDriveUploadIfConnected(params: {
+  session?: SessionUser | null;
+  folderKey: Exclude<HybridFolderKey, 'backup_database'>;
+  file: File;
+  labelPrefix?: string;
+}): Promise<string | null> {
+  const routed = await routeNewMediaUploadAuto(params);
+  return routed ? routed.url : null;
+}
+

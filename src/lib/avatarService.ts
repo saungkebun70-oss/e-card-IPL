@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SessionUser, UserRole } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { compressLogoImage } from './imageCompressor';
+import { routeNewMediaUploadAuto } from './googleDriveHybridService';
 import { dispatchActivityNotifications, getCanonicalUserId } from './notificationService';
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -229,9 +230,20 @@ export async function uploadAccountAvatar(
     const filePath = `${session.role}/${safeId}_${Date.now()}.${ext}`;
 
     let finalUrl = '';
+    const routedDrive = await routeNewMediaUploadAuto({
+      session,
+      folderKey: 'avatars',
+      file: uploadFile,
+      labelPrefix: `avatar-${safeId}`,
+      description: `Foto profil ${session.nama_warga}`,
+    });
+    if (routedDrive?.url) {
+      finalUrl = routedDrive.url;
+    }
+
     const supabase = getSupabaseClient(session);
 
-    if (supabase && isSupabaseConfigured()) {
+    if (!finalUrl && supabase && isSupabaseConfigured()) {
       // Coba upload ke bucket khusus 'avatars' terlebih dahulu
       const { error: avatarBucketErr } = await supabase.storage
         .from('avatars')

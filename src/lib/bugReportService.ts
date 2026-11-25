@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import type { SessionUser } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { compressProofImage } from './imageCompressor';
+import { routeNewMediaUploadAuto } from './googleDriveHybridService';
 import {
   dispatchActivityNotifications,
   getAllAdminUserIds,
@@ -459,6 +460,22 @@ export async function uploadBugScreenshot(
   const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
   const primaryPath = `${roleSeg}/${ownerSeg}/${fileName}`;
   const fallbackPath = `bug-reports/${roleSeg}/${ownerSeg}/${fileName}`;
+
+  const routedDrive = await routeNewMediaUploadAuto({
+    session,
+    folderKey: 'bug_reports',
+    file: uploadFile,
+    labelPrefix: `bug-${roleSeg}-${ownerSeg}`,
+    description: `Screenshot laporan bug dari ${session.nama_warga}`,
+  });
+  if (routedDrive?.url) {
+    return {
+      url: routedDrive.url,
+      bucket: null,
+      path: null,
+      storageMode: 'supabase',
+    };
+  }
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {

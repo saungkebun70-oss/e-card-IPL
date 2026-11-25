@@ -28,6 +28,7 @@ import {
   backupDatabaseSnapshotToDrive,
   deleteHybridDriveFile,
   ensureHybridFolderStructure,
+  fetchBackendStorageStatus,
   fetchDriveAbout,
   formatBytesCompact,
   HYBRID_ROOT_FOLDER_NAME,
@@ -37,6 +38,8 @@ import {
   runHybridArchiveBatch,
   saveHybridDriveConfig,
   scanHybridMediaInventory,
+  updateBackendHybridThresholdConfig,
+  type BackendStorageStatus,
   type DriveAboutInfo,
   type DriveManagedFile,
   type HybridDriveConfig,
@@ -66,8 +69,11 @@ const FOLDER_FILTER_LABELS: Array<{ key: HybridFolderKey | 'all'; label: string 
   { key: 'pengeluaran_kas', label: 'Nota Kas' },
   { key: 'absensi_keamanan', label: 'Absensi Keamanan' },
   { key: 'bug_reports', label: 'Laporan Bug' },
+  { key: 'avatars', label: 'Foto Profil' },
   { key: 'backup_database', label: 'Backup DB' },
 ];
+
+const THRESHOLD_PERCENT_OPTIONS = [60, 70, 75, 80, 85, 90];
 
 export function AdminHybridDrivePanel({
   session,
@@ -87,6 +93,9 @@ export function AdminHybridDrivePanel({
 
   const [scanSummary, setScanSummary] = useState<HybridMediaScanSummary | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [backendMonitor, setBackendMonitor] = useState<BackendStorageStatus | null>(null);
+  const [loadingMonitor, setLoadingMonitor] = useState(false);
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   const [driveFiles, setDriveFiles] = useState<DriveManagedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -110,6 +119,40 @@ export function AdminHybridDrivePanel({
   const updateConfig = (patch: Partial<HybridDriveConfig>) => {
     const next = saveHybridDriveConfig(patch);
     setConfig(next);
+  };
+
+  const refreshBackendMonitor = useCallback(
+    async (forceRefresh = true) => {
+      setLoadingMonitor(true);
+      try {
+        const res = await fetchBackendStorageStatus(session, forceRefresh);
+        if (res) setBackendMonitor(res);
+      } finally {
+        setLoadingMonitor(false);
+      }
+    },
+    [session]
+  );
+
+  const handleSaveBackendRule = async (patch: {
+    thresholdPercent?: number;
+    autoRouteOnNearLimit?: boolean;
+    forceRouteToDrive?: boolean;
+  }) => {
+    if (!canManage || savingThreshold) return;
+    setSavingThreshold(true);
+    try {
+      const updated = await updateBackendHybridThresholdConfig(session, patch);
+      setBackendMonitor(updated);
+      onToast('success', 'Aturan pemantauan penyimpanan backend diperbarui.');
+    } catch (err) {
+      onToast(
+        'error',
+        err instanceof Error ? err.message : 'Gagal memperbarui aturan monitor backend.'
+      );
+    } finally {
+      setSavingThreshold(false);
+    }
   };
 
   const runInventoryScan = useCallback(
@@ -185,7 +228,8 @@ export function AdminHybridDrivePanel({
 
   useEffect(() => {
     void runInventoryScan(config.retentionDays);
-  }, [config.retentionDays, runInventoryScan]);
+    void refreshBackendMonitor(true);
+  }, [config.retentionDays, runInventoryScan, refreshBackendMonitor]);
 
   const handleGoogleSignIn = async () => {
     if (signingIn) return;
@@ -570,6 +614,189 @@ export function AdminHybridDrivePanel({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Kartu Pemantauan Backend Supabase & Pengalihan Otomatis ke Google Drive */}
+      <div className="glass-card rounded-3xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#4C1D95]" />
+              <span>Monitor Backend Penyimpanan Supabase &amp; Routing OAuth2</span>
+            </h4>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Backend memantau kuota Storage &amp; Database Supabase secara real-time dan mengalihkan
+              upload media baru ke Google Drive bila mendekati batas.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={loadingMonitor}
+            onClick={() => void refreshBackendMonitor(true)}
+            className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingMonitor ? 'animate-spin' : ''}`} />
+            <span>Cek Kuota</span>
+          </button>
+        </div>
+
+        {/* Status Routing Aktif */}
+        {backendMonitor && (
+          <div
+            className={`rounded-2xl border p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 text-xs ${
+              backendMonitor.shouldRouteNewMediaToDrive
+                ? 'border-amber-200 bg-amber-50/80 text-amber-950'
+                : 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+            }`}
+          >
+            <div className="space-y-0.5">
+              <p className="font-bold flex items-center gap-1.5">
+                <span>
+                  {backendMonitor.shouldRouteNewMediaToDrive
+                    ? 'Pengalihan Otomatis ke Google Drive AKTIF'
+                    : 'Mode Normal: Media Baru Disimpan di Supabase'}
+                </span>
+              </p>
+              <p className="text-[11px] opacity-90">{backendMonitor.routeReason}</p>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 self-start sm:self-center ${
+                backendMonitor.shouldRouteNewMediaToDrive
+                  ? accessToken
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-amber-600 text-white'
+                  : 'bg-white border border-emerald-200 text-emerald-800'
+              }`}
+            >
+              {backendMonitor.shouldRouteNewMediaToDrive
+                ? accessToken
+                  ? 'OAuth2 Drive Siap'
+                  : 'Perlu Sign in Google'
+                : `Batas Peringatan ${backendMonitor.settings?.thresholdPercent ?? 80}%`}
+            </span>
+          </div>
+        )}
+
+        {/* Meter Storage & Database Supabase */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="rounded-2xl border border-indigo-100 bg-white/90 p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700">Supabase Storage Bucket</span>
+              <span className="font-mono font-bold text-[#4C1D95] tabular-nums">
+                {formatBytesCompact(backendMonitor?.storageUsedBytes ?? 0)} /{' '}
+                {formatBytesCompact(backendMonitor?.storageLimitBytes ?? 1024 * 1024 * 1024)} (
+                {backendMonitor?.storageUsagePercent ?? 0}%)
+              </span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  (backendMonitor?.storageUsagePercent ?? 0) >=
+                  (backendMonitor?.settings?.thresholdPercent ?? 80)
+                    ? 'bg-rose-500'
+                    : 'bg-[#4C1D95]'
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.max(backendMonitor?.storageUsagePercent ?? 0, 2))}%`,
+                }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Total objek: <strong>{backendMonitor?.totalObjects ?? 0} file</strong>
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-indigo-100 bg-white/90 p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700">Database PostgreSQL Supabase</span>
+              <span className="font-mono font-bold text-emerald-700 tabular-nums">
+                {formatBytesCompact(backendMonitor?.dbUsedBytes ?? 0)} /{' '}
+                {formatBytesCompact(backendMonitor?.dbLimitBytes ?? 500 * 1024 * 1024)} (
+                {backendMonitor?.dbUsagePercent ?? 0}%)
+              </span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-emerald-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  (backendMonitor?.dbUsagePercent ?? 0) >=
+                  (backendMonitor?.settings?.thresholdPercent ?? 80)
+                    ? 'bg-rose-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.max(backendMonitor?.dbUsagePercent ?? 0, 2))}%`,
+                }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Sumber ukur:{' '}
+              <strong>
+                {backendMonitor?.measuredVia === 'rpc_exact'
+                  ? 'RPC SQL Akurat'
+                  : backendMonitor?.measuredVia === 'storage_api_scan'
+                    ? 'Scan Storage API'
+                    : 'Estimasi Tabel Media'}
+              </strong>
+            </p>
+          </div>
+        </div>
+
+        {/* Pengaturan Ambang Batas Otomatis */}
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/35 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 items-center">
+          <div>
+            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+              Ambang Batas Pemakaian Supabase untuk Pindah Otomatis
+            </label>
+            <select
+              disabled={!canManage || savingThreshold}
+              value={backendMonitor?.settings?.thresholdPercent ?? 80}
+              onChange={(e) =>
+                void handleSaveBackendRule({ thresholdPercent: Number(e.target.value) })
+              }
+              className="w-full min-h-[40px] rounded-xl border border-indigo-200 bg-white px-3 text-xs font-semibold text-[#0F172A] disabled:bg-slate-100"
+            >
+              {THRESHOLD_PERCENT_OPTIONS.map((pct) => (
+                <option key={pct} value={pct}>
+                  Mulai alihkan saat pemakaian &gt;= {pct}%
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                disabled={!canManage || savingThreshold}
+                checked={backendMonitor?.settings?.autoRouteOnNearLimit ?? true}
+                onChange={(e) =>
+                  void handleSaveBackendRule({ autoRouteOnNearLimit: e.target.checked })
+                }
+                className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+              />
+              <span className="text-xs text-slate-700 leading-snug">
+                <strong>Alihkan otomatis file baru ke Google Drive OAuth2</strong> jika kuota
+                Supabase melewati ambang batas.
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                disabled={!canManage || savingThreshold}
+                checked={backendMonitor?.settings?.forceRouteToDrive ?? false}
+                onChange={(e) =>
+                  void handleSaveBackendRule({ forceRouteToDrive: e.target.checked })
+                }
+                className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+              />
+              <span className="text-xs text-slate-700 leading-snug">
+                <strong>Paksa arahkan semua media baru ke Google Drive sekarang</strong> (aktif
+                langsung tanpa menunggu kuota penuh).
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* Kartu Audit & Kontrol Mode Hybrid Supabase -> Google Drive */}

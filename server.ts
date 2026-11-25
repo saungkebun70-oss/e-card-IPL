@@ -11,6 +11,11 @@ import {
   SEED_WARGA,
 } from './src/lib/seedData';
 import { normalizePhoneNumber } from './src/lib/phoneAndBlockUtils';
+import {
+  inspectSupabaseStorageStatus,
+  saveHybridThresholdSettings,
+  uploadMediaViaConnectedDriveOAuth,
+} from './src/server/storageHybridBackend';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,11 +99,140 @@ hydrateMemoryLogs();
 
 async function startServer() {
   const app = express();
+
+  app.post(
+    '/api/storage/upload-drive',
+    express.json({ limit: '8mb' }),
+    async (req, res) => {
+      const roleHeader = String(req.headers['x-user-role'] || '').trim().toLowerCase();
+      if (!['admin', 'warga', 'petugas', 'keamanan'].includes(roleHeader)) {
+        res.status(401).json({ error: 'Akses unggah media memerlukan sesi portal aktif.' });
+        return;
+      }
+
+      const authHeader = String(req.headers.authorization || '').trim();
+      const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+        ? authHeader.slice(7).trim()
+        : '';
+      if (!bearerToken) {
+        res.status(401).json({ error: 'Header Authorization Bearer OAuth2 Google wajib disertakan.' });
+        return;
+      }
+
+      const body = (req.body || {}) as {
+        folderKey?: string;
+        fileName?: string;
+        mimeType?: string;
+        fileBase64?: string;
+        description?: string;
+        makePublicReader?: boolean;
+      };
+
+      try {
+        const result = await uploadMediaViaConnectedDriveOAuth({
+          bearerToken,
+          folderKey: String(body.folderKey || ''),
+          fileName: String(body.fileName || ''),
+          mimeType: String(body.mimeType || ''),
+          fileBase64: String(body.fileBase64 || ''),
+          description: typeof body.description === 'string' ? body.description : undefined,
+          makePublicReader: body.makePublicReader !== false,
+        });
+        res.status(200).json(result);
+      } catch (err) {
+        const statusCode =
+          typeof (err as { statusCode?: number })?.statusCode === 'number'
+            ? (err as { statusCode: number }).statusCode
+            : 500;
+        res.status(statusCode).json({
+          ok: false,
+          error: err instanceof Error ? err.message : 'Gagal mengunggah ke Google Drive.',
+        });
+      }
+    }
+  );
+
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'ecard-saung-kebun', time: new Date().toISOString() });
+  });
+
+  app.get('/api/storage/status', async (req, res) => {
+    const roleHeader = String(req.headers['x-user-role'] || '').trim().toLowerCase();
+    if (!['admin', 'warga', 'petugas', 'keamanan'].includes(roleHeader)) {
+      res.status(401).json({ error: 'Akses monitor penyimpanan hanya untuk pengguna portal aktif.' });
+      return;
+    }
+
+    try {
+      const status = await inspectSupabaseStorageStatus(roleHeader);
+      if (roleHeader !== 'admin') {
+        res.json({
+          ok: true,
+          status: status.status,
+          shouldRouteNewMediaToDrive: status.shouldRouteNewMediaToDrive,
+          storageUsagePercent: status.storageUsagePercent,
+          dbUsagePercent: status.dbUsagePercent,
+          thresholdPercent: status.settings.thresholdPercent,
+          measuredAt: status.measuredAt,
+        });
+        return;
+      }
+      res.json(status);
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal memantau status penyimpanan Supabase.',
+      });
+    }
+  });
+
+  app.post('/api/storage/config', async (req, res) => {
+    const roleHeader = String(req.headers['x-user-role'] || '').trim().toLowerCase();
+    const permHeader = String(req.headers['x-admin-permission'] || '').trim().toLowerCase();
+    const jabatanHeader = String(req.headers['x-admin-jabatan'] || '').trim().toLowerCase();
+    if (roleHeader !== 'admin' || (permHeader !== 'full' && jabatanHeader !== 'ketua')) {
+      res.status(403).json({
+        error: 'Pengaturan ambang batas penyimpanan khusus akun Bendahara atau Ketua.',
+      });
+      return;
+    }
+
+    const body = (req.body || {}) as {
+      thresholdPercent?: number;
+      storageLimitMb?: number;
+      autoRouteOnNearLimit?: boolean;
+      forceRouteToDrive?: boolean;
+    };
+
+    try {
+      const saved = await saveHybridThresholdSettings(
+        {
+          thresholdPercent:
+            typeof body.thresholdPercent === 'number' ? body.thresholdPercent : undefined,
+          storageLimitBytes:
+            typeof body.storageLimitMb === 'number' && Number.isFinite(body.storageLimitMb)
+              ? Math.round(body.storageLimitMb * 1024 * 1024)
+              : undefined,
+          autoRouteOnNearLimit:
+            typeof body.autoRouteOnNearLimit === 'boolean'
+              ? body.autoRouteOnNearLimit
+              : undefined,
+          forceRouteToDrive:
+            typeof body.forceRouteToDrive === 'boolean' ? body.forceRouteToDrive : undefined,
+        },
+        { role: roleHeader, permission: permHeader || 'full' }
+      );
+      const updatedStatus = await inspectSupabaseStorageStatus('admin');
+      res.json({ ok: true, ...saved, monitor: updatedStatus });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Gagal memperbarui aturan ambang batas.',
+      });
+    }
   });
 
   app.post('/api/audit-logs', (req, res) => {

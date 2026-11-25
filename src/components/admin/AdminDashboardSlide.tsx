@@ -62,6 +62,7 @@ import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { computeVerificationQueue } from '../../lib/verificationQueue';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
+import { AdminStorageUsageWidget } from './AdminStorageUsageWidget';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -83,6 +84,7 @@ interface AdminDashboardSlideProps {
   onRefresh: () => Promise<void>;
   onOptimisticMutate?: (updater: (prev: AdminSnapshot) => AdminSnapshot) => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
+  onOpenDriveSettings?: () => void;
 }
 
 export function AdminDashboardSlide({
@@ -96,6 +98,7 @@ export function AdminDashboardSlide({
   onRefresh,
   onOptimisticMutate,
   onToast,
+  onOpenDriveSettings,
 }: AdminDashboardSlideProps) {
   const canManageFull = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
@@ -862,6 +865,12 @@ export function AdminDashboardSlide({
           </p>
         </div>
       </section>
+
+      {/* WIDGET PENGGUNAAN PENYIMPANAN SUPABASE & BATAS KUOTA */}
+      <AdminStorageUsageWidget
+        session={session}
+        onOpenDriveSettings={onOpenDriveSettings}
+      />
 
       {/* GENERATOR LAPORAN BULANAN OTOMATIS KHUSUS KETUA */}
       {isKetua && (

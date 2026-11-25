@@ -1054,6 +1054,10 @@ export default function App() {
               onRefresh={() => loadPortalData(session, { force: true })}
               onOptimisticMutate={handleOptimisticAdminMutate}
               onToast={pushToast}
+              onOpenDriveSettings={() => {
+                setSettingsTab('arsip_drive');
+                setSettingsOpen(true);
+              }}
             />
           );
         case 'warga':
