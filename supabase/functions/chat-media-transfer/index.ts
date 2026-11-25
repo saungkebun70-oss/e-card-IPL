@@ -1,5 +1,7 @@
 import {
+  applyRoomDrivePermissionPolicy,
   buildCorsHeaders,
+  buildPrivateDriveProxyUrl,
   canCallerAccessRoom,
   classifyNonVideoAttachmentType,
   getDriveServiceAccountToken,
@@ -7,7 +9,6 @@ import {
   isVideoMedia,
   jsonResponse,
   loadDriveServiceAccountConfig,
-  makeDriveFilePublicReader,
   MAX_NON_VIDEO_TRANSIT_BYTES,
   normalizeChatRoomId,
   resolveMonthlyChatDriveFolder,
@@ -111,21 +112,47 @@ Deno.serve(async (req: Request) => {
       description: `Lampiran chat ${roomId} oleh ${caller.displayName} (${caller.senderId})`,
     });
 
-    await makeDriveFilePublicReader(accessToken, uploaded.id);
+    // Terapkan kebijakan izin Drive otomatis sesuai jenis ruang chat
+    const drivePermissionScope = await applyRoomDrivePermissionPolicy(
+      accessToken,
+      uploaded.id,
+      roomId
+    );
 
     // WAJIB hapus file sementara dari chat-transit setelah drive_file_id diperoleh
     const { error: removeErr } = await client.storage.from('chat-transit').remove([transitPath]);
     const transitDeleted = !removeErr;
 
     const attachmentType = classifyNonVideoAttachmentType(effectiveMime, safeName);
-    const attachmentUrl =
-      attachmentType === 'photo'
-        ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
-        : uploaded.webViewLink;
-    const thumbnailUrl =
-      attachmentType === 'photo'
+    const driveWebViewLink = uploaded.webViewLink;
+    const driveThumbnailLink =
+      drivePermissionScope === 'anyone_link' && attachmentType === 'photo'
         ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w480`
         : uploaded.thumbnailLink || null;
+
+    const attachmentUrl =
+      drivePermissionScope === 'restricted_private'
+        ? buildPrivateDriveProxyUrl({
+            fileId: uploaded.id,
+            roomId,
+            messageId: body.messageId,
+            mode: 'stream',
+          })
+        : attachmentType === 'photo'
+          ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(uploaded.id)}=w1600`
+          : driveWebViewLink;
+
+    const thumbnailUrl =
+      drivePermissionScope === 'restricted_private'
+        ? attachmentType === 'photo'
+          ? buildPrivateDriveProxyUrl({
+              fileId: uploaded.id,
+              roomId,
+              messageId: body.messageId,
+              mode: 'thumbnail',
+            })
+          : null
+        : driveThumbnailLink;
 
     const messageUpdated = await updateChatAttachmentRecord({
       messageId: body.messageId,
@@ -139,6 +166,9 @@ Deno.serve(async (req: Request) => {
       attachmentUrl,
       thumbnailUrl,
       status: 'ready',
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
     });
 
     return jsonResponse(req, 200, {
@@ -146,13 +176,16 @@ Deno.serve(async (req: Request) => {
       storageProvider: 'google_drive',
       attachmentType,
       driveFileId: uploaded.id,
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
       folderPath,
       fileName: uploaded.name,
       mimeType: effectiveMime,
       sizeBytes: uploaded.size,
       attachmentUrl,
       thumbnailUrl,
-      webViewLink: uploaded.webViewLink,
+      webViewLink: driveWebViewLink,
       transitDeleted,
       messageUpdated,
     });

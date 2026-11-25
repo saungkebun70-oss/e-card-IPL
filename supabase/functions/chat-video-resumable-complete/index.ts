@@ -1,11 +1,12 @@
 import {
+  applyRoomDrivePermissionPolicy,
   buildCorsHeaders,
+  buildPrivateDriveProxyUrl,
   canCallerAccessRoom,
   getDriveServiceAccountToken,
   isVideoMedia,
   jsonResponse,
   loadDriveServiceAccountConfig,
-  makeDriveFilePublicReader,
   normalizeChatRoomId,
   resolveMonthlyChatDriveFolder,
   updateChatAttachmentRecord,
@@ -133,13 +134,39 @@ Deno.serve(async (req: Request) => {
     }
     const resolvedFolderPath = body.folderPath?.trim() || expectedFolder.folderPath;
 
-    await makeDriveFilePublicReader(accessToken, driveFileId);
+    // Terapkan kebijakan izin Google Drive otomatis sesuai jenis ruang chat
+    const drivePermissionScope = await applyRoomDrivePermissionPolicy(
+      accessToken,
+      driveFileId,
+      roomId
+    );
 
-    const webViewLink =
+    const driveWebViewLink =
       fileMeta.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
+    const driveThumbnailLink =
+      drivePermissionScope === 'anyone_link'
+        ? fileMeta.thumbnailLink ||
+          `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveFileId)}&sz=w640`
+        : fileMeta.thumbnailLink || null;
+
+    const attachmentUrl =
+      drivePermissionScope === 'restricted_private'
+        ? buildPrivateDriveProxyUrl({
+            fileId: driveFileId,
+            roomId,
+            messageId: body.messageId,
+            mode: 'stream',
+          })
+        : driveWebViewLink;
     const thumbnailUrl =
-      fileMeta.thumbnailLink ||
-      `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveFileId)}&sz=w640`;
+      drivePermissionScope === 'restricted_private'
+        ? buildPrivateDriveProxyUrl({
+            fileId: driveFileId,
+            roomId,
+            messageId: body.messageId,
+            mode: 'thumbnail',
+          })
+        : driveThumbnailLink;
     const sizeBytes = Number(fileMeta.size || 0);
 
     const messageUpdated = await updateChatAttachmentRecord({
@@ -151,9 +178,12 @@ Deno.serve(async (req: Request) => {
       storageProvider: 'google_drive',
       driveFileId,
       driveFolderPath: resolvedFolderPath,
-      attachmentUrl: webViewLink,
+      attachmentUrl,
       thumbnailUrl,
       status: 'ready',
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
     });
 
     return jsonResponse(req, 200, {
@@ -161,13 +191,16 @@ Deno.serve(async (req: Request) => {
       storageProvider: 'google_drive',
       attachmentType: 'video',
       driveFileId,
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
       folderPath: resolvedFolderPath,
       fileName: effectiveName,
       mimeType: effectiveMime,
       sizeBytes: Number.isFinite(sizeBytes) ? sizeBytes : 0,
-      attachmentUrl: webViewLink,
+      attachmentUrl,
       thumbnailUrl,
-      webViewLink,
+      webViewLink: driveWebViewLink,
       messageUpdated,
     });
   } catch (err) {

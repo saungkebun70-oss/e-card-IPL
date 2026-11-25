@@ -64,8 +64,10 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'authorization, x-client-info, apikey, content-type, range, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan',
+    'Access-Control-Expose-Headers':
+      'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
     'Cache-Control': 'no-store',
     Vary: 'Origin',
   };
@@ -283,6 +285,29 @@ export async function verifyChatCaller(req: Request): Promise<VerifiedChatCaller
         new Error('Akun Pengurus tidak aktif atau hak Pengurus telah dicabut.'),
         { statusCode: 403 }
       );
+    }
+
+    // Verifikasi ganda terhadap RPC Migrasi V16 (`is_active_pengurus === true`) bila terpasang
+    try {
+      const rpcCheck = await client.rpc('validate_login_account_status', {
+        p_identifier: reqUsername,
+        p_portal: 'admin',
+      });
+      const row = Array.isArray(rpcCheck.data) ? rpcCheck.data[0] : rpcCheck.data;
+      if (row && typeof row === 'object' && 'is_active_pengurus' in row) {
+        const activeFlag = (row as { is_active_pengurus?: unknown }).is_active_pengurus;
+        if (activeFlag === false || String(activeFlag).toLowerCase() === 'false') {
+          throw Object.assign(
+            new Error('Status Pengurus Anda telah dinonaktifkan (is_active_pengurus = false).'),
+            { statusCode: 403 }
+          );
+        }
+      }
+    } catch (rpcErr) {
+      if ((rpcErr as { statusCode?: number })?.statusCode === 403) {
+        throw rpcErr;
+      }
+      // Abaikan bila RPC V16 belum tersedia atau parameter berbeda; verifikasi users_warga tetap berlaku
     }
 
     const matchIds = new Set<string>([`admin:${reqUsername}`]);
@@ -567,21 +592,212 @@ export async function resolveMonthlyChatDriveFolder(
   };
 }
 
+export type DrivePermissionScope = 'anyone_link' | 'restricted_private';
+
+export function resolveRoomDrivePermissionScope(roomId: string): DrivePermissionScope {
+  const clean = String(roomId || '').trim();
+  if (clean === 'grup_pengurus' || clean.startsWith('dm:')) {
+    return 'restricted_private';
+  }
+  return 'anyone_link';
+}
+
+export async function stripPublicAnyonePermissions(
+  accessToken: string,
+  fileId: string
+): Promise<void> {
+  const listRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}/permissions?supportsAllDrives=true&fields=permissions(id,type,role)`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  ).catch(() => null);
+
+  if (!listRes || !listRes.ok) return;
+  const listJson = (await listRes.json().catch(() => ({}))) as {
+    permissions?: Array<{ id?: string; type?: string }>;
+  };
+
+  for (const perm of listJson.permissions || []) {
+    if (perm?.type === 'anyone' && perm.id) {
+      await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+          fileId
+        )}/permissions/${encodeURIComponent(perm.id)}?supportsAllDrives=true`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      ).catch(() => undefined);
+    }
+  }
+}
+
+export async function applyRoomDrivePermissionPolicy(
+  accessToken: string,
+  fileId: string,
+  roomId: string
+): Promise<DrivePermissionScope> {
+  const scope = resolveRoomDrivePermissionScope(roomId);
+  if (scope === 'anyone_link') {
+    const permRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}/permissions?supportsAllDrives=true`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'anyone',
+          role: 'reader',
+          allowFileDiscovery: false,
+        }),
+      }
+    );
+    if (!permRes.ok) {
+      const errText = await permRes.text().catch(() => '');
+      throw new Error(
+        `Gagal menetapkan izin baca publik tautan Google Drive (${permRes.status}): ${errText.slice(0, 140)}`
+      );
+    }
+    return 'anyone_link';
+  }
+
+  // Ruang privat (Grup Pengurus & DM Personal): DILARANG memberi izin anyone; hapus izin anyone bila ada
+  await stripPublicAnyonePermissions(accessToken, fileId);
+  return 'restricted_private';
+}
+
 export async function makeDriveFilePublicReader(
   accessToken: string,
   fileId: string
 ): Promise<void> {
-  await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+  await applyRoomDrivePermissionPolicy(accessToken, fileId, 'pengurus_warga');
+}
+
+export function buildPrivateDriveProxyUrl(params: {
+  fileId: string;
+  roomId: string;
+  messageId?: string;
+  mode?: 'stream' | 'download' | 'thumbnail';
+}): string {
+  const qs = new URLSearchParams({
+    fileId: params.fileId,
+    roomId: params.roomId,
+  });
+  if (params.messageId) qs.set('messageId', params.messageId);
+  if (params.mode && params.mode !== 'stream') qs.set('mode', params.mode);
+  return `/api/storage/chat-drive-private-access?${qs.toString()}`;
+}
+
+export async function recordUnauthorizedDriveAccessAudit(params: {
+  req: Request;
+  roomId?: string;
+  fileId?: string;
+  messageId?: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    const { client } = getSupabaseAdminClient();
+    const actorRole = normalizeToken(params.req.headers.get('x-user-role')) || 'anonymous';
+    const actorBlok = (params.req.headers.get('x-blok-rumah') || '').trim();
+    const actorPetugas = (params.req.headers.get('x-petugas-id') || '').trim();
+    const actorId = actorBlok || actorPetugas || 'anonymous';
+
+    await client.from('audit_logs').insert({
+      actor_role: actorRole,
+      actor_id: actorId,
+      actor_name: `Penolakan Akses (${actorRole})`,
+      action: 'UNAUTHORIZED_PRIVATE_DRIVE_ACCESS',
+      entity: 'chat_private_media',
+      entity_id: params.fileId || params.messageId || params.roomId || null,
+      summary: `Akses berkas privat Google Drive ditolak (403) pada ruang ${
+        params.roomId || 'tidak diketahui'
+      }: ${params.reason}`,
+      metadata: {
+        room_id: params.roomId || null,
+        drive_file_id: params.fileId || null,
+        message_id: params.messageId || null,
+        reason: params.reason,
+        requested_role: actorRole,
+        requested_blok: actorBlok || null,
+        requested_petugas_id: actorPetugas || null,
       },
-      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    });
+  } catch {
+    // Jangan gagalkan respons 403 bila penulisan audit mengalami kendala jaringan
+  }
+}
+
+async function getPrivateStreamSigningSecret(): Promise<CryptoKey> {
+  const rawSecret = (
+    Deno.env.get('CHAT_MEDIA_SIGNING_SECRET') ||
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+    ''
+  ).trim();
+  if (!rawSecret) {
+    throw new Error('Kunci penandatanganan akses media privat belum tersedia.');
+  }
+  return crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(rawSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign', 'verify']
+  );
+}
+
+export async function signPrivateStreamToken(payload: {
+  fileId: string;
+  roomId: string;
+  role: string;
+  blokRumah: string;
+  petugasId: string;
+  exp: number;
+}): Promise<string> {
+  const key = await getPrivateStreamSigningSecret();
+  const canonical = JSON.stringify({
+    f: payload.fileId,
+    r: payload.roomId,
+    ro: payload.role,
+    b: payload.blokRumah,
+    p: payload.petugasId,
+    e: payload.exp,
+  });
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(canonical));
+  return base64UrlEncode(new Uint8Array(sig));
+}
+
+export async function verifyPrivateStreamToken(
+  payload: {
+    fileId: string;
+    roomId: string;
+    role: string;
+    blokRumah: string;
+    petugasId: string;
+    exp: number;
+  },
+  signatureB64Url: string
+): Promise<boolean> {
+  if (!signatureB64Url || !Number.isFinite(payload.exp) || Date.now() > payload.exp) {
+    return false;
+  }
+  try {
+    const expected = await signPrivateStreamToken(payload);
+    if (expected.length !== signatureB64Url.length) return false;
+    let diff = 0;
+    for (let i = 0; i < expected.length; i += 1) {
+      diff |= expected.charCodeAt(i) ^ signatureB64Url.charCodeAt(i);
     }
-  ).catch(() => undefined);
+    return diff === 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function uploadBytesToDrive(params: {
@@ -722,9 +938,31 @@ export async function updateChatAttachmentRecord(params: {
   attachmentUrl: string | null;
   thumbnailUrl: string | null;
   status: 'uploading_video' | 'ready' | 'failed';
+  drivePermissionScope?: DrivePermissionScope;
+  driveWebViewLink?: string | null;
+  driveThumbnailLink?: string | null;
 }): Promise<boolean> {
   if (!params.messageId) return false;
   const { client } = getSupabaseAdminClient();
+
+  const rpcV2 = await client.rpc('update_chat_message_attachment_v2', {
+    p_message_id: params.messageId,
+    p_attachment_type: params.attachmentType,
+    p_attachment_name: params.attachmentName,
+    p_attachment_mime: params.attachmentMime,
+    p_attachment_size_bytes: params.attachmentSizeBytes,
+    p_attachment_storage_provider: params.storageProvider,
+    p_attachment_drive_file_id: params.driveFileId,
+    p_attachment_drive_folder_path: params.driveFolderPath,
+    p_attachment_url: params.attachmentUrl,
+    p_attachment_thumbnail_url: params.thumbnailUrl,
+    p_attachment_status: params.status,
+    p_drive_permission_scope: params.drivePermissionScope || null,
+    p_drive_web_view_link: params.driveWebViewLink || null,
+    p_drive_thumbnail_link: params.driveThumbnailLink || null,
+  });
+
+  if (!rpcV2.error) return true;
 
   const rpcRes = await client.rpc('update_chat_message_attachment', {
     p_message_id: params.messageId,
@@ -755,6 +993,11 @@ export async function updateChatAttachmentRecord(params: {
       attachment_url: params.attachmentUrl,
       attachment_thumbnail_url: params.thumbnailUrl,
       attachment_status: params.status,
+      ...(params.drivePermissionScope ? { drive_permission_scope: params.drivePermissionScope } : {}),
+      ...(params.driveWebViewLink !== undefined ? { drive_web_view_link: params.driveWebViewLink } : {}),
+      ...(params.driveThumbnailLink !== undefined
+        ? { drive_thumbnail_link: params.driveThumbnailLink }
+        : {}),
     })
     .eq('id', params.messageId);
 
