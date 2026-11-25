@@ -21,8 +21,12 @@ import type { SessionUser, UserRole } from '../types';
 import {
   buildDmRoomId,
   canAccessChatRoom,
+  cancelChatUploadQueueItem,
   clearChatRoom,
+  createChatUploadQueueItem,
+  createRetryChatUploadQueueItem,
   deleteChatMessage,
+  executeChatUploadQueueItem,
   fetchChatDirectory,
   fetchChatMessages,
   fetchChatUnreadSummary,
@@ -37,6 +41,7 @@ import {
   normalizeChatParticipantId,
   parseDmParticipants,
   sendChatMessage,
+  sendChatMessagesWithUploadedAttachments,
   subscribeChatMessagesRealtime,
   type ChatContact,
   type ChatMessage,
@@ -45,7 +50,6 @@ import {
   type GroupChatRoomId,
 } from '../lib/chatService';
 import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
-import { uploadChatAttachment } from '../lib/chatMediaUpload';
 import {
   validatePickedAttachment,
   type AttachmentPickerKind,
@@ -53,7 +57,7 @@ import {
 } from '../lib/chat/attachmentUtils';
 import { UserAvatar } from './UserAvatar';
 import { ChatAttachmentMenu } from './chat/ChatAttachmentMenu';
-import { ChatUploadProgressList } from './chat/ChatUploadProgressList';
+import { UploadProgress } from './chat/UploadProgress';
 import { ChatMessageAttachmentBubble } from './chat/ChatMessageAttachmentBubble';
 import { PrivateDrivePreviewModal } from './chat/PrivateDrivePreviewModal';
 
@@ -402,74 +406,27 @@ export function CommunityChatSlide({
     [uploadQueue]
   );
 
-  const runQueueUpload = useCallback(
-    async (item: UploadQueueItem) => {
-      try {
-        const result = await uploadChatAttachment({
-          session,
-          roomId: item.roomId,
-          file: item.file,
-          signal: item.abortController.signal,
-          onProgress: (progress) => {
-            setUploadQueue((prev) =>
-              prev.map((q) =>
-                q.localId === item.localId
-                  ? {
-                      ...q,
-                      percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
-                      phase: progress.phase,
-                      phaseLabel: progress.label,
-                      bytesUploaded: progress.bytesUploaded,
-                      totalBytes: progress.totalBytes,
-                    }
-                  : q
-              )
-            );
-          },
-        });
-
-        setUploadQueue((prev) =>
-          prev.map((q) =>
-            q.localId === item.localId
-              ? {
-                  ...q,
-                  status: 'completed',
-                  percent: 100,
-                  phase: 'completed',
-                  phaseLabel: 'Tersimpan di Google Drive.',
-                  bytesUploaded: q.totalBytes,
-                  error: null,
-                  result,
-                }
-              : q
-          )
-        );
-      } catch (err) {
-        if (
-          item.abortController.signal.aborted ||
-          (err instanceof DOMException && err.name === 'AbortError')
-        ) {
-          setUploadQueue((prev) => prev.filter((q) => q.localId !== item.localId));
-          return;
-        }
-        const message =
-          err instanceof Error ? err.message : 'Gagal mengunggah lampiran ke Google Drive.';
-        setUploadQueue((prev) =>
-          prev.map((q) =>
-            q.localId === item.localId
-              ? {
-                  ...q,
-                  status: 'failed',
-                  phase: 'failed',
-                  phaseLabel: 'Unggahan gagal',
-                  error: message,
-                }
-              : q
-          )
-        );
-      }
+  const patchUploadQueueItem = useCallback(
+    (localId: string, updater: (prev: UploadQueueItem) => UploadQueueItem) => {
+      setUploadQueue((prev) => prev.map((q) => (q.localId === localId ? updater(q) : q)));
     },
-    [session]
+    []
+  );
+
+  const removeUploadQueueItem = useCallback((localId: string) => {
+    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
+  }, []);
+
+  const runQueueUpload = useCallback(
+    (item: UploadQueueItem) => {
+      void executeChatUploadQueueItem({
+        session,
+        item,
+        onPatchItem: patchUploadQueueItem,
+        onAborted: removeUploadQueueItem,
+      });
+    },
+    [session, patchUploadQueueItem, removeUploadQueueItem]
   );
 
   const handleSelectAttachmentFiles = useCallback(
@@ -483,70 +440,52 @@ export function CommunityChatSlide({
           onToast?.('error', check.error);
           continue;
         }
-        const localId = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        newItems.push({
-          localId,
-          roomId: targetRoomId,
-          file,
-          pickerKind: kind,
-          attachmentType: check.resolvedType,
-          status: 'uploading',
-          percent: 1,
-          phase: check.resolvedType === 'video' ? 'initializing_video_session' : 'preparing',
-          phaseLabel:
-            check.resolvedType === 'video'
-              ? 'Menyiapkan jalur langsung Google Drive...'
-              : 'Menyiapkan berkas...',
-          bytesUploaded: 0,
-          totalBytes: file.size,
-          error: null,
-          abortController: new AbortController(),
-          result: null,
-        });
+        newItems.push(
+          createChatUploadQueueItem({
+            roomId: targetRoomId,
+            file,
+            pickerKind: kind,
+            attachmentType: check.resolvedType,
+          })
+        );
       }
 
       if (newItems.length === 0) return;
 
       setUploadQueue((prev) => [...prev, ...newItems]);
       newItems.forEach((item) => {
-        void runQueueUpload(item);
+        runQueueUpload(item);
       });
     },
     [onToast, runQueueUpload]
   );
 
-  const handleCancelUpload = useCallback((localId: string) => {
-    const target = uploadQueueRef.current.find((q) => q.localId === localId);
-    if (target) {
-      target.abortController.abort();
-    }
-    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
-  }, []);
+  const handleCancelUpload = useCallback(
+    (localId: string) => {
+      const target = uploadQueueRef.current.find((q) => q.localId === localId);
+      cancelChatUploadQueueItem(target);
+      removeUploadQueueItem(localId);
+    },
+    [removeUploadQueueItem]
+  );
 
   const handleRetryUpload = useCallback(
     (localId: string) => {
       const target = uploadQueueRef.current.find((q) => q.localId === localId);
       if (!target) return;
-      const restarted: UploadQueueItem = {
-        ...target,
-        status: 'uploading',
-        percent: 1,
-        phase: target.attachmentType === 'video' ? 'initializing_video_session' : 'preparing',
-        phaseLabel: 'Mengulang unggahan...',
-        bytesUploaded: 0,
-        error: null,
-        abortController: new AbortController(),
-        result: null,
-      };
+      const restarted = createRetryChatUploadQueueItem(target);
       setUploadQueue((prev) => prev.map((q) => (q.localId === localId ? restarted : q)));
-      void runQueueUpload(restarted);
+      runQueueUpload(restarted);
     },
     [runQueueUpload]
   );
 
-  const handleRemoveUploadItem = useCallback((localId: string) => {
-    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
-  }, []);
+  const handleRemoveUploadItem = useCallback(
+    (localId: string) => {
+      removeUploadQueueItem(localId);
+    },
+    [removeUploadQueueItem]
+  );
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -598,48 +537,22 @@ export function CommunityChatSlide({
         });
       } else {
         const sentIds = new Set<string>();
-        for (let idx = 0; idx < readyItems.length; idx += 1) {
-          const item = readyItems[idx];
-          const upload = item.result;
-          if (!upload) continue;
-
-          const fallbackLabel =
-            upload.attachmentType === 'video'
-              ? `[Video] ${upload.fileName}`
-              : upload.attachmentType === 'photo'
-                ? `[Foto] ${upload.fileName}`
-                : `[Dokumen] ${upload.fileName}`;
-
-          const messageBody = idx === 0 && cleanText ? cleanText : fallbackLabel;
-          const { message } = await sendChatMessage(session, {
-            room_id: activeRoomId,
-            message: messageBody,
-            reply_to_id: idx === 0 ? replyToId : null,
-            reply_preview: idx === 0 ? replyPreview : null,
-            recipient: recipientPayload,
-            attachment: {
-              attachment_type: upload.attachmentType,
-              attachment_name: upload.fileName,
-              attachment_mime: upload.mimeType,
-              attachment_size_bytes: upload.sizeBytes,
-              attachment_storage_provider: 'google_drive',
-              attachment_drive_file_id: upload.driveFileId,
-              attachment_drive_folder_path: upload.folderPath,
-              attachment_url: upload.attachmentUrl,
-              attachment_thumbnail_url: upload.thumbnailUrl,
-              attachment_status: 'ready',
-              drive_permission_scope: upload.drivePermissionScope || null,
-              drive_web_view_link: upload.driveWebViewLink ?? upload.webViewLink ?? null,
-              drive_thumbnail_link: upload.driveThumbnailLink ?? null,
-            },
-          });
-
-          sentIds.add(item.localId);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === message.id)) return prev;
-            return [...prev, message];
-          });
-        }
+        await sendChatMessagesWithUploadedAttachments({
+          session,
+          roomId: activeRoomId,
+          items: readyItems,
+          caption: cleanText,
+          replyToId,
+          replyPreview,
+          recipient: recipientPayload,
+          onMessageSent: (message, localId) => {
+            sentIds.add(localId);
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === message.id)) return prev;
+              return [...prev, message];
+            });
+          },
+        });
         setUploadQueue((prev) => prev.filter((q) => !sentIds.has(q.localId)));
       }
 
@@ -1508,7 +1421,7 @@ export function CommunityChatSlide({
                 </div>
               )}
 
-              <ChatUploadProgressList
+              <UploadProgress
                 items={uploadQueue}
                 onCancel={handleCancelUpload}
                 onRetry={handleRetryUpload}

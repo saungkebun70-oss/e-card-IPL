@@ -12,6 +12,12 @@ import {
 } from './notificationService';
 import { canonicalBlockKey } from './phoneAndBlockUtils';
 import { SEED_WARGA } from './seedData';
+import type { AttachmentPickerKind, UploadQueueItem } from './chat/attachmentUtils';
+import type {
+  ChatMediaUploadProgress,
+  ChatMediaUploadResult,
+  UploadChatAttachmentParams,
+} from './chatMediaUpload';
 
 export type GroupChatRoomId =
   | 'grup_pengurus'
@@ -1554,3 +1560,201 @@ export function subscribeChatMessagesRealtime(
     });
   };
 }
+
+/**
+ * Mengunggah satu lampiran chat melalui pipeline Modul 2 & Modul 3:
+ * - Foto / Dokumen -> bucket transit `chat-transit` -> Google Drive -> hapus transit
+ * - Semua Video -> Direct Google Drive Resumable Upload (tanpa transit Supabase)
+ */
+export async function uploadChatAttachmentViaService(
+  params: UploadChatAttachmentParams
+): Promise<ChatMediaUploadResult> {
+  const { uploadChatAttachment } = await import('./chatMediaUpload');
+  return uploadChatAttachment(params);
+}
+
+/**
+ * Membuat item antrean unggah awal untuk komponen UploadProgress.
+ */
+export function createChatUploadQueueItem(params: {
+  roomId: ChatRoomId;
+  file: File;
+  pickerKind: AttachmentPickerKind;
+  attachmentType: Exclude<ChatAttachmentType, 'none'>;
+}): UploadQueueItem {
+  const localId = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return {
+    localId,
+    roomId: params.roomId,
+    file: params.file,
+    pickerKind: params.pickerKind,
+    attachmentType: params.attachmentType,
+    status: 'uploading',
+    percent: 1,
+    phase: params.attachmentType === 'video' ? 'initializing_video_session' : 'preparing',
+    phaseLabel:
+      params.attachmentType === 'video'
+        ? 'Menyiapkan jalur langsung Google Drive...'
+        : 'Menyiapkan berkas...',
+    bytesUploaded: 0,
+    totalBytes: params.file.size,
+    error: null,
+    abortController: new AbortController(),
+    result: null,
+  };
+}
+
+/**
+ * Menjalankan proses unggah untuk satu UploadQueueItem dan menyalurkan pembaruan progres 0%-100%.
+ */
+export async function executeChatUploadQueueItem(params: {
+  session: SessionUser;
+  item: UploadQueueItem;
+  onPatchItem: (localId: string, updater: (prev: UploadQueueItem) => UploadQueueItem) => void;
+  onAborted?: (localId: string) => void;
+}): Promise<ChatMediaUploadResult | null> {
+  const { session, item, onPatchItem, onAborted } = params;
+
+  try {
+    const result = await uploadChatAttachmentViaService({
+      session,
+      roomId: item.roomId,
+      file: item.file,
+      signal: item.abortController.signal,
+      onProgress: (progress: ChatMediaUploadProgress) => {
+        onPatchItem(item.localId, (prev) => ({
+          ...prev,
+          percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
+          phase: progress.phase,
+          phaseLabel: progress.label,
+          bytesUploaded: progress.bytesUploaded,
+          totalBytes: progress.totalBytes,
+        }));
+      },
+    });
+
+    onPatchItem(item.localId, (prev) => ({
+      ...prev,
+      status: 'completed',
+      percent: 100,
+      phase: 'completed',
+      phaseLabel: 'Tersimpan di Google Drive.',
+      bytesUploaded: prev.totalBytes,
+      error: null,
+      result,
+    }));
+
+    return result;
+  } catch (err) {
+    if (
+      item.abortController.signal.aborted ||
+      (err instanceof DOMException && err.name === 'AbortError')
+    ) {
+      onAborted?.(item.localId);
+      return null;
+    }
+
+    const message =
+      err instanceof Error ? err.message : 'Gagal mengunggah lampiran ke Google Drive.';
+    onPatchItem(item.localId, (prev) => ({
+      ...prev,
+      status: 'failed',
+      phase: 'failed',
+      phaseLabel: 'Unggahan gagal',
+      error: message,
+    }));
+    return null;
+  }
+}
+
+/**
+ * Membatalkan unggahan aktif pada item antrean.
+ */
+export function cancelChatUploadQueueItem(item?: UploadQueueItem | null): void {
+  if (!item) return;
+  if (!item.abortController.signal.aborted) {
+    item.abortController.abort();
+  }
+}
+
+/**
+ * Menyiapkan ulang item unggah yang gagal dengan AbortController baru.
+ */
+export function createRetryChatUploadQueueItem(item: UploadQueueItem): UploadQueueItem {
+  return {
+    ...item,
+    status: 'uploading',
+    percent: 1,
+    phase: item.attachmentType === 'video' ? 'initializing_video_session' : 'preparing',
+    phaseLabel: 'Mengulang unggahan...',
+    bytesUploaded: 0,
+    error: null,
+    abortController: new AbortController(),
+    result: null,
+  };
+}
+
+/**
+ * Mengirim pesan chat beserta lampiran yang telah selesai diunggah ke Google Drive.
+ */
+export async function sendChatMessagesWithUploadedAttachments(params: {
+  session: SessionUser;
+  roomId: ChatRoomId;
+  items: UploadQueueItem[];
+  caption?: string;
+  replyToId?: string | null;
+  replyPreview?: string | null;
+  recipient?: Pick<ChatContact, 'participant_id' | 'display_name' | 'role'> | null;
+  onMessageSent?: (message: ChatMessage, localId: string) => void;
+}): Promise<{ messages: ChatMessage[]; sentLocalIds: string[] }> {
+  const cleanCaption = (params.caption || '').trim();
+  const readyItems = params.items.filter(
+    (item) => item.status === 'completed' && item.result !== null
+  );
+  const messages: ChatMessage[] = [];
+  const sentLocalIds: string[] = [];
+
+  for (let idx = 0; idx < readyItems.length; idx += 1) {
+    const item = readyItems[idx];
+    const upload = item.result;
+    if (!upload) continue;
+
+    const fallbackLabel =
+      upload.attachmentType === 'video'
+        ? `[Video] ${upload.fileName}`
+        : upload.attachmentType === 'photo'
+          ? `[Foto] ${upload.fileName}`
+          : `[Dokumen] ${upload.fileName}`;
+
+    const messageBody = idx === 0 && cleanCaption ? cleanCaption : fallbackLabel;
+    const { message } = await sendChatMessage(params.session, {
+      room_id: params.roomId,
+      message: messageBody,
+      reply_to_id: idx === 0 ? params.replyToId : null,
+      reply_preview: idx === 0 ? params.replyPreview : null,
+      recipient: params.recipient,
+      attachment: {
+        attachment_type: upload.attachmentType,
+        attachment_name: upload.fileName,
+        attachment_mime: upload.mimeType,
+        attachment_size_bytes: upload.sizeBytes,
+        attachment_storage_provider: 'google_drive',
+        attachment_drive_file_id: upload.driveFileId,
+        attachment_drive_folder_path: upload.folderPath,
+        attachment_url: upload.attachmentUrl,
+        attachment_thumbnail_url: upload.thumbnailUrl,
+        attachment_status: 'ready',
+        drive_permission_scope: upload.drivePermissionScope || null,
+        drive_web_view_link: upload.driveWebViewLink ?? upload.webViewLink ?? null,
+        drive_thumbnail_link: upload.driveThumbnailLink ?? null,
+      },
+    });
+
+    messages.push(message);
+    sentLocalIds.push(item.localId);
+    params.onMessageSent?.(message, item.localId);
+  }
+
+  return { messages, sentLocalIds };
+}
+

@@ -17,34 +17,37 @@ import {
   type UploadQueueItem,
 } from '../../lib/chat/attachmentUtils';
 
-interface ChatUploadProgressListProps {
+export interface UploadProgressProps {
   items: UploadQueueItem[];
   onCancel: (localId: string) => void;
   onRetry: (localId: string) => void;
-  onRemove: (localId: string) => void;
+  onRemove?: (localId: string) => void;
+  className?: string;
 }
 
-function getTypeIcon(type: UploadQueueItem['attachmentType']) {
+function getAttachmentIcon(type: UploadQueueItem['attachmentType']) {
   if (type === 'photo') return ImageIcon;
   if (type === 'video') return Film;
   return FileText;
 }
 
-export function ChatUploadProgressList({
+export function UploadProgress({
   items,
   onCancel,
   onRetry,
   onRemove,
-}: ChatUploadProgressListProps) {
+  className = '',
+}: UploadProgressProps) {
   if (items.length === 0) return null;
 
   return (
     <div
       aria-live="polite"
-      className="max-h-44 overflow-y-auto space-y-2 pr-0.5 overscroll-contain"
+      className={`max-h-44 overflow-y-auto space-y-2 pr-0.5 overscroll-contain min-w-0 ${className}`.trim()}
     >
       {items.map((item) => {
-        const Icon = getTypeIcon(item.attachmentType);
+        const Icon = getAttachmentIcon(item.attachmentType);
+        const clampedPercent = Math.max(0, Math.min(100, Math.round(item.percent)));
         const stageText = describeUploadStage(item.phase, item.status);
         const extLabel = getFileExtensionLabel(item.file.name, item.file.type);
         const isUploading = item.status === 'uploading';
@@ -95,7 +98,7 @@ export function ChatUploadProgressList({
                           : 'text-[#312E81]'
                     }`}
                   >
-                    {item.percent}%
+                    {clampedPercent}%
                   </span>
                 </div>
 
@@ -119,9 +122,9 @@ export function ChatUploadProgressList({
 
                 <div className="mt-1.5 flex items-center gap-2 min-w-0">
                   <progress
-                    value={item.percent}
+                    value={clampedPercent}
                     max={100}
-                    aria-label={`Progres unggah ${item.file.name}: ${item.percent}%`}
+                    aria-label={`Progres unggah ${item.file.name}: ${clampedPercent}%`}
                     className={`h-1.5 w-full flex-1 appearance-none rounded-full overflow-hidden bg-white/90 [&::-webkit-progress-bar]:bg-white/90 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:transition-all ${
                       isFailed
                         ? '[&::-webkit-progress-value]:bg-rose-500 [&::-moz-progress-bar]:bg-rose-500'
@@ -172,19 +175,21 @@ export function ChatUploadProgressList({
                       <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                       <span className="hidden sm:inline">Coba Lagi</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(item.localId)}
-                      aria-label={`Hapus ${item.file.name} dari antrean`}
-                      title="Hapus"
-                      className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center cursor-pointer shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {onRemove && (
+                      <button
+                        type="button"
+                        onClick={() => onRemove(item.localId)}
+                        aria-label={`Hapus ${item.file.name} dari antrean`}
+                        title="Hapus"
+                        className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </>
                 )}
 
-                {isCompleted && (
+                {isCompleted && onRemove && (
                   <button
                     type="button"
                     onClick={() => onRemove(item.localId)}
