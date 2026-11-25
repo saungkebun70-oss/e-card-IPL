@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Archive,
   CheckCircle2,
+  Copy,
   DatabaseBackup,
   ExternalLink,
   FolderOpen,
@@ -18,11 +19,15 @@ import {
 } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import {
+  checkFirebaseDomainAuthorization,
   DRIVE_TARGET_EMAIL,
+  FIREBASE_AUTH_SETTINGS_URL,
   getGoogleDriveAccessToken,
   googleDriveLogout,
   initGoogleDriveAuth,
+  isEmbeddedWebView,
   signInGoogleDrive,
+  type DomainAuthCheckResult,
 } from '../../lib/googleDriveAuth';
 import {
   backupDatabaseSnapshotToDrive,
@@ -87,6 +92,10 @@ export function AdminHybridDrivePanel({
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [signInErrorMsg, setSignInErrorMsg] = useState<string | null>(null);
+  const [domainStatus, setDomainStatus] = useState<DomainAuthCheckResult | null>(null);
+  const [checkingDomain, setCheckingDomain] = useState(false);
+  const [inWebView] = useState(() => isEmbeddedWebView());
 
   const [driveAbout, setDriveAbout] = useState<DriveAboutInfo | null>(null);
   const [loadingDriveInfo, setLoadingDriveInfo] = useState(false);
@@ -222,6 +231,10 @@ export function AdminHybridDrivePanel({
       }
     });
 
+    void checkFirebaseDomainAuthorization(false).then((res) => {
+      setDomainStatus(res);
+    });
+
     return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -231,14 +244,42 @@ export function AdminHybridDrivePanel({
     void refreshBackendMonitor(true);
   }, [config.retentionDays, runInventoryScan, refreshBackendMonitor]);
 
+  const handleRecheckDomain = async () => {
+    if (checkingDomain) return;
+    setCheckingDomain(true);
+    try {
+      const res = await checkFirebaseDomainAuthorization(true);
+      setDomainStatus(res);
+      if (res.checked && res.authorized) {
+        setSignInErrorMsg(null);
+        onToast('success', `Domain ${res.hostname} sudah terdaftar dan siap untuk login Google.`);
+      } else if (res.checked && !res.authorized) {
+        onToast('error', `Domain ${res.hostname} masih belum terdaftar di Firebase Authorized Domains.`);
+      }
+    } finally {
+      setCheckingDomain(false);
+    }
+  };
+
+  const handleCopyHostname = async (hostname: string) => {
+    try {
+      await navigator.clipboard.writeText(hostname);
+      onToast('success', `Domain "${hostname}" disalin.`);
+    } catch {
+      onToast('info', `Salin manual domain ini: ${hostname}`);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     if (signingIn) return;
     setSigningIn(true);
+    setSignInErrorMsg(null);
     try {
       const { user, accessToken: token } = await signInGoogleDrive();
       setGoogleUser(user);
       setAccessToken(token);
       setNeedsAuth(false);
+      setSignInErrorMsg(null);
       await loadDriveWorkspace(token, folderFilter);
 
       const signedEmail = (user.email || '').toLowerCase();
@@ -251,10 +292,9 @@ export function AdminHybridDrivePanel({
         );
       }
     } catch (err) {
-      onToast(
-        'error',
-        err instanceof Error ? err.message : 'Login Google Drive dibatalkan atau gagal.'
-      );
+      const msg = err instanceof Error ? err.message : 'Login Google Drive dibatalkan atau gagal.';
+      setSignInErrorMsg(msg);
+      onToast('error', msg);
     } finally {
       setSigningIn(false);
     }
@@ -471,61 +511,153 @@ export function AdminHybridDrivePanel({
         </div>
 
         {needsAuth || !accessToken ? (
-          <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-[#0F172A]">
-                Google Drive belum terhubung di sesi ini
-              </p>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Klik tombol resmi Google di samping untuk masuk menggunakan{' '}
-                <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span>. Token hanya
-                disimpan sementara di memori selama tab aktif.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              disabled={!canManage || signingIn}
-              onClick={handleGoogleSignIn}
-              className="gsi-material-button inline-flex items-center justify-center gap-3 min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm text-sm font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
-            >
-              <div className="gsi-material-button-state" />
-              <div className="gsi-material-button-content-wrapper flex items-center gap-2.5">
-                <div className="gsi-material-button-icon w-5 h-5 shrink-0">
-                  {signingIn ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-[#4C1D95]" />
-                  ) : (
-                    <svg
-                      version="1.1"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 48 48"
-                      style={{ display: 'block', width: '20px', height: '20px' }}
-                    >
-                      <path
-                        fill="#EA4335"
-                        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                      />
-                      <path
-                        fill="#4285F4"
-                        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                      />
-                      <path fill="none" d="M0 0h48v48H0z" />
-                    </svg>
-                  )}
-                </div>
-                <span className="gsi-material-button-contents">
-                  {signingIn ? 'Menghubungkan...' : 'Sign in with Google'}
-                </span>
+          <div className="space-y-3">
+            {inWebView && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs text-amber-950 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Gunakan Google Chrome (Bukan APK/WebView) untuk Login Google Drive</span>
+                </p>
+                <p className="leading-relaxed">
+                  Google memblokir login OAuth di dalam WebView aplikasi Android. Buka alamat portal{' '}
+                  <span className="font-mono font-semibold">
+                    https://{typeof window !== 'undefined' ? window.location.hostname : 'e-card-ipl.vercel.app'}
+                  </span>{' '}
+                  melalui browser <strong>Google Chrome</strong> untuk menghubungkan akun{' '}
+                  <strong>{DRIVE_TARGET_EMAIL}</strong>.
+                </p>
               </div>
-            </button>
+            )}
+
+            {domainStatus?.checked && !domainStatus.authorized && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/85 p-4 text-xs text-rose-950 space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold">
+                      Domain &quot;{domainStatus.hostname}&quot; Belum Didaftarkan di Firebase
+                    </p>
+                    <p className="leading-relaxed text-rose-900">
+                      Jika muncul pesan <em>&quot;The requested action is invalid.&quot;</em> saat
+                      login Google, penyebabnya adalah domain di bawah ini belum masuk ke{' '}
+                      <strong>Authorized domains</strong> pada project Firebase{' '}
+                      <span className="font-mono font-semibold">{domainStatus.projectId}</span>:
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 bg-white/90 border border-rose-200 rounded-xl px-3 py-2">
+                  <code className="font-mono font-bold text-xs text-[#0F172A] flex-1 truncate">
+                    {domainStatus.hostname}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyHostname(domainStatus.hostname)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-800 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Salin Domain</span>
+                  </button>
+                </div>
+
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-rose-900">
+                  <li>
+                    Buka <strong>Firebase Console → Authentication → Settings → Authorized domains</strong>.
+                  </li>
+                  <li>
+                    Klik <strong>Add domain</strong> lalu tempel <span className="font-mono font-semibold">{domainStatus.hostname}</span>.
+                  </li>
+                  <li>
+                    Simpan, lalu klik tombol <strong>Cek Ulang Domain</strong> di bawah sebelum klik <em>Sign in with Google</em>.
+                  </li>
+                </ol>
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <a
+                    href={FIREBASE_AUTH_SETTINGS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[34px] px-3.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Buka Pengaturan Firebase</span>
+                  </a>
+                  <button
+                    type="button"
+                    disabled={checkingDomain}
+                    onClick={() => void handleRecheckDomain()}
+                    className="min-h-[34px] px-3.5 rounded-full border border-rose-200 bg-white hover:bg-rose-100 text-rose-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${checkingDomain ? 'animate-spin' : ''}`} />
+                    <span>{checkingDomain ? 'Memeriksa...' : 'Cek Ulang Domain'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {signInErrorMsg && (!domainStatus?.checked || domainStatus.authorized) && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/85 px-4 py-3 text-xs text-amber-950 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>{signInErrorMsg}</span>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-[#0F172A]">
+                  Google Drive belum terhubung di sesi ini
+                </p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Klik tombol resmi Google di samping untuk masuk menggunakan{' '}
+                  <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span>. Token hanya
+                  disimpan sementara di memori selama tab aktif.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={!canManage || signingIn}
+                onClick={handleGoogleSignIn}
+                className="gsi-material-button inline-flex items-center justify-center gap-3 min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm text-sm font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
+              >
+                <div className="gsi-material-button-state" />
+                <div className="gsi-material-button-content-wrapper flex items-center gap-2.5">
+                  <div className="gsi-material-button-icon w-5 h-5 shrink-0">
+                    {signingIn ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-[#4C1D95]" />
+                    ) : (
+                      <svg
+                        version="1.1"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 48 48"
+                        style={{ display: 'block', width: '20px', height: '20px' }}
+                      >
+                        <path
+                          fill="#EA4335"
+                          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                        />
+                        <path
+                          fill="#4285F4"
+                          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                        />
+                        <path fill="none" d="M0 0h48v48H0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="gsi-material-button-contents">
+                    {signingIn ? 'Menghubungkan...' : 'Sign in with Google'}
+                  </span>
+                </div>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

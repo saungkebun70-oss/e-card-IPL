@@ -38,6 +38,9 @@ export interface HybridDriveConfig {
   deleteSupabaseAfterArchive: boolean;
   directUploadWhenConnected: boolean;
   autoArchivePrompt: boolean;
+  thresholdPercent: number;
+  autoRouteOnNearLimit: boolean;
+  forceRouteToDrive: boolean;
   rootFolderId: string | null;
   subFolderIds: Partial<Record<HybridFolderKey, string>>;
   lastArchiveAt: string | null;
@@ -53,6 +56,9 @@ const DEFAULT_HYBRID_CONFIG: HybridDriveConfig = {
   deleteSupabaseAfterArchive: true,
   directUploadWhenConnected: false,
   autoArchivePrompt: true,
+  thresholdPercent: 80,
+  autoRouteOnNearLimit: true,
+  forceRouteToDrive: false,
   rootFolderId: null,
   subFolderIds: {},
   lastArchiveAt: null,
@@ -948,6 +954,150 @@ export function invalidateBackendStorageStatusCache(): void {
   cachedStorageStatus = null;
 }
 
+function computeMonitorStatusSnapshot(params: {
+  storageUsedBytes: number;
+  storageLimitBytes: number;
+  dbUsedBytes: number;
+  dbLimitBytes: number;
+  totalObjects: number;
+  buckets: BackendStorageBucketStat[];
+  measuredVia: BackendStorageStatus['measuredVia'];
+  settings: BackendStorageThresholdSettings;
+  measuredAt?: string;
+}): BackendStorageStatus {
+  const {
+    storageUsedBytes,
+    storageLimitBytes,
+    dbUsedBytes,
+    dbLimitBytes,
+    totalObjects,
+    buckets,
+    measuredVia,
+    settings,
+    measuredAt,
+  } = params;
+
+  const storageUsagePercent =
+    storageLimitBytes > 0
+      ? Number(((storageUsedBytes / storageLimitBytes) * 100).toFixed(2))
+      : 0;
+  const dbUsagePercent =
+    dbLimitBytes > 0 ? Number(((dbUsedBytes / dbLimitBytes) * 100).toFixed(2)) : 0;
+
+  const isNearLimit =
+    storageUsagePercent >= settings.thresholdPercent ||
+    dbUsagePercent >= settings.thresholdPercent;
+  const isWarning =
+    !isNearLimit &&
+    (storageUsagePercent >= Math.max(50, settings.thresholdPercent - 15) ||
+      dbUsagePercent >= Math.max(50, settings.thresholdPercent - 15));
+
+  const status: BackendStorageStatus['status'] = isNearLimit
+    ? 'near_limit'
+    : isWarning
+      ? 'warning'
+      : 'normal';
+
+  const shouldRouteNewMediaToDrive =
+    settings.forceRouteToDrive || (settings.autoRouteOnNearLimit && isNearLimit);
+
+  let routeReason = 'Penyimpanan Supabase dalam kondisi aman; media baru disimpan di Supabase.';
+  if (settings.forceRouteToDrive) {
+    routeReason = 'Pengalihan langsung aktif: media baru diarahkan ke Google Drive OAuth2.';
+  } else if (shouldRouteNewMediaToDrive) {
+    routeReason = `Pemakaian Supabase mencapai batas (${Math.max(
+      storageUsagePercent,
+      dbUsagePercent
+    ).toFixed(1)}% >= ${settings.thresholdPercent}%): media baru dialihkan otomatis ke Google Drive.`;
+  } else if (isWarning) {
+    routeReason = `Pemakaian Supabase mulai tinggi (${Math.max(
+      storageUsagePercent,
+      dbUsagePercent
+    ).toFixed(1)}%): disarankan mengarsipkan foto lama ke Google Drive.`;
+  }
+
+  return {
+    ok: true,
+    configured: true,
+    measuredVia,
+    status,
+    shouldRouteNewMediaToDrive,
+    routeReason,
+    storageUsedBytes,
+    storageLimitBytes,
+    storageUsagePercent,
+    dbUsedBytes,
+    dbLimitBytes,
+    dbUsagePercent,
+    totalObjects,
+    buckets,
+    thresholdPercent: settings.thresholdPercent,
+    settings,
+    measuredAt: measuredAt || new Date().toISOString(),
+  };
+}
+
+async function loadThresholdSettingsFromSupabaseClient(
+  session?: SessionUser | null
+): Promise<BackendStorageThresholdSettings> {
+  const localCfg = loadHybridDriveConfig();
+  const defaults: BackendStorageThresholdSettings = {
+    targetEmail: DRIVE_TARGET_EMAIL,
+    thresholdPercent: localCfg.thresholdPercent ?? 80,
+    storageLimitBytes: 1024 * 1024 * 1024,
+    dbLimitBytes: 500 * 1024 * 1024,
+    autoRouteOnNearLimit: localCfg.autoRouteOnNearLimit ?? true,
+    forceRouteToDrive: localCfg.forceRouteToDrive ?? false,
+  };
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) {
+    return defaults;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('hybrid_drive_config')
+      .eq('id', 'default-app-brand')
+      .maybeSingle();
+
+    if (!error && data && typeof (data as Record<string, unknown>).hybrid_drive_config === 'object') {
+      const remote = (data as { hybrid_drive_config?: Partial<BackendStorageThresholdSettings> | null })
+        .hybrid_drive_config;
+      if (remote) {
+        return {
+          targetEmail: DRIVE_TARGET_EMAIL,
+          thresholdPercent:
+            typeof remote.thresholdPercent === 'number'
+              ? remote.thresholdPercent
+              : defaults.thresholdPercent,
+          storageLimitBytes:
+            typeof remote.storageLimitBytes === 'number'
+              ? remote.storageLimitBytes
+              : defaults.storageLimitBytes,
+          dbLimitBytes:
+            typeof remote.dbLimitBytes === 'number'
+              ? remote.dbLimitBytes
+              : defaults.dbLimitBytes,
+          autoRouteOnNearLimit:
+            typeof remote.autoRouteOnNearLimit === 'boolean'
+              ? remote.autoRouteOnNearLimit
+              : defaults.autoRouteOnNearLimit,
+          forceRouteToDrive:
+            typeof remote.forceRouteToDrive === 'boolean'
+              ? remote.forceRouteToDrive
+              : defaults.forceRouteToDrive,
+        };
+      }
+    }
+  } catch {
+    // Abaikan jika kolom hybrid_drive_config belum dimigrasi
+  }
+
+  return defaults;
+}
+
 /**
  * Memanggil backend GET /api/storage/status untuk mengecek penggunaan kapasitas
  * Supabase Storage & Database serta menentukan apakah upload media baru harus
@@ -972,14 +1122,23 @@ export async function fetchBackendStorageStatus(
     });
     if (res.ok) {
       const data = (await res.json()) as BackendStorageStatus;
-      if (data && typeof data === 'object') {
+      if (data && typeof data === 'object' && data.configured !== false) {
+        if (data.settings) {
+          saveHybridDriveConfig({
+            thresholdPercent: data.settings.thresholdPercent,
+            autoRouteOnNearLimit: data.settings.autoRouteOnNearLimit,
+            forceRouteToDrive: data.settings.forceRouteToDrive,
+          });
+        }
         cachedStorageStatus = { data, fetchedAt: Date.now() };
         return data;
       }
     }
   } catch {
-    // Fallback untuk runtime offline / native Capacitor tanpa Express server
+    // Fallback ke Supabase client langsung bila /api/storage/status offline/500
   }
+
+  const settings = await loadThresholdSettingsFromSupabaseClient(session);
 
   if (session) {
     try {
@@ -994,51 +1153,70 @@ export async function fetchBackendStorageStatus(
             buckets?: BackendStorageBucketStat[];
             measured_at?: string;
           };
-          const limitBytes = 1024 * 1024 * 1024;
-          const dbLimit = 500 * 1024 * 1024;
-          const storageUsed = Number(raw.storage_used_bytes || 0);
-          const dbUsed = Number(raw.db_used_bytes || 0);
-          const storagePct = Number(((storageUsed / limitBytes) * 100).toFixed(2));
-          const dbPct = Number(((dbUsed / dbLimit) * 100).toFixed(2));
-          const shouldRoute = storagePct >= 80 || dbPct >= 80;
-          const fallback: BackendStorageStatus = {
-            ok: true,
-            configured: true,
-            measuredVia: 'rpc_exact',
-            status: shouldRoute ? 'near_limit' : storagePct >= 65 ? 'warning' : 'normal',
-            shouldRouteNewMediaToDrive: shouldRoute,
-            routeReason: shouldRoute
-              ? 'Pemakaian Supabase mendekati batas; upload baru diarahkan ke Google Drive.'
-              : 'Kapasitas Supabase normal.',
-            storageUsedBytes: storageUsed,
-            storageLimitBytes: limitBytes,
-            storageUsagePercent: storagePct,
-            dbUsedBytes: dbUsed,
-            dbLimitBytes: dbLimit,
-            dbUsagePercent: dbPct,
+          const snapshot = computeMonitorStatusSnapshot({
+            storageUsedBytes: Number(raw.storage_used_bytes || 0),
+            storageLimitBytes: settings.storageLimitBytes,
+            dbUsedBytes: Number(raw.db_used_bytes || 0),
+            dbLimitBytes: settings.dbLimitBytes,
             totalObjects: Number(raw.total_objects || 0),
             buckets: Array.isArray(raw.buckets) ? raw.buckets : [],
-            thresholdPercent: 80,
-            settings: {
-              targetEmail: DRIVE_TARGET_EMAIL,
-              thresholdPercent: 80,
-              storageLimitBytes: limitBytes,
-              dbLimitBytes: dbLimit,
-              autoRouteOnNearLimit: true,
-              forceRouteToDrive: false,
-            },
-            measuredAt: raw.measured_at || new Date().toISOString(),
-          };
-          cachedStorageStatus = { data: fallback, fetchedAt: Date.now() };
-          return fallback;
+            measuredVia: 'rpc_exact',
+            settings,
+            measuredAt: raw.measured_at,
+          });
+          cachedStorageStatus = { data: snapshot, fetchedAt: Date.now() };
+          return snapshot;
         }
       }
     } catch {
-      // Abaikan fallback RPC gagal
+      // Lanjutkan ke estimasi media tabel jika RPC v15 belum terpasang
+    }
+
+    try {
+      const inv = await scanHybridMediaInventory(session, 0);
+      const snapshot = computeMonitorStatusSnapshot({
+        storageUsedBytes: inv.estimatedSupabaseBytes,
+        storageLimitBytes: settings.storageLimitBytes,
+        dbUsedBytes: 0,
+        dbLimitBytes: settings.dbLimitBytes,
+        totalObjects: inv.supabaseCount,
+        buckets: [
+          {
+            bucket: 'bukti-ipl',
+            fileCount: inv.byCategory.bukti_ipl.supabase + inv.byCategory.pengeluaran_kas.supabase + inv.byCategory.absensi_keamanan.supabase,
+            usedBytes:
+              (inv.byCategory.bukti_ipl.supabase +
+                inv.byCategory.pengeluaran_kas.supabase +
+                inv.byCategory.absensi_keamanan.supabase) *
+              135 *
+              1024,
+          },
+          {
+            bucket: 'bug-reports',
+            fileCount: inv.byCategory.bug_reports.supabase,
+            usedBytes: inv.byCategory.bug_reports.supabase * 135 * 1024,
+          },
+        ].filter((b) => b.fileCount > 0),
+        measuredVia: 'client_fallback',
+        settings,
+      });
+      cachedStorageStatus = { data: snapshot, fetchedAt: Date.now() };
+      return snapshot;
+    } catch {
+      // Abaikan fallback gagal
     }
   }
 
-  return null;
+  return computeMonitorStatusSnapshot({
+    storageUsedBytes: 0,
+    storageLimitBytes: settings.storageLimitBytes,
+    dbUsedBytes: 0,
+    dbLimitBytes: settings.dbLimitBytes,
+    totalObjects: 0,
+    buckets: [],
+    measuredVia: 'client_fallback',
+    settings,
+  });
 }
 
 export async function updateBackendHybridThresholdConfig(
@@ -1050,26 +1228,117 @@ export async function updateBackendHybridThresholdConfig(
     forceRouteToDrive?: boolean;
   }
 ): Promise<BackendStorageStatus> {
-  const res = await fetch('/api/storage/config', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...buildPortalApiHeaders(session),
-    },
-    body: JSON.stringify(patch),
+  // 1. Simpan mirror pengaturan secara lokal agar langsung aktif di sesi ini
+  const currentLocal = loadHybridDriveConfig();
+  saveHybridDriveConfig({
+    thresholdPercent:
+      typeof patch.thresholdPercent === 'number'
+        ? patch.thresholdPercent
+        : currentLocal.thresholdPercent,
+    autoRouteOnNearLimit:
+      typeof patch.autoRouteOnNearLimit === 'boolean'
+        ? patch.autoRouteOnNearLimit
+        : currentLocal.autoRouteOnNearLimit,
+    forceRouteToDrive:
+      typeof patch.forceRouteToDrive === 'boolean'
+        ? patch.forceRouteToDrive
+        : currentLocal.forceRouteToDrive,
   });
 
-  const data = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    error?: string;
-    monitor?: BackendStorageStatus;
-  };
-  if (!res.ok || !data.monitor) {
-    throw new Error(data.error || 'Gagal menyimpan pengaturan monitor penyimpanan backend.');
+  let apiMonitor: BackendStorageStatus | null = null;
+  let persistedToDb = false;
+
+  // 2. Prioritas utama: kirim ke endpoint backend `/api/storage/config`
+  try {
+    const res = await fetch('/api/storage/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildPortalApiHeaders(session),
+      },
+      body: JSON.stringify(patch),
+    });
+
+    if (res.ok) {
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        persistedToDb?: boolean;
+        monitor?: BackendStorageStatus;
+      };
+      if (data.monitor) {
+        apiMonitor = data.monitor;
+        persistedToDb = Boolean(data.persistedToDb);
+      }
+    }
+  } catch {
+    // Fallback langsung ke Supabase client di bawah
   }
 
-  cachedStorageStatus = { data: data.monitor, fetchedAt: Date.now() };
-  return data.monitor;
+  // 3. Jika backend API gagal atau belum menyimpan ke DB, simpan langsung via Supabase client
+  if (!persistedToDb) {
+    const baseSettings = await loadThresholdSettingsFromSupabaseClient(session);
+    const mergedSettings: BackendStorageThresholdSettings = {
+      targetEmail: DRIVE_TARGET_EMAIL,
+      thresholdPercent:
+        typeof patch.thresholdPercent === 'number'
+          ? patch.thresholdPercent
+          : baseSettings.thresholdPercent,
+      storageLimitBytes:
+        typeof patch.storageLimitMb === 'number' && Number.isFinite(patch.storageLimitMb)
+          ? Math.round(patch.storageLimitMb * 1024 * 1024)
+          : baseSettings.storageLimitBytes,
+      dbLimitBytes: baseSettings.dbLimitBytes,
+      autoRouteOnNearLimit:
+        typeof patch.autoRouteOnNearLimit === 'boolean'
+          ? patch.autoRouteOnNearLimit
+          : baseSettings.autoRouteOnNearLimit,
+      forceRouteToDrive:
+        typeof patch.forceRouteToDrive === 'boolean'
+          ? patch.forceRouteToDrive
+          : baseSettings.forceRouteToDrive,
+    };
+
+    const supabase = getSupabaseClient(session);
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('app_settings')
+          .update({ hybrid_drive_config: mergedSettings })
+          .eq('id', 'default-app-brand');
+      } catch {
+        // Tetap lanjutkan dengan cache lokal bila kolom migration v15 belum dipasang
+      }
+    }
+
+    invalidateBackendStorageStatusCache();
+    const refreshed = await fetchBackendStorageStatus(session, true);
+    if (refreshed) {
+      const finalMonitor = computeMonitorStatusSnapshot({
+        storageUsedBytes: refreshed.storageUsedBytes ?? 0,
+        storageLimitBytes: mergedSettings.storageLimitBytes,
+        dbUsedBytes: refreshed.dbUsedBytes ?? 0,
+        dbLimitBytes: mergedSettings.dbLimitBytes,
+        totalObjects: refreshed.totalObjects ?? 0,
+        buckets: refreshed.buckets ?? [],
+        measuredVia: refreshed.measuredVia || 'client_fallback',
+        settings: mergedSettings,
+      });
+      cachedStorageStatus = { data: finalMonitor, fetchedAt: Date.now() };
+      return finalMonitor;
+    }
+  }
+
+  if (apiMonitor) {
+    cachedStorageStatus = { data: apiMonitor, fetchedAt: Date.now() };
+    return apiMonitor;
+  }
+
+  const fallbackStatus = await fetchBackendStorageStatus(session, true);
+  if (fallbackStatus) {
+    return fallbackStatus;
+  }
+
+  throw new Error('Gagal menyimpan pengaturan monitor penyimpanan backend.');
 }
 
 function blobToBase64Payload(blob: Blob): Promise<string> {
