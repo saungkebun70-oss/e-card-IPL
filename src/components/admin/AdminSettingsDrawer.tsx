@@ -413,19 +413,19 @@ export function AdminSettingsDrawer({
         </div>
 
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 border-b border-indigo-100/70 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-indigo-100/70 flex items-start sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-2xl glass-hero text-emerald-300 flex items-center justify-center shrink-0">
               <Settings className="w-5 h-5" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 space-y-0.5">
               <h2
                 id="central-settings-title"
-                className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight truncate"
+                className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight leading-snug"
               >
                 Pengaturan Sistem Terpusat
               </h2>
-              <p className="text-xs text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
                 {isBendahara
                   ? '6 Modul Terpusat, Delegasi Hak Pengurus, Sinkronisasi Status & Audit'
                   : 'Pusat Pengaturan Terdelegasi — Modul dikelola oleh Bendahara'}
@@ -443,17 +443,20 @@ export function AdminSettingsDrawer({
           </button>
         </div>
 
-        {/* Tab Navigasi Pengaturan Terpusat — Scroll Horizontal Halus Bebas Overflow */}
-        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-indigo-100/70 bg-indigo-50/40 shrink-0">
+        {/* Bar Tab Navigasi Atas — Bebas Clipping Kiri/Kanan di Mobile, Tablet & Laptop */}
+        <nav
+          aria-label="Navigasi Modul Pengaturan Sistem"
+          className="border-b border-indigo-100/80 bg-indigo-50/45 shrink-0"
+        >
           <div
             role="tablist"
-            className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 bg-indigo-100/60 rounded-2xl"
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar px-3 sm:px-6 py-2 scroll-px-3 sm:scroll-px-6"
           >
             {(
               [
                 {
                   id: 'terpusat' as const,
-                  label: isBendahara ? 'Pusat & Delegasi' : 'Pusat Modul',
+                  label: isBendahara ? 'Delegasi & Pusat' : 'Pusat Modul',
                   icon: SlidersHorizontal,
                   locked: false,
                 },
@@ -505,17 +508,17 @@ export function AdminSettingsDrawer({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold leading-tight inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 transition-all duration-200 active:scale-[0.97] cursor-pointer ${
+                  className={`h-9 min-h-[36px] px-3.5 rounded-xl text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 transition-all duration-200 active:scale-[0.97] cursor-pointer border ${
                     active
-                      ? 'bg-[#4C1D95] text-white shadow-sm'
+                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-sm'
                       : tab.locked
-                        ? 'text-slate-400 hover:text-slate-600'
-                        : 'text-slate-600 hover:text-[#4C1D95] hover:bg-white/60'
+                        ? 'bg-white/70 border-slate-200/80 text-slate-400 hover:text-slate-600'
+                        : 'bg-white/90 border-indigo-100 text-slate-700 hover:text-[#4C1D95] hover:border-indigo-200 hover:bg-white'
                   }`}
                 >
                   <Icon
                     className={`w-3.5 h-3.5 shrink-0 ${
-                      active ? 'text-emerald-300' : tab.locked ? 'text-slate-400' : 'text-slate-500'
+                      active ? 'text-emerald-300' : tab.locked ? 'text-slate-400' : 'text-[#4C1D95]/80'
                     }`}
                   />
                   <span>{tab.label}</span>
@@ -528,7 +531,7 @@ export function AdminSettingsDrawer({
               );
             })}
           </div>
-        </div>
+        </nav>
 
         {/* Konten Tab */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 glass-canvas">

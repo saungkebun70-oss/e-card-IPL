@@ -348,26 +348,26 @@ export function AdminCentralSettingsPanel({
   return (
     <div className="space-y-5 max-w-4xl mx-auto min-w-0">
       {/* Header Status Kepemilikan Pengaturan Terpusat */}
-      <section className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="min-w-0">
+      <section className="rounded-2xl border border-indigo-100/80 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3.5">
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold text-[#4A583E]">
               {isBendahara
                 ? 'Otoritas Penuh Bendahara · Pemilik Pengaturan Terpusat'
                 : `${session.jabatan || 'Pengurus'} · Akses Pengaturan Terdelegasi`}
             </p>
-            <h3 className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight mt-0.5">
+            <h3 className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight leading-snug">
               Pusat Pengaturan &amp; Delegasi Hak Pengurus
             </h3>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               {isBendahara
                 ? 'Kelola seluruh 6 modul pengaturan sistem, delegasikan hak modul ke Pengurus lain, serta sinkronkan pemulihan otomatis akun Warga.'
                 : 'Hanya modul yang diberi status Diizinkan (granted) oleh Bendahara yang dapat diakses dan diubah pada sesi Anda.'}
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-right">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3.5 py-2 text-left sm:text-right">
               <p className="text-[11px] font-medium text-slate-500">Modul Aktif</p>
               <p className="text-sm font-bold font-mono tabular-nums text-[#0F172A]">
                 {myGrantedCount} / {CENTRAL_SETTING_MODULES.length}
@@ -378,10 +378,10 @@ export function AdminCentralSettingsPanel({
                 type="button"
                 onClick={() => void loadBendaharaData()}
                 disabled={loadingPerms || loadingSync}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-xs sm:text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
+                  className={`w-3.5 h-3.5 shrink-0 ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
                 />
                 <span className="whitespace-nowrap">Sinkronkan</span>
               </button>
@@ -389,18 +389,33 @@ export function AdminCentralSettingsPanel({
           </div>
         </div>
 
-        {/* Sub-navigasi Segmented (Khusus Bendahara menampilkan 3 panel; Pengurus lain fokus pada 6 Modul) */}
+        {/* Navigasi Sub-panel Responsif — Bebas Terpotong di HP, Tablet & Laptop */}
         {isBendahara && (
           <div
             role="tablist"
             aria-label="Sub-panel Pengaturan Terpusat"
-            className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 rounded-xl bg-slate-100 border border-slate-200/70"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1"
           >
             {(
               [
-                { id: 'modules', label: '6 Modul Sistem', icon: SlidersHorizontal },
-                { id: 'delegation', label: 'Delegasi Hak Pengurus', icon: Users },
-                { id: 'sync_audit', label: 'Status Pengurus ↔ Warga & Audit', icon: ShieldCheck },
+                {
+                  id: 'modules' as const,
+                  label: '6 Modul Sistem',
+                  icon: SlidersHorizontal,
+                  spanClass: 'sm:col-span-2 lg:col-span-1',
+                },
+                {
+                  id: 'delegation' as const,
+                  label: 'Delegasi Hak Pengurus',
+                  icon: Users,
+                  spanClass: '',
+                },
+                {
+                  id: 'sync_audit' as const,
+                  label: 'Status Pengurus & Warga',
+                  icon: ShieldCheck,
+                  spanClass: '',
+                },
               ] as const
             ).map((item) => {
               const Icon = item.icon;
@@ -412,13 +427,17 @@ export function AdminCentralSettingsPanel({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setSubView(item.id)}
-                  className={`min-h-[40px] px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                  className={`min-w-0 min-h-[42px] rounded-xl border px-3.5 py-2.5 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 whitespace-normal sm:whitespace-nowrap text-center leading-snug transition-all cursor-pointer ${item.spanClass} ${
                     active
-                      ? 'bg-[#4C1D95] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-[#0F172A] hover:bg-white/70'
+                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-xs'
+                      : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-indigo-50/60 hover:border-indigo-200 hover:text-[#4C1D95]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-emerald-300' : 'text-slate-500'}`} />
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${
+                      active ? 'text-emerald-300' : 'text-[#4C1D95]/75'
+                    }`}
+                  />
                   <span>{item.label}</span>
                 </button>
               );
@@ -438,19 +457,20 @@ export function AdminCentralSettingsPanel({
               const isGranted = isBendahara || myPermissions[mod.key] === 'granted';
               const isChatMod = mod.key === 'settings.chat_moderation';
               const isIntegrations = mod.key === 'settings.system_integrations';
+              const statusText = isGranted ? (isBendahara ? 'Penuh' : 'Terbuka') : 'Terkunci';
 
               return (
                 <article
                   key={mod.key}
-                  className={`rounded-2xl border p-4 flex flex-col justify-between gap-3.5 transition-colors ${
+                  className={`rounded-2xl border p-4 sm:p-5 flex flex-col justify-between gap-3.5 transition-colors ${
                     isGranted
-                      ? 'border-slate-200/90 bg-white'
-                      : 'border-slate-200/70 bg-slate-50/85'
+                      ? 'border-indigo-100/90 bg-white shadow-2xs'
+                      : 'border-slate-200/80 bg-slate-50/85'
                   }`}
                 >
-                  <div className="space-y-2 min-w-0">
+                  <div className="space-y-3.5 min-w-0">
                     <div className="flex items-start justify-between gap-2.5">
-                      <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isGranted
@@ -460,40 +480,37 @@ export function AdminCentralSettingsPanel({
                         >
                           <Icon className="w-4 h-4" />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-bold text-[#0F172A] leading-snug">
                             {mod.label}
                           </h4>
-                          <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
+                          <p className="text-[11px] font-mono text-slate-500 break-all mt-0.5 leading-snug">
                             {mod.key}
                           </p>
                         </div>
                       </div>
 
                       <span
-                        className={`text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 ${
-                          isGranted ? 'text-emerald-700' : 'text-slate-500'
+                        className={`shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[11px] font-semibold inline-flex items-center gap-1 ${
+                          isGranted
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-slate-100 text-slate-600'
                         }`}
                       >
                         {isGranted ? (
-                          <>
-                            <Unlock className="w-3.5 h-3.5" />
-                            <span>{isBendahara ? 'Penuh' : 'Diizinkan'}</span>
-                          </>
+                          <Unlock className="w-3 h-3 shrink-0" />
                         ) : (
-                          <>
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>Terkunci</span>
-                          </>
+                          <Lock className="w-3 h-3 shrink-0" />
                         )}
+                        <span>{statusText}</span>
                       </span>
                     </div>
 
                     <p className="text-xs text-slate-600 leading-relaxed">{mod.description}</p>
                   </div>
 
-                  <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-500">
+                  <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <span className="text-[11px] text-slate-500 leading-snug min-w-0">
                       {isGranted
                         ? `${mod.scopeNote} · ${
                             isBendahara ? 'Otoritas Bendahara' : 'Delegasi Bendahara'
@@ -506,18 +523,18 @@ export function AdminCentralSettingsPanel({
                         <button
                           type="button"
                           onClick={() => setChatModExpanded((prev) => !prev)}
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
                         >
                           <span>{chatModExpanded ? 'Tutup Kebijakan' : 'Atur Moderasi'}</span>
                         </button>
                       ) : isIntegrations ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                           <button
                             type="button"
                             onClick={() => onNavigateTab('bot_wa')}
                             className="min-h-[38px] px-3 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
-                            <Bot className="w-3.5 h-3.5" />
+                            <Bot className="w-3.5 h-3.5 shrink-0" />
                             <span>Bot WA</span>
                           </button>
                           <button
@@ -525,7 +542,7 @@ export function AdminCentralSettingsPanel({
                             onClick={() => onNavigateTab('arsip_drive')}
                             className="min-h-[38px] px-3 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
-                            <HardDrive className="w-3.5 h-3.5" />
+                            <HardDrive className="w-3.5 h-3.5 shrink-0" />
                             <span>Arsip Drive</span>
                           </button>
                         </div>
@@ -533,15 +550,15 @@ export function AdminCentralSettingsPanel({
                         <button
                           type="button"
                           onClick={() => onNavigateTab(mod.drawerTab)}
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
                         >
                           <span>Buka Modul</span>
-                          <ArrowUpRight className="w-3.5 h-3.5" />
+                          <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                         </button>
                       )
                     ) : (
-                      <span className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-[11px] font-semibold inline-flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5" />
+                      <span className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0">
+                        <Lock className="w-3.5 h-3.5 shrink-0" />
                         <span>Terkunci</span>
                       </span>
                     )}
@@ -717,13 +734,13 @@ export function AdminCentralSettingsPanel({
                     className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden"
                   >
                     <div className="px-4 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <UserAvatar name={pengurus.nama} src={avatarSrc} size="sm" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#0F172A] truncate">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-[#0F172A] leading-snug">
                             {pengurus.nama}
                           </p>
-                          <p className="text-xs text-slate-500 truncate">
+                          <p className="text-xs text-slate-500 leading-relaxed">
                             {pengurus.jabatan} · Blok {pengurus.blokRumah} ·{' '}
                             <span className="font-mono">@{pengurus.username}</span> ·{' '}
                             <span className="font-mono font-semibold tabular-nums text-[#4C1D95]">
@@ -733,7 +750,7 @@ export function AdminCentralSettingsPanel({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <button
                           type="button"
                           disabled={isBatchBusy || grantedCount === CENTRAL_SETTING_MODULES.length}
@@ -774,11 +791,11 @@ export function AdminCentralSettingsPanel({
                                 : 'border-slate-200/80 bg-white'
                             }`}
                           >
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-[#0F172A] truncate">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-[#0F172A] leading-snug">
                                 {mod.label}
                               </p>
-                              <p className="text-[11px] font-mono text-slate-500 truncate">
+                              <p className="text-[11px] font-mono text-slate-500 break-all leading-snug">
                                 {mod.key}
                               </p>
                             </div>
@@ -863,10 +880,10 @@ export function AdminCentralSettingsPanel({
                 return (
                   <div key={item.pengurus_username} className="p-4 space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <UserAvatar name={item.pengurus_nama} src={avatarSrc} size="sm" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#0F172A] truncate">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-[#0F172A] leading-snug">
                             {item.pengurus_nama}{' '}
                             <span className="font-normal text-slate-500">· {item.jabatan}</span>
                           </p>
@@ -901,7 +918,7 @@ export function AdminCentralSettingsPanel({
                       <div className="shrink-0">
                         {isSelfBendahara ? (
                           <span className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 text-[11px] font-semibold inline-flex items-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                             <span>Bendahara Utama (Dilindungi)</span>
                           </span>
                         ) : item.is_active_pengurus ? (
@@ -915,9 +932,9 @@ export function AdminCentralSettingsPanel({
                               });
                               setSyncReason('');
                             }}
-                            className="min-h-[40px] px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
                           >
-                            <UserMinus className="w-3.5 h-3.5" />
+                            <UserMinus className="w-3.5 h-3.5 shrink-0" />
                             <span>Nonaktifkan Pengurus → Pulihkan Warga</span>
                           </button>
                         ) : (
@@ -931,9 +948,9 @@ export function AdminCentralSettingsPanel({
                               });
                               setSyncReason('');
                             }}
-                            className="min-h-[40px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
                           >
-                            <UserCheck className="w-3.5 h-3.5" />
+                            <UserCheck className="w-3.5 h-3.5 shrink-0" />
                             <span>Aktifkan Kembali Pengurus</span>
                           </button>
                         )}
