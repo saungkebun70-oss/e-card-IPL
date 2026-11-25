@@ -235,7 +235,9 @@ function readFirstSecretEnv(names: string[]): { value: string; sourceName: strin
 }
 
 function normalizePrivateKeyPem(raw: string): string {
-  let clean = stripOuterQuotes(raw);
+  let clean = stripOuterQuotes(raw)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
   if (!clean) return '';
 
   // Dukungan bila seluruh JSON Service Account tertempel ke secret private key
@@ -262,7 +264,7 @@ function normalizePrivateKeyPem(raw: string): string {
     }
   }
 
-  // Normalisasi escape ganda (\\r\\n, \\n, \\r), escape tunggal (\r\n, \n, \r), serta newline CRLF/CR asli
+  // Normalkan \r\n, \n, \r (baik literal ter-escape maupun karakter asli) menjadi \n
   clean = clean
     .replace(/\\+r\\+n/g, '\n')
     .replace(/\\+n/g, '\n')
@@ -270,16 +272,39 @@ function normalizePrivateKeyPem(raw: string): string {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  clean = stripOuterQuotes(clean);
+  // Bersihkan kutip luar dan karakter kontrol di luar/sekitar PEM (pertahankan \n untuk pemisahan baris)
+  clean = stripOuterQuotes(clean).replace(/[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '');
 
-  // Rapikan batas header/footer PEM bila newline sempat hilang atau menyatu dengan spasi
-  clean = clean
+  // Ambil hanya blok PEM PKCS#8 agar spasi/karakter kontrol/teks liar di luar BEGIN..END terbuang
+  const pkcs8Match = clean.match(
+    /-----\s*BEGIN\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs8Match) {
+    const cleanBody = pkcs8Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----`;
+  }
+
+  // Deteksi bila kunci masih berformat PKCS#1 (BEGIN RSA PRIVATE KEY) agar pesan validasi akurat
+  const pkcs1Match = clean.match(
+    /-----\s*BEGIN\s+RSA\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+RSA\s+PRIVATE\s+KEY\s*-----/i
+  );
+  if (pkcs1Match) {
+    const cleanBody = pkcs1Match[1]
+      .replace(/\\+[rn]/gi, '')
+      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+    return `-----BEGIN RSA PRIVATE KEY-----\n${wrappedBody}\n-----END RSA PRIVATE KEY-----`;
+  }
+
+  // Rapikan batas header/footer PEM umum bila salah satu penanda tidak lengkap
+  return clean
     .replace(/(-----BEGIN [A-Z0-9 ]+-----)\s*/g, '$1\n')
     .replace(/\s*(-----END [A-Z0-9 ]+-----)/g, '\n$1')
     .replace(/\n{2,}/g, '\n')
     .trim();
-
-  return clean;
 }
 
 function buildCredentialError(params: {
@@ -313,10 +338,23 @@ function buildCredentialError(params: {
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const cleaned = pem
+  const match = pem.match(
+    /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/
+  );
+  const rawBody = match ? match[1] : pem;
+  const cleaned = rawBody
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
+    .replace(/\\+[rn]/gi, '')
+    .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
+
+  if (!cleaned) {
+    throw new Error('Body base64 di dalam blok PRIVATE KEY kosong.');
+  }
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) {
+    throw new Error('Body PEM mengandung karakter non-base64.');
+  }
+
   const binary = atob(cleaned);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
@@ -407,22 +445,29 @@ function loadDriveServiceAccountConfig(): DriveServiceAccountConfig {
   if (!privateKey) {
     missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY');
     fieldReasons.GOOGLE_DRIVE_PRIVATE_KEY = 'Secret kosong (fallback GOOGLE_PRIVATE_KEY juga kosong).';
+  } else if (privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    invalidFields.push(keyField);
+    fieldReasons[keyField] =
+      'Terdeteksi format PKCS#1 (BEGIN RSA PRIVATE KEY); WebCrypto membutuhkan PKCS#8 (BEGIN PRIVATE KEY) dari JSON Service Account Google.';
   } else if (
     !privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
     !privateKey.includes('-----END PRIVATE KEY-----')
   ) {
     invalidFields.push(keyField);
-    fieldReasons[keyField] = 'Harus berformat PEM PKCS8 dengan header BEGIN/END PRIVATE KEY.';
+    fieldReasons[keyField] =
+      'Harus berisi blok utuh -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY----- (format PKCS#8).';
   } else {
     try {
       const keyBuffer = pemToArrayBuffer(privateKey);
       if (keyBuffer.byteLength < 64) {
         invalidFields.push(keyField);
-        fieldReasons[keyField] = 'Panjang byte kunci privat terlalu pendek atau terpotong.';
+        fieldReasons[keyField] = `Panjang byte kunci privat terlalu pendek (${keyBuffer.byteLength} byte, minimal 64 byte).`;
       }
-    } catch {
+    } catch (decodeErr) {
+      const decodeDetail =
+        decodeErr instanceof Error ? decodeErr.message : 'gagal decode base64 PEM';
       invalidFields.push(keyField);
-      fieldReasons[keyField] = 'Isi base64 kunci privat tidak valid.';
+      fieldReasons[keyField] = `Decode base64 kunci privat gagal (${decodeDetail}).`;
     }
   }
 
@@ -1037,15 +1082,21 @@ async function getDriveServiceAccountToken(cfg: DriveServiceAccountConfig): Prom
   const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
   const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   try {
+    const pkcs8Buffer = pemToArrayBuffer(cfg.privateKey);
     cryptoKey = await crypto.subtle.importKey(
       'pkcs8',
-      pemToArrayBuffer(cfg.privateKey),
+      pkcs8Buffer,
       { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign']
     );
   } catch (keyErr) {
-    const keyReason = keyErr instanceof Error ? keyErr.message : 'gagal mengimpor kunci PKCS8';
+    const rawDetail =
+      keyErr instanceof Error
+        ? `${keyErr.name && keyErr.name !== 'Error' ? `${keyErr.name}: ` : ''}${keyErr.message}`
+        : String(keyErr || 'kesalahan tidak diketahui');
+    const cleanDetail = rawDetail.replace(/\s+/g, ' ').trim().slice(0, 180) || 'format DER/PKCS8 ditolak WebCrypto';
+    const keyReason = `crypto.subtle.importKey(pkcs8) gagal: ${cleanDetail}. Pastikan secret berisi private_key PKCS#8 utuh untuk ${cfg.clientEmail}.`;
     throw buildCredentialError({
       scope: 'Google Drive',
       missingFields: [],
