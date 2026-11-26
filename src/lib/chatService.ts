@@ -102,6 +102,9 @@ export interface ChatMessage {
   drive_web_view_link?: string | null;
   drive_thumbnail_link?: string | null;
   hidden_for?: string[];
+  is_edited?: boolean;
+  original_content?: string | null;
+  edited_at?: string | null;
   /** Client-only instant preview URL sebelum upload selesai (tidak disimpan ke DB) */
   local_preview_url?: string | null;
   local_upload_local_id?: string | null;
@@ -614,6 +617,10 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     drive_web_view_link: driveWebViewLink,
     drive_thumbnail_link: driveThumbnailLink,
     hidden_for: normalizeHiddenForList(row.hidden_for),
+    is_edited: Boolean(row.is_edited),
+    original_content: typeof row.original_content === 'string' ? row.original_content : null,
+    edited_at:
+      typeof row.edited_at === 'string' && row.edited_at.trim() ? row.edited_at.trim() : null,
   };
 }
 
@@ -1647,6 +1654,141 @@ export async function sendChatMessage(
 }
 
 /**
+ * Mengedit isi pesan milik pengguna aktif sambil menjaga transparansi di grup:
+ * - Hanya pengirim asli yang boleh mengubah isi pesannya sendiri.
+ * - `original_content` menyimpan isi pesan asli pertama kali sebelum diedit dan tidak ditimpa ulang.
+ */
+export async function editChatMessage(
+  session: SessionUser,
+  msg: ChatMessage,
+  newMessageText: string
+): Promise<{ message: ChatMessage; savedRemote: boolean }> {
+  const normalizedRoom = normalizeRoomId(msg.room_id);
+  if (!canAccessChatRoom(session, normalizedRoom)) {
+    throw new Error('Anda tidak memiliki akses ke ruang percakapan ini.');
+  }
+
+  const myIds = getChatParticipantMatchIds(session);
+  const isOwner =
+    myIds.has(normalizeChatParticipantId(msg.sender_id)) || myIds.has(msg.sender_id);
+  if (!isOwner) {
+    throw new Error('Anda hanya dapat mengedit pesan yang Anda kirim sendiri.');
+  }
+
+  const cleanText = newMessageText.trim();
+  if (!cleanText) {
+    throw new Error('Pesan tidak boleh kosong.');
+  }
+  if (cleanText.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`Pesan maksimal ${MAX_MESSAGE_LENGTH} karakter.`);
+  }
+
+  if (cleanText === msg.message) {
+    return { message: msg, savedRemote: !msg.is_local_only };
+  }
+
+  const preservedOriginalContent =
+    msg.is_edited && typeof msg.original_content === 'string' && msg.original_content.length > 0
+      ? msg.original_content
+      : msg.message;
+  const editedAtIso = new Date().toISOString();
+
+  let savedRemote = false;
+  let resolvedMessageText = cleanText;
+  let resolvedIsEdited = true;
+  let resolvedOriginalContent = preservedOriginalContent;
+  let resolvedEditedAt = editedAtIso;
+
+  const supabase = getSupabaseClient(session);
+  if (
+    supabase &&
+    isSupabaseConfigured() &&
+    !msg.is_local_only &&
+    !msg.id.startsWith('chat-') &&
+    !msg.id.startsWith('optimistic-')
+  ) {
+    const rpcRes = await supabase.rpc('edit_chat_message', {
+      p_message_id: msg.id,
+      p_new_message: cleanText,
+    });
+
+    if (!rpcRes.error && rpcRes.data && typeof rpcRes.data === 'object') {
+      const dataObj = rpcRes.data as Record<string, unknown>;
+      if (typeof dataObj.message === 'string' && dataObj.message.trim()) {
+        resolvedMessageText = dataObj.message;
+      }
+      resolvedIsEdited = Boolean(dataObj.is_edited ?? true);
+      if (typeof dataObj.original_content === 'string') {
+        resolvedOriginalContent = dataObj.original_content;
+      }
+      if (typeof dataObj.edited_at === 'string' && dataObj.edited_at.trim()) {
+        resolvedEditedAt = dataObj.edited_at.trim();
+      }
+      savedRemote = true;
+    } else if (rpcRes.error) {
+      const errMsg = String(rpcRes.error.message || '').toLowerCase();
+      const isMissingRpc =
+        rpcRes.error.code === '42883' ||
+        rpcRes.error.code === 'PGRST202' ||
+        errMsg.includes('edit_chat_message');
+
+      if (isMissingRpc) {
+        const directRes = await supabase
+          .from('community_chat_messages')
+          .update({
+            message: cleanText,
+            is_edited: true,
+            original_content: preservedOriginalContent,
+            edited_at: editedAtIso,
+          })
+          .eq('id', msg.id)
+          .select('*')
+          .maybeSingle();
+
+        if (directRes.error) {
+          throw new Error(
+            'Fitur edit pesan memerlukan pembaruan database (migrasi v20).'
+          );
+        }
+        if (directRes.data) {
+          const normalized = normalizeChatRow(directRes.data as Record<string, unknown>);
+          resolvedMessageText = normalized.message;
+          resolvedIsEdited = Boolean(normalized.is_edited);
+          resolvedOriginalContent = normalized.original_content ?? preservedOriginalContent;
+          resolvedEditedAt = normalized.edited_at ?? editedAtIso;
+        }
+        savedRemote = true;
+      } else {
+        throw new Error(rpcRes.error.message || 'Gagal menyimpan perubahan pesan di server.');
+      }
+    }
+  }
+
+  const updatedMessage: ChatMessage = {
+    ...msg,
+    room_id: normalizedRoom,
+    message: resolvedMessageText,
+    is_edited: resolvedIsEdited,
+    original_content: resolvedOriginalContent,
+    edited_at: resolvedEditedAt,
+  };
+
+  if (recentSentAttachmentsById.has(updatedMessage.id)) {
+    rememberLocalSentAttachment(updatedMessage);
+  }
+
+  const localMsgs = readLocalMessages();
+  if (localMsgs.some((item) => item.id === updatedMessage.id)) {
+    writeLocalMessages(
+      localMsgs.map((item) => (item.id === updatedMessage.id ? updatedMessage : item))
+    );
+  }
+
+  emitChatChanged({ type: 'update', room_id: normalizedRoom, message: updatedMessage });
+  return { message: updatedMessage, savedRemote };
+}
+
+/**
  * Menghapus pesan/gambar KHUSUS UNTUK PENGGUNA AKTIF ("Hapus untuk Saya", perilaku WhatsApp Group):
  * - TIDAK menghapus baris pesan di database dan TIDAK menghapus berkas asli di Google Drive.
  * - Hanya menambahkan identitas kanonik pengguna aktif ke array `hidden_for`.
@@ -1859,7 +2001,7 @@ function needsRealtimeAttachmentHydration(
   isUpdateEvent = false
 ): boolean {
   if (!rawRow.room_id || !rawRow.message) return true;
-  if (isUpdateEvent && !('hidden_for' in rawRow)) return true;
+  if (isUpdateEvent && (!('hidden_for' in rawRow) || !('is_edited' in rawRow))) return true;
   if (
     normalized.attachment_status === 'pending_transfer' ||
     normalized.attachment_status === 'uploading_video'

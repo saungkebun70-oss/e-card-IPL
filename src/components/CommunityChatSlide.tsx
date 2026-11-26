@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Check,
   ChevronLeft,
   CornerUpLeft,
   Eraser,
@@ -7,6 +8,7 @@ import {
   Loader2,
   Lock,
   MessageSquare,
+  Pencil,
   RefreshCw,
   Search,
   Send,
@@ -26,6 +28,7 @@ import {
   createChatUploadQueueItem,
   createRetryChatUploadQueueItem,
   deleteChatMessageForEveryone,
+  editChatMessage,
   executeChatUploadQueueItem,
   fetchChatDirectory,
   fetchChatMessages,
@@ -207,6 +210,9 @@ export function CommunityChatSlide({
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [editingTarget, setEditingTarget] = useState<ChatMessage | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [expandedOriginalIds, setExpandedOriginalIds] = useState<Record<string, boolean>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmClearRoom, setConfirmClearRoom] = useState(false);
@@ -217,6 +223,7 @@ export function CommunityChatSlide({
 
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const preEditDraftRef = useRef<string>('');
   const activeRoomIdRef = useRef<ChatRoomId>(activeRoomId);
   activeRoomIdRef.current = activeRoomId;
   const uploadQueueRef = useRef<UploadQueueItem[]>(uploadQueue);
@@ -377,6 +384,12 @@ export function CommunityChatSlide({
 
   useEffect(() => {
     setReplyTarget(null);
+    setEditingTarget((prev) => {
+      if (prev) setDraft('');
+      return null;
+    });
+    preEditDraftRef.current = '';
+    setExpandedOriginalIds({});
     setConfirmDeleteId(null);
     setConfirmClearRoom(false);
     setShowGroupMembers(false);
@@ -475,12 +488,22 @@ export function CommunityChatSlide({
       },
       onDelete: (deletedId) => {
         setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+        setEditingTarget((prev) => {
+          if (prev?.id === deletedId) {
+            setDraft(preEditDraftRef.current);
+            preEditDraftRef.current = '';
+            return null;
+          }
+          return prev;
+        });
         void syncDirectoriesAndUnread();
       },
       onClear: (clearedRoomId) => {
         if (clearedRoomId === activeRoomIdRef.current) {
           setMessages([]);
           setReplyTarget(null);
+          setEditingTarget(null);
+          preEditDraftRef.current = '';
           setConfirmClearRoom(false);
         }
         void syncDirectoriesAndUnread();
@@ -706,8 +729,88 @@ export function CommunityChatSlide({
     [removeUploadQueueItem]
   );
 
+  const startEditingMessage = (msg: ChatMessage) => {
+    if (sending || savingEdit || msg.id.startsWith('optimistic-')) return;
+    if (!editingTarget) {
+      preEditDraftRef.current = draft;
+    }
+    setReplyTarget(null);
+    setConfirmDeleteId(null);
+    setEditingTarget(msg);
+
+    const effectiveDriveId = extractDriveFileIdFromAttachment(msg);
+    const hasAttachment =
+      (Boolean(msg.attachment_type) && msg.attachment_type !== 'none') ||
+      Boolean(effectiveDriveId) ||
+      Boolean(msg.attachment_url) ||
+      Boolean(msg.drive_web_view_link);
+    const trimmedMessage = msg.message.trim();
+    const isAutoLabel =
+      (msg.attachment_name &&
+        (trimmedMessage === `[Foto] ${msg.attachment_name}` ||
+          trimmedMessage === `[Video] ${msg.attachment_name}` ||
+          trimmedMessage === `[Dokumen] ${msg.attachment_name}` ||
+          trimmedMessage === `[File] ${msg.attachment_name}`)) ||
+      (!trimmedMessage.includes('\n') &&
+        /^\[(foto|video|dokumen|file)\]\s+\S.+$/i.test(trimmedMessage));
+
+    setDraft(hasAttachment && isAutoLabel ? '' : msg.message);
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const cancelEditingMessage = () => {
+    if (savingEdit) return;
+    setEditingTarget(null);
+    setDraft(preEditDraftRef.current);
+    preEditDraftRef.current = '';
+    typingControllerRef.current?.sendTyping(false);
+  };
+
+  const handleSaveEditedMessage = async () => {
+    if (!editingTarget || savingEdit) return;
+    const target = editingTarget;
+    const cleanText = draft.trim();
+    if (!cleanText) {
+      onToast?.('error', 'Isi pesan edit tidak boleh kosong.');
+      return;
+    }
+    if (cleanText === target.message) {
+      cancelEditingMessage();
+      return;
+    }
+
+    setSavingEdit(true);
+    typingControllerRef.current?.sendTyping(false);
+
+    try {
+      const { message: updatedMsg } = await editChatMessage(session, target, cleanText);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === target.id ? { ...m, ...updatedMsg } : m))
+      );
+      setEditingTarget(null);
+      setDraft(preEditDraftRef.current);
+      preEditDraftRef.current = '';
+      void syncDirectoriesAndUnread();
+      onToast?.('success', 'Pesan berhasil diperbarui.');
+      inputRef.current?.focus();
+    } catch (err) {
+      onToast?.(
+        'error',
+        err instanceof Error ? err.message : 'Gagal memperbarui pesan.'
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (editingTarget) {
+      await handleSaveEditedMessage();
+      return;
+    }
     const cleanText = draft.trim();
     if (sending) return;
 
@@ -996,6 +1099,11 @@ export function CommunityChatSlide({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape' && editingTarget) {
+      e.preventDefault();
+      cancelEditingMessage();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void handleSendMessage();
@@ -1672,10 +1780,12 @@ export function CommunityChatSlide({
                         </div>
 
                         <div
-                          className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full min-w-0 overflow-hidden ${
+                          className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full min-w-0 overflow-hidden transition-shadow ${
                             isMine
                               ? 'bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white border-indigo-700/30 rounded-br-md'
                               : 'bg-white/95 text-[#0F172A] border-indigo-100/90 rounded-bl-md'
+                          } ${
+                            editingTarget?.id === msg.id ? 'ring-2 ring-amber-400/90' : ''
                           }`}
                         >
                           {msg.reply_preview && (
@@ -1717,20 +1827,80 @@ export function CommunityChatSlide({
                             return <p className="whitespace-pre-wrap break-words">{msg.message}</p>;
                           })()}
 
+                          {msg.is_edited &&
+                            msg.original_content &&
+                            expandedOriginalIds[msg.id] && (
+                              <div
+                                className={`mt-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] leading-snug space-y-0.5 ${
+                                  isMine
+                                    ? 'bg-white/12 border-white/25 text-sky-50'
+                                    : 'bg-slate-50 border-indigo-100 text-slate-600'
+                                }`}
+                              >
+                                <p
+                                  className={`text-[10px] font-semibold ${
+                                    isMine ? 'text-sky-100/90' : 'text-slate-500'
+                                  }`}
+                                >
+                                  Pesan asli sebelum diedit
+                                  {msg.edited_at
+                                    ? ` · ${formatMessageTime(msg.edited_at)}`
+                                    : ''}
+                                </p>
+                                <p className="whitespace-pre-wrap break-words opacity-95">
+                                  {msg.original_content}
+                                </p>
+                              </div>
+                            )}
+
                           <div
                             className={`mt-1 flex items-center justify-between gap-3 text-[10px] ${
                               isMine ? 'text-sky-100/85' : 'text-slate-400'
                             }`}
                           >
-                            <span className="font-mono tabular-nums">
-                              {formatMessageTime(msg.created_at)}
-                              {msg.is_local_only ? ' · Lokal' : ''}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                              <span className="font-mono tabular-nums">
+                                {formatMessageTime(msg.created_at)}
+                                {msg.is_local_only ? ' · Lokal' : ''}
+                              </span>
+                              {msg.is_edited && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  {msg.original_content ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedOriginalIds((prev) => ({
+                                          ...prev,
+                                          [msg.id]: !prev[msg.id],
+                                        }))
+                                      }
+                                      aria-expanded={Boolean(expandedOriginalIds[msg.id])}
+                                      title="Lihat isi pesan asli sebelum diedit"
+                                      className={`font-medium underline decoration-dotted underline-offset-2 cursor-pointer transition-opacity hover:opacity-100 ${
+                                        isMine
+                                          ? 'text-sky-100'
+                                          : 'text-slate-500 hover:text-[#312E81]'
+                                      }`}
+                                    >
+                                      {expandedOriginalIds[msg.id] ? 'Tutup riwayat' : 'Diedit'}
+                                    </button>
+                                  ) : (
+                                    <span className="italic">Diedit</span>
+                                  )}
+                                </>
+                              )}
+                            </div>
 
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (editingTarget) {
+                                    setEditingTarget(null);
+                                    setDraft(preEditDraftRef.current);
+                                    preEditDraftRef.current = '';
+                                  }
                                   setReplyTarget(msg);
                                   inputRef.current?.focus();
                                 }}
@@ -1744,6 +1914,23 @@ export function CommunityChatSlide({
                               >
                                 <CornerUpLeft className="w-3 h-3" />
                               </button>
+
+                              {isMine && !msg.id.startsWith('optimistic-') && !isConfirming && (
+                                <button
+                                  type="button"
+                                  disabled={savingEdit || isDeletingThis}
+                                  onClick={() => startEditingMessage(msg)}
+                                  aria-label="Edit pesan"
+                                  title="Edit pesan ini"
+                                  className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                    editingTarget?.id === msg.id
+                                      ? 'bg-white/25 text-white'
+                                      : 'hover:bg-white/15 text-sky-100'
+                                  }`}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
 
                               {!isConfirming && (
                                 <button
@@ -1834,7 +2021,28 @@ export function CommunityChatSlide({
               onSubmit={handleSendMessage}
               className="p-2.5 sm:p-3.5 border-t border-indigo-100/80 bg-white/85 backdrop-blur-md space-y-2 shrink-0 min-w-0"
             >
-              {replyTarget && (
+              {editingTarget && (
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-50/95 border border-amber-200/80 text-xs min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-bold text-amber-900 truncate flex items-center gap-1.5">
+                      <Pencil className="w-3 h-3 shrink-0" />
+                      <span>Mengedit pesan</span>
+                    </p>
+                    <p className="text-[11px] text-amber-800/85 truncate">{editingTarget.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={cancelEditingMessage}
+                    aria-label="Batalkan edit pesan"
+                    className="p-1.5 rounded-lg text-amber-700 hover:text-amber-950 hover:bg-amber-100/80 cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {replyTarget && !editingTarget && (
                 <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/70 text-xs min-w-0">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] font-bold text-[#4C1D95] truncate">
@@ -1908,7 +2116,7 @@ export function CommunityChatSlide({
 
               <div className="flex items-end gap-1.5 sm:gap-2 min-w-0">
                 <ChatAttachmentMenu
-                  disabled={sending}
+                  disabled={sending || savingEdit || Boolean(editingTarget)}
                   onSelectFiles={handleSelectAttachmentFiles}
                   onPickingStateChange={onAttachmentPickingChange}
                 />
@@ -1921,32 +2129,40 @@ export function CommunityChatSlide({
                   onChange={(e) => {
                     const nextVal = e.target.value;
                     setDraft(nextVal);
-                    typingControllerRef.current?.sendTyping(Boolean(nextVal.trim()));
+                    if (!editingTarget) {
+                      typingControllerRef.current?.sendTyping(Boolean(nextVal.trim()));
+                    }
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    completedAttachments.length > 0 || hasUploadingAttachments
-                      ? 'Tambah keterangan lampiran (opsional)...'
-                      : `Tulis pesan ke ${activeTitle}...`
+                    editingTarget
+                      ? 'Ubah isi pesan...'
+                      : completedAttachments.length > 0 || hasUploadingAttachments
+                        ? 'Tambah keterangan lampiran (opsional)...'
+                        : `Tulis pesan ke ${activeTitle}...`
                   }
                   className="flex-1 min-w-0 min-h-[44px] max-h-24 resize-none rounded-2xl border border-indigo-200/80 bg-white/95 px-3 py-2.5 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                 />
                 <button
                   type="submit"
                   disabled={
-                    sending ||
-                    hasFailedAttachments ||
-                    (!draft.trim() && completedAttachments.length === 0 && !hasUploadingAttachments)
+                    editingTarget
+                      ? savingEdit || !draft.trim()
+                      : sending ||
+                        hasFailedAttachments ||
+                        (!draft.trim() && completedAttachments.length === 0 && !hasUploadingAttachments)
                   }
-                  aria-label="Kirim pesan"
+                  aria-label={editingTarget ? 'Simpan perubahan pesan' : 'Kirim pesan'}
                   className="h-11 min-h-[44px] px-3.5 sm:px-4 rounded-2xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
                 >
-                  {sending ? (
+                  {sending || savingEdit ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : editingTarget ? (
+                    <Check className="w-4 h-4" />
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  <span className="hidden sm:inline">Kirim</span>
+                  <span className="hidden sm:inline">{editingTarget ? 'Simpan' : 'Kirim'}</span>
                 </button>
               </div>
             </form>
