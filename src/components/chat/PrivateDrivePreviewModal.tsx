@@ -14,6 +14,7 @@ import {
 import type { SessionUser } from '../../types';
 import type { ChatMessage } from '../../lib/chatService';
 import {
+  extractDriveFileIdFromAttachment,
   fetchPrivateAttachmentBlobUrl,
   isPrivateChatRoom,
   resolveChatAttachmentAccess,
@@ -94,8 +95,64 @@ export function PrivateDrivePreviewModal({
       const isPrivate =
         target.drive_permission_scope === 'restricted_private' ||
         isPrivateChatRoom(target.room_id);
+      const effectiveFileId = extractDriveFileIdFromAttachment(target);
+      const lowerName = String(target.attachment_name || '').toLowerCase();
+      const lowerMime = String(target.attachment_mime || '').toLowerCase();
+      const resolvedType =
+        lowerMime.startsWith('image/') || /\.(png|jpe?g|webp|gif|heic|heif|bmp)$/i.test(lowerName)
+          ? 'photo'
+          : lowerMime.startsWith('video/') || /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i.test(lowerName)
+            ? 'video'
+            : target.attachment_type || 'document';
 
       try {
+        if (resolvedType === 'video') {
+          const access = await resolveChatAttachmentAccess(session, target, {
+            mode: 'stream',
+            signal,
+          });
+          if (signal.aborted) return;
+          const safeUrl = access.url || target.drive_web_view_link || '';
+          if (!safeUrl) {
+            throw new Error('Tautan Google Drive untuk video ini tidak tersedia.');
+          }
+          setState({
+            loading: false,
+            error: null,
+            reason: null,
+            sourceUrl: safeUrl,
+            mimeType: access.mimeType || target.attachment_mime || 'video/mp4',
+            isBlob: false,
+            expiresAt: access.expiresAt,
+          });
+          return;
+        }
+
+        if (effectiveFileId) {
+          const blobRes = await fetchPrivateAttachmentBlobUrl(
+            session,
+            { ...target, attachment_drive_file_id: effectiveFileId },
+            {
+              mode: resolvedType === 'photo' ? 'stream' : 'download',
+              signal,
+            }
+          );
+          if (signal.aborted) {
+            blobRes.revoke();
+            return;
+          }
+          revokeRef.current = blobRes.revoke;
+          setState({
+            loading: false,
+            error: null,
+            reason: null,
+            sourceUrl: blobRes.objectUrl,
+            mimeType: blobRes.mimeType || target.attachment_mime || 'application/octet-stream',
+            isBlob: true,
+          });
+          return;
+        }
+
         if (!isPrivate) {
           const publicAccess = await resolveChatAttachmentAccess(session, target, {
             mode: 'stream',
@@ -113,6 +170,7 @@ export function PrivateDrivePreviewModal({
           setState({
             loading: false,
             error: null,
+            reason: null,
             sourceUrl: safeUrl,
             mimeType: target.attachment_mime || '',
             isBlob: false,
@@ -120,39 +178,7 @@ export function PrivateDrivePreviewModal({
           return;
         }
 
-        if (target.attachment_type === 'video') {
-          const access = await resolveChatAttachmentAccess(session, target, {
-            mode: 'stream',
-            signal,
-          });
-          if (signal.aborted) return;
-          setState({
-            loading: false,
-            error: null,
-            sourceUrl: access.url,
-            mimeType: access.mimeType || target.attachment_mime || 'video/mp4',
-            isBlob: false,
-            expiresAt: access.expiresAt,
-          });
-          return;
-        }
-
-        const blobRes = await fetchPrivateAttachmentBlobUrl(session, target, {
-          mode: target.attachment_type === 'photo' ? 'stream' : 'download',
-          signal,
-        });
-        if (signal.aborted) {
-          blobRes.revoke();
-          return;
-        }
-        revokeRef.current = blobRes.revoke;
-        setState({
-          loading: false,
-          error: null,
-          sourceUrl: blobRes.objectUrl,
-          mimeType: blobRes.mimeType || target.attachment_mime || 'application/octet-stream',
-          isBlob: true,
-        });
+        throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
       } catch (err) {
         if (signal.aborted) return;
         const rawReason = (err as { reason?: unknown } | null)?.reason;
@@ -213,7 +239,16 @@ export function PrivateDrivePreviewModal({
       ? message.attachment_url
       : null;
 
-  const attachmentType = message.attachment_type || 'document';
+  const lowerModalName = fileName.toLowerCase();
+  const lowerModalMime = (state.mimeType || message.attachment_mime || '').toLowerCase();
+  const attachmentType =
+    lowerModalMime.startsWith('image/') ||
+    /\.(png|jpe?g|webp|gif|heic|heif|bmp)$/i.test(lowerModalName)
+      ? 'photo'
+      : lowerModalMime.startsWith('video/') ||
+          /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i.test(lowerModalName)
+        ? 'video'
+        : message.attachment_type || 'document';
   const canIframeDoc =
     attachmentType === 'document' &&
     Boolean(state.sourceUrl) &&

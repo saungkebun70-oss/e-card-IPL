@@ -433,8 +433,105 @@ function normalizeDrivePermissionScope(raw: unknown): DrivePermissionScope | nul
   return null;
 }
 
+function extractDriveFileIdFromString(raw?: string | null): string {
+  const val = String(raw || '').trim();
+  if (!val) return '';
+  const param = val.match(/[?&]fileId=([a-zA-Z0-9_-]{10,})/i);
+  if (param?.[1]) return param[1];
+  const pathMatch = val.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/i);
+  if (pathMatch?.[1]) return pathMatch[1];
+  const lhMatch = val.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{10,})/i);
+  if (lhMatch?.[1]) return lhMatch[1];
+  const idMatch = val.match(/[?&]id=([a-zA-Z0-9_-]{10,})/i);
+  if (idMatch?.[1]) return idMatch[1];
+  return '';
+}
+
+function inferImageOrVideoFromNameOrMime(
+  mime?: string | null,
+  name?: string | null
+): 'photo' | 'video' | null {
+  const m = String(mime || '').trim().toLowerCase();
+  const n = String(name || '').trim().toLowerCase();
+  if (m.startsWith('image/') || /\.(png|jpe?g|webp|gif|heic|heif|bmp)$/i.test(n)) {
+    return 'photo';
+  }
+  if (m.startsWith('video/') || /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i.test(n)) {
+    return 'video';
+  }
+  return null;
+}
+
 export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
-  const rawSize = Number(row.attachment_size_bytes);
+  const rawSize = Number(row.attachment_size_bytes ?? row.file_size);
+  const messageText = String(row.message || '');
+  const attachmentUrl =
+    typeof row.attachment_url === 'string' && row.attachment_url.trim()
+      ? row.attachment_url.trim()
+      : null;
+  const attachmentThumbnailUrl =
+    typeof row.attachment_thumbnail_url === 'string' && row.attachment_thumbnail_url.trim()
+      ? row.attachment_thumbnail_url.trim()
+      : null;
+  const driveWebViewLink =
+    typeof row.drive_web_view_link === 'string' && row.drive_web_view_link.trim()
+      ? row.drive_web_view_link.trim()
+      : null;
+  const driveThumbnailLink =
+    typeof row.drive_thumbnail_link === 'string' && row.drive_thumbnail_link.trim()
+      ? row.drive_thumbnail_link.trim()
+      : null;
+
+  const rawDriveFileId =
+    typeof row.attachment_drive_file_id === 'string' && row.attachment_drive_file_id.trim()
+      ? row.attachment_drive_file_id.trim()
+      : typeof row.drive_file_id === 'string' && row.drive_file_id.trim()
+        ? row.drive_file_id.trim()
+        : '';
+  const resolvedDriveFileId =
+    rawDriveFileId ||
+    extractDriveFileIdFromString(attachmentUrl) ||
+    extractDriveFileIdFromString(driveWebViewLink) ||
+    extractDriveFileIdFromString(attachmentThumbnailUrl) ||
+    extractDriveFileIdFromString(driveThumbnailLink) ||
+    null;
+
+  const rawName =
+    typeof row.attachment_name === 'string' && row.attachment_name.trim()
+      ? row.attachment_name.trim()
+      : typeof row.file_name === 'string' && row.file_name.trim()
+        ? row.file_name.trim()
+        : '';
+  const tagNameMatch = messageText.trim().match(/^\[(foto|video|dokumen|file)\]\s+(.+)$/i);
+  const resolvedName = rawName || (tagNameMatch?.[2] ? tagNameMatch[2].trim() : '') || null;
+
+  const resolvedMime =
+    typeof row.attachment_mime === 'string' && row.attachment_mime.trim()
+      ? row.attachment_mime.trim()
+      : typeof row.mime_type === 'string' && row.mime_type.trim()
+        ? row.mime_type.trim()
+        : null;
+
+  let resolvedType = normalizeAttachmentType(row.attachment_type);
+  const mediaKindFromMimeOrName = inferImageOrVideoFromNameOrMime(resolvedMime, resolvedName);
+  const hasAttachmentLink = Boolean(resolvedDriveFileId || attachmentUrl || driveWebViewLink);
+
+  if (resolvedType === 'none' && hasAttachmentLink) {
+    if (mediaKindFromMimeOrName) {
+      resolvedType = mediaKindFromMimeOrName;
+    } else if (/^\[foto\]\s+/i.test(messageText.trim())) {
+      resolvedType = 'photo';
+    } else if (/^\[video\]\s+/i.test(messageText.trim())) {
+      resolvedType = 'video';
+    } else {
+      resolvedType = 'document';
+    }
+  } else if (resolvedType === 'document' && mediaKindFromMimeOrName === 'photo') {
+    resolvedType = 'photo';
+  } else if (resolvedType === 'document' && mediaKindFromMimeOrName === 'video') {
+    resolvedType = 'video';
+  }
+
   return {
     id: String(row.id || createUuidSafe()),
     room_id: normalizeRoomId(row.room_id),
@@ -446,29 +543,27 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     recipient_id: typeof row.recipient_id === 'string' ? row.recipient_id : null,
     recipient_name: typeof row.recipient_name === 'string' ? row.recipient_name : null,
     recipient_role: row.recipient_role ? normalizeSenderRole(row.recipient_role) : null,
-    message: String(row.message || ''),
+    message: messageText,
     reply_to_id: typeof row.reply_to_id === 'string' ? row.reply_to_id : null,
     reply_preview: typeof row.reply_preview === 'string' ? row.reply_preview : null,
     created_at: String(row.created_at || new Date().toISOString()),
     is_local_only: false,
-    attachment_type: normalizeAttachmentType(row.attachment_type),
-    attachment_name: typeof row.attachment_name === 'string' ? row.attachment_name : null,
-    attachment_mime: typeof row.attachment_mime === 'string' ? row.attachment_mime : null,
+    attachment_type: resolvedType,
+    attachment_name: resolvedName,
+    attachment_mime: resolvedMime,
     attachment_size_bytes: Number.isFinite(rawSize) && rawSize > 0 ? rawSize : null,
     attachment_storage_provider: normalizeAttachmentProvider(row.attachment_storage_provider),
-    attachment_drive_file_id:
-      typeof row.attachment_drive_file_id === 'string' ? row.attachment_drive_file_id : null,
+    attachment_drive_file_id: resolvedDriveFileId,
     attachment_drive_folder_path:
       typeof row.attachment_drive_folder_path === 'string' ? row.attachment_drive_folder_path : null,
-    attachment_url: typeof row.attachment_url === 'string' ? row.attachment_url : null,
-    attachment_thumbnail_url:
-      typeof row.attachment_thumbnail_url === 'string' ? row.attachment_thumbnail_url : null,
-    attachment_status: normalizeAttachmentStatus(row.attachment_status),
+    attachment_url: attachmentUrl,
+    attachment_thumbnail_url: attachmentThumbnailUrl,
+    attachment_status:
+      normalizeAttachmentStatus(row.attachment_status) ||
+      (hasAttachmentLink && resolvedType !== 'none' ? 'ready' : null),
     drive_permission_scope: normalizeDrivePermissionScope(row.drive_permission_scope),
-    drive_web_view_link:
-      typeof row.drive_web_view_link === 'string' ? row.drive_web_view_link : null,
-    drive_thumbnail_link:
-      typeof row.drive_thumbnail_link === 'string' ? row.drive_thumbnail_link : null,
+    drive_web_view_link: driveWebViewLink,
+    drive_thumbnail_link: driveThumbnailLink,
   };
 }
 
@@ -895,6 +990,30 @@ export async function fetchChatMessages(
   }
 }
 
+export async function fetchChatMessageById(
+  session: SessionUser,
+  messageId: string
+): Promise<ChatMessage | null> {
+  const cleanId = String(messageId || '').trim();
+  if (!cleanId || cleanId.startsWith('chat-')) return null;
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured()) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('community_chat_messages')
+      .select('*')
+      .eq('id', cleanId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const normalized = normalizeChatRow(data as Record<string, unknown>);
+    return canAccessChatRoom(session, normalized.room_id) ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Mengambil ringkasan percakapan DM Personal yang pernah berlangsung + jumlah belum dibaca.
  */
@@ -1182,17 +1301,23 @@ export async function sendChatMessage(
         created_at: nextMessage.created_at,
       };
 
-      const attachmentOnlyPayload = input.attachment
+      const coreAttachmentPayload = input.attachment
         ? {
             ...basePayload,
             attachment_type: nextMessage.attachment_type || 'none',
             attachment_name: nextMessage.attachment_name ?? null,
             attachment_mime: nextMessage.attachment_mime ?? null,
             attachment_size_bytes: nextMessage.attachment_size_bytes ?? null,
-            attachment_storage_provider: nextMessage.attachment_storage_provider ?? null,
             attachment_drive_file_id: nextMessage.attachment_drive_file_id ?? null,
-            attachment_drive_folder_path: nextMessage.attachment_drive_folder_path ?? null,
             attachment_url: nextMessage.attachment_url ?? null,
+          }
+        : basePayload;
+
+      const attachmentOnlyPayload = input.attachment
+        ? {
+            ...coreAttachmentPayload,
+            attachment_storage_provider: nextMessage.attachment_storage_provider ?? null,
+            attachment_drive_folder_path: nextMessage.attachment_drive_folder_path ?? null,
             attachment_thumbnail_url: nextMessage.attachment_thumbnail_url ?? null,
             attachment_status: nextMessage.attachment_status ?? null,
           }
@@ -1215,7 +1340,7 @@ export async function sendChatMessage(
 
       let { error } = await supabase.from('community_chat_messages').insert(payloadWithAttachment);
 
-      // Kompatibilitas bila kolom drive_* (v18), attachment_* (v17), atau recipient_* (v14) belum dibuat
+      // Kompatibilitas bila kolom drive_* (v18), sebagian kolom attachment_* (v17), atau recipient_* (v14) belum dibuat
       if (
         error &&
         (String(error.message || '').toLowerCase().includes('drive_') ||
@@ -1224,6 +1349,17 @@ export async function sendChatMessage(
       ) {
         const retryAttach = await supabase.from('community_chat_messages').insert(attachmentOnlyPayload);
         error = retryAttach.error;
+      }
+
+      if (
+        error &&
+        input.attachment &&
+        (String(error.message || '').toLowerCase().includes('attachment_') ||
+          error.code === '42703' ||
+          error.code === 'PGRST204')
+      ) {
+        const retryCoreAttach = await supabase.from('community_chat_messages').insert(coreAttachmentPayload);
+        error = retryCoreAttach.error;
       }
 
       if (
@@ -1265,6 +1401,10 @@ export async function sendChatMessage(
     } catch {
       // Fallback lokal bila tabel belum dimigrasi
     }
+  }
+
+  if (input.attachment) {
+    rememberLocalSentAttachment(nextMessage);
   }
 
   if (!savedRemote) {
@@ -1443,6 +1583,72 @@ export async function clearChatRoom(
   return { clearedRemote };
 }
 
+const recentSentAttachmentsById = new Map<string, ChatMessage>();
+
+function rememberLocalSentAttachment(msg: ChatMessage): void {
+  if (!msg.id) return;
+  if (recentSentAttachmentsById.has(msg.id)) {
+    recentSentAttachmentsById.delete(msg.id);
+  }
+  recentSentAttachmentsById.set(msg.id, msg);
+  while (recentSentAttachmentsById.size > 100) {
+    const oldest = recentSentAttachmentsById.keys().next().value;
+    if (!oldest) break;
+    recentSentAttachmentsById.delete(oldest);
+  }
+}
+
+function mergeAttachmentFallback(base: ChatMessage, fallback: ChatMessage): ChatMessage {
+  return {
+    ...base,
+    attachment_type:
+      base.attachment_type && base.attachment_type !== 'none'
+        ? base.attachment_type
+        : fallback.attachment_type,
+    attachment_name: base.attachment_name || fallback.attachment_name || null,
+    attachment_mime: base.attachment_mime || fallback.attachment_mime || null,
+    attachment_size_bytes: base.attachment_size_bytes || fallback.attachment_size_bytes || null,
+    attachment_storage_provider:
+      base.attachment_storage_provider || fallback.attachment_storage_provider || null,
+    attachment_drive_file_id:
+      base.attachment_drive_file_id || fallback.attachment_drive_file_id || null,
+    attachment_drive_folder_path:
+      base.attachment_drive_folder_path || fallback.attachment_drive_folder_path || null,
+    attachment_url: base.attachment_url || fallback.attachment_url || null,
+    attachment_thumbnail_url:
+      base.attachment_thumbnail_url || fallback.attachment_thumbnail_url || null,
+    attachment_status: base.attachment_status || fallback.attachment_status || null,
+    drive_permission_scope:
+      base.drive_permission_scope || fallback.drive_permission_scope || null,
+    drive_web_view_link: base.drive_web_view_link || fallback.drive_web_view_link || null,
+    drive_thumbnail_link: base.drive_thumbnail_link || fallback.drive_thumbnail_link || null,
+  };
+}
+
+function needsRealtimeAttachmentHydration(
+  rawRow: Record<string, unknown>,
+  normalized: ChatMessage
+): boolean {
+  if (!rawRow.room_id || !rawRow.message) return true;
+  if (
+    normalized.attachment_type &&
+    normalized.attachment_type !== 'none' &&
+    !normalized.attachment_drive_file_id &&
+    !normalized.attachment_url
+  ) {
+    return true;
+  }
+  if (
+    /^\[(foto|video|dokumen|file)\]\s+/i.test(normalized.message.trim()) &&
+    (!normalized.attachment_drive_file_id ||
+      !normalized.attachment_mime ||
+      !normalized.attachment_url)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Subscription real-time Supabase Postgres Changes + sinkronisasi lintas tab lokal.
  */
@@ -1500,6 +1706,23 @@ export function subscribeChatMessagesRealtime(
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
+    let disposed = false;
+    const hydrateRealtimeRow = async (rawRow: Record<string, unknown>): Promise<ChatMessage | null> => {
+      let resolved = normalizeChatRow(rawRow);
+      const cachedSent = resolved.id ? recentSentAttachmentsById.get(resolved.id) : undefined;
+      if (cachedSent) {
+        resolved = mergeAttachmentFallback(resolved, cachedSent);
+      }
+      if (needsRealtimeAttachmentHydration(rawRow, resolved) && resolved.id) {
+        const fetched = await fetchChatMessageById(session, resolved.id);
+        if (fetched) {
+          resolved = cachedSent ? mergeAttachmentFallback(fetched, cachedSent) : fetched;
+        }
+      }
+      if (disposed || !canAccessChatRoom(session, resolved.room_id)) return null;
+      return resolved;
+    };
+
     try {
       const channel = supabase
         .channel(`community-chat-${session.role}-${Date.now()}`)
@@ -1509,10 +1732,11 @@ export function subscribeChatMessagesRealtime(
           (payload) => {
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;
-            const normalized = normalizeChatRow(row);
-            if (!canAccessChatRoom(session, normalized.room_id)) return;
-            callbacks.onInsert?.(normalized);
-            callbacks.onAnyChange?.();
+            void hydrateRealtimeRow(row).then((hydrated) => {
+              if (!hydrated) return;
+              callbacks.onInsert?.(hydrated);
+              callbacks.onAnyChange?.();
+            });
           }
         )
         .on(
@@ -1521,14 +1745,15 @@ export function subscribeChatMessagesRealtime(
           (payload) => {
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;
-            const normalized = normalizeChatRow(row);
-            if (!canAccessChatRoom(session, normalized.room_id)) return;
-            if (callbacks.onUpdate) {
-              callbacks.onUpdate(normalized);
-            } else {
-              callbacks.onInsert?.(normalized);
-            }
-            callbacks.onAnyChange?.();
+            void hydrateRealtimeRow(row).then((hydrated) => {
+              if (!hydrated) return;
+              if (callbacks.onUpdate) {
+                callbacks.onUpdate(hydrated);
+              } else {
+                callbacks.onInsert?.(hydrated);
+              }
+              callbacks.onAnyChange?.();
+            });
           }
         )
         .on(
@@ -1546,6 +1771,7 @@ export function subscribeChatMessagesRealtime(
         .subscribe();
 
       cleanups.push(() => {
+        disposed = true;
         try {
           void supabase.removeChannel(channel);
         } catch {

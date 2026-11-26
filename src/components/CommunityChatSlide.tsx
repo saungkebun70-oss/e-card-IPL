@@ -1316,12 +1316,19 @@ export function CommunityChatSlide({
 
                           {(() => {
                             const hasAttachment =
-                              Boolean(msg.attachment_type) && msg.attachment_type !== 'none';
+                              (Boolean(msg.attachment_type) && msg.attachment_type !== 'none') ||
+                              Boolean(msg.attachment_drive_file_id) ||
+                              Boolean(msg.attachment_url) ||
+                              Boolean(msg.drive_web_view_link);
+                            const trimmedMessage = msg.message.trim();
                             const autoLabel =
-                              msg.attachment_name &&
-                              (msg.message === `[Foto] ${msg.attachment_name}` ||
-                                msg.message === `[Video] ${msg.attachment_name}` ||
-                                msg.message === `[Dokumen] ${msg.attachment_name}`);
+                              (msg.attachment_name &&
+                                (trimmedMessage === `[Foto] ${msg.attachment_name}` ||
+                                  trimmedMessage === `[Video] ${msg.attachment_name}` ||
+                                  trimmedMessage === `[Dokumen] ${msg.attachment_name}` ||
+                                  trimmedMessage === `[File] ${msg.attachment_name}`)) ||
+                              (!trimmedMessage.includes('\n') &&
+                                /^\[(foto|video|dokumen|file)\]\s+\S.+$/i.test(trimmedMessage));
                             if (hasAttachment && autoLabel) return null;
                             return <p className="whitespace-pre-wrap break-words">{msg.message}</p>;
                           })()}

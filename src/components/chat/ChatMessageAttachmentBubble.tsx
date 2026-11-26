@@ -1,17 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  Download,
   ExternalLink,
+  File,
+  FileSpreadsheet,
   FileText,
   Film,
   Image as ImageIcon,
   Loader2,
   Lock,
+  Maximize2,
   Play,
 } from 'lucide-react';
 import type { SessionUser } from '../../types';
-import type { ChatMessage } from '../../lib/chatService';
-import { fetchPrivateAttachmentBlobUrl, isPrivateChatRoom } from '../../lib/chatMediaUpload';
+import type { ChatAttachmentType, ChatMessage } from '../../lib/chatService';
+import {
+  extractDriveFileIdFromAttachment,
+  fetchPrivateAttachmentBlobUrl,
+  isPrivateChatRoom,
+} from '../../lib/chatMediaUpload';
 import {
   formatFileSize,
   getFileExtensionLabel,
@@ -25,16 +33,85 @@ interface ChatMessageAttachmentBubbleProps {
   onOpenAttachment: (message: ChatMessage) => void;
 }
 
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|heic|heif|bmp)$/i;
+const VIDEO_EXT_RE = /\.(mp4|mov|mkv|avi|webm|3gp|m4v)$/i;
+
+function resolveEffectiveAttachmentInfo(message: ChatMessage): {
+  type: ChatAttachmentType;
+  driveFileId: string;
+  fileName: string;
+  mimeType: string;
+} {
+  const driveFileId = extractDriveFileIdFromAttachment(message);
+  const tagMatch = message.message.trim().match(/^\[(foto|video|dokumen|file)\]\s+(.+)$/i);
+  const fileName =
+    (message.attachment_name || '').trim() ||
+    (tagMatch?.[2] ? tagMatch[2].trim() : '') ||
+    'Lampiran Media';
+  const mimeType = (message.attachment_mime || '').trim().toLowerCase();
+  const hasAnyLink = Boolean(
+    driveFileId || message.attachment_url || message.drive_web_view_link
+  );
+
+  let type: ChatAttachmentType = message.attachment_type || 'none';
+  if (mimeType.startsWith('image/') || IMAGE_EXT_RE.test(fileName)) {
+    if (type !== 'none' || hasAnyLink) type = 'photo';
+  } else if (mimeType.startsWith('video/') || VIDEO_EXT_RE.test(fileName)) {
+    if (type !== 'none' || hasAnyLink) type = 'video';
+  } else if (type === 'none' && hasAnyLink) {
+    if (tagMatch?.[1]?.toLowerCase() === 'foto') {
+      type = 'photo';
+    } else if (tagMatch?.[1]?.toLowerCase() === 'video') {
+      type = 'video';
+    } else {
+      type = 'document';
+    }
+  }
+
+  return { type, driveFileId, fileName, mimeType };
+}
+
+function renderDocumentIcon(fileName: string, mimeType: string) {
+  const lowerName = fileName.toLowerCase();
+  const lowerMime = mimeType.toLowerCase();
+  if (
+    /\.(xls|xlsx|csv)$/i.test(lowerName) ||
+    lowerMime.includes('spreadsheet') ||
+    lowerMime.includes('excel') ||
+    lowerMime === 'text/csv'
+  ) {
+    return <FileSpreadsheet className="w-4 h-4" />;
+  }
+  if (
+    /\.(pdf|doc|docx|txt|ppt|pptx)$/i.test(lowerName) ||
+    lowerMime === 'application/pdf' ||
+    lowerMime.includes('wordprocessing') ||
+    lowerMime === 'application/msword' ||
+    lowerMime.startsWith('text/')
+  ) {
+    return <FileText className="w-4 h-4" />;
+  }
+  return <File className="w-4 h-4" />;
+}
+
 export function ChatMessageAttachmentBubble({
   session,
   message,
   isMine,
   onOpenAttachment,
 }: ChatMessageAttachmentBubbleProps) {
-  const attachmentType = message.attachment_type;
-  const [privateThumbUrl, setPrivateThumbUrl] = useState<string | null>(null);
-  const [privateThumbLoading, setPrivateThumbLoading] = useState(false);
+  const {
+    type: attachmentType,
+    driveFileId,
+    fileName,
+    mimeType,
+  } = useMemo(() => resolveEffectiveAttachmentInfo(message), [message]);
+
+  const [proxyPhotoUrl, setProxyPhotoUrl] = useState<string | null>(null);
+  const [proxyPhotoLoading, setProxyPhotoLoading] = useState(false);
+  const [proxyPhotoError, setProxyPhotoError] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [downloadingDoc, setDownloadingDoc] = useState(false);
 
   const isPrivateRoom =
     message.drive_permission_scope === 'restricted_private' ||
@@ -47,81 +124,76 @@ export function ChatMessageAttachmentBubble({
   const isReady =
     !isPending &&
     !isFailed &&
-    Boolean(
-      message.attachment_drive_file_id ||
-        message.drive_web_view_link ||
-        message.attachment_url
-    );
+    Boolean(driveFileId || message.drive_web_view_link || message.attachment_url);
 
-  // Untuk foto pada ruang privat (`grup_pengurus` / `dm:*`), muat thumbnail via proxy aman
+  const resolvedMessage = useMemo<ChatMessage>(
+    () => ({
+      ...message,
+      attachment_type: attachmentType,
+      attachment_name: fileName,
+      attachment_mime: mimeType || message.attachment_mime || null,
+      attachment_drive_file_id: driveFileId || message.attachment_drive_file_id || null,
+    }),
+    [message, attachmentType, fileName, mimeType, driveFileId]
+  );
+
+  // Muat otomatis pratinjau gambar melalui proxy `chat-drive-private-access` (dengan cache Blob di memori)
+  // untuk pengirim maupun penerima di ruang privat maupun grup.
   useEffect(() => {
     setImageError(false);
-    if (
-      attachmentType !== 'photo' ||
-      !isPrivateRoom ||
-      !isReady ||
-      !message.attachment_drive_file_id
-    ) {
-      setPrivateThumbUrl(null);
-      setPrivateThumbLoading(false);
+    setProxyPhotoError(false);
+
+    if (attachmentType !== 'photo' || !isReady || !driveFileId) {
+      setProxyPhotoUrl(null);
+      setProxyPhotoLoading(false);
       return;
     }
 
     let active = true;
-    let revokeFn: (() => void) | null = null;
     const controller = new AbortController();
-    setPrivateThumbLoading(true);
+    setProxyPhotoLoading(true);
 
     void (async () => {
       try {
-        const res = await fetchPrivateAttachmentBlobUrl(session, message, {
+        const res = await fetchPrivateAttachmentBlobUrl(session, resolvedMessage, {
           mode: 'thumbnail',
           signal: controller.signal,
         });
-        if (!active) {
-          res.revoke();
-          return;
-        }
-        revokeFn = res.revoke;
-        setPrivateThumbUrl(res.objectUrl);
+        if (!active) return;
+        setProxyPhotoUrl(res.objectUrl);
       } catch {
         if (!active) return;
-        setPrivateThumbUrl(null);
+        setProxyPhotoUrl(null);
+        setProxyPhotoError(true);
       } finally {
-        if (active) setPrivateThumbLoading(false);
+        if (active) setProxyPhotoLoading(false);
       }
     })();
 
     return () => {
       active = false;
       controller.abort();
-      if (revokeFn) {
-        try {
-          revokeFn();
-        } catch {
-          // Abaikan
-        }
-      }
     };
-  }, [
-    attachmentType,
-    isPrivateRoom,
-    isReady,
-    message.id,
-    message.attachment_drive_file_id,
-    message.room_id,
-    session,
-  ]);
+  }, [attachmentType, isReady, driveFileId, resolvedMessage, session]);
 
   if (!attachmentType || attachmentType === 'none') {
     return null;
   }
 
-  const fileName = message.attachment_name || 'Lampiran Media';
-  const extLabel = getFileExtensionLabel(fileName, message.attachment_mime);
+  const extLabel = getFileExtensionLabel(fileName, mimeType || message.attachment_mime);
   const sizeLabel = message.attachment_size_bytes
     ? formatFileSize(message.attachment_size_bytes)
     : null;
+
+  const fallbackExternalPhotoSrc = !driveFileId
+    ? [
+        message.attachment_thumbnail_url,
+        message.drive_thumbnail_link,
+        message.attachment_url,
+      ].find((u) => isSafeExternalUrl(u)) || null
+    : null;
+
+  const resolvedPhotoSrc = driveFileId ? proxyPhotoUrl : fallbackExternalPhotoSrc;
 
   const publicDriveLink = !isPrivateRoom
     ? isSafeExternalUrl(message.drive_web_view_link)
@@ -131,15 +203,42 @@ export function ChatMessageAttachmentBubble({
         : null
     : null;
 
-  const publicPhotoPreviewSrc = !isPrivateRoom
-    ? [
-        message.attachment_thumbnail_url,
-        message.drive_thumbnail_link,
-        message.attachment_url,
-      ].find((u) => isSafeExternalUrl(u)) || null
-    : null;
+  const handleDirectDownloadDocument = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (downloadingDoc) return;
 
-  const resolvedPhotoSrc = isPrivateRoom ? privateThumbUrl : publicPhotoPreviewSrc;
+    if (!driveFileId) {
+      if (publicDriveLink) {
+        const link = document.createElement('a');
+        link.href = publicDriveLink;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        onOpenAttachment(resolvedMessage);
+      }
+      return;
+    }
+
+    setDownloadingDoc(true);
+    try {
+      const res = await fetchPrivateAttachmentBlobUrl(session, resolvedMessage, {
+        mode: 'download',
+      });
+      const link = document.createElement('a');
+      link.href = res.objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      onOpenAttachment(resolvedMessage);
+    } finally {
+      setDownloadingDoc(false);
+    }
+  };
 
   const cardSurfaceClass = isMine
     ? 'bg-white/14 border-white/25 text-white'
@@ -147,8 +246,12 @@ export function ChatMessageAttachmentBubble({
 
   const subTextClass = isMine ? 'text-sky-100/85' : 'text-slate-600';
 
-  const driveBtnClass = isMine
+  const actionBtnPrimaryClass = isMine
     ? 'bg-white/95 hover:bg-white text-[#312E81] border border-white/80'
+    : 'bg-[#312E81] hover:bg-[#3730A3] text-white border border-[#312E81]';
+
+  const actionBtnSecondaryClass = isMine
+    ? 'bg-white/15 hover:bg-white/25 text-white border border-white/30'
     : 'bg-white hover:bg-indigo-50 text-[#312E81] border border-indigo-200';
 
   if (isPending) {
@@ -189,22 +292,19 @@ export function ChatMessageAttachmentBubble({
 
   return (
     <div className="mb-2 w-full min-w-0 max-w-full space-y-1.5 overflow-hidden">
-      {/* Pratinjau sesuai tipe lampiran */}
       {attachmentType === 'photo' ? (
-        <div
-          className={`w-full min-w-0 rounded-xl border overflow-hidden ${cardSurfaceClass}`}
-        >
-          {privateThumbLoading ? (
-            <div className="h-36 w-full flex flex-col items-center justify-center gap-1.5 px-3">
+        <div className={`w-full min-w-0 rounded-xl border overflow-hidden ${cardSurfaceClass}`}>
+          {proxyPhotoLoading ? (
+            <div className="h-40 w-full min-w-[200px] flex flex-col items-center justify-center gap-1.5 px-3">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className={`text-[10.5px] ${subTextClass}`}>Memuat pratinjau aman...</span>
+              <span className={`text-[10.5px] ${subTextClass}`}>Memuat pratinjau gambar...</span>
             </div>
           ) : resolvedPhotoSrc && !imageError ? (
             <button
               type="button"
-              onClick={() => onOpenAttachment(message)}
+              onClick={() => onOpenAttachment(resolvedMessage)}
               aria-label={`Perbesar foto ${fileName}`}
-              className="block w-full text-left cursor-pointer focus:outline-none"
+              className="group/thumb relative block w-full text-left cursor-pointer focus:outline-none"
             >
               <img
                 src={resolvedPhotoSrc}
@@ -212,14 +312,18 @@ export function ChatMessageAttachmentBubble({
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}
-                className="w-full max-h-52 object-cover block bg-slate-900/10"
+                className="w-full max-h-60 min-h-[110px] object-cover block bg-slate-900/10"
               />
+              <span className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-950/60 text-white text-[10px] font-semibold inline-flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity backdrop-blur-xs">
+                <Maximize2 className="w-3 h-3" />
+                <span>Pratinjau</span>
+              </span>
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => onOpenAttachment(message)}
-              className="w-full px-3 py-4 flex items-center gap-2.5 text-left cursor-pointer"
+              onClick={() => onOpenAttachment(resolvedMessage)}
+              className="w-full px-3 py-3.5 flex items-center gap-2.5 text-left cursor-pointer"
             >
               <div
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
@@ -233,7 +337,10 @@ export function ChatMessageAttachmentBubble({
                 <p className={`text-[10.5px] truncate ${subTextClass}`}>
                   <span>{extLabel}</span>
                   {sizeLabel ? <span> · {sizeLabel}</span> : null}
-                  <span> · Ketuk untuk pratinjau</span>
+                  <span>
+                    {' · '}
+                    {proxyPhotoError ? 'Ketuk untuk lihat detail / coba lagi' : 'Ketuk untuk buka'}
+                  </span>
                 </p>
               </div>
             </button>
@@ -251,7 +358,7 @@ export function ChatMessageAttachmentBubble({
       ) : attachmentType === 'video' ? (
         <button
           type="button"
-          onClick={() => onOpenAttachment(message)}
+          onClick={() => onOpenAttachment(resolvedMessage)}
           className={`w-full min-w-0 rounded-xl border p-2.5 text-left flex items-center gap-2.5 cursor-pointer transition-opacity hover:opacity-95 ${cardSurfaceClass}`}
         >
           <div
@@ -273,52 +380,64 @@ export function ChatMessageAttachmentBubble({
         </button>
       ) : (
         <div
-          className={`w-full min-w-0 rounded-xl border p-2.5 flex items-start gap-2.5 ${cardSurfaceClass}`}
+          className={`w-full min-w-0 rounded-xl border p-2.5 space-y-2 ${cardSurfaceClass}`}
         >
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              isMine ? 'bg-white/20 text-white' : 'bg-white text-[#312E81] border border-indigo-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold leading-snug line-clamp-2 break-words">{fileName}</p>
-            <p className={`text-[10.5px] truncate mt-0.5 ${subTextClass}`}>
-              <span>{extLabel}</span>
-              {sizeLabel ? <span className="tabular-nums"> · {sizeLabel}</span> : null}
-              <span> · {isPrivateRoom ? 'Privat Drive' : 'Google Drive'}</span>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Tombol Wajib: Buka di Google Drive (Publik via anyone_link vs Privat via chat-drive-private-access) */}
-      {isReady &&
-        (!isPrivateRoom && publicDriveLink ? (
-          <a
-            href={publicDriveLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`w-full min-h-[38px] px-3 py-1.5 rounded-xl text-[11.5px] font-bold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors min-w-0 ${driveBtnClass}`}
-          >
-            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Buka di Google Drive</span>
-          </a>
-        ) : (
           <button
             type="button"
-            onClick={() => onOpenAttachment(message)}
-            className={`w-full min-h-[38px] px-3 py-1.5 rounded-xl text-[11.5px] font-bold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer min-w-0 ${driveBtnClass}`}
+            onClick={() => onOpenAttachment(resolvedMessage)}
+            className="w-full flex items-start gap-2.5 text-left cursor-pointer min-w-0"
           >
-            {isPrivateRoom ? (
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            )}
-            <span className="truncate">Buka di Google Drive</span>
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                isMine
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white text-[#312E81] border border-indigo-100'
+              }`}
+            >
+              {renderDocumentIcon(fileName, mimeType || message.attachment_mime || '')}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold leading-snug line-clamp-2 break-words">{fileName}</p>
+              <p className={`text-[10.5px] truncate mt-0.5 ${subTextClass}`}>
+                <span className="font-semibold">{extLabel}</span>
+                {sizeLabel ? <span className="tabular-nums"> · {sizeLabel}</span> : null}
+                <span> · {isPrivateRoom ? 'Privat' : 'Google Drive'}</span>
+              </p>
+            </div>
           </button>
-        ))}
+
+          {isReady && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => onOpenAttachment(resolvedMessage)}
+                className={`min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors min-w-0 ${actionBtnSecondaryClass}`}
+              >
+                {isPrivateRoom ? (
+                  <Lock className="w-3 h-3 shrink-0" />
+                ) : (
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                )}
+                <span className="truncate">Buka</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={downloadingDoc}
+                onClick={(e) => void handleDirectDownloadDocument(e)}
+                className={`min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60 min-w-0 ${actionBtnPrimaryClass}`}
+              >
+                {downloadingDoc ? (
+                  <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                ) : (
+                  <Download className="w-3 h-3 shrink-0" />
+                )}
+                <span className="truncate">{downloadingDoc ? 'Mengunduh...' : 'Unduh'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

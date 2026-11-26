@@ -935,6 +935,98 @@ export type ChatAttachmentTarget = Pick<
   | 'drive_thumbnail_link'
 >;
 
+export function extractDriveFileIdFromAttachment(
+  target:
+    | (Partial<ChatAttachmentTarget> & { drive_file_id?: string | null })
+    | null
+    | undefined
+): string {
+  if (!target) return '';
+  const direct = String(target.attachment_drive_file_id || target.drive_file_id || '').trim();
+  if (direct) return direct;
+
+  const urlCandidates = [
+    target.attachment_url,
+    target.attachment_thumbnail_url,
+    target.drive_web_view_link,
+    target.drive_thumbnail_link,
+  ];
+  for (const raw of urlCandidates) {
+    const val = String(raw || '').trim();
+    if (!val) continue;
+    const fileIdParam = val.match(/[?&]fileId=([a-zA-Z0-9_-]{10,})/i);
+    if (fileIdParam?.[1]) return fileIdParam[1];
+    const pathFileMatch = val.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/i);
+    if (pathFileMatch?.[1]) return pathFileMatch[1];
+    const lhMatch = val.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{10,})/i);
+    if (lhMatch?.[1]) return lhMatch[1];
+    const openIdMatch = val.match(/[?&]id=([a-zA-Z0-9_-]{10,})/i);
+    if (openIdMatch?.[1]) return openIdMatch[1];
+  }
+  return '';
+}
+
+interface CachedPrivateBlobEntry {
+  objectUrl: string;
+  mimeType: string;
+  createdAt: number;
+}
+
+const MAX_PRIVATE_BLOB_CACHE_ENTRIES = 80;
+const privateBlobCache = new Map<string, CachedPrivateBlobEntry>();
+const privateBlobInflight = new Map<string, Promise<{ objectUrl: string; mimeType: string }>>();
+
+function buildPrivateBlobCacheKey(
+  senderId: string,
+  fileId: string,
+  roomId: string
+): string {
+  return `${senderId}::${fileId}::${String(roomId || '').trim()}`;
+}
+
+function setPrivateBlobCacheEntry(key: string, entry: CachedPrivateBlobEntry): void {
+  if (privateBlobCache.has(key)) {
+    privateBlobCache.delete(key);
+  }
+  privateBlobCache.set(key, entry);
+  while (privateBlobCache.size > MAX_PRIVATE_BLOB_CACHE_ENTRIES) {
+    const oldestKey = privateBlobCache.keys().next().value;
+    if (!oldestKey) break;
+    const evicted = privateBlobCache.get(oldestKey);
+    privateBlobCache.delete(oldestKey);
+    if (evicted?.objectUrl) {
+      try {
+        URL.revokeObjectURL(evicted.objectUrl);
+      } catch {
+        // Abaikan
+      }
+    }
+  }
+}
+
+async function raceWithAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    throw new DOMException('Permintaan dibatalkan.', 'AbortError');
+  }
+  return await new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new DOMException('Permintaan dibatalkan.', 'AbortError'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (val) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(val);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      }
+    );
+  });
+}
+
 /**
  * Mengembalikan URL aman untuk membuka/mempratinjau lampiran chat:
  * - Ruang publik (Pengurus & Warga / Pengurus & Keamanan): langsung tautan `anyone_link`.
@@ -961,7 +1053,7 @@ export async function resolveChatAttachmentAccess(
     };
   }
 
-  const fileId = String(target.attachment_drive_file_id || '').trim();
+  const fileId = extractDriveFileIdFromAttachment(target);
   if (!fileId) {
     throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
   }
@@ -1001,143 +1093,196 @@ export async function resolveChatAttachmentAccess(
 }
 
 /**
- * Mengambil berkas/thumbnail privat langsung via header identitas sesi dan mengembalikan Blob Object URL
- * beserta fungsi cleanup `revoke()`.
+ * Mengambil berkas/thumbnail via proxy `chat-drive-private-access` dengan cache Blob URL di memori
+ * agar tidak mengunduh berkas berulang kali saat scroll, pindah tab, atau membuka pratinjau penuh.
  */
 export async function fetchPrivateAttachmentBlobUrl(
   session: SessionUser,
   target: ChatAttachmentTarget,
-  options?: { mode?: 'stream' | 'download' | 'thumbnail'; signal?: AbortSignal }
+  options?: { mode?: 'stream' | 'download' | 'thumbnail'; signal?: AbortSignal; forceRefresh?: boolean }
 ): Promise<{ objectUrl: string; mimeType: string; revoke: () => void }> {
-  const fileId = String(target.attachment_drive_file_id || '').trim();
+  const fileId = extractDriveFileIdFromAttachment(target);
   if (!fileId) {
     throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
   }
 
-  const qs = new URLSearchParams({
-    fileId,
-    roomId: target.room_id,
-    messageId: target.id,
-  });
-  if (options?.mode && options.mode !== 'stream') {
-    qs.set('mode', options.mode);
-  }
-
   const normalizedSession = normalizeChatSessionForUpload(session);
-  const identityHeaders = buildSessionIdentityHeaders(normalizedSession);
-  const sbCfg = getSupabasePublicConfig();
-  const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
+  const senderCtx = buildChatSessionSenderContext(normalizedSession);
+  const cacheKey = buildPrivateBlobCacheKey(senderCtx.senderId, fileId, target.room_id);
 
-  let response: Response | null = null;
-  let edgeErrorMessage = '';
-  let edgeErrorDiagnostics: ChatUploadErrorDiagnostics | null = null;
-  if (sbCfg) {
-    try {
-      const edgeRes = await fetch(
-        `${sbCfg.url}/functions/v1/chat-drive-private-access?${qs.toString()}`,
-        {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            apikey: sbCfg.anonKey,
-            Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
-            ...identityHeaders,
-          },
-          signal: options?.signal,
-        }
-      );
-      if (edgeRes.ok) {
-        response = edgeRes;
-      } else {
-        const errJson = (await edgeRes.json().catch(() => ({}))) as BackendErrorPayload;
-        edgeErrorDiagnostics = parseBackendErrorDiagnostics(errJson);
-        edgeErrorMessage = String(errJson.error || '').trim();
-        const combined = `${edgeErrorMessage} ${edgeErrorDiagnostics?.reason || ''}`;
-        const isLegacySaError = /GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|Service Account|private_key/i.test(
-          combined
-        );
-        const isStaleWithoutReason =
-          (edgeRes.status === 401 || edgeRes.status === 403) && !edgeErrorDiagnostics?.reason;
+  if (!options?.forceRefresh) {
+    const cached = privateBlobCache.get(cacheKey);
+    if (cached) {
+      // Refresh LRU position
+      privateBlobCache.delete(cacheKey);
+      privateBlobCache.set(cacheKey, cached);
+      return {
+        objectUrl: cached.objectUrl,
+        mimeType: cached.mimeType,
+        revoke: () => {
+          // Object URL dikelola oleh cache memori agar tidak perlu diunduh ulang
+        },
+      };
+    }
 
-        if (
-          (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) &&
-          !isLegacySaError &&
-          !isStaleWithoutReason
-        ) {
-          throw new ChatMediaUploadError(
-            edgeErrorMessage ||
-              edgeErrorDiagnostics?.reason ||
-              `Akses lampiran privat ditolak (${edgeRes.status}).`,
-            edgeErrorDiagnostics
-          );
-        }
-      }
-    } catch (err) {
-      if (isAbortError(err)) throw err;
-      if (err instanceof ChatMediaUploadError) {
-        throw err;
-      }
+    const inflight = privateBlobInflight.get(cacheKey);
+    if (inflight) {
+      const resolved = await raceWithAbortSignal(inflight, options?.signal);
+      return {
+        objectUrl: resolved.objectUrl,
+        mimeType: resolved.mimeType,
+        revoke: () => {
+          // Object URL dikelola oleh cache memori
+        },
+      };
     }
   }
 
-  if (!response) {
-    const candidates = buildApiCandidateUrls(`/api/storage/chat-drive-private-access?${qs.toString()}`);
-    let lastError = edgeErrorMessage;
-    let lastDiagnostics: ChatUploadErrorDiagnostics | null = edgeErrorDiagnostics;
-    for (const candidate of candidates) {
+  const fetchTask = (async (): Promise<{ objectUrl: string; mimeType: string }> => {
+    const qs = new URLSearchParams({
+      fileId,
+      roomId: target.room_id,
+      messageId: target.id,
+    });
+    if (options?.mode && options.mode !== 'stream') {
+      qs.set('mode', options.mode);
+    }
+
+    const identityHeaders = buildSessionIdentityHeaders(normalizedSession);
+    const sbCfg = getSupabasePublicConfig();
+    const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
+
+    let response: Response | null = null;
+    let edgeErrorMessage = '';
+    let edgeErrorDiagnostics: ChatUploadErrorDiagnostics | null = null;
+    if (sbCfg) {
       try {
-        const apiRes = await fetch(candidate.url, {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
-            ...identityHeaders,
-          },
-          signal: options?.signal,
-        });
-        if (apiRes.ok) {
-          response = apiRes;
-          break;
-        }
-        const errJson = (await apiRes.json().catch(() => ({}))) as BackendErrorPayload;
-        const apiDiagnostics = parseBackendErrorDiagnostics(errJson);
-        const msg = String(errJson.error || '').trim();
-        if (!candidate.isLocalPreviewFallback || !isEmptyLocalEnvLegacyError(msg, apiDiagnostics)) {
-          lastError = msg || apiDiagnostics?.reason || `Gagal memuat berkas privat (${apiRes.status}).`;
-          lastDiagnostics = apiDiagnostics;
-        }
-        if (!candidate.isLocalPreviewFallback) {
-          throw new ChatMediaUploadError(lastError, lastDiagnostics);
+        const edgeRes = await fetch(
+          `${sbCfg.url}/functions/v1/chat-drive-private-access?${qs.toString()}`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+              apikey: sbCfg.anonKey,
+              Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
+              ...identityHeaders,
+            },
+          }
+        );
+        if (edgeRes.ok) {
+          response = edgeRes;
+        } else {
+          const errJson = (await edgeRes.json().catch(() => ({}))) as BackendErrorPayload;
+          edgeErrorDiagnostics = parseBackendErrorDiagnostics(errJson);
+          edgeErrorMessage = String(errJson.error || '').trim();
+          const combined = `${edgeErrorMessage} ${edgeErrorDiagnostics?.reason || ''}`;
+          const isLegacySaError = /GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|Service Account|private_key/i.test(
+            combined
+          );
+          const isStaleWithoutReason =
+            (edgeRes.status === 401 || edgeRes.status === 403) && !edgeErrorDiagnostics?.reason;
+
+          if (
+            (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) &&
+            !isLegacySaError &&
+            !isStaleWithoutReason
+          ) {
+            throw new ChatMediaUploadError(
+              edgeErrorMessage ||
+                edgeErrorDiagnostics?.reason ||
+                `Akses lampiran privat ditolak (${edgeRes.status}).`,
+              edgeErrorDiagnostics
+            );
+          }
         }
       } catch (err) {
         if (isAbortError(err)) throw err;
         if (err instanceof ChatMediaUploadError) {
-          if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
-            continue;
-          }
           throw err;
-        }
-        if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
-          continue;
-        }
-        if (err instanceof Error && err.message) {
-          throw new ChatMediaUploadError(err.message, lastDiagnostics);
         }
       }
     }
+
     if (!response) {
-      throw new ChatMediaUploadError(
-        lastError || 'Gagal memuat berkas privat dari Google Drive.',
-        lastDiagnostics
-      );
+      const candidates = buildApiCandidateUrls(`/api/storage/chat-drive-private-access?${qs.toString()}`);
+      let lastError = edgeErrorMessage;
+      let lastDiagnostics: ChatUploadErrorDiagnostics | null = edgeErrorDiagnostics;
+      for (const candidate of candidates) {
+        try {
+          const apiRes = await fetch(candidate.url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+              ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
+              ...identityHeaders,
+            },
+          });
+          if (apiRes.ok) {
+            response = apiRes;
+            break;
+          }
+          const errJson = (await apiRes.json().catch(() => ({}))) as BackendErrorPayload;
+          const apiDiagnostics = parseBackendErrorDiagnostics(errJson);
+          const msg = String(errJson.error || '').trim();
+          if (!candidate.isLocalPreviewFallback || !isEmptyLocalEnvLegacyError(msg, apiDiagnostics)) {
+            lastError = msg || apiDiagnostics?.reason || `Gagal memuat berkas privat (${apiRes.status}).`;
+            lastDiagnostics = apiDiagnostics;
+          }
+          if (!candidate.isLocalPreviewFallback) {
+            throw new ChatMediaUploadError(lastError, lastDiagnostics);
+          }
+        } catch (err) {
+          if (isAbortError(err)) throw err;
+          if (err instanceof ChatMediaUploadError) {
+            if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
+              continue;
+            }
+            throw err;
+          }
+          if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
+            continue;
+          }
+          if (err instanceof Error && err.message) {
+            throw new ChatMediaUploadError(err.message, lastDiagnostics);
+          }
+        }
+      }
+      if (!response) {
+        throw new ChatMediaUploadError(
+          lastError || 'Gagal memuat berkas privat dari Google Drive.',
+          lastDiagnostics
+        );
+      }
+    }
+
+    const blob = await response.blob();
+    const mimeType =
+      (blob.type && blob.type !== 'application/octet-stream'
+        ? blob.type
+        : response.headers.get('content-type')?.split(';')[0]?.trim()) ||
+      'application/octet-stream';
+    const objectUrl = URL.createObjectURL(blob);
+    setPrivateBlobCacheEntry(cacheKey, {
+      objectUrl,
+      mimeType,
+      createdAt: Date.now(),
+    });
+    return { objectUrl, mimeType };
+  })();
+
+  privateBlobInflight.set(cacheKey, fetchTask);
+  try {
+    const resolved = await raceWithAbortSignal(fetchTask, options?.signal);
+    return {
+      objectUrl: resolved.objectUrl,
+      mimeType: resolved.mimeType,
+      revoke: () => {
+        // Object URL dikelola oleh cache memori
+      },
+    };
+  } finally {
+    if (privateBlobInflight.get(cacheKey) === fetchTask) {
+      privateBlobInflight.delete(cacheKey);
     }
   }
-
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  return {
-    objectUrl,
-    mimeType: blob.type || 'application/octet-stream',
-    revoke: () => URL.revokeObjectURL(objectUrl),
-  };
 }
