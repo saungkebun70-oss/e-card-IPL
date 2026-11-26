@@ -216,6 +216,7 @@ function parseRpcBoolean(val: unknown): boolean | null {
 function normalizeParticipantId(rawId: string): string {
   const clean = normalizeToken(rawId);
   if (clean.startsWith('admin:')) return `admin:${canonicalAdminUsername(clean.slice(6))}`;
+  if (clean.startsWith('pengurus:')) return `admin:${canonicalAdminUsername(clean.slice(9))}`;
   if (clean.startsWith('warga:')) {
     const sub = clean.slice(6);
     return `warga:${canonicalBlockKey(sub).toLowerCase() || sub}`;
@@ -1960,8 +1961,9 @@ export default async function handler(req: VercelReq, res: VercelRes) {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',
       });
-      if (tRes.ok) {
-        res.setHeader('Content-Type', tRes.headers.get('content-type') || 'image/jpeg');
+      const tCt = (tRes.headers.get('content-type') || '').trim().toLowerCase();
+      if (tRes.ok && tCt.startsWith('image/')) {
+        res.setHeader('Content-Type', tCt || 'image/jpeg');
         res.setHeader('Cache-Control', 'private, no-store');
         res.status(200);
         if (method === 'HEAD') {
@@ -1972,6 +1974,7 @@ export default async function handler(req: VercelReq, res: VercelRes) {
         await streamDriveResponse(tRes, res);
         return;
       }
+      await tRes.body?.cancel().catch(() => undefined);
     }
 
     stage = 'stream_drive_media';

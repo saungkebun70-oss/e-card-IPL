@@ -972,16 +972,26 @@ interface CachedPrivateBlobEntry {
   createdAt: number;
 }
 
-const MAX_PRIVATE_BLOB_CACHE_ENTRIES = 80;
+const MAX_PRIVATE_BLOB_CACHE_ENTRIES = 100;
 const privateBlobCache = new Map<string, CachedPrivateBlobEntry>();
 const privateBlobInflight = new Map<string, Promise<{ objectUrl: string; mimeType: string }>>();
 
-function buildPrivateBlobCacheKey(
-  senderId: string,
-  fileId: string,
-  roomId: string
-): string {
-  return `${senderId}::${fileId}::${String(roomId || '').trim()}`;
+function buildPrivateBlobCacheKey(senderId: string, fileId: string): string {
+  return `${senderId}::${fileId}`;
+}
+
+export function getCachedPrivateAttachmentBlobUrl(
+  session: SessionUser,
+  target: Partial<ChatAttachmentTarget> & { drive_file_id?: string | null }
+): { objectUrl: string; mimeType: string } | null {
+  const fileId = extractDriveFileIdFromAttachment(target);
+  if (!fileId) return null;
+  const normalizedSession = normalizeChatSessionForUpload(session);
+  const senderCtx = buildChatSessionSenderContext(normalizedSession);
+  const key = buildPrivateBlobCacheKey(senderCtx.senderId, fileId);
+  const cached = privateBlobCache.get(key);
+  if (!cached) return null;
+  return { objectUrl: cached.objectUrl, mimeType: cached.mimeType };
 }
 
 function setPrivateBlobCacheEntry(key: string, entry: CachedPrivateBlobEntry): void {
@@ -1108,7 +1118,7 @@ export async function fetchPrivateAttachmentBlobUrl(
 
   const normalizedSession = normalizeChatSessionForUpload(session);
   const senderCtx = buildChatSessionSenderContext(normalizedSession);
-  const cacheKey = buildPrivateBlobCacheKey(senderCtx.senderId, fileId, target.room_id);
+  const cacheKey = buildPrivateBlobCacheKey(senderCtx.senderId, fileId);
 
   if (!options?.forceRefresh) {
     const cached = privateBlobCache.get(cacheKey);
@@ -1139,37 +1149,44 @@ export async function fetchPrivateAttachmentBlobUrl(
   }
 
   const fetchTask = (async (): Promise<{ objectUrl: string; mimeType: string }> => {
-    const qs = new URLSearchParams({
+    const effectiveMode = options?.mode || 'stream';
+    const postPayload = JSON.stringify({
+      driveFileId: fileId,
       fileId,
       roomId: target.room_id,
       messageId: target.id,
+      mode: effectiveMode,
+      sender: senderCtx,
     });
-    if (options?.mode && options.mode !== 'stream') {
-      qs.set('mode', options.mode);
-    }
 
     const identityHeaders = buildSessionIdentityHeaders(normalizedSession);
     const sbCfg = getSupabasePublicConfig();
     const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
+
+    const isBinaryMediaResponse = (res: Response): boolean => {
+      const ct = (res.headers.get('content-type') || '').trim().toLowerCase();
+      if (!ct) return true;
+      if (ct.includes('application/json') || ct.includes('text/html')) return false;
+      return true;
+    };
 
     let response: Response | null = null;
     let edgeErrorMessage = '';
     let edgeErrorDiagnostics: ChatUploadErrorDiagnostics | null = null;
     if (sbCfg) {
       try {
-        const edgeRes = await fetch(
-          `${sbCfg.url}/functions/v1/chat-drive-private-access?${qs.toString()}`,
-          {
-            method: 'GET',
-            cache: 'no-store',
-            headers: {
-              apikey: sbCfg.anonKey,
-              Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
-              ...identityHeaders,
-            },
-          }
-        );
-        if (edgeRes.ok) {
+        const edgeRes = await fetch(`${sbCfg.url}/functions/v1/chat-drive-private-access`, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: sbCfg.anonKey,
+            Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
+            ...identityHeaders,
+          },
+          body: postPayload,
+        });
+        if (edgeRes.ok && isBinaryMediaResponse(edgeRes)) {
           response = edgeRes;
         } else {
           const errJson = (await edgeRes.json().catch(() => ({}))) as BackendErrorPayload;
@@ -1204,20 +1221,22 @@ export async function fetchPrivateAttachmentBlobUrl(
     }
 
     if (!response) {
-      const candidates = buildApiCandidateUrls(`/api/storage/chat-drive-private-access?${qs.toString()}`);
+      const candidates = buildApiCandidateUrls('/api/storage/chat-drive-private-access');
       let lastError = edgeErrorMessage;
       let lastDiagnostics: ChatUploadErrorDiagnostics | null = edgeErrorDiagnostics;
       for (const candidate of candidates) {
         try {
           const apiRes = await fetch(candidate.url, {
-            method: 'GET',
+            method: 'POST',
             cache: 'no-store',
             headers: {
+              'Content-Type': 'application/json',
               ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
               ...identityHeaders,
             },
+            body: postPayload,
           });
-          if (apiRes.ok) {
+          if (apiRes.ok && isBinaryMediaResponse(apiRes)) {
             response = apiRes;
             break;
           }
@@ -1256,6 +1275,9 @@ export async function fetchPrivateAttachmentBlobUrl(
     }
 
     const blob = await response.blob();
+    if (blob.size === 0) {
+      throw new ChatMediaUploadError('Berkas gambar yang diterima dari server kosong.', null);
+    }
     const mimeType =
       (blob.type && blob.type !== 'application/octet-stream'
         ? blob.type

@@ -281,6 +281,9 @@ function normalizeParticipantId(rawId: string): string {
   if (clean.startsWith('admin:')) {
     return `admin:${canonicalAdminUsername(clean.slice('admin:'.length))}`;
   }
+  if (clean.startsWith('pengurus:')) {
+    return `admin:${canonicalAdminUsername(clean.slice('pengurus:'.length))}`;
+  }
   if (clean.startsWith('warga:')) {
     const sub = clean.slice('warga:'.length);
     return `warga:${canonicalBlockKey(sub).toLowerCase() || sub}`;
@@ -3121,8 +3124,9 @@ export async function handlePrivateChatDriveAccess(
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',
       });
-      if (thumbRes.ok) {
-        res.setHeader('Content-Type', thumbRes.headers.get('content-type') || 'image/jpeg');
+      const thumbCt = (thumbRes.headers.get('content-type') || '').trim().toLowerCase();
+      if (thumbRes.ok && thumbCt.startsWith('image/')) {
+        res.setHeader('Content-Type', thumbCt || 'image/jpeg');
         res.setHeader('Cache-Control', 'private, no-store');
         res.status(200);
         if (method === 'HEAD') {
@@ -3133,6 +3137,7 @@ export async function handlePrivateChatDriveAccess(
         await pumpFetchBodyToNodeRes(thumbRes, res);
         return;
       }
+      await thumbRes.body?.cancel().catch(() => undefined);
     }
 
     stage = 'stream_drive_media';

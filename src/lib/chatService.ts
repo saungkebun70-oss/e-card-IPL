@@ -101,6 +101,7 @@ export interface ChatMessage {
   drive_permission_scope?: DrivePermissionScope | null;
   drive_web_view_link?: string | null;
   drive_thumbnail_link?: string | null;
+  hidden_for?: string[];
 }
 
 export interface SendChatMessageInput {
@@ -129,6 +130,7 @@ export interface SendChatMessageInput {
 const LOCAL_CHAT_MESSAGES_KEY = 'ecard_community_chat_messages_v1';
 const LOCAL_CHAT_READ_PREFIX = 'ecard_community_chat_read_v1:';
 const LOCAL_CHAT_CLEARED_PREFIX = 'ecard_community_chat_cleared_v1:';
+const LOCAL_CHAT_HIDDEN_PREFIX = 'ecard_community_chat_hidden_v1:';
 const CHAT_CHANGED_EVENT = 'ecard-community-chat-changed';
 const MAX_LOCAL_MESSAGES = 400;
 const MAX_MESSAGE_LENGTH = 1000;
@@ -253,18 +255,27 @@ export function getChatParticipantMatchIds(session?: SessionUser | null): Set<st
 
   if (role === 'admin') {
     const clean = normalizeToken(session.blok_rumah);
+    const canonAdmin = canonicalAdminUsername(session.blok_rumah);
+    if (canonAdmin) {
+      ids.add(`admin:${canonAdmin}`);
+      ids.add(`pengurus:${canonAdmin}`);
+    }
     if (clean === 'admin' || clean === 'andriansyah') {
       ids.add('admin:admin');
       ids.add('admin:andriansyah');
+      ids.add('pengurus:andriansyah');
     } else if (clean === 'paiwan' || clean === 'bpiwan') {
       ids.add('admin:paiwan');
       ids.add('admin:bpiwan');
+      ids.add('pengurus:bpiwan');
     }
   } else if (role === 'warga') {
     const raw = normalizeToken(session.blok_rumah);
     if (raw) ids.add(`warga:${raw}`);
     const canon = canonicalBlockKey(session.blok_rumah).toLowerCase();
     if (canon) ids.add(`warga:${canon}`);
+    const padded = normalizeToken(formatBlokRumah(session.blok_rumah));
+    if (padded) ids.add(`warga:${padded}`);
   } else if (role === 'petugas') {
     if (session.petugas_id) {
       ids.add(`petugas:${normalizeToken(session.petugas_id)}`);
@@ -272,6 +283,11 @@ export function getChatParticipantMatchIds(session?: SessionUser | null): Set<st
     }
     if (session.blok_rumah) {
       ids.add(`petugas:${normalizeToken(session.blok_rumah)}`);
+      ids.add(`keamanan:${normalizeToken(session.blok_rumah)}`);
+    }
+    if (session.nama_warga) {
+      ids.add(`petugas:${normalizeToken(session.nama_warga)}`);
+      ids.add(`keamanan:${normalizeToken(session.nama_warga)}`);
     }
   }
   return ids;
@@ -281,6 +297,9 @@ export function normalizeChatParticipantId(rawId: string): string {
   const clean = normalizeToken(rawId);
   if (clean.startsWith('admin:')) {
     return `admin:${canonicalAdminUsername(clean.slice('admin:'.length))}`;
+  }
+  if (clean.startsWith('pengurus:')) {
+    return `admin:${canonicalAdminUsername(clean.slice('pengurus:'.length))}`;
   }
   if (clean.startsWith('warga:')) {
     const sub = clean.slice('warga:'.length);
@@ -343,7 +362,7 @@ function createUuidSafe(): string {
 }
 
 function emitChatChanged(detail?: {
-  type?: 'insert' | 'delete' | 'read' | 'clear';
+  type?: 'insert' | 'update' | 'delete' | 'hide' | 'read' | 'clear';
   room_id?: ChatRoomId;
   message?: ChatMessage;
   deletedId?: string;
@@ -462,6 +481,33 @@ function inferImageOrVideoFromNameOrMime(
   return null;
 }
 
+function normalizeHiddenForList(raw: unknown): string[] {
+  let source: unknown[] = [];
+  if (Array.isArray(raw)) {
+    source = raw;
+  } else if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) source = parsed;
+    } catch {
+      source = [];
+    }
+  }
+  if (source.length === 0) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of source) {
+    if (typeof entry !== 'string') continue;
+    const clean = entry.trim();
+    if (!clean) continue;
+    const key = normalizeChatParticipantId(clean);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}
+
 export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
   const rawSize = Number(row.attachment_size_bytes ?? row.file_size);
   const messageText = String(row.message || '');
@@ -564,6 +610,7 @@ export function normalizeChatRow(row: Record<string, unknown>): ChatMessage {
     drive_permission_scope: normalizeDrivePermissionScope(row.drive_permission_scope),
     drive_web_view_link: driveWebViewLink,
     drive_thumbnail_link: driveThumbnailLink,
+    hidden_for: normalizeHiddenForList(row.hidden_for),
   };
 }
 
@@ -635,6 +682,64 @@ export function isMessageClearedForRoom(
   const msgMs = Date.parse(createdAt);
   if (Number.isNaN(cutoffMs) || Number.isNaN(msgMs)) return false;
   return msgMs <= cutoffMs;
+}
+
+export function getChatHiddenStorageKey(session: SessionUser): string {
+  return `${LOCAL_CHAT_HIDDEN_PREFIX}${getChatParticipantId(session)}`;
+}
+
+function readLocalHiddenMessageIds(session: SessionUser): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = window.localStorage.getItem(getChatHiddenStorageKey(session));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((v): v is string => typeof v === 'string' && v.trim().length > 0));
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberLocalHiddenMessageId(session: SessionUser, messageId: string): void {
+  try {
+    if (typeof window === 'undefined' || !messageId) return;
+    const current = Array.from(readLocalHiddenMessageIds(session));
+    if (!current.includes(messageId)) {
+      current.push(messageId);
+      window.localStorage.setItem(
+        getChatHiddenStorageKey(session),
+        JSON.stringify(current.slice(-600))
+      );
+    }
+  } catch {
+    // Abaikan kuota storage
+  }
+}
+
+/**
+ * Menentukan apakah sebuah pesan telah dihapus khusus oleh pengguna aktif ("Hapus untuk Saya")
+ * baik dari kolom `hidden_for` database maupun catatan lokal perangkat.
+ */
+export function isMessageHiddenForSession(
+  session: SessionUser,
+  msg: Pick<ChatMessage, 'id' | 'hidden_for'>
+): boolean {
+  if (!msg?.id) return false;
+  if (readLocalHiddenMessageIds(session).has(msg.id)) {
+    return true;
+  }
+  const hiddenList = Array.isArray(msg.hidden_for) ? msg.hidden_for : [];
+  if (hiddenList.length === 0) return false;
+  const myIds = getChatParticipantMatchIds(session);
+  for (const entry of hiddenList) {
+    const clean = String(entry || '').trim();
+    if (!clean) continue;
+    if (myIds.has(clean) || myIds.has(clean.toLowerCase()) || myIds.has(normalizeChatParticipantId(clean))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function formatEnrichedContact(item: ChatContact): ChatContact {
@@ -950,7 +1055,10 @@ export async function fetchChatMessages(
   };
 
   const localRoomMessages = readLocalMessages().filter(
-    (m) => normalizeRoomId(m.room_id) === normalizedRoom && keepAfterClear(m)
+    (m) =>
+      normalizeRoomId(m.room_id) === normalizedRoom &&
+      keepAfterClear(m) &&
+      !isMessageHiddenForSession(session, m)
   );
   const supabase = getSupabaseClient(session);
 
@@ -978,7 +1086,7 @@ export async function fetchChatMessages(
 
     const remoteRows = data
       .map((row) => normalizeChatRow(row as Record<string, unknown>))
-      .filter(keepAfterClear);
+      .filter((m) => keepAfterClear(m) && !isMessageHiddenForSession(session, m));
     const remoteIdSet = new Set(remoteRows.map((m) => m.id));
     const merged = [
       ...remoteRows,
@@ -1041,7 +1149,11 @@ export async function fetchDmConversations(
   };
 
   const localDms = readLocalMessages().filter(
-    (m) => isDmRoomId(m.room_id) && canAccessChatRoom(session, m.room_id) && keepAfterClear(m)
+    (m) =>
+      isDmRoomId(m.room_id) &&
+      canAccessChatRoom(session, m.room_id) &&
+      keepAfterClear(m) &&
+      !isMessageHiddenForSession(session, m)
   );
   let allDms: ChatMessage[] = [...localDms];
 
@@ -1057,7 +1169,13 @@ export async function fetchDmConversations(
       if (!error && Array.isArray(data)) {
         const remote = data
           .map((r) => normalizeChatRow(r as Record<string, unknown>))
-          .filter((m) => isDmRoomId(m.room_id) && canAccessChatRoom(session, m.room_id) && keepAfterClear(m));
+          .filter(
+            (m) =>
+              isDmRoomId(m.room_id) &&
+              canAccessChatRoom(session, m.room_id) &&
+              keepAfterClear(m) &&
+              !isMessageHiddenForSession(session, m)
+          );
         const remoteIds = new Set(remote.map((m) => m.id));
         allDms = [
           ...remote,
@@ -1157,23 +1275,46 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
   const lastReadMap = readLastReadMap(session);
   const clearedMap = readClearedMap(session);
 
-  let messages: ChatMessage[] = readLocalMessages().filter((m) =>
-    canAccessChatRoom(session, m.room_id)
+  let messages: ChatMessage[] = readLocalMessages().filter(
+    (m) => canAccessChatRoom(session, m.room_id) && !isMessageHiddenForSession(session, m)
   );
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      const primaryRes = await supabase
         .from('community_chat_messages')
-        .select('id, room_id, sender_id, created_at')
+        .select('id, room_id, sender_id, created_at, hidden_for')
         .order('created_at', { ascending: false })
         .limit(180);
 
-      if (!error && Array.isArray(data)) {
-        const remote = data
-          .map((row) => normalizeChatRow(row as Record<string, unknown>))
-          .filter((m) => canAccessChatRoom(session, m.room_id));
+      let rawRows: Array<Record<string, unknown>> | null =
+        !primaryRes.error && Array.isArray(primaryRes.data)
+          ? (primaryRes.data as Array<Record<string, unknown>>)
+          : null;
+
+      if (
+        primaryRes.error &&
+        (String(primaryRes.error.message || '').toLowerCase().includes('hidden_for') ||
+          primaryRes.error.code === '42703' ||
+          primaryRes.error.code === 'PGRST204')
+      ) {
+        const fallbackRes = await supabase
+          .from('community_chat_messages')
+          .select('id, room_id, sender_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(180);
+        if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
+          rawRows = fallbackRes.data as Array<Record<string, unknown>>;
+        }
+      }
+
+      if (rawRows) {
+        const remote = rawRows
+          .map((row) => normalizeChatRow(row))
+          .filter(
+            (m) => canAccessChatRoom(session, m.room_id) && !isMessageHiddenForSession(session, m)
+          );
         const remoteIds = new Set(remote.map((m) => m.id));
         messages = [
           ...remote,
@@ -1190,6 +1331,7 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
 
   for (const msg of messages) {
     if (!isDmRoomId(msg.room_id) && !accessibleGroupIds.has(msg.room_id)) continue;
+    if (isMessageHiddenForSession(session, msg)) continue;
     const isMine =
       myIds.has(normalizeChatParticipantId(msg.sender_id)) || myIds.has(msg.sender_id);
     if (isMine) continue;
@@ -1501,9 +1643,58 @@ export async function sendChatMessage(
 }
 
 /**
- * Menghapus pesan chat (pengirim dapat menghapus pesannya sendiri; Admin dapat menghapus pesan mana saja).
+ * Menghapus pesan/gambar KHUSUS UNTUK PENGGUNA AKTIF ("Hapus untuk Saya", perilaku WhatsApp Group):
+ * - TIDAK menghapus baris pesan di database dan TIDAK menghapus berkas asli di Google Drive.
+ * - Hanya menambahkan identitas kanonik pengguna aktif ke array `hidden_for`.
+ * - Anggota lain (dan lawan bicara di DM) tetap melihat pesan & gambar secara utuh.
  */
-export async function deleteChatMessage(
+export async function hideChatMessageForMe(
+  session: SessionUser,
+  msg: Pick<ChatMessage, 'id' | 'room_id' | 'is_local_only'>
+): Promise<{ hiddenRemote: boolean }> {
+  const normalizedRoom = normalizeRoomId(msg.room_id);
+  if (!canAccessChatRoom(session, normalizedRoom)) {
+    throw new Error('Anda tidak memiliki akses ke ruang percakapan ini.');
+  }
+
+  rememberLocalHiddenMessageId(session, msg.id);
+
+  let hiddenRemote = false;
+  const supabase = getSupabaseClient(session);
+  if (supabase && isSupabaseConfigured() && !msg.is_local_only && !msg.id.startsWith('chat-')) {
+    try {
+      const { error } = await supabase.rpc('hide_chat_message_for_me', {
+        p_message_id: msg.id,
+      });
+      if (!error) {
+        hiddenRemote = true;
+      } else {
+        const errMsg = String(error.message || '').toLowerCase();
+        const isMissingMigration =
+          error.code === '42883' ||
+          error.code === 'PGRST202' ||
+          errMsg.includes('hide_chat_message_for_me') ||
+          errMsg.includes('hidden_for');
+        if (!isMissingMigration) {
+          throw new Error(error.message || 'Gagal menyembunyikan pesan di server.');
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && !/hide_chat_message_for_me|hidden_for/i.test(err.message)) {
+        throw err;
+      }
+    }
+  }
+
+  emitChatChanged({ type: 'hide', room_id: normalizedRoom, deletedId: msg.id });
+  return { hiddenRemote };
+}
+
+/**
+ * Menghapus pesan chat UNTUK SEMUA PESERTA ("Hapus untuk Semua"):
+ * hanya untuk pengirim asli pesan atau Pengurus/Admin aktif.
+ */
+export async function deleteChatMessageForEveryone(
   session: SessionUser,
   msg: Pick<ChatMessage, 'id' | 'room_id' | 'sender_id' | 'is_local_only'>
 ): Promise<void> {
@@ -1513,20 +1704,44 @@ export async function deleteChatMessage(
     myIds.has(normalizeChatParticipantId(msg.sender_id)) ||
     myIds.has(msg.sender_id);
   if (!canDelete) {
-    throw new Error('Anda hanya dapat menghapus pesan Anda sendiri.');
+    throw new Error('Anda hanya dapat menghapus pesan Anda sendiri untuk semua peserta.');
   }
 
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured() && !msg.is_local_only && !msg.id.startsWith('chat-')) {
-    const { error } = await supabase.from('community_chat_messages').delete().eq('id', msg.id);
-    if (error) {
-      throw new Error(error.message || 'Gagal menghapus pesan di server.');
+    const rpcRes = await supabase.rpc('delete_chat_message_for_everyone', {
+      p_message_id: msg.id,
+    });
+    if (rpcRes.error) {
+      const errMsg = String(rpcRes.error.message || '').toLowerCase();
+      const isMissingRpc =
+        rpcRes.error.code === '42883' ||
+        rpcRes.error.code === 'PGRST202' ||
+        errMsg.includes('delete_chat_message_for_everyone');
+      if (isMissingRpc) {
+        const { error } = await supabase.from('community_chat_messages').delete().eq('id', msg.id);
+        if (error) {
+          throw new Error(error.message || 'Gagal menghapus pesan di server.');
+        }
+      } else {
+        throw new Error(rpcRes.error.message || 'Gagal menghapus pesan di server.');
+      }
     }
   }
 
   const remaining = readLocalMessages().filter((item) => item.id !== msg.id);
   writeLocalMessages(remaining);
   emitChatChanged({ type: 'delete', room_id: msg.room_id, deletedId: msg.id });
+}
+
+/**
+ * Alias kompatibilitas mundur untuk penghapusan pesan untuk semua peserta.
+ */
+export async function deleteChatMessage(
+  session: SessionUser,
+  msg: Pick<ChatMessage, 'id' | 'room_id' | 'sender_id' | 'is_local_only'>
+): Promise<void> {
+  await deleteChatMessageForEveryone(session, msg);
 }
 
 /**
@@ -1603,6 +1818,10 @@ function rememberLocalSentAttachment(msg: ChatMessage): void {
 }
 
 function mergeAttachmentFallback(base: ChatMessage, fallback: ChatMessage): ChatMessage {
+  const combinedHidden = normalizeHiddenForList([
+    ...(Array.isArray(base.hidden_for) ? base.hidden_for : []),
+    ...(Array.isArray(fallback.hidden_for) ? fallback.hidden_for : []),
+  ]);
   return {
     ...base,
     attachment_type:
@@ -1626,14 +1845,23 @@ function mergeAttachmentFallback(base: ChatMessage, fallback: ChatMessage): Chat
       base.drive_permission_scope || fallback.drive_permission_scope || null,
     drive_web_view_link: base.drive_web_view_link || fallback.drive_web_view_link || null,
     drive_thumbnail_link: base.drive_thumbnail_link || fallback.drive_thumbnail_link || null,
+    hidden_for: combinedHidden,
   };
 }
 
 function needsRealtimeAttachmentHydration(
   rawRow: Record<string, unknown>,
-  normalized: ChatMessage
+  normalized: ChatMessage,
+  isUpdateEvent = false
 ): boolean {
   if (!rawRow.room_id || !rawRow.message) return true;
+  if (isUpdateEvent && !('hidden_for' in rawRow)) return true;
+  if (
+    normalized.attachment_status === 'pending_transfer' ||
+    normalized.attachment_status === 'uploading_video'
+  ) {
+    return true;
+  }
   if (
     normalized.attachment_type &&
     normalized.attachment_type !== 'none' &&
@@ -1642,8 +1870,12 @@ function needsRealtimeAttachmentHydration(
   ) {
     return true;
   }
+  const trimmedMsg = normalized.message.trim();
+  const looksLikeAttachmentPlaceholder =
+    /^\[(foto|video|dokumen|file)\]\s+/i.test(trimmedMsg) ||
+    /\.(png|jpe?g|webp|gif|heic|heif|bmp|pdf|mp4|mov)$/i.test(trimmedMsg);
   if (
-    /^\[(foto|video|dokumen|file)\]\s+/i.test(normalized.message.trim()) &&
+    looksLikeAttachmentPlaceholder &&
     (!normalized.attachment_drive_file_id ||
       !normalized.attachment_mime ||
       !normalized.attachment_url)
@@ -1672,7 +1904,7 @@ export function subscribeChatMessagesRealtime(
     const onLocal = (ev: Event) => {
       const detail = (
         ev as CustomEvent<{
-          type?: 'insert' | 'delete' | 'read' | 'clear';
+          type?: 'insert' | 'update' | 'delete' | 'hide' | 'read' | 'clear';
           room_id?: ChatRoomId;
           message?: ChatMessage;
           deletedId?: string;
@@ -1681,10 +1913,23 @@ export function subscribeChatMessagesRealtime(
       if (
         detail?.type === 'insert' &&
         detail.message &&
-        canAccessChatRoom(session, detail.message.room_id)
+        canAccessChatRoom(session, detail.message.room_id) &&
+        !isMessageHiddenForSession(session, detail.message)
       ) {
         callbacks.onInsert?.(detail.message);
-      } else if (detail?.type === 'delete' && detail.deletedId) {
+      } else if (
+        detail?.type === 'update' &&
+        detail.message &&
+        canAccessChatRoom(session, detail.message.room_id)
+      ) {
+        if (isMessageHiddenForSession(session, detail.message)) {
+          callbacks.onDelete?.(detail.message.id);
+        } else if (callbacks.onUpdate) {
+          callbacks.onUpdate(detail.message);
+        } else {
+          callbacks.onInsert?.(detail.message);
+        }
+      } else if ((detail?.type === 'delete' || detail?.type === 'hide') && detail.deletedId) {
         callbacks.onDelete?.(detail.deletedId);
       } else if (detail?.type === 'clear' && detail.room_id) {
         callbacks.onClear?.(detail.room_id);
@@ -1695,7 +1940,8 @@ export function subscribeChatMessagesRealtime(
       if (
         e.key === LOCAL_CHAT_MESSAGES_KEY ||
         e.key === getChatReadStorageKey(session) ||
-        e.key === getChatClearedStorageKey(session)
+        e.key === getChatClearedStorageKey(session) ||
+        e.key === getChatHiddenStorageKey(session)
       ) {
         callbacks.onAnyChange?.();
       }
@@ -1711,13 +1957,16 @@ export function subscribeChatMessagesRealtime(
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     let disposed = false;
-    const hydrateRealtimeRow = async (rawRow: Record<string, unknown>): Promise<ChatMessage | null> => {
+    const hydrateRealtimeRow = async (
+      rawRow: Record<string, unknown>,
+      isUpdateEvent = false
+    ): Promise<ChatMessage | null> => {
       let resolved = normalizeChatRow(rawRow);
       const cachedSent = resolved.id ? recentSentAttachmentsById.get(resolved.id) : undefined;
       if (cachedSent) {
         resolved = mergeAttachmentFallback(resolved, cachedSent);
       }
-      if (needsRealtimeAttachmentHydration(rawRow, resolved) && resolved.id) {
+      if (needsRealtimeAttachmentHydration(rawRow, resolved, isUpdateEvent) && resolved.id) {
         const fetched = await fetchChatMessageById(session, resolved.id);
         if (fetched) {
           resolved = cachedSent ? mergeAttachmentFallback(fetched, cachedSent) : fetched;
@@ -1736,8 +1985,13 @@ export function subscribeChatMessagesRealtime(
           (payload) => {
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;
-            void hydrateRealtimeRow(row).then((hydrated) => {
+            void hydrateRealtimeRow(row, false).then((hydrated) => {
               if (!hydrated) return;
+              if (isMessageHiddenForSession(session, hydrated)) {
+                callbacks.onDelete?.(hydrated.id);
+                callbacks.onAnyChange?.();
+                return;
+              }
               callbacks.onInsert?.(hydrated);
               callbacks.onAnyChange?.();
             });
@@ -1749,8 +2003,13 @@ export function subscribeChatMessagesRealtime(
           (payload) => {
             const row = payload.new as Record<string, unknown> | undefined;
             if (!row) return;
-            void hydrateRealtimeRow(row).then((hydrated) => {
+            void hydrateRealtimeRow(row, true).then((hydrated) => {
               if (!hydrated) return;
+              if (isMessageHiddenForSession(session, hydrated)) {
+                callbacks.onDelete?.(hydrated.id);
+                callbacks.onAnyChange?.();
+                return;
+              }
               if (callbacks.onUpdate) {
                 callbacks.onUpdate(hydrated);
               } else {

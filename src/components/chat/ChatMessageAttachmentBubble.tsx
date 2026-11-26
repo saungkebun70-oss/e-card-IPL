@@ -12,12 +12,14 @@ import {
   Lock,
   Maximize2,
   Play,
+  RotateCcw,
 } from 'lucide-react';
 import type { SessionUser } from '../../types';
 import type { ChatAttachmentType, ChatMessage } from '../../lib/chatService';
 import {
   extractDriveFileIdFromAttachment,
   fetchPrivateAttachmentBlobUrl,
+  getCachedPrivateAttachmentBlobUrl,
   isPrivateChatRoom,
 } from '../../lib/chatMediaUpload';
 import {
@@ -107,9 +109,7 @@ export function ChatMessageAttachmentBubble({
     mimeType,
   } = useMemo(() => resolveEffectiveAttachmentInfo(message), [message]);
 
-  const [proxyPhotoUrl, setProxyPhotoUrl] = useState<string | null>(null);
-  const [proxyPhotoLoading, setProxyPhotoLoading] = useState(false);
-  const [proxyPhotoError, setProxyPhotoError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [downloadingDoc, setDownloadingDoc] = useState(false);
 
@@ -137,8 +137,22 @@ export function ChatMessageAttachmentBubble({
     [message, attachmentType, fileName, mimeType, driveFileId]
   );
 
-  // Muat otomatis pratinjau gambar melalui proxy `chat-drive-private-access` (dengan cache Blob di memori)
-  // untuk pengirim maupun penerima di ruang privat maupun grup.
+  const cachedBlob = useMemo(
+    () =>
+      attachmentType === 'photo' && isReady && driveFileId
+        ? getCachedPrivateAttachmentBlobUrl(session, resolvedMessage)
+        : null,
+    [attachmentType, isReady, driveFileId, session, resolvedMessage]
+  );
+
+  const [proxyPhotoUrl, setProxyPhotoUrl] = useState<string | null>(() => cachedBlob?.objectUrl || null);
+  const [proxyPhotoLoading, setProxyPhotoLoading] = useState<boolean>(
+    () => attachmentType === 'photo' && isReady && Boolean(driveFileId) && !cachedBlob
+  );
+  const [proxyPhotoError, setProxyPhotoError] = useState(false);
+
+  // Muat otomatis gambar melalui proxy `chat-drive-private-access` (POST { driveFileId })
+  // dengan cache memori berdasarkan drive_file_id agar tampil instan tanpa berkedip.
   useEffect(() => {
     setImageError(false);
     setProxyPhotoError(false);
@@ -149,16 +163,43 @@ export function ChatMessageAttachmentBubble({
       return;
     }
 
+    if (retryToken === 0) {
+      const hit = getCachedPrivateAttachmentBlobUrl(session, {
+        id: message.id,
+        room_id: message.room_id,
+        attachment_drive_file_id: driveFileId,
+      });
+      if (hit) {
+        setProxyPhotoUrl(hit.objectUrl);
+        setProxyPhotoLoading(false);
+        return;
+      }
+    }
+
     let active = true;
     const controller = new AbortController();
     setProxyPhotoLoading(true);
 
     void (async () => {
       try {
-        const res = await fetchPrivateAttachmentBlobUrl(session, resolvedMessage, {
-          mode: 'thumbnail',
-          signal: controller.signal,
-        });
+        const res = await fetchPrivateAttachmentBlobUrl(
+          session,
+          {
+            id: message.id,
+            room_id: message.room_id,
+            attachment_drive_file_id: driveFileId,
+            attachment_url: message.attachment_url,
+            attachment_thumbnail_url: message.attachment_thumbnail_url,
+            drive_permission_scope: message.drive_permission_scope,
+            drive_web_view_link: message.drive_web_view_link,
+            drive_thumbnail_link: message.drive_thumbnail_link,
+          },
+          {
+            mode: 'stream',
+            signal: controller.signal,
+            forceRefresh: retryToken > 0,
+          }
+        );
         if (!active) return;
         setProxyPhotoUrl(res.objectUrl);
       } catch {
@@ -174,7 +215,20 @@ export function ChatMessageAttachmentBubble({
       active = false;
       controller.abort();
     };
-  }, [attachmentType, isReady, driveFileId, resolvedMessage, session]);
+  }, [
+    attachmentType,
+    isReady,
+    driveFileId,
+    message.id,
+    message.room_id,
+    message.attachment_url,
+    message.attachment_thumbnail_url,
+    message.drive_permission_scope,
+    message.drive_web_view_link,
+    message.drive_thumbnail_link,
+    session,
+    retryToken,
+  ]);
 
   if (!attachmentType || attachmentType === 'none') {
     return null;
@@ -320,30 +374,44 @@ export function ChatMessageAttachmentBubble({
               </span>
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => onOpenAttachment(resolvedMessage)}
-              className="w-full px-3 py-3.5 flex items-center gap-2.5 text-left cursor-pointer"
-            >
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  isMine ? 'bg-white/15 text-white' : 'bg-white text-[#312E81]'
-                }`}
+            <div className="w-full px-3 py-3 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => onOpenAttachment(resolvedMessage)}
+                className="flex-1 min-w-0 flex items-center gap-2.5 text-left cursor-pointer"
               >
-                <ImageIcon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold truncate">{fileName}</p>
-                <p className={`text-[10.5px] truncate ${subTextClass}`}>
-                  <span>{extLabel}</span>
-                  {sizeLabel ? <span> · {sizeLabel}</span> : null}
-                  <span>
-                    {' · '}
-                    {proxyPhotoError ? 'Ketuk untuk lihat detail / coba lagi' : 'Ketuk untuk buka'}
-                  </span>
-                </p>
-              </div>
-            </button>
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    isMine ? 'bg-white/15 text-white' : 'bg-white text-[#312E81]'
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate">{fileName}</p>
+                  <p className={`text-[10.5px] truncate ${subTextClass}`}>
+                    <span>{extLabel}</span>
+                    {sizeLabel ? <span> · {sizeLabel}</span> : null}
+                    <span>
+                      {' · '}
+                      {proxyPhotoError ? 'Gagal memuat pratinjau' : 'Ketuk untuk buka'}
+                    </span>
+                  </p>
+                </div>
+              </button>
+              {driveFileId && (
+                <button
+                  type="button"
+                  onClick={() => setRetryToken((t) => t + 1)}
+                  aria-label="Muat ulang gambar"
+                  title="Muat ulang gambar"
+                  className={`h-8 px-2.5 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1 shrink-0 cursor-pointer transition-colors ${actionBtnSecondaryClass}`}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Muat</span>
+                </button>
+              )}
+            </div>
           )}
 
           <div className="px-2.5 py-1.5 flex items-center justify-between gap-2 border-t border-inherit min-w-0">

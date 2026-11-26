@@ -519,6 +519,9 @@ function normalizeParticipantId(rawId: string): string {
   if (clean.startsWith('admin:')) {
     return `admin:${canonicalAdminUsername(clean.slice('admin:'.length))}`;
   }
+  if (clean.startsWith('pengurus:')) {
+    return `admin:${canonicalAdminUsername(clean.slice('pengurus:'.length))}`;
+  }
   if (clean.startsWith('warga:')) {
     const sub = clean.slice('warga:'.length);
     return `warga:${canonicalBlockKey(sub).toLowerCase() || sub}`;
@@ -2145,22 +2148,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Mode thumbnail privat via OAuth2
+    // Mode thumbnail privat via OAuth2 (validasi Content-Type image/* agar tidak pernah meneruskan halaman HTML)
     if (mode === 'thumbnail' && fileMeta.thumbnailLink) {
       stage = 'stream_thumbnail';
       const thumbRes = await fetch(fileMeta.thumbnailLink, {
         cache: 'no-store',
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (thumbRes.ok) {
+      const thumbCt = (thumbRes.headers.get('content-type') || '').trim().toLowerCase();
+      if (thumbRes.ok && thumbCt.startsWith('image/')) {
         const respHeaders = new Headers(corsHeaders);
-        respHeaders.set('Content-Type', thumbRes.headers.get('content-type') || 'image/jpeg');
+        respHeaders.set('Content-Type', thumbCt || 'image/jpeg');
         respHeaders.set('Cache-Control', 'private, no-store');
         return new Response(req.method === 'HEAD' ? null : thumbRes.body, {
           status: 200,
           headers: respHeaders,
         });
       }
+      await thumbRes.body?.cancel().catch(() => undefined);
     }
 
     // Alirkan konten file dengan meneruskan header Range untuk video/audio seeking

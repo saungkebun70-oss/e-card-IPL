@@ -25,7 +25,7 @@ import {
   clearChatRoom,
   createChatUploadQueueItem,
   createRetryChatUploadQueueItem,
-  deleteChatMessage,
+  deleteChatMessageForEveryone,
   executeChatUploadQueueItem,
   fetchChatDirectory,
   fetchChatMessages,
@@ -35,8 +35,10 @@ import {
   getChatParticipantId,
   getChatParticipantMatchIds,
   getGroupMembers,
+  hideChatMessageForMe,
   isDmRoomId,
   isMessageClearedForRoom,
+  isMessageHiddenForSession,
   markChatRoomRead,
   normalizeChatParticipantId,
   parseDmParticipants,
@@ -49,6 +51,7 @@ import {
   type DmThreadPreview,
   type GroupChatRoomId,
 } from '../lib/chatService';
+import { extractDriveFileIdFromAttachment } from '../lib/chatMediaUpload';
 import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
 import {
   validatePickedAttachment,
@@ -330,14 +333,22 @@ export function CommunityChatSlide({
     };
   }, []);
 
-  // Realtime WebSocket + sinkronisasi lintas tab
+  // Realtime WebSocket + sinkronisasi lintas tab + sinkronisasi otomatis saat kembali aktif/online
   useEffect(() => {
     const unsub = subscribeChatMessagesRealtime(session, {
       onInsert: (incoming) => {
-        if (isMessageClearedForRoom(session, incoming.room_id, incoming.created_at)) return;
+        if (
+          isMessageClearedForRoom(session, incoming.room_id, incoming.created_at) ||
+          isMessageHiddenForSession(session, incoming)
+        ) {
+          return;
+        }
         if (incoming.room_id === activeRoomIdRef.current) {
           setMessages((prev) => {
-            if (prev.some((m) => m.id === incoming.id)) return prev;
+            const exists = prev.some((m) => m.id === incoming.id);
+            if (exists) {
+              return prev.map((m) => (m.id === incoming.id ? incoming : m));
+            }
             return [...prev, incoming].sort(
               (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
             );
@@ -348,7 +359,14 @@ export function CommunityChatSlide({
         void syncDirectoriesAndUnread();
       },
       onUpdate: (updated) => {
-        if (isMessageClearedForRoom(session, updated.room_id, updated.created_at)) return;
+        if (
+          isMessageClearedForRoom(session, updated.room_id, updated.created_at) ||
+          isMessageHiddenForSession(session, updated)
+        ) {
+          setMessages((prev) => prev.filter((m) => m.id !== updated.id));
+          void syncDirectoriesAndUnread();
+          return;
+        }
         if (updated.room_id === activeRoomIdRef.current) {
           setMessages((prev) => {
             const exists = prev.some((m) => m.id === updated.id);
@@ -378,10 +396,25 @@ export function CommunityChatSlide({
         void syncDirectoriesAndUnread();
       },
     });
+
+    const handleReconnectSync = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void loadRoomMessages(activeRoomIdRef.current, true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleReconnectSync);
+      document.addEventListener('visibilitychange', handleReconnectSync);
+    }
+
     return () => {
       unsub();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleReconnectSync);
+        document.removeEventListener('visibilitychange', handleReconnectSync);
+      }
     };
-  }, [session, syncDirectoriesAndUnread, scrollToBottom]);
+  }, [session, syncDirectoriesAndUnread, scrollToBottom, loadRoomMessages]);
 
   const handleSelectRoom = (roomId: ChatRoomId, peerContact?: ChatContact) => {
     if (peerContact) {
@@ -577,16 +610,39 @@ export function CommunityChatSlide({
     }
   };
 
-  const handleDeleteMessage = async (msg: ChatMessage) => {
+  const handleHideMessageForMe = async (msg: ChatMessage) => {
     if (deletingId) return;
     setDeletingId(msg.id);
     try {
-      await deleteChatMessage(session, msg);
+      await hideChatMessageForMe(session, msg);
       setMessages((prev) => prev.filter((item) => item.id !== msg.id));
+      if (previewAttachmentMsg?.id === msg.id) {
+        setPreviewAttachmentMsg(null);
+      }
       setConfirmDeleteId(null);
-      onToast?.('info', 'Pesan berhasil dihapus.');
+      void syncDirectoriesAndUnread();
+      onToast?.('info', 'Pesan dihapus untuk Anda. Peserta lain tetap dapat melihatnya.');
     } catch (err) {
-      onToast?.('error', err instanceof Error ? err.message : 'Gagal menghapus pesan.');
+      onToast?.('error', err instanceof Error ? err.message : 'Gagal menghapus pesan untuk Anda.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteMessageForEveryone = async (msg: ChatMessage) => {
+    if (deletingId) return;
+    setDeletingId(msg.id);
+    try {
+      await deleteChatMessageForEveryone(session, msg);
+      setMessages((prev) => prev.filter((item) => item.id !== msg.id));
+      if (previewAttachmentMsg?.id === msg.id) {
+        setPreviewAttachmentMsg(null);
+      }
+      setConfirmDeleteId(null);
+      void syncDirectoriesAndUnread();
+      onToast?.('info', 'Pesan dihapus untuk semua peserta.');
+    } catch (err) {
+      onToast?.('error', err instanceof Error ? err.message : 'Gagal menghapus pesan untuk semua.');
     } finally {
       setDeletingId(null);
     }
@@ -1248,7 +1304,7 @@ export function CommunityChatSlide({
                   const isMine =
                     myMatchIds.has(normalizeChatParticipantId(msg.sender_id)) ||
                     myMatchIds.has(msg.sender_id);
-                  const canDeleteThis = session.role === 'admin' || isMine;
+                  const canDeleteForEveryone = session.role === 'admin' || isMine;
                   const roleBadge = getRoleBadgeStyle(msg.sender_role);
                   const isConfirming = confirmDeleteId === msg.id;
                   const isDeletingThis = deletingId === msg.id;
@@ -1319,9 +1375,10 @@ export function CommunityChatSlide({
                           />
 
                           {(() => {
+                            const effectiveDriveId = extractDriveFileIdFromAttachment(msg);
                             const hasAttachment =
                               (Boolean(msg.attachment_type) && msg.attachment_type !== 'none') ||
-                              Boolean(msg.attachment_drive_file_id) ||
+                              Boolean(effectiveDriveId) ||
                               Boolean(msg.attachment_url) ||
                               Boolean(msg.drive_web_view_link);
                             const trimmedMessage = msg.message.trim();
@@ -1365,13 +1422,17 @@ export function CommunityChatSlide({
                                 <CornerUpLeft className="w-3 h-3" />
                               </button>
 
-                              {canDeleteThis && !isConfirming && (
+                              {!isConfirming && (
                                 <button
                                   type="button"
                                   disabled={isDeletingThis}
                                   onClick={() => setConfirmDeleteId(msg.id)}
                                   aria-label="Hapus pesan"
-                                  title="Hapus pesan"
+                                  title={
+                                    canDeleteForEveryone
+                                      ? 'Hapus untuk Saya atau Semua'
+                                      : 'Hapus untuk Saya'
+                                  }
                                   className={`p-1 rounded-md transition-colors cursor-pointer ${
                                     isMine
                                       ? 'hover:bg-white/15 text-sky-100 hover:text-rose-200'
@@ -1384,25 +1445,53 @@ export function CommunityChatSlide({
                             </div>
                           </div>
 
-                          {canDeleteThis && isConfirming && (
-                            <div className="mt-2 pt-2 border-t border-white/20 flex items-center justify-end gap-1.5 text-[10.5px]">
-                              <span className={isMine ? 'text-sky-100' : 'text-rose-700 font-semibold'}>
-                                Hapus pesan?
+                          {isConfirming && (
+                            <div
+                              className={`mt-2 pt-2 border-t flex flex-wrap items-center justify-end gap-1.5 text-[10.5px] ${
+                                isMine ? 'border-white/20' : 'border-indigo-100'
+                              }`}
+                            >
+                              <span
+                                className={`w-full text-right text-[10px] font-semibold ${
+                                  isMine ? 'text-sky-100' : 'text-slate-600'
+                                }`}
+                              >
+                                {canDeleteForEveryone
+                                  ? 'Pilih cara menghapus pesan:'
+                                  : 'Hapus dari layar Anda saja?'}
                               </span>
+
                               <button
                                 type="button"
                                 disabled={isDeletingThis}
-                                onClick={() => void handleDeleteMessage(msg)}
-                                className="px-2.5 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                                onClick={() => void handleHideMessageForMe(msg)}
+                                className={`px-2.5 py-1 rounded-lg font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 transition-colors ${
+                                  isMine
+                                    ? 'bg-white/95 hover:bg-white text-[#312E81]'
+                                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                                }`}
                               >
                                 {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                <span>Ya</span>
+                                <span>Hapus untuk Saya</span>
                               </button>
+
+                              {canDeleteForEveryone && (
+                                <button
+                                  type="button"
+                                  disabled={isDeletingThis}
+                                  onClick={() => void handleDeleteMessageForEveryone(msg)}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 transition-colors"
+                                >
+                                  {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                  <span>Hapus untuk Semua</span>
+                                </button>
+                              )}
+
                               <button
                                 type="button"
                                 disabled={isDeletingThis}
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-0.5 rounded-full bg-white text-slate-700 font-semibold border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                                className="px-2 py-1 rounded-lg bg-white text-slate-700 font-semibold border border-slate-200 hover:bg-slate-50 cursor-pointer"
                               >
                                 Batal
                               </button>
