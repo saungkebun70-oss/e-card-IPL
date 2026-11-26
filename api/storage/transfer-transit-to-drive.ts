@@ -426,12 +426,23 @@ function getSupabaseEnv() {
 }
 
 function getDriveEnv() {
+  const jsonEnv = readFirstSecretEnv([
+    'GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON',
+    'GOOGLE_SERVICE_ACCOUNT_JSON',
+  ]);
   const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
-  const keyEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY']);
+  const keyEnv = readFirstSecretEnv([
+    'GOOGLE_DRIVE_PRIVATE_KEY',
+    'GOOGLE_PRIVATE_KEY',
+    'GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON',
+    'GOOGLE_SERVICE_ACCOUNT_JSON',
+  ]);
   const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
   const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
 
-  const embeddedJson = keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null;
+  const embeddedJson =
+    (jsonEnv.value ? extractServiceAccountJson(jsonEnv.value) : null) ||
+    (keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null);
   const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL)
     .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
     .trim();
@@ -902,6 +913,30 @@ function b64Url(input: Buffer | string): string {
   return b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+async function fetchGoogleServiceAccountJwks(
+  clientEmail: string
+): Promise<Array<{ kid?: string; n?: string; e?: string }> | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/service_accounts/v1/jwk/${encodeURIComponent(clientEmail)}`,
+        { signal: controller.signal }
+      );
+      if (!res.ok) return null;
+      const json = (await res.json().catch(() => null)) as {
+        keys?: Array<{ kid?: string; n?: string; e?: string }>;
+      } | null;
+      return Array.isArray(json?.keys) ? json.keys : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function getDriveToken(cfg: {
   clientEmail: string;
   privateKey: string;
@@ -909,33 +944,22 @@ async function getDriveToken(cfg: {
   clientEmailField?: string;
   privateKeyField?: string;
 }): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
-  if (cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)) {
-    jwtHeaderPayload.kid = cfg.privateKeyId;
-  }
-  const signingInput = `${b64Url(JSON.stringify(jwtHeaderPayload))}.${b64Url(
-    JSON.stringify({
-      iss: cfg.clientEmail,
-      scope: 'https://www.googleapis.com/auth/drive',
-      aud: 'https://oauth2.googleapis.com/token',
-      iat: now,
-      exp: now + 3600,
-    })
-  )}`;
   const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
   const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
 
   let keyFp = 'unknown';
-  let signature: Buffer;
+  let privateKeyObj: crypto.KeyObject;
+  let privateKeyModulus = '';
   try {
     const der = pemToDerBuffer(cfg.privateKey);
     keyFp = crypto.createHash('sha256').update(der).digest('hex').slice(0, 12);
-    const privateKeyObj = crypto.createPrivateKey(cfg.privateKey);
-    const signer = crypto.createSign('RSA-SHA256');
-    signer.update(signingInput);
-    signer.end();
-    signature = signer.sign(privateKeyObj);
+    privateKeyObj = crypto.createPrivateKey(cfg.privateKey);
+    try {
+      const exported = privateKeyObj.export({ format: 'jwk' }) as { n?: string };
+      privateKeyModulus = String(exported?.n || '').trim();
+    } catch {
+      privateKeyModulus = '';
+    }
   } catch (keyErr) {
     const cleanDetail = (keyErr instanceof Error ? keyErr.message : String(keyErr || 'invalid key'))
       .replace(/\s+/g, ' ')
@@ -951,6 +975,57 @@ async function getDriveToken(cfg: {
     });
   }
 
+  let resolvedKid =
+    cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)
+      ? cfg.privateKeyId
+      : '';
+  let activeKidsOnGcp: string[] = [];
+
+  if (privateKeyModulus) {
+    const gcpJwks = await fetchGoogleServiceAccountJwks(cfg.clientEmail);
+    if (gcpJwks && gcpJwks.length > 0) {
+      activeKidsOnGcp = gcpJwks
+        .map((k) => String(k.kid || '').trim())
+        .filter(Boolean);
+      const matchedJwk = gcpJwks.find((k) => k.n && k.n === privateKeyModulus);
+      if (matchedJwk?.kid) {
+        resolvedKid = matchedJwk.kid;
+      } else {
+        const kidListLabel = activeKidsOnGcp
+          .map((id) => `${id.slice(0, 12)}...`)
+          .join(', ');
+        throw buildCredentialError({
+          scope: 'Google Drive OAuth2',
+          missingFields: [],
+          invalidFields: [emailField, keyField],
+          fieldReasons: {
+            [emailField]: `Service Account ${cfg.clientEmail} memiliki ${activeKidsOnGcp.length} kunci aktif di Google Cloud IAM (${kidListLabel || 'tidak ada'}).`,
+            [keyField]: `Kunci privat di secret [fp=${keyFp}, mod=${privateKeyModulus.slice(0, 10)}...] TIDAK COCOK dengan kunci aktif mana pun milik ${cfg.clientEmail} di Google Cloud IAM (Key ID aktif: ${kidListLabel || 'kosong'}). Pastikan Anda menyalin seluruh file JSON atau nilai private_key dari salah satu Key ID aktif tersebut (bukan dari kunci lama/terhapus atau Service Account Firebase lain).`,
+          },
+        });
+      }
+    }
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
+  if (resolvedKid) {
+    jwtHeaderPayload.kid = resolvedKid;
+  }
+  const signingInput = `${b64Url(JSON.stringify(jwtHeaderPayload))}.${b64Url(
+    JSON.stringify({
+      iss: cfg.clientEmail,
+      scope: 'https://www.googleapis.com/auth/drive',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now - 30,
+      exp: now + 3570,
+    })
+  )}`;
+
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(signingInput);
+  signer.end();
+  const signature = signer.sign(privateKeyObj);
   const jwt = `${signingInput}.${b64Url(signature)}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -964,8 +1039,11 @@ async function getDriveToken(cfg: {
   if (!res.ok) {
     const errText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 180);
     const isSigErr = /invalid jwt signature/i.test(errText);
+    const activeInfo = activeKidsOnGcp.length
+      ? ` Key ID aktif di IAM: ${activeKidsOnGcp.map((id) => `${id.slice(0, 12)}...`).join(', ')}.`
+      : '';
     const hintSuffix = isSigErr
-      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${cfg.privateKeyId ? `, kid=${cfg.privateKeyId.slice(0, 8)}...` : ''}].`
+      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${resolvedKid ? `, kid=${resolvedKid.slice(0, 12)}...` : ''}].${activeInfo}`
       : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
     throw buildCredentialError({
       scope: 'Google Drive OAuth2',

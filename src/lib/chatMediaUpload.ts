@@ -264,6 +264,19 @@ function hasFieldDiagnostics(diag?: ChatUploadErrorDiagnostics | null): boolean 
   );
 }
 
+function isMissingOnlyDiagnostics(diag?: ChatUploadErrorDiagnostics | null): boolean {
+  if (!diag) return false;
+  return (
+    (diag.missingFields?.length || 0) > 0 &&
+    (diag.invalidFields?.length || 0) === 0
+  );
+}
+
+function hasInvalidFieldDiagnostics(diag?: ChatUploadErrorDiagnostics | null): boolean {
+  if (!diag) return false;
+  return (diag.invalidFields?.length || 0) > 0;
+}
+
 async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: {
   edgeFunctionName: string;
   apiPath: string;
@@ -366,12 +379,20 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
     const apiErrorMsg =
       typeof apiJson.error === 'string' && apiJson.error.trim() ? apiJson.error.trim() : '';
 
-    if (hasFieldDiagnostics(edgeFailure?.diagnostics) && !hasFieldDiagnostics(apiDiagnostics)) {
+    // Jangan timpa diagnostik spesifik dari Edge Function (mis. invalidFields / OAuth2 signature)
+    // dengan error fallback /api/storage/* yang hanya gagal karena env server API kosong.
+    const preferEdgeDiagnostics =
+      hasFieldDiagnostics(edgeFailure?.diagnostics) &&
+      (!hasFieldDiagnostics(apiDiagnostics) ||
+        (hasInvalidFieldDiagnostics(edgeFailure?.diagnostics) &&
+          isMissingOnlyDiagnostics(apiDiagnostics)));
+
+    if (preferEdgeDiagnostics && edgeFailure) {
       throw new ChatMediaUploadError(
-        edgeFailure?.message ||
+        edgeFailure.message ||
           apiErrorMsg ||
-          `Gagal memproses media di Edge Function (${edgeFailure?.status}).`,
-        edgeFailure?.diagnostics
+          `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+        edgeFailure.diagnostics
       );
     }
 
