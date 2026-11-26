@@ -59,6 +59,7 @@ Deno.serve(async (req: Request) => {
       )}?supportsAllDrives=true&fields=id,name,mimeType,size,parents,webViewLink,webContentLink,thumbnailLink,trashed`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
       }
     );
 
@@ -111,7 +112,7 @@ Deno.serve(async (req: Request) => {
         `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
           parentIds[0]
         )}?supportsAllDrives=true&fields=parents,name`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
       );
       if (pRes.ok) {
         const pData = (await pRes.json()) as { parents?: string[] };
@@ -120,7 +121,7 @@ Deno.serve(async (req: Request) => {
             `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
               pData.parents[0]
             )}?supportsAllDrives=true&fields=name,parents`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
+            { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
           );
           if (grandRes.ok) {
             const gData = (await grandRes.json()) as { name?: string; parents?: string[] };

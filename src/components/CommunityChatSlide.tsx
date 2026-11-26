@@ -274,8 +274,13 @@ export function CommunityChatSlide({
     return getGroupMembers(activeGroupRoom.id, session, contacts);
   }, [activeGroupRoom, session, contacts]);
 
+  const clearFailedUploads = useCallback(() => {
+    setUploadQueue((prev) => prev.filter((item) => item.status !== 'failed'));
+  }, []);
+
   const loadRoomMessages = useCallback(
     async (roomId: ChatRoomId, silent = false) => {
+      clearFailedUploads();
       if (silent) setRefreshing(true);
       else setLoading(true);
       try {
@@ -293,7 +298,7 @@ export function CommunityChatSlide({
         setRefreshing(false);
       }
     },
-    [session, syncDirectoriesAndUnread, scrollToBottom]
+    [session, syncDirectoriesAndUnread, scrollToBottom, clearFailedUploads]
   );
 
   useEffect(() => {
@@ -302,13 +307,15 @@ export function CommunityChatSlide({
     setConfirmClearRoom(false);
     setShowGroupMembers(false);
     setPreviewAttachmentMsg(null);
-    // Batalkan antrean unggahan dari ruang sebelumnya agar isolasi ruang tetap terjaga
+    // Batalkan antrean unggahan dari ruang sebelumnya & bersihkan error lama saat berpindah/memuat ruang
     uploadQueueRef.current.forEach((item) => {
       if (item.roomId !== activeRoomId && item.status === 'uploading') {
         item.abortController.abort();
       }
     });
-    setUploadQueue((prev) => prev.filter((item) => item.roomId === activeRoomId));
+    setUploadQueue((prev) =>
+      prev.filter((item) => item.roomId === activeRoomId && item.status !== 'failed')
+    );
     void loadRoomMessages(activeRoomId, false);
   }, [activeRoomId, loadRoomMessages]);
 
@@ -431,6 +438,8 @@ export function CommunityChatSlide({
 
   const handleSelectAttachmentFiles = useCallback(
     (files: File[], kind: AttachmentPickerKind) => {
+      // Bersihkan otomatis kotak error & antrean gagal lama ketika pengguna memilih file baru
+      clearFailedUploads();
       const targetRoomId = activeRoomIdRef.current;
       const newItems: UploadQueueItem[] = [];
 
@@ -452,12 +461,12 @@ export function CommunityChatSlide({
 
       if (newItems.length === 0) return;
 
-      setUploadQueue((prev) => [...prev, ...newItems]);
+      setUploadQueue((prev) => [...prev.filter((item) => item.status !== 'failed'), ...newItems]);
       newItems.forEach((item) => {
         runQueueUpload(item);
       });
     },
-    [onToast, runQueueUpload]
+    [onToast, runQueueUpload, clearFailedUploads]
   );
 
   const handleCancelUpload = useCallback(

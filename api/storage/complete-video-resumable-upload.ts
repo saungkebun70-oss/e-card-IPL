@@ -42,6 +42,58 @@ function getHeader(headers: Record<string, string | string[] | undefined>, name:
   return typeof val === 'string' ? val : '';
 }
 
+function isAllowedCorsOrigin(origin: string): boolean {
+  const clean = origin.trim();
+  if (!clean) return false;
+  const configuredPublicUrl = stripOuterQuotes(
+    process.env.PUBLIC_APP_URL || process.env.APP_URL || 'https://e-card-ipl.vercel.app'
+  ).replace(/\/+$/, '');
+  if (configuredPublicUrl && clean === configuredPublicUrl) return true;
+  try {
+    const parsed = new URL(clean);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      parsed.protocol === 'https:' &&
+      (host === 'e-card-ipl.vercel.app' ||
+        host.endsWith('.vercel.app') ||
+        host.endsWith('.run.app') ||
+        host.endsWith('.stackblitz.io') ||
+        host.endsWith('.webcontainer.io'))
+    ) {
+      return true;
+    }
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      (host === 'localhost' || host === '127.0.0.1')
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function applyCorsAndNoStoreHeaders(req: VercelReq, res: VercelRes): void {
+  const reqOrigin = getHeader(req.headers, 'origin').trim();
+  const configuredPublicUrl =
+    stripOuterQuotes(process.env.PUBLIC_APP_URL || process.env.APP_URL || 'https://e-card-ipl.vercel.app').replace(
+      /\/+$/,
+      ''
+    ) || 'https://e-card-ipl.vercel.app';
+  const allowOrigin = isAllowedCorsOrigin(reqOrigin) ? reqOrigin : configuredPublicUrl;
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'content-type, authorization, apikey, x-client-info, x-user-role, x-blok-rumah, x-petugas-id, x-admin-jabatan, x-admin-permission, range, cache-control, pragma'
+  );
+  res.setHeader('Access-Control-Max-Age', '3600');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+}
+
 function normalizeToken(raw?: string | null): string {
   return String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
 }
@@ -252,14 +304,43 @@ const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
 
 function stripOuterQuotes(raw?: string | null): string {
   let clean = String(raw || '')
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\u2060\uFEFF]/g, '')
     .trim();
-  while (
-    clean.length >= 2 &&
-    ((clean.startsWith('"') && clean.endsWith('"')) ||
-      (clean.startsWith("'") && clean.endsWith("'")))
-  ) {
-    clean = clean.slice(1, -1).trim();
+  let changed = true;
+  while (changed && clean.length > 0) {
+    changed = false;
+    if (
+      (clean.startsWith('\\"') && clean.endsWith('\\"')) ||
+      (clean.startsWith("\\'") && clean.endsWith("\\'"))
+    ) {
+      clean = clean.slice(2, -2).trim();
+      changed = true;
+      continue;
+    }
+    const first = clean[0];
+    const last = clean[clean.length - 1];
+    const isQuoteChar = (ch: string) =>
+      ch === '"' ||
+      ch === "'" ||
+      ch === '`' ||
+      ch === '\u201C' ||
+      ch === '\u201D' ||
+      ch === '\u2018' ||
+      ch === '\u2019';
+    if (clean.length >= 2 && isQuoteChar(first) && isQuoteChar(last)) {
+      clean = clean.slice(1, -1).trim();
+      changed = true;
+      continue;
+    }
+    if (isQuoteChar(first)) {
+      clean = clean.slice(1).trim();
+      changed = true;
+      continue;
+    }
+    if (isQuoteChar(last)) {
+      clean = clean.slice(0, -1).trim();
+      changed = true;
+    }
   }
   return clean;
 }
@@ -1031,20 +1112,66 @@ async function fetchGoogleServiceAccountJwks(
   }
 }
 
+const oauth2TokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
+
 async function exchangeOAuth2RefreshToken(
-  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>
+  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>,
+  forceRefresh = false
 ): Promise<string> {
+  const clientId = stripOuterQuotes(cfg.clientId);
+  const clientSecret = stripOuterQuotes(cfg.clientSecret);
+  const refreshToken = stripOuterQuotes(cfg.refreshToken);
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    const missingFields: string[] = [];
+    const fieldReasons: Record<string, string> = {};
+    if (!clientId) {
+      missingFields.push(cfg.clientIdField);
+      fieldReasons[cfg.clientIdField] = `Environment variable ${cfg.clientIdField} kosong setelah sanitasi.`;
+    }
+    if (!clientSecret) {
+      missingFields.push(cfg.clientSecretField);
+      fieldReasons[cfg.clientSecretField] = `Environment variable ${cfg.clientSecretField} kosong setelah sanitasi.`;
+    }
+    if (!refreshToken) {
+      missingFields.push(cfg.refreshTokenField);
+      fieldReasons[cfg.refreshTokenField] = `Environment variable ${cfg.refreshTokenField} kosong setelah sanitasi.`;
+    }
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields,
+      invalidFields: [],
+      fieldReasons,
+    });
+  }
+
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(`${clientId}|${refreshToken}`)
+    .digest('hex')
+    .slice(0, 24);
+  if (!forceRefresh) {
+    const cached = oauth2TokenCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now() + 90_000) {
+      return cached.accessToken;
+    }
+  } else {
+    oauth2TokenCache.delete(cacheKey);
+  }
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    cache: 'no-store',
     body: new URLSearchParams({
-      client_id: cfg.clientId,
-      client_secret: cfg.clientSecret,
-      refresh_token: cfg.refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),
   });
   if (!res.ok) {
+    oauth2TokenCache.delete(cacheKey);
     const rawText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim();
     let errCode = '';
     let errDesc = '';
@@ -1080,14 +1207,25 @@ async function exchangeOAuth2RefreshToken(
       },
     });
   }
-  const json = (await res.json()) as { access_token?: string };
-  if (!json.access_token) throw new Error('Access token OAuth2 Google Drive tidak tersedia.');
+  const json = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!json.access_token) {
+    oauth2TokenCache.delete(cacheKey);
+    throw new Error('Access token OAuth2 Google Drive tidak tersedia.');
+  }
+  const expiresInSec =
+    typeof json.expires_in === 'number' && Number.isFinite(json.expires_in) && json.expires_in > 120
+      ? json.expires_in
+      : 3600;
+  oauth2TokenCache.set(cacheKey, {
+    accessToken: json.access_token,
+    expiresAt: Date.now() + expiresInSec * 1000,
+  });
   return json.access_token;
 }
 
-async function getDriveToken(cfg: DriveAuthConfig): Promise<string> {
+async function getDriveToken(cfg: DriveAuthConfig, forceRefresh = false): Promise<string> {
   if (cfg.mode === 'oauth2') {
-    return exchangeOAuth2RefreshToken(cfg);
+    return exchangeOAuth2RefreshToken(cfg, forceRefresh);
   }
 
   const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
@@ -1321,8 +1459,9 @@ async function findDriveFolderId(
   parentId: string,
   driveCfg?: DriveAuthConfig
 ): Promise<string | null> {
+  const cleanParentId = stripOuterQuotes(parentId);
   const safe = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const safeParent = parentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const safeParent = cleanParentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const params = new URLSearchParams({
     q: `name = '${safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${safeParent}' in parents`,
     fields: 'files(id)',
@@ -1332,6 +1471,7 @@ async function findDriveFolderId(
   });
   const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
   });
   if (!res.ok) {
     const errInfo = await parseGoogleDriveApiError(res);
@@ -1409,7 +1549,7 @@ function buildPrivateProxyUrl(params: {
 }
 
 export default async function handler(req: VercelReq, res: VercelRes) {
-  res.setHeader('Cache-Control', 'no-store');
+  applyCorsAndNoStoreHeaders(req, res);
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;

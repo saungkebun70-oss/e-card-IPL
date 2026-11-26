@@ -1577,6 +1577,7 @@ export interface ChatSessionSenderContext {
   jabatan: string;
   adminPermission: string;
   petugasId: string;
+  noWa?: string;
 }
 
 /**
@@ -1656,6 +1657,7 @@ export function buildChatSessionSenderContext(session: SessionUser): ChatSession
     jabatan: (safeSession.jabatan || '').trim(),
     adminPermission: (safeSession.admin_permission || '').trim(),
     petugasId: (safeSession.petugas_id || '').trim(),
+    noWa: (safeSession.no_wa || '').trim(),
   };
 }
 

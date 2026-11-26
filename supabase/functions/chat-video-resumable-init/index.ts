@@ -100,6 +100,7 @@ Deno.serve(async (req: Request) => {
       {
         method: 'POST',
         headers: initHeaders,
+        cache: 'no-store',
         body: JSON.stringify({
           name: safeName,
           parents: [folderId],

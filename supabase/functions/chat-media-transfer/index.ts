@@ -124,7 +124,7 @@ const PENGURUS_META_BY_BLOCK = new Map<string, KnownPengurusMeta>(
 function buildCorsHeaders(req: Request): Record<string, string> {
   const origin = (req.headers.get('origin') || '').trim();
   const configuredPublicUrl = stripOuterQuotes(Deno.env.get('PUBLIC_APP_URL')).replace(/\/+$/, '');
-  let allowedOrigin = '*';
+  let allowedOrigin = configuredPublicUrl || 'https://e-card-ipl.vercel.app';
 
   if (origin) {
     try {
@@ -136,23 +136,26 @@ function buildCorsHeaders(req: Request): Record<string, string> {
         host.endsWith('.vercel.app') ||
         host.endsWith('.stackblitz.io') ||
         host.endsWith('.webcontainer.io') ||
-        host.endsWith('.run.app')
+        host.endsWith('.run.app') ||
+        ((host === 'localhost' || host === '127.0.0.1') &&
+          (parsed.protocol === 'http:' || parsed.protocol === 'https:'))
       ) {
         allowedOrigin = origin;
       }
     } catch {
-      allowedOrigin = '*';
+      allowedOrigin = configuredPublicUrl || 'https://e-card-ipl.vercel.app';
     }
   }
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, range, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan, x-sender-id, x-pengurus-username',
+      'authorization, x-client-info, apikey, content-type, range, cache-control, pragma, x-user-role, x-blok-rumah, x-petugas-id, x-admin-permission, x-admin-jabatan, x-sender-id, x-pengurus-username',
     'Access-Control-Expose-Headers':
       'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type',
     'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-    'Cache-Control': 'no-store',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    Pragma: 'no-cache',
     Vary: 'Origin',
   };
 }
@@ -229,18 +232,41 @@ function resolvePengurusUsernameFromHints(
   return '';
 }
 
+const OUTER_QUOTE_CHARS = new Set(['"', "'", '`', '\u201C', '\u201D', '\u2018', '\u2019']);
+
 function stripOuterQuotes(raw?: string | null): string {
   let clean = String(raw || '')
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\u2060\uFEFF]/g, '')
     .trim();
-  while (
-    clean.length >= 2 &&
-    ((clean.startsWith('"') && clean.endsWith('"')) ||
-      (clean.startsWith("'") && clean.endsWith("'")))
-  ) {
-    clean = clean.slice(1, -1).trim();
+  let changed = true;
+  while (changed && clean.length > 0) {
+    changed = false;
+    if (
+      (clean.startsWith('\\"') && clean.endsWith('\\"')) ||
+      (clean.startsWith("\\'") && clean.endsWith("\\'"))
+    ) {
+      clean = clean.slice(2, -2).trim();
+      changed = true;
+      continue;
+    }
+    const first = clean[0];
+    const last = clean[clean.length - 1];
+    if (clean.length >= 2 && OUTER_QUOTE_CHARS.has(first) && OUTER_QUOTE_CHARS.has(last)) {
+      clean = clean.slice(1, -1).trim();
+      changed = true;
+      continue;
+    }
+    if (OUTER_QUOTE_CHARS.has(first)) {
+      clean = clean.slice(1).trim();
+      changed = true;
+      continue;
+    }
+    if (OUTER_QUOTE_CHARS.has(last)) {
+      clean = clean.slice(0, -1).trim();
+      changed = true;
+    }
   }
-  return clean;
+  return clean.trim();
 }
 
 function isUrlLikeValue(raw: string): boolean {
@@ -1311,21 +1337,78 @@ async function fetchGoogleServiceAccountJwks(
   }
 }
 
+const oauth2TokenCache = new Map<string, { accessToken: string; expiresAtMs: number }>();
+
+function buildOAuth2CacheKey(clientId: string, clientSecret: string, refreshToken: string): string {
+  return `${clientId}::${clientSecret.slice(0, 6)}:${clientSecret.slice(-6)}::${refreshToken.slice(-16)}`;
+}
+
 async function exchangeOAuth2RefreshToken(
-  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>
+  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>,
+  forceRefresh = false
 ): Promise<string> {
+  const clientId = stripOuterQuotes(cfg.clientId);
+  const clientSecret = stripOuterQuotes(cfg.clientSecret);
+  const refreshToken = stripOuterQuotes(cfg.refreshToken);
+
+  const missingFields: string[] = [];
+  const invalidFields: string[] = [];
+  const fieldReasons: Record<string, string> = {};
+
+  if (!clientId) {
+    missingFields.push(cfg.clientIdField);
+    fieldReasons[cfg.clientIdField] = `Secret ${cfg.clientIdField} kosong setelah sanitasi.`;
+  } else if (isUrlLikeValue(clientId) || /\s/.test(clientId)) {
+    invalidFields.push(cfg.clientIdField);
+    fieldReasons[cfg.clientIdField] = `Format ${cfg.clientIdField} tidak valid.`;
+  }
+  if (!clientSecret) {
+    missingFields.push(cfg.clientSecretField);
+    fieldReasons[cfg.clientSecretField] = `Secret ${cfg.clientSecretField} kosong setelah sanitasi.`;
+  } else if (isUrlLikeValue(clientSecret) || /\s/.test(clientSecret)) {
+    invalidFields.push(cfg.clientSecretField);
+    fieldReasons[cfg.clientSecretField] = `Format ${cfg.clientSecretField} tidak valid.`;
+  }
+  if (!refreshToken) {
+    missingFields.push(cfg.refreshTokenField);
+    fieldReasons[cfg.refreshTokenField] = `Secret ${cfg.refreshTokenField} kosong setelah sanitasi.`;
+  } else if (isUrlLikeValue(refreshToken) || /\s/.test(refreshToken)) {
+    invalidFields.push(cfg.refreshTokenField);
+    fieldReasons[cfg.refreshTokenField] = `Format ${cfg.refreshTokenField} tidak valid.`;
+  }
+  if (missingFields.length > 0 || invalidFields.length > 0) {
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields,
+      invalidFields,
+      fieldReasons,
+    });
+  }
+
+  const cacheKey = buildOAuth2CacheKey(clientId, clientSecret, refreshToken);
+  if (!forceRefresh) {
+    const cached = oauth2TokenCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAtMs) {
+      return cached.accessToken;
+    }
+  } else {
+    oauth2TokenCache.delete(cacheKey);
+  }
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: cfg.clientId,
-      client_secret: cfg.clientSecret,
-      refresh_token: cfg.refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),
   });
 
   if (!res.ok) {
+    oauth2TokenCache.delete(cacheKey);
     const rawText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim();
     let oauthErrCode = '';
     let oauthErrDesc = '';
@@ -1339,37 +1422,43 @@ async function exchangeOAuth2RefreshToken(
       }
     }
     const detail = [oauthErrCode, oauthErrDesc].filter(Boolean).join(': ') || rawText.slice(0, 180);
-    const invalidFields: string[] = [];
-    const fieldReasons: Record<string, string> = {};
+    const nextInvalidFields: string[] = [];
+    const nextFieldReasons: Record<string, string> = {};
 
     if (/invalid_client/i.test(oauthErrCode) || /client/i.test(oauthErrDesc)) {
-      invalidFields.push(cfg.clientIdField, cfg.clientSecretField);
-      fieldReasons[cfg.clientIdField] = `Google OAuth2 menolak client_id (${res.status}): ${detail}`;
-      fieldReasons[cfg.clientSecretField] = `Periksa kecocokan ${cfg.clientSecretField} dengan ${cfg.clientIdField}.`;
+      nextInvalidFields.push(cfg.clientIdField, cfg.clientSecretField);
+      nextFieldReasons[cfg.clientIdField] = `Google OAuth2 menolak client_id (${res.status}): ${detail}`;
+      nextFieldReasons[cfg.clientSecretField] = `Periksa kecocokan ${cfg.clientSecretField} dengan ${cfg.clientIdField}.`;
     } else {
-      invalidFields.push(cfg.refreshTokenField);
-      fieldReasons[cfg.refreshTokenField] =
+      nextInvalidFields.push(cfg.refreshTokenField);
+      nextFieldReasons[cfg.refreshTokenField] =
         `Pertukaran refresh_token ke access_token ditolak Google OAuth2 (${res.status}): ${detail || 'invalid_grant'}. Pastikan Refresh Token masih aktif dan dibuat oleh Client ID & Client Secret yang sama.`;
     }
 
     throw buildCredentialError({
       scope: 'Google Drive OAuth2',
       missingFields: [],
-      invalidFields,
-      fieldReasons,
+      invalidFields: nextInvalidFields,
+      fieldReasons: nextFieldReasons,
     });
   }
 
-  const json = (await res.json().catch(() => ({}))) as { access_token?: string };
-  if (!json.access_token) {
+  const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
+  const accessToken = stripOuterQuotes(json.access_token);
+  if (!accessToken) {
+    oauth2TokenCache.delete(cacheKey);
     throw new Error('Google OAuth2 tidak mengembalikan access_token.');
   }
-  return json.access_token;
+
+  const expiresInSec = Number(json.expires_in || 3600);
+  const ttlMs = Math.max(60, (Number.isFinite(expiresInSec) ? expiresInSec : 3600) - 90) * 1000;
+  oauth2TokenCache.set(cacheKey, { accessToken, expiresAtMs: Date.now() + ttlMs });
+  return accessToken;
 }
 
-async function getDriveServiceAccountToken(cfg: DriveAuthConfig): Promise<string> {
+async function getDriveServiceAccountToken(cfg: DriveAuthConfig, forceRefresh = false): Promise<string> {
   if (cfg.mode === 'oauth2') {
-    return exchangeOAuth2RefreshToken(cfg);
+    return exchangeOAuth2RefreshToken(cfg, forceRefresh);
   }
 
   let cryptoKey: CryptoKey;
@@ -1615,8 +1704,9 @@ async function ensureDriveSubfolder(
   parentId: string,
   driveCfg?: DriveAuthConfig
 ): Promise<string> {
+  const cleanParentId = stripOuterQuotes(parentId);
   const safeName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const safeParent = parentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const safeParent = cleanParentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const q = `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${safeParent}' in parents`;
   const searchParams = new URLSearchParams({
     q,
@@ -1629,6 +1719,7 @@ async function ensureDriveSubfolder(
   const findRes = await fetch(
     `https://www.googleapis.com/drive/v3/files?${searchParams.toString()}`,
     {
+      cache: 'no-store',
       headers: { Authorization: `Bearer ${accessToken}` },
     }
   );
@@ -1645,6 +1736,7 @@ async function ensureDriveSubfolder(
     'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id',
     {
       method: 'POST',
+      cache: 'no-store',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -1652,7 +1744,7 @@ async function ensureDriveSubfolder(
       body: JSON.stringify({
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
+        parents: [cleanParentId],
       }),
     }
   );

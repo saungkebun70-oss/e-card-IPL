@@ -33,6 +33,7 @@ interface PrivateDrivePreviewModalProps {
 interface PreviewState {
   loading: boolean;
   error: string | null;
+  reason?: string | null;
   sourceUrl: string | null;
   mimeType: string;
   isBlob: boolean;
@@ -58,6 +59,7 @@ export function PrivateDrivePreviewModal({
   const [state, setState] = useState<PreviewState>({
     loading: false,
     error: null,
+    reason: null,
     sourceUrl: null,
     mimeType: '',
     isBlob: false,
@@ -83,6 +85,7 @@ export function PrivateDrivePreviewModal({
       setState({
         loading: true,
         error: null,
+        reason: null,
         sourceUrl: null,
         mimeType: target.attachment_mime || '',
         isBlob: false,
@@ -152,12 +155,16 @@ export function PrivateDrivePreviewModal({
         });
       } catch (err) {
         if (signal.aborted) return;
+        const rawReason = (err as { reason?: unknown } | null)?.reason;
+        const cleanReason =
+          typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null;
         setState({
           loading: false,
           error:
             err instanceof Error
               ? err.message
               : 'Gagal memverifikasi akses berkas di Google Drive.',
+          reason: cleanReason,
           sourceUrl: null,
           mimeType: target.attachment_mime || '',
           isBlob: false,
@@ -291,9 +298,23 @@ export function PrivateDrivePreviewModal({
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 mx-auto flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5" />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-rose-900">Akses Berkas Tidak Dapat Dibuka</p>
-                <p className="text-xs text-rose-700 leading-relaxed break-words">{state.error}</p>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-rose-900">
+                  {isPrivate || /ditolak|privat/i.test(state.error)
+                    ? 'Akses lampiran privat ditolak'
+                    : 'Akses Berkas Tidak Dapat Dibuka'}
+                </p>
+                <p className="text-xs text-rose-700 leading-relaxed break-words">
+                  {state.reason || state.error}
+                </p>
+                {state.reason &&
+                  state.error &&
+                  state.reason.trim() !== state.error.trim() &&
+                  !/^Akses lampiran privat ditolak\.?$/i.test(state.error.trim()) && (
+                    <p className="text-[11px] text-rose-600/90 leading-relaxed break-words">
+                      {state.error}
+                    </p>
+                  )}
               </div>
               <button
                 type="button"

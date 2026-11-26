@@ -169,6 +169,7 @@ async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
 
 export interface ChatUploadErrorDiagnostics {
   stage?: string;
+  reason?: string;
   missingFields?: string[];
   invalidFields?: string[];
   fieldReasons?: Record<string, string>;
@@ -176,6 +177,7 @@ export interface ChatUploadErrorDiagnostics {
 
 export class ChatMediaUploadError extends Error {
   stage?: string;
+  reason?: string;
   missingFields?: string[];
   invalidFields?: string[];
   fieldReasons?: Record<string, string>;
@@ -184,6 +186,7 @@ export class ChatMediaUploadError extends Error {
     super(message);
     this.name = 'ChatMediaUploadError';
     if (diagnostics?.stage) this.stage = diagnostics.stage;
+    if (diagnostics?.reason) this.reason = diagnostics.reason;
     if (diagnostics?.missingFields?.length) this.missingFields = [...diagnostics.missingFields];
     if (diagnostics?.invalidFields?.length) this.invalidFields = [...diagnostics.invalidFields];
     if (diagnostics?.fieldReasons && Object.keys(diagnostics.fieldReasons).length > 0) {
@@ -195,6 +198,7 @@ export class ChatMediaUploadError extends Error {
 type BackendErrorPayload = {
   ok?: boolean;
   error?: string;
+  reason?: unknown;
   stage?: unknown;
   missingFields?: unknown;
   invalidFields?: unknown;
@@ -234,12 +238,15 @@ function parseBackendErrorDiagnostics(
   if (!payload || typeof payload !== 'object') return null;
   const stage =
     typeof payload.stage === 'string' && payload.stage.trim() ? payload.stage.trim() : undefined;
+  const reason =
+    typeof payload.reason === 'string' && payload.reason.trim() ? payload.reason.trim() : undefined;
   const missingFields = sanitizeDiagnosticFieldList(payload.missingFields);
   const invalidFields = sanitizeDiagnosticFieldList(payload.invalidFields);
   const fieldReasons = sanitizeDiagnosticFieldReasons(payload.fieldReasons);
 
   if (
     !stage &&
+    !reason &&
     missingFields.length === 0 &&
     invalidFields.length === 0 &&
     Object.keys(fieldReasons).length === 0
@@ -249,6 +256,7 @@ function parseBackendErrorDiagnostics(
 
   return {
     ...(stage ? { stage } : {}),
+    ...(reason ? { reason } : {}),
     ...(missingFields.length > 0 ? { missingFields } : {}),
     ...(invalidFields.length > 0 ? { invalidFields } : {}),
     ...(Object.keys(fieldReasons).length > 0 ? { fieldReasons } : {}),
@@ -277,6 +285,60 @@ function hasInvalidFieldDiagnostics(diag?: ChatUploadErrorDiagnostics | null): b
   return (diag.invalidFields?.length || 0) > 0;
 }
 
+const DEFAULT_PRODUCTION_API_ORIGIN = 'https://e-card-ipl.vercel.app';
+
+function getProductionApiOrigin(): string {
+  const raw = String(
+    (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_PRODUCTION_API_ORIGIN || ''
+  )
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .replace(/\/+$/, '');
+  if (raw && /^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  return DEFAULT_PRODUCTION_API_ORIGIN;
+}
+
+function isVercelDeploymentOrigin(): boolean {
+  if (typeof window === 'undefined' || !window.location) return true;
+  const prodOrigin = getProductionApiOrigin();
+  if (window.location.origin === prodOrigin) return true;
+  const host = String(window.location.hostname || '').toLowerCase();
+  return host === 'e-card-ipl.vercel.app' || host.endsWith('.vercel.app');
+}
+
+function buildApiCandidateUrls(apiPath: string): Array<{ url: string; isLocalPreviewFallback: boolean }> {
+  const normalizedPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
+  const prodOrigin = getProductionApiOrigin();
+  if (isVercelDeploymentOrigin()) {
+    return [{ url: normalizedPath, isLocalPreviewFallback: false }];
+  }
+  return [
+    { url: `${prodOrigin}${normalizedPath}`, isLocalPreviewFallback: false },
+    { url: normalizedPath, isLocalPreviewFallback: true },
+  ];
+}
+
+function isEmptyLocalEnvLegacyError(
+  message: string,
+  diagnostics: ChatUploadErrorDiagnostics | null
+): boolean {
+  const missing = diagnostics?.missingFields || [];
+  if (
+    missing.some((f) =>
+      /GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|GOOGLE_OAUTH_CLIENT_ID|GOOGLE_OAUTH_CLIENT_SECRET|GOOGLE_OAUTH_REFRESH_TOKEN|SUPABASE_SERVICE_ROLE_KEY/i.test(
+        f
+      )
+    )
+  ) {
+    return true;
+  }
+  return /field kosong:\s*\[[^\]]*(GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|GOOGLE_OAUTH_)/i.test(
+    message
+  );
+}
+
 async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: {
   edgeFunctionName: string;
   apiPath: string;
@@ -300,12 +362,13 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
     diagnostics: ChatUploadErrorDiagnostics | null;
   } | null = null;
 
-  // 1. Prioritaskan Supabase Edge Function bila Supabase aktif
+  // 1. Prioritaskan Supabase Edge Function produksi bila Supabase aktif (tanpa cache)
   if (sbCfg) {
     try {
       const bearerToken = userJwt || sbCfg.anonKey;
       const edgeRes = await fetch(`${sbCfg.url}/functions/v1/${params.edgeFunctionName}`, {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           apikey: sbCfg.anonKey,
@@ -324,20 +387,32 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
       const edgeDiagnostics = parseBackendErrorDiagnostics(edgeJson);
       const edgeErrorMsg =
         typeof edgeJson.error === 'string' && edgeJson.error.trim() ? edgeJson.error.trim() : '';
+      const edgeCombinedText = `${edgeErrorMsg} ${edgeDiagnostics?.reason || ''}`;
+      const isLegacySaError =
+        /GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|Service Account|private_key/i.test(
+          edgeCombinedText
+        ) || isEmptyLocalEnvLegacyError(edgeErrorMsg, edgeDiagnostics);
+      const isStalePrivateProxyError =
+        params.edgeFunctionName === 'chat-drive-private-access' &&
+        (edgeRes.status === 401 || edgeRes.status === 403) &&
+        !edgeDiagnostics?.reason;
 
-      // Error validasi/otorisasi (400/401/403) langsung diteruskan dengan pesan & detail field spesifik
-      if (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) {
+      // Error validasi/otorisasi spesifik (400/401/403) langsung diteruskan dengan reason spesifik,
+      // kecuali bila Edge Function belum terdeploy ulang (masih mengembalikan error Service Account / tanpa reason).
+      if (
+        (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) &&
+        !isLegacySaError &&
+        !isStalePrivateProxyError
+      ) {
         throw new ChatMediaUploadError(
-          edgeErrorMsg || `Permintaan ditolak (${edgeRes.status}).`,
+          edgeErrorMsg || edgeDiagnostics?.reason || `Permintaan ditolak (${edgeRes.status}).`,
           edgeDiagnostics
         );
       }
 
-      // Simpan detail error Edge Function (termasuk missingFields, invalidFields, fieldReasons)
-      // sebelum mencoba fallback ke /api/storage/...
       edgeFailure = {
         status: edgeRes.status,
-        message: edgeErrorMsg,
+        message: edgeErrorMsg || edgeDiagnostics?.reason || '',
         diagnostics: edgeDiagnostics,
       };
     } catch (err) {
@@ -345,7 +420,6 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
       if (err instanceof ChatMediaUploadError) {
         throw err;
       }
-      // Untuk penolakan validasi/otorisasi eksplisit dari Edge Function, lempar langsung
       if (
         err instanceof Error &&
         /DILARANG|tidak memiliki akses|tidak aktif|nonaktif|dicabut|tidak valid|ditolak|Verifikasi/i.test(
@@ -354,65 +428,104 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
       ) {
         throw err;
       }
-      // Selain itu lanjut fallback ke /api/storage/...
     }
   }
 
-  try {
-    const apiRes = await fetch(params.apiPath, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
-        ...identityHeaders,
-      },
-      body: JSON.stringify(enrichedBody),
-      signal: params.signal,
-    });
+  // 2. Pada pratinjau non-Vercel (*.run.app / localhost / StackBlitz), arahkan langsung ke API produksi Vercel
+  // yang menyimpan secrets OAuth2 terbaru agar tidak memukul server lokal yang tidak punya secrets.
+  const candidates = buildApiCandidateUrls(params.apiPath);
+  let lastApiFailure: {
+    status: number;
+    message: string;
+    diagnostics: ChatUploadErrorDiagnostics | null;
+  } | null = null;
 
-    const apiJson = (await apiRes.json().catch(() => ({}))) as T;
-    if (apiRes.ok && apiJson.ok !== false) {
-      return apiJson;
-    }
+  for (const candidate of candidates) {
+    try {
+      const apiRes = await fetch(candidate.url, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
+          ...identityHeaders,
+        },
+        body: JSON.stringify(enrichedBody),
+        signal: params.signal,
+      });
 
-    const apiDiagnostics = parseBackendErrorDiagnostics(apiJson);
-    const apiErrorMsg =
-      typeof apiJson.error === 'string' && apiJson.error.trim() ? apiJson.error.trim() : '';
+      const apiJson = (await apiRes.json().catch(() => ({}))) as T;
+      if (apiRes.ok && apiJson.ok !== false) {
+        return apiJson;
+      }
 
-    // Jangan timpa diagnostik spesifik dari Edge Function (mis. invalidFields / OAuth2 signature)
-    // dengan error fallback /api/storage/* yang hanya gagal karena env server API kosong.
-    const preferEdgeDiagnostics =
-      hasFieldDiagnostics(edgeFailure?.diagnostics) &&
-      (!hasFieldDiagnostics(apiDiagnostics) ||
-        (hasInvalidFieldDiagnostics(edgeFailure?.diagnostics) &&
-          isMissingOnlyDiagnostics(apiDiagnostics)));
+      const apiDiagnostics = parseBackendErrorDiagnostics(apiJson);
+      const apiErrorMsg =
+        typeof apiJson.error === 'string' && apiJson.error.trim() ? apiJson.error.trim() : '';
 
-    if (preferEdgeDiagnostics && edgeFailure) {
-      throw new ChatMediaUploadError(
-        edgeFailure.message ||
-          apiErrorMsg ||
-          `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
-        edgeFailure.diagnostics
-      );
-    }
+      // Jika fallback lokal hanya gagal karena container pratinjau tidak memiliki env/secrets,
+      // pertahankan error asli dari produksi/Edge Function.
+      if (
+        candidate.isLocalPreviewFallback &&
+        isEmptyLocalEnvLegacyError(apiErrorMsg, apiDiagnostics) &&
+        (lastApiFailure || edgeFailure)
+      ) {
+        break;
+      }
 
-    throw new ChatMediaUploadError(
-      apiErrorMsg || edgeFailure?.message || `Gagal memproses media di server (${apiRes.status}).`,
-      apiDiagnostics || edgeFailure?.diagnostics
-    );
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    if (err instanceof ChatMediaUploadError) {
+      lastApiFailure = {
+        status: apiRes.status,
+        message: apiErrorMsg,
+        diagnostics: apiDiagnostics,
+      };
+
+      // Jangan coba fallback lokal jika server produksi Vercel sudah merespons (status HTTP apa pun)
+      if (!candidate.isLocalPreviewFallback) {
+        break;
+      }
+    } catch (err) {
+      if (isAbortError(err)) throw err;
+      if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
+        continue;
+      }
+      if (err instanceof ChatMediaUploadError) {
+        throw err;
+      }
+      if (lastApiFailure?.message) {
+        throw new ChatMediaUploadError(lastApiFailure.message, lastApiFailure.diagnostics);
+      }
+      if (edgeFailure && (hasFieldDiagnostics(edgeFailure.diagnostics) || edgeFailure.message)) {
+        throw new ChatMediaUploadError(
+          edgeFailure.message || `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+          edgeFailure.diagnostics
+        );
+      }
       throw err;
     }
-    if (edgeFailure && (hasFieldDiagnostics(edgeFailure.diagnostics) || edgeFailure.message)) {
-      throw new ChatMediaUploadError(
-        edgeFailure.message || `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
-        edgeFailure.diagnostics
-      );
-    }
-    throw err;
   }
+
+  const preferEdgeDiagnostics =
+    hasFieldDiagnostics(edgeFailure?.diagnostics) &&
+    (!hasFieldDiagnostics(lastApiFailure?.diagnostics) ||
+      (hasInvalidFieldDiagnostics(edgeFailure?.diagnostics) &&
+        isMissingOnlyDiagnostics(lastApiFailure?.diagnostics)) ||
+      isEmptyLocalEnvLegacyError(lastApiFailure?.message || '', lastApiFailure?.diagnostics || null));
+
+  if (preferEdgeDiagnostics && edgeFailure) {
+    throw new ChatMediaUploadError(
+      edgeFailure.message ||
+        lastApiFailure?.message ||
+        `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+      edgeFailure.diagnostics
+    );
+  }
+
+  throw new ChatMediaUploadError(
+    lastApiFailure?.message ||
+      edgeFailure?.message ||
+      `Gagal memproses media di server (${lastApiFailure?.status ?? edgeFailure?.status ?? 500}).`,
+    lastApiFailure?.diagnostics || edgeFailure?.diagnostics
+  );
 }
 
 function parseRangeHeaderLastByte(rangeHeader: string | null): number | null {
@@ -916,12 +1029,15 @@ export async function fetchPrivateAttachmentBlobUrl(
   const userJwt = await resolveChatSupabaseAccessToken(normalizedSession);
 
   let response: Response | null = null;
+  let edgeErrorMessage = '';
+  let edgeErrorDiagnostics: ChatUploadErrorDiagnostics | null = null;
   if (sbCfg) {
     try {
       const edgeRes = await fetch(
         `${sbCfg.url}/functions/v1/chat-drive-private-access?${qs.toString()}`,
         {
           method: 'GET',
+          cache: 'no-store',
           headers: {
             apikey: sbCfg.anonKey,
             Authorization: `Bearer ${userJwt || sbCfg.anonKey}`,
@@ -932,35 +1048,89 @@ export async function fetchPrivateAttachmentBlobUrl(
       );
       if (edgeRes.ok) {
         response = edgeRes;
-      } else if (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) {
-        const errJson = (await edgeRes.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errJson.error || `Akses berkas privat ditolak (${edgeRes.status}).`);
+      } else {
+        const errJson = (await edgeRes.json().catch(() => ({}))) as BackendErrorPayload;
+        edgeErrorDiagnostics = parseBackendErrorDiagnostics(errJson);
+        edgeErrorMessage = String(errJson.error || '').trim();
+        const combined = `${edgeErrorMessage} ${edgeErrorDiagnostics?.reason || ''}`;
+        const isLegacySaError = /GOOGLE_DRIVE_PRIVATE_KEY|GOOGLE_PRIVATE_KEY|Service Account|private_key/i.test(
+          combined
+        );
+        const isStaleWithoutReason =
+          (edgeRes.status === 401 || edgeRes.status === 403) && !edgeErrorDiagnostics?.reason;
+
+        if (
+          (edgeRes.status === 400 || edgeRes.status === 401 || edgeRes.status === 403) &&
+          !isLegacySaError &&
+          !isStaleWithoutReason
+        ) {
+          throw new ChatMediaUploadError(
+            edgeErrorMessage ||
+              edgeErrorDiagnostics?.reason ||
+              `Akses lampiran privat ditolak (${edgeRes.status}).`,
+            edgeErrorDiagnostics
+          );
+        }
       }
     } catch (err) {
       if (isAbortError(err)) throw err;
-      if (
-        err instanceof Error &&
-        /ditolak|tidak berhak|tidak aktif|nonaktif|dicabut|Verifikasi/i.test(err.message)
-      ) {
+      if (err instanceof ChatMediaUploadError) {
         throw err;
       }
     }
   }
 
   if (!response) {
-    const apiRes = await fetch(`/api/storage/chat-drive-private-access?${qs.toString()}`, {
-      method: 'GET',
-      headers: {
-        ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
-        ...identityHeaders,
-      },
-      signal: options?.signal,
-    });
-    if (!apiRes.ok) {
-      const errJson = (await apiRes.json().catch(() => ({}))) as { error?: string };
-      throw new Error(errJson.error || `Gagal memuat berkas privat (${apiRes.status}).`);
+    const candidates = buildApiCandidateUrls(`/api/storage/chat-drive-private-access?${qs.toString()}`);
+    let lastError = edgeErrorMessage;
+    let lastDiagnostics: ChatUploadErrorDiagnostics | null = edgeErrorDiagnostics;
+    for (const candidate of candidates) {
+      try {
+        const apiRes = await fetch(candidate.url, {
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            ...(userJwt ? { Authorization: `Bearer ${userJwt}` } : {}),
+            ...identityHeaders,
+          },
+          signal: options?.signal,
+        });
+        if (apiRes.ok) {
+          response = apiRes;
+          break;
+        }
+        const errJson = (await apiRes.json().catch(() => ({}))) as BackendErrorPayload;
+        const apiDiagnostics = parseBackendErrorDiagnostics(errJson);
+        const msg = String(errJson.error || '').trim();
+        if (!candidate.isLocalPreviewFallback || !isEmptyLocalEnvLegacyError(msg, apiDiagnostics)) {
+          lastError = msg || apiDiagnostics?.reason || `Gagal memuat berkas privat (${apiRes.status}).`;
+          lastDiagnostics = apiDiagnostics;
+        }
+        if (!candidate.isLocalPreviewFallback) {
+          throw new ChatMediaUploadError(lastError, lastDiagnostics);
+        }
+      } catch (err) {
+        if (isAbortError(err)) throw err;
+        if (err instanceof ChatMediaUploadError) {
+          if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
+            continue;
+          }
+          throw err;
+        }
+        if (!candidate.isLocalPreviewFallback && candidates.length > 1) {
+          continue;
+        }
+        if (err instanceof Error && err.message) {
+          throw new ChatMediaUploadError(err.message, lastDiagnostics);
+        }
+      }
     }
-    response = apiRes;
+    if (!response) {
+      throw new ChatMediaUploadError(
+        lastError || 'Gagal memuat berkas privat dari Google Drive.',
+        lastDiagnostics
+      );
+    }
   }
 
   const blob = await response.blob();

@@ -11,9 +11,12 @@ export interface VerifiedChatCaller {
 export interface SenderCallerHint {
   role?: string;
   senderId?: string;
+  userId?: string;
   blokRumah?: string;
   pengurusUsername?: string;
+  username?: string;
   namaWarga?: string;
+  noWa?: string;
   jabatan?: string;
   adminPermission?: string;
   petugasId?: string;
@@ -31,28 +34,17 @@ export interface CallerVerificationInput {
 
 export type DrivePermissionScope = 'anyone_link' | 'restricted_private';
 
-export type DriveAuthConfig =
-  | {
-      mode: 'oauth2';
-      clientId: string;
-      clientSecret: string;
-      refreshToken: string;
-      rootFolderId: string;
-      clientIdField: string;
-      clientSecretField: string;
-      refreshTokenField: string;
-      rootFolderField: string;
-    }
-  | {
-      mode: 'service_account';
-      clientEmail: string;
-      privateKey: string;
-      rootFolderId: string;
-      privateKeyId?: string;
-      clientEmailField?: string;
-      privateKeyField?: string;
-      rootFolderField?: string;
-    };
+export interface DriveAuthConfig {
+  mode: 'oauth2';
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  rootFolderId: string;
+  clientIdField: string;
+  clientSecretField: string;
+  refreshTokenField: string;
+  rootFolderField: string;
+}
 
 export type DriveServiceAccountConfig = DriveAuthConfig;
 
@@ -334,26 +326,135 @@ export function canCallerAccessRoom(caller: VerifiedChatCaller, roomId: string):
     const body = roomId.slice(3);
     const idx = body.indexOf('__');
     if (idx <= 0) return false;
-    const p1 = normalizeParticipantId(body.slice(0, idx));
-    const p2 = normalizeParticipantId(body.slice(idx + 2));
-    return caller.matchIds.has(p1) || caller.matchIds.has(p2);
+    const raw1 = body.slice(0, idx);
+    const raw2 = body.slice(idx + 2);
+    return (
+      caller.matchIds.has(normalizeParticipantId(raw1)) ||
+      caller.matchIds.has(normalizeParticipantId(raw2)) ||
+      caller.matchIds.has(normalizeToken(raw1)) ||
+      caller.matchIds.has(normalizeToken(raw2))
+    );
   }
   return false;
 }
 
-const DEFAULT_DRIVE_CLIENT_EMAIL = 'saung-kebun-drive@saung-kebun-87b23.iam.gserviceaccount.com';
-const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
+function buildPhoneMatchTokens(rawPhone?: string | null): string[] {
+  const digits = String(rawPhone || '').replace(/\D+/g, '');
+  if (digits.length < 7) return [];
+  const tokens = new Set<string>([digits]);
+  if (digits.startsWith('62') && digits.length >= 9) {
+    tokens.add(`0${digits.slice(2)}`);
+    tokens.add(digits.slice(2));
+  } else if (digits.startsWith('0') && digits.length >= 8) {
+    tokens.add(`62${digits.slice(1)}`);
+    tokens.add(digits.slice(1));
+  }
+  return Array.from(tokens);
+}
+
+function addIdentityVariants(
+  matchIds: Set<string>,
+  prefix: 'admin' | 'warga' | 'petugas',
+  values: {
+    uuid?: string | null;
+    blok?: string | null;
+    name?: string | null;
+    username?: string | null;
+    phones?: Array<string | null | undefined>;
+  }
+): void {
+  const addToken = (raw?: string | null, alsoBlock = false) => {
+    const tok = normalizeToken(raw);
+    if (!tok) return;
+    matchIds.add(tok);
+    matchIds.add(`${prefix}:${tok}`);
+    if (alsoBlock) {
+      const canon = canonicalBlockKey(raw).toLowerCase();
+      if (canon) {
+        matchIds.add(canon);
+        matchIds.add(`${prefix}:${canon}`);
+      }
+    }
+  };
+
+  if (values.uuid) {
+    const cleanUuid = String(values.uuid).trim().toLowerCase();
+    if (cleanUuid) {
+      matchIds.add(cleanUuid);
+      matchIds.add(`${prefix}:${cleanUuid}`);
+      matchIds.add(`user:${cleanUuid}`);
+    }
+  }
+  if (values.blok) addToken(values.blok, true);
+  if (values.username) addToken(values.username, false);
+  if (values.name) addToken(values.name, false);
+  for (const ph of values.phones || []) {
+    for (const pTok of buildPhoneMatchTokens(ph)) {
+      matchIds.add(pTok);
+      matchIds.add(`${prefix}:${pTok}`);
+    }
+  }
+}
+
+function doesCallerMatchFieldValue(caller: VerifiedChatCaller, rawValue?: string | null): boolean {
+  const clean = String(rawValue || '').trim();
+  if (!clean) return false;
+  if (caller.matchIds.has(clean.toLowerCase())) return true;
+  const tok = normalizeToken(clean);
+  if (tok && caller.matchIds.has(tok)) return true;
+  const normPid = normalizeParticipantId(clean);
+  if (normPid && caller.matchIds.has(normPid)) return true;
+  const canonBlok = canonicalBlockKey(clean).toLowerCase();
+  if (canonBlok && (caller.matchIds.has(canonBlok) || caller.matchIds.has(`warga:${canonBlok}`))) {
+    return true;
+  }
+  for (const pTok of buildPhoneMatchTokens(clean)) {
+    if (caller.matchIds.has(pTok) || caller.matchIds.has(`warga:${pTok}`)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function stripOuterQuotes(raw?: string | null): string {
   let clean = String(raw || '')
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\u2060\uFEFF]/g, '')
     .trim();
-  while (
-    clean.length >= 2 &&
-    ((clean.startsWith('"') && clean.endsWith('"')) ||
-      (clean.startsWith("'") && clean.endsWith("'")))
-  ) {
-    clean = clean.slice(1, -1).trim();
+  let changed = true;
+  while (changed && clean.length > 0) {
+    changed = false;
+    if (
+      (clean.startsWith('\\"') && clean.endsWith('\\"')) ||
+      (clean.startsWith("\\'") && clean.endsWith("\\'"))
+    ) {
+      clean = clean.slice(2, -2).trim();
+      changed = true;
+      continue;
+    }
+    const first = clean[0];
+    const last = clean[clean.length - 1];
+    const isQuoteChar = (ch: string) =>
+      ch === '"' ||
+      ch === "'" ||
+      ch === '`' ||
+      ch === '\u201C' ||
+      ch === '\u201D' ||
+      ch === '\u2018' ||
+      ch === '\u2019';
+    if (clean.length >= 2 && isQuoteChar(first) && isQuoteChar(last)) {
+      clean = clean.slice(1, -1).trim();
+      changed = true;
+      continue;
+    }
+    if (isQuoteChar(first)) {
+      clean = clean.slice(1).trim();
+      changed = true;
+      continue;
+    }
+    if (isQuoteChar(last)) {
+      clean = clean.slice(0, -1).trim();
+      changed = true;
+    }
   }
   return clean;
 }
@@ -371,112 +472,6 @@ function readFirstSecretEnv(names: string[]): { value: string; sourceName: strin
     }
   }
   return { value: '', sourceName: null };
-}
-
-function extractServiceAccountJson(raw: string): {
-  clientEmail?: string;
-  privateKey?: string;
-  privateKeyId?: string;
-} | null {
-  const clean = stripOuterQuotes(raw)
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
-    .trim();
-  if (!clean.startsWith('{')) return null;
-  try {
-    const parsed = JSON.parse(clean) as {
-      client_email?: unknown;
-      private_key?: unknown;
-      private_key_id?: unknown;
-    };
-    if (!parsed || typeof parsed !== 'object') return null;
-    return {
-      clientEmail: typeof parsed.client_email === 'string' ? stripOuterQuotes(parsed.client_email) : undefined,
-      privateKey: typeof parsed.private_key === 'string' ? parsed.private_key : undefined,
-      privateKeyId:
-        typeof parsed.private_key_id === 'string' ? stripOuterQuotes(parsed.private_key_id) : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function normalizePrivateKeyPem(raw: string): string {
-  let clean = stripOuterQuotes(raw)
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
-    .trim();
-  if (!clean) return '';
-
-  const parsedJson = extractServiceAccountJson(clean);
-  if (parsedJson?.privateKey && parsedJson.privateKey.trim()) {
-    clean = stripOuterQuotes(parsedJson.privateKey);
-  }
-
-  if ((clean.startsWith('"') && clean.endsWith('"')) || clean.includes('\\"')) {
-    try {
-      const unwrapped = JSON.parse(clean.startsWith('"') ? clean : `"${clean}"`);
-      if (typeof unwrapped === 'string' && unwrapped.trim()) {
-        clean = stripOuterQuotes(unwrapped);
-      }
-    } catch {
-      clean = clean.replace(/^\\["']|\\["']$/g, '');
-    }
-  }
-
-  clean = clean
-    .replace(/\\+r\\+n/g, '\n')
-    .replace(/\\+n/g, '\n')
-    .replace(/\\+r/g, '\n')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n');
-
-  clean = stripOuterQuotes(clean).replace(/[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '');
-
-  const pkcs8Match = clean.match(
-    /-----\s*BEGIN\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+PRIVATE\s+KEY\s*-----/i
-  );
-  if (pkcs8Match) {
-    const cleanBody = pkcs8Match[1]
-      .replace(/\\+[rn]/gi, '')
-      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
-    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
-    return `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----`;
-  }
-
-  const pkcs1Match = clean.match(
-    /-----\s*BEGIN\s+RSA\s+PRIVATE\s+KEY\s*-----([\s\S]*?)-----\s*END\s+RSA\s+PRIVATE\s+KEY\s*-----/i
-  );
-  if (pkcs1Match) {
-    const cleanBody = pkcs1Match[1]
-      .replace(/\\+[rn]/gi, '')
-      .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
-    const wrappedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
-    return `-----BEGIN RSA PRIVATE KEY-----\n${wrappedBody}\n-----END RSA PRIVATE KEY-----`;
-  }
-
-  return clean
-    .replace(/(-----BEGIN [A-Z0-9 ]+-----)\s*/g, '$1\n')
-    .replace(/\s*(-----END [A-Z0-9 ]+-----)/g, '\n$1')
-    .replace(/\n{2,}/g, '\n')
-    .trim();
-}
-
-function pemToDerBuffer(pem: string): Buffer {
-  const match = pem.match(
-    /-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*?)-----END (?:RSA )?PRIVATE KEY-----/
-  );
-  const rawBody = match ? match[1] : pem;
-  const cleaned = rawBody
-    .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, '')
-    .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, '')
-    .replace(/\\+[rn]/gi, '')
-    .replace(/[\s\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]+/g, '');
-  if (!cleaned) {
-    throw new Error('Body base64 di dalam blok PRIVATE KEY kosong.');
-  }
-  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) {
-    throw new Error('Body PEM mengandung karakter non-base64.');
-  }
-  return Buffer.from(cleaned, 'base64');
 }
 
 function buildCredentialError(params: {
@@ -567,156 +562,60 @@ function getDriveConfig(): DriveAuthConfig {
     'GOOGLE_ROOT_ID',
   ]);
 
-  const jsonEnv = readFirstSecretEnv([
-    'GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON',
-    'GOOGLE_SERVICE_ACCOUNT_JSON',
-  ]);
-  const emailEnv = readFirstSecretEnv(['GOOGLE_DRIVE_CLIENT_EMAIL', 'GOOGLE_CLIENT_EMAIL']);
-  const keyEnv = readFirstSecretEnv([
-    'GOOGLE_DRIVE_PRIVATE_KEY',
-    'GOOGLE_PRIVATE_KEY',
-    'GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON',
-    'GOOGLE_SERVICE_ACCOUNT_JSON',
-  ]);
-  const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
-
-  const hasAnyOAuthEnv = Boolean(
-    oauthClientIdEnv.value || oauthClientSecretEnv.value || oauthRefreshTokenEnv.value
-  );
-  const hasLegacySaKey = Boolean(keyEnv.value || jsonEnv.value);
-
-  if (hasAnyOAuthEnv || !hasLegacySaKey) {
-    const clientId = oauthClientIdEnv.value;
-    const clientSecret = oauthClientSecretEnv.value;
-    const refreshToken = oauthRefreshTokenEnv.value;
-    const rootFolderId = folderEnv.value;
-    const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_FOLDER_ID';
-
-    const missingFields: string[] = [];
-    const invalidFields: string[] = [];
-    const fieldReasons: Record<string, string> = {};
-
-    if (!clientId) {
-      missingFields.push('GOOGLE_OAUTH_CLIENT_ID');
-      fieldReasons.GOOGLE_OAUTH_CLIENT_ID = 'Environment variable GOOGLE_OAUTH_CLIENT_ID kosong.';
-    } else if (isUrlLikeValue(clientId) || /\s/.test(clientId)) {
-      invalidFields.push('GOOGLE_OAUTH_CLIENT_ID');
-      fieldReasons.GOOGLE_OAUTH_CLIENT_ID = isUrlLikeValue(clientId)
-        ? 'Nilai GOOGLE_OAUTH_CLIENT_ID masih berupa URL lengkap (https://...); isi dengan OAuth Client ID mentah.'
-        : 'Nilai GOOGLE_OAUTH_CLIENT_ID mengandung spasi atau karakter tidak valid.';
-    }
-
-    if (!clientSecret) {
-      missingFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
-      fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = 'Environment variable GOOGLE_OAUTH_CLIENT_SECRET kosong.';
-    } else if (isUrlLikeValue(clientSecret) || /\s/.test(clientSecret)) {
-      invalidFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
-      fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = isUrlLikeValue(clientSecret)
-        ? 'Nilai GOOGLE_OAUTH_CLIENT_SECRET masih berupa URL lengkap (https://...); isi dengan Client Secret mentah.'
-        : 'Nilai GOOGLE_OAUTH_CLIENT_SECRET mengandung spasi atau karakter tidak valid.';
-    }
-
-    if (!refreshToken) {
-      missingFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
-      fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = 'Environment variable GOOGLE_OAUTH_REFRESH_TOKEN kosong.';
-    } else if (isUrlLikeValue(refreshToken) || /\s/.test(refreshToken)) {
-      invalidFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
-      fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = isUrlLikeValue(refreshToken)
-        ? 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN masih berupa URL lengkap (https://...); isi dengan Refresh Token mentah.'
-        : 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN mengandung spasi atau karakter tidak valid.';
-    }
-
-    if (!rootFolderId) {
-      missingFields.push('GOOGLE_DRIVE_FOLDER_ID');
-      fieldReasons.GOOGLE_DRIVE_FOLDER_ID =
-        'Environment variable GOOGLE_DRIVE_FOLDER_ID kosong (fallback GOOGLE_DRIVE_ROOT_FOLDER_ID / GOOGLE_DRIVE_ROOT_ID / GOOGLE_ROOT_ID juga kosong).';
-    } else if (isUrlLikeValue(rootFolderId) || !/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
-      invalidFields.push(folderField);
-      fieldReasons[folderField] = isUrlLikeValue(rootFolderId)
-        ? `Nilai ${folderField} masih berupa URL lengkap (https://...); salin hanya ID folder di belakang /folders/.`
-        : `Format ${folderField} tidak valid (harus berupa ID folder Google Drive tanpa spasi/URL).`;
-    }
-
-    if (missingFields.length > 0 || invalidFields.length > 0) {
-      throw buildCredentialError({
-        scope: 'Google Drive OAuth2',
-        missingFields,
-        invalidFields,
-        fieldReasons,
-      });
-    }
-
-    return {
-      mode: 'oauth2',
-      clientId,
-      clientSecret,
-      refreshToken,
-      rootFolderId,
-      clientIdField: 'GOOGLE_OAUTH_CLIENT_ID',
-      clientSecretField: 'GOOGLE_OAUTH_CLIENT_SECRET',
-      refreshTokenField: 'GOOGLE_OAUTH_REFRESH_TOKEN',
-      rootFolderField: folderField,
-    };
-  }
-
-  const embeddedJson =
-    (jsonEnv.value ? extractServiceAccountJson(jsonEnv.value) : null) ||
-    (keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null);
-  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL).trim();
-  const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
-  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '').trim();
-  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID).trim();
-
-  const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
-  const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
+  const clientId = oauthClientIdEnv.value;
+  const clientSecret = oauthClientSecretEnv.value;
+  const refreshToken = oauthRefreshTokenEnv.value;
+  const rootFolderId = folderEnv.value;
   const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_FOLDER_ID';
 
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
   const fieldReasons: Record<string, string> = {};
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
-    invalidFields.push(emailField);
-    fieldReasons[emailField] = 'Format email service account tidak valid.';
+  if (!clientId) {
+    missingFields.push('GOOGLE_OAUTH_CLIENT_ID');
+    fieldReasons.GOOGLE_OAUTH_CLIENT_ID = 'Environment variable GOOGLE_OAUTH_CLIENT_ID kosong.';
+  } else if (isUrlLikeValue(clientId) || /\s/.test(clientId)) {
+    invalidFields.push('GOOGLE_OAUTH_CLIENT_ID');
+    fieldReasons.GOOGLE_OAUTH_CLIENT_ID = isUrlLikeValue(clientId)
+      ? 'Nilai GOOGLE_OAUTH_CLIENT_ID masih berupa URL lengkap (https://...); isi dengan OAuth Client ID mentah.'
+      : 'Nilai GOOGLE_OAUTH_CLIENT_ID mengandung spasi atau karakter tidak valid.';
   }
 
-  if (!privateKey) {
-    missingFields.push('GOOGLE_DRIVE_PRIVATE_KEY', 'GOOGLE_PRIVATE_KEY');
-    fieldReasons.GOOGLE_DRIVE_PRIVATE_KEY = 'Secret kosong (fallback GOOGLE_PRIVATE_KEY juga kosong).';
-  } else if (
-    (!privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
-      !privateKey.includes('-----END PRIVATE KEY-----')) &&
-    (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') ||
-      !privateKey.includes('-----END RSA PRIVATE KEY-----'))
-  ) {
-    invalidFields.push(keyField);
-    fieldReasons[keyField] =
-      'Harus berisi blok utuh -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY----- (format PKCS#8).';
-  } else {
-    try {
-      const der = pemToDerBuffer(privateKey);
-      if (der.byteLength < 64) {
-        invalidFields.push(keyField);
-        fieldReasons[keyField] = `Panjang byte kunci privat terlalu pendek (${der.byteLength} byte, minimal 64 byte).`;
-      }
-    } catch (decodeErr) {
-      invalidFields.push(keyField);
-      fieldReasons[keyField] = `Decode base64 kunci privat gagal (${
-        decodeErr instanceof Error ? decodeErr.message : 'invalid base64'
-      }).`;
-    }
+  if (!clientSecret) {
+    missingFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
+    fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = 'Environment variable GOOGLE_OAUTH_CLIENT_SECRET kosong.';
+  } else if (isUrlLikeValue(clientSecret) || /\s/.test(clientSecret)) {
+    invalidFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
+    fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = isUrlLikeValue(clientSecret)
+      ? 'Nilai GOOGLE_OAUTH_CLIENT_SECRET masih berupa URL lengkap (https://...); isi dengan Client Secret mentah.'
+      : 'Nilai GOOGLE_OAUTH_CLIENT_SECRET mengandung spasi atau karakter tidak valid.';
   }
 
-  if (isUrlLikeValue(rootFolderId) || !/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+  if (!refreshToken) {
+    missingFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
+    fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = 'Environment variable GOOGLE_OAUTH_REFRESH_TOKEN kosong.';
+  } else if (isUrlLikeValue(refreshToken) || /\s/.test(refreshToken)) {
+    invalidFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
+    fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = isUrlLikeValue(refreshToken)
+      ? 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN masih berupa URL lengkap (https://...); isi dengan Refresh Token mentah.'
+      : 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN mengandung spasi atau karakter tidak valid.';
+  }
+
+  if (!rootFolderId) {
+    missingFields.push('GOOGLE_DRIVE_FOLDER_ID');
+    fieldReasons.GOOGLE_DRIVE_FOLDER_ID =
+      'Environment variable GOOGLE_DRIVE_FOLDER_ID kosong (fallback GOOGLE_DRIVE_ROOT_FOLDER_ID / GOOGLE_DRIVE_ROOT_ID / GOOGLE_ROOT_ID juga kosong).';
+  } else if (isUrlLikeValue(rootFolderId) || !/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
     invalidFields.push(folderField);
     fieldReasons[folderField] = isUrlLikeValue(rootFolderId)
-      ? `Nilai ${folderField} masih berupa URL lengkap (https://...); salin hanya ID folder Google Drive.`
-      : 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
+      ? `Nilai ${folderField} masih berupa URL lengkap (https://...); salin hanya ID folder di belakang /folders/.`
+      : `Format ${folderField} tidak valid (harus berupa ID folder Google Drive tanpa spasi/URL).`;
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
     throw buildCredentialError({
-      scope: 'Google Drive',
+      scope: 'Google Drive OAuth2',
       missingFields,
       invalidFields,
       fieldReasons,
@@ -724,13 +623,14 @@ function getDriveConfig(): DriveAuthConfig {
   }
 
   return {
-    mode: 'service_account',
-    clientEmail,
-    privateKey,
+    mode: 'oauth2',
+    clientId,
+    clientSecret,
+    refreshToken,
     rootFolderId,
-    privateKeyId: privateKeyId || undefined,
-    clientEmailField: emailField,
-    privateKeyField: keyField,
+    clientIdField: 'GOOGLE_OAUTH_CLIENT_ID',
+    clientSecretField: 'GOOGLE_OAUTH_CLIENT_SECRET',
+    refreshTokenField: 'GOOGLE_OAUTH_REFRESH_TOKEN',
     rootFolderField: folderField,
   };
 }
@@ -742,6 +642,7 @@ async function supabaseRestJson<T>(
   const { url, serviceKey } = getSupabaseServerConfig();
   const res = await fetch(`${url}${path}`, {
     ...init,
+    cache: 'no-store',
     headers: {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
@@ -766,8 +667,11 @@ async function supabaseRestJson<T>(
 }
 
 interface UsersWargaCallerRow {
+  id?: string | null;
   blok_rumah?: string | null;
   nama_warga?: string | null;
+  no_wa?: string | null;
+  secondary_whatsapp?: string | null;
   role?: string | null;
   bot_role?: string | null;
   jabatan?: string | null;
@@ -790,6 +694,8 @@ function isPengurusRowRole(row: UsersWargaCallerRow): boolean {
 
 async function fetchUsersWargaRows(): Promise<{ rows: UsersWargaCallerRow[]; errorText: string | null }> {
   const selectCandidates = [
+    'id,blok_rumah,nama_warga,no_wa,secondary_whatsapp,role,bot_role,jabatan,admin_permission,aktif',
+    'id,blok_rumah,nama_warga,no_wa,role,bot_role,jabatan,admin_permission,aktif',
     'blok_rumah,nama_warga,role,bot_role,jabatan,admin_permission,aktif',
     'blok_rumah,nama_warga,role,jabatan,aktif',
     'blok_rumah,nama_warga,role,aktif',
@@ -1047,12 +953,28 @@ export async function verifyChatCallerFromHeaders(
       );
     }
 
-    const matchIds = new Set<string>([`admin:${reqUsername}`]);
+    const matchIds = new Set<string>([`admin:${reqUsername}`, reqUsername]);
     if (reqUsername === 'andriansyah') {
       matchIds.add('admin:admin');
       matchIds.add('admin:bendahara');
     }
     if (reqUsername === 'bpiwan') matchIds.add('admin:paiwan');
+
+    const matchedAdminRow = activeAdminRow || linkedActivePengurusRow;
+    addIdentityVariants(matchIds, 'admin', {
+      uuid: matchedAdminRow?.id || hint?.userId || verifiedAuthUser?.id,
+      blok: matchedAdminRow?.blok_rumah || knownMeta?.linkedBlock,
+      name: matchedAdminRow?.nama_warga || hint?.namaWarga || knownMeta?.nama,
+      username: reqUsername,
+      phones: [matchedAdminRow?.no_wa, matchedAdminRow?.secondary_whatsapp, hint?.noWa],
+    });
+    if (knownMeta?.linkedBlock) {
+      const linkedCanon = canonicalBlockKey(knownMeta.linkedBlock).toLowerCase();
+      if (linkedCanon) {
+        matchIds.add(`warga:${linkedCanon}`);
+        matchIds.add(linkedCanon);
+      }
+    }
 
     const displayName = String(
       verifiedMatch.nama_warga || rpcPengurusNama || hint?.namaWarga || knownMeta?.nama || 'Pengurus'
@@ -1075,14 +997,52 @@ export async function verifyChatCallerFromHeaders(
         : '') ||
       String(verifiedAuthUser?.userMetadata?.blok_rumah || '');
     const canonBlok = canonicalBlockKey(rawWargaBlockCandidate);
-    if (!canonBlok) {
-      throw Object.assign(new Error('Blok rumah Warga tidak valid.'), { statusCode: 401 });
+    const uuidCandidate = String(
+      hint?.userId ||
+        verifiedAuthUser?.id ||
+        (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          rawWargaBlockCandidate
+        )
+          ? rawWargaBlockCandidate
+          : '')
+    )
+      .trim()
+      .toLowerCase();
+    const phoneCandidates = new Set<string>(buildPhoneMatchTokens(hint?.noWa || rawWargaBlockCandidate));
+    const nameCandidate = normalizeToken(hint?.namaWarga || (!canonBlok ? rawWargaBlockCandidate : ''));
+
+    if (!canonBlok && !uuidCandidate && phoneCandidates.size === 0 && !nameCandidate) {
+      throw Object.assign(
+        new Error('Identitas Warga tidak lengkap (blok_rumah, UUID, maupun nomor HP/username tidak tersedia).'),
+        { statusCode: 401 }
+      );
     }
 
     const { rows, errorText } = await fetchUsersWargaRows();
-    const matchingRows = rows.filter(
-      (row) => canonicalBlockKey(String(row.blok_rumah || '')) === canonBlok
-    );
+    let matchingRows = canonBlok
+      ? rows.filter((row) => canonicalBlockKey(String(row.blok_rumah || '')) === canonBlok)
+      : [];
+    if (matchingRows.length === 0 && uuidCandidate) {
+      matchingRows = rows.filter((row) => String(row.id || '').trim().toLowerCase() === uuidCandidate);
+    }
+    if (matchingRows.length === 0 && phoneCandidates.size > 0) {
+      matchingRows = rows.filter((row) => {
+        const rowPhones = [
+          ...buildPhoneMatchTokens(row.no_wa),
+          ...buildPhoneMatchTokens(row.secondary_whatsapp),
+        ];
+        return rowPhones.some((p) => phoneCandidates.has(p));
+      });
+    }
+    if (matchingRows.length === 0 && nameCandidate) {
+      const exactNameRows = rows.filter(
+        (row) => normalizeToken(row.nama_warga) === nameCandidate && !isPengurusRowRole(row)
+      );
+      if (exactNameRows.length === 1) {
+        matchingRows = exactNameRows;
+      }
+    }
+
     const activeWargaRow = matchingRows.find(
       (row) => row.aktif !== false && !isPengurusRowRole(row)
     );
@@ -1093,6 +1053,8 @@ export async function verifyChatCallerFromHeaders(
       (row) => row.aktif !== false && isPengurusRowRole(row)
     );
 
+    const resolvedCanonBlok =
+      canonicalBlockKey(activeWargaRow?.blok_rumah || rawWargaBlockCandidate) || canonBlok;
     let verifiedDisplayName = activeWargaRow
       ? String(activeWargaRow.nama_warga || '').trim()
       : '';
@@ -1105,13 +1067,18 @@ export async function verifyChatCallerFromHeaders(
           { method: 'POST', body: '{}' }
         );
         if (dirRes.ok && Array.isArray(dirRes.data)) {
-          const canonLower = canonBlok.toLowerCase();
+          const canonLower = resolvedCanonBlok.toLowerCase();
           const dirMatch = dirRes.data.find((entry) => {
             const entryRole = normalizeToken(String(entry.role || ''));
             if (entryRole && entryRole !== 'warga') return false;
-            const entryBlok = canonicalBlockKey(String(entry.blok_rumah || ''));
+            const entryBlok = canonicalBlockKey(String(entry.blok_rumah || entry.blok_or_code || ''));
             const entryPid = normalizeParticipantId(String(entry.participant_id || ''));
-            return entryBlok === canonBlok || entryPid === `warga:${canonLower}`;
+            const entryName = normalizeToken(String(entry.display_name || ''));
+            return (
+              (resolvedCanonBlok && entryBlok === resolvedCanonBlok) ||
+              (canonLower && entryPid === `warga:${canonLower}`) ||
+              (nameCandidate && entryName === nameCandidate)
+            );
           });
           if (dirMatch) {
             verifiedWarga = true;
@@ -1127,7 +1094,7 @@ export async function verifyChatCallerFromHeaders(
       if (inactiveWargaRow) {
         throw Object.assign(
           new Error(
-            `Akun Warga Blok "${canonBlok}" berstatus nonaktif di users_warga (aktif = false).`
+            `Akun Warga Blok "${resolvedCanonBlok || rawWargaBlockCandidate}" berstatus nonaktif di users_warga (aktif = false).`
           ),
           { statusCode: 403 }
         );
@@ -1135,7 +1102,7 @@ export async function verifyChatCallerFromHeaders(
       if (activePengurusRow) {
         throw Object.assign(
           new Error(
-            `Akun Blok "${canonBlok}" terdaftar sebagai Pengurus aktif (${String(
+            `Akun Blok "${resolvedCanonBlok || rawWargaBlockCandidate}" terdaftar sebagai Pengurus aktif (${String(
               activePengurusRow.jabatan || activePengurusRow.role || 'Pengurus'
             )}). Gunakan portal Pengurus untuk mengunggah lampiran.`
           ),
@@ -1147,28 +1114,38 @@ export async function verifyChatCallerFromHeaders(
       }
       throw Object.assign(
         new Error(
-          `Akun Warga Blok "${canonBlok}" tidak ditemukan aktif di users_warga maupun direktori chat (baris users_warga=${rows.length}).`
+          `Akun Warga "${resolvedCanonBlok || rawWargaBlockCandidate || hint?.namaWarga || '-'}" tidak ditemukan aktif di users_warga maupun direktori chat (baris users_warga=${rows.length}).`
         ),
         { statusCode: 403 }
       );
     }
 
-    const canonLower = canonBlok.toLowerCase();
+    const canonLower = (resolvedCanonBlok || rawWargaBlockCandidate).toLowerCase();
     const rawLower = normalizeToken(rawWargaBlockCandidate);
     const matchIds = new Set<string>([`warga:${canonLower}`]);
     if (rawLower) matchIds.add(`warga:${rawLower}`);
+
+    addIdentityVariants(matchIds, 'warga', {
+      uuid: activeWargaRow?.id || hint?.userId || verifiedAuthUser?.id,
+      blok: activeWargaRow?.blok_rumah || resolvedCanonBlok,
+      name: verifiedDisplayName || activeWargaRow?.nama_warga || hint?.namaWarga,
+      username: hint?.username,
+      phones: [activeWargaRow?.no_wa, activeWargaRow?.secondary_whatsapp, hint?.noWa],
+    });
 
     return {
       role: 'warga',
       senderId: `warga:${canonLower}`,
       slug: canonLower.replace(/[^a-z0-9_-]+/g, '-'),
-      displayName: String(verifiedDisplayName || hint?.namaWarga || `Warga ${canonBlok}`).trim(),
+      displayName: String(
+        verifiedDisplayName || hint?.namaWarga || `Warga ${resolvedCanonBlok || rawWargaBlockCandidate}`
+      ).trim(),
       matchIds,
     };
   }
 
   if (effectiveRole === 'petugas' || effectiveRole === 'keamanan') {
-    const lookupToken = normalizeToken(rawPetugasId || rawBlok);
+    const lookupToken = normalizeToken(rawPetugasId || rawBlok || hint?.namaWarga || hint?.username);
     if (!lookupToken) {
       throw Object.assign(new Error('Identitas Petugas Keamanan tidak lengkap.'), { statusCode: 401 });
     }
@@ -1196,10 +1173,22 @@ export async function verifyChatCallerFromHeaders(
     }
 
     const petIdLower = normalizeToken(matched.id);
-    const matchIds = new Set<string>([`petugas:${petIdLower}`, `keamanan:${petIdLower}`]);
+    const matchIds = new Set<string>([`petugas:${petIdLower}`, `keamanan:${petIdLower}`, petIdLower]);
     if (rawBlok) {
       matchIds.add(`petugas:${normalizeToken(rawBlok)}`);
       matchIds.add(`keamanan:${normalizeToken(rawBlok)}`);
+    }
+    if (matched.username) {
+      const uTok = normalizeToken(matched.username);
+      matchIds.add(`petugas:${uTok}`);
+      matchIds.add(`keamanan:${uTok}`);
+      matchIds.add(uTok);
+    }
+    if (matched.nama) {
+      const nTok = normalizeToken(matched.nama);
+      matchIds.add(`petugas:${nTok}`);
+      matchIds.add(`keamanan:${nTok}`);
+      matchIds.add(nTok);
     }
 
     return {
@@ -1255,44 +1244,66 @@ function base64UrlEncode(input: Buffer | string): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-async function fetchGoogleServiceAccountJwks(
-  clientEmail: string
-): Promise<Array<{ kid?: string; n?: string; e?: string }> | null> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/service_accounts/v1/jwk/${encodeURIComponent(clientEmail)}`,
-        { signal: controller.signal }
-      );
-      if (!res.ok) return null;
-      const json = (await res.json().catch(() => null)) as {
-        keys?: Array<{ kid?: string; n?: string; e?: string }>;
-      } | null;
-      return Array.isArray(json?.keys) ? json.keys : null;
-    } finally {
-      clearTimeout(timer);
-    }
-  } catch {
-    return null;
-  }
-}
+const oauth2TokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
 
 async function exchangeOAuth2RefreshToken(
-  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>
+  cfg: DriveAuthConfig,
+  forceRefresh = false
 ): Promise<string> {
+  const clientId = stripOuterQuotes(cfg.clientId);
+  const clientSecret = stripOuterQuotes(cfg.clientSecret);
+  const refreshToken = stripOuterQuotes(cfg.refreshToken);
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    const missingFields: string[] = [];
+    const fieldReasons: Record<string, string> = {};
+    if (!clientId) {
+      missingFields.push(cfg.clientIdField);
+      fieldReasons[cfg.clientIdField] = `Environment variable ${cfg.clientIdField} kosong setelah sanitasi.`;
+    }
+    if (!clientSecret) {
+      missingFields.push(cfg.clientSecretField);
+      fieldReasons[cfg.clientSecretField] = `Environment variable ${cfg.clientSecretField} kosong setelah sanitasi.`;
+    }
+    if (!refreshToken) {
+      missingFields.push(cfg.refreshTokenField);
+      fieldReasons[cfg.refreshTokenField] = `Environment variable ${cfg.refreshTokenField} kosong setelah sanitasi.`;
+    }
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields,
+      invalidFields: [],
+      fieldReasons,
+    });
+  }
+
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(`${clientId}|${refreshToken}`)
+    .digest('hex')
+    .slice(0, 24);
+  if (!forceRefresh) {
+    const cached = oauth2TokenCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now() + 90_000) {
+      return cached.accessToken;
+    }
+  } else {
+    oauth2TokenCache.delete(cacheKey);
+  }
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    cache: 'no-store',
     body: new URLSearchParams({
-      client_id: cfg.clientId,
-      client_secret: cfg.clientSecret,
-      refresh_token: cfg.refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),
   });
   if (!res.ok) {
+    oauth2TokenCache.delete(cacheKey);
     const rawText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim();
     let errCode = '';
     let errDesc = '';
@@ -1328,138 +1339,24 @@ async function exchangeOAuth2RefreshToken(
       },
     });
   }
-  const json = (await res.json()) as { access_token?: string };
+  const json = (await res.json()) as { access_token?: string; expires_in?: number };
   if (!json.access_token) {
+    oauth2TokenCache.delete(cacheKey);
     throw new Error('Google OAuth2 tidak mengembalikan access_token.');
   }
+  const expiresInSec =
+    typeof json.expires_in === 'number' && Number.isFinite(json.expires_in) && json.expires_in > 120
+      ? json.expires_in
+      : 3600;
+  oauth2TokenCache.set(cacheKey, {
+    accessToken: json.access_token,
+    expiresAt: Date.now() + expiresInSec * 1000,
+  });
   return json.access_token;
 }
 
-async function getDriveServiceAccountToken(cfg: DriveAuthConfig): Promise<string> {
-  if (cfg.mode === 'oauth2') {
-    return exchangeOAuth2RefreshToken(cfg);
-  }
-
-  const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
-  const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
-
-  let keyFp = 'unknown';
-  let privateKeyObj: crypto.KeyObject;
-  let privateKeyModulus = '';
-  try {
-    const der = pemToDerBuffer(cfg.privateKey);
-    keyFp = crypto.createHash('sha256').update(der).digest('hex').slice(0, 12);
-    privateKeyObj = crypto.createPrivateKey(cfg.privateKey);
-    try {
-      const exported = privateKeyObj.export({ format: 'jwk' }) as { n?: string };
-      privateKeyModulus = String(exported?.n || '').trim();
-    } catch {
-      privateKeyModulus = '';
-    }
-  } catch (keyErr) {
-    const cleanDetail = (keyErr instanceof Error ? keyErr.message : String(keyErr || 'invalid key'))
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 180);
-    throw buildCredentialError({
-      scope: 'Google Drive',
-      missingFields: [],
-      invalidFields: [keyField],
-      fieldReasons: {
-        [keyField]: `Gagal memproses kunci privat PEM (${cleanDetail}). Pastikan secret berisi private_key PKCS#8 utuh untuk ${cfg.clientEmail}.`,
-      },
-    });
-  }
-
-  let resolvedKid =
-    cfg.privateKeyId && /^[a-zA-Z0-9._-]{4,128}$/.test(cfg.privateKeyId)
-      ? cfg.privateKeyId
-      : '';
-  let activeKidsOnGcp: string[] = [];
-
-  if (privateKeyModulus) {
-    const gcpJwks = await fetchGoogleServiceAccountJwks(cfg.clientEmail);
-    if (gcpJwks && gcpJwks.length > 0) {
-      activeKidsOnGcp = gcpJwks
-        .map((k) => String(k.kid || '').trim())
-        .filter(Boolean);
-      const matchedJwk = gcpJwks.find((k) => k.n && k.n === privateKeyModulus);
-      if (matchedJwk?.kid) {
-        resolvedKid = matchedJwk.kid;
-      } else {
-        const kidListLabel = activeKidsOnGcp
-          .map((id) => `${id.slice(0, 12)}...`)
-          .join(', ');
-        throw buildCredentialError({
-          scope: 'Google Drive OAuth2',
-          missingFields: [],
-          invalidFields: [emailField, keyField],
-          fieldReasons: {
-            [emailField]: `Service Account ${cfg.clientEmail} memiliki ${activeKidsOnGcp.length} kunci aktif di Google Cloud IAM (${kidListLabel || 'tidak ada'}).`,
-            [keyField]: `Kunci privat di secret [fp=${keyFp}, mod=${privateKeyModulus.slice(0, 10)}...] TIDAK COCOK dengan kunci aktif mana pun milik ${cfg.clientEmail} di Google Cloud IAM (Key ID aktif: ${kidListLabel || 'kosong'}).`,
-          },
-        });
-      }
-    }
-  }
-
-  const nowSec = Math.floor(Date.now() / 1000);
-  const jwtHeaderPayload: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
-  if (resolvedKid) {
-    jwtHeaderPayload.kid = resolvedKid;
-  }
-  const header = base64UrlEncode(JSON.stringify(jwtHeaderPayload));
-  const claimSet = base64UrlEncode(
-    JSON.stringify({
-      iss: cfg.clientEmail,
-      scope: 'https://www.googleapis.com/auth/drive',
-      aud: 'https://oauth2.googleapis.com/token',
-      iat: nowSec - 30,
-      exp: nowSec + 3570,
-    })
-  );
-  const signingInput = `${header}.${claimSet}`;
-
-  const signer = crypto.createSign('RSA-SHA256');
-  signer.update(signingInput);
-  signer.end();
-  const signature = signer.sign(privateKeyObj);
-  const jwt = `${signingInput}.${base64UrlEncode(signature)}`;
-
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 180);
-    const isSigErr = /invalid jwt signature/i.test(errText);
-    const activeInfo = activeKidsOnGcp.length
-      ? ` Key ID aktif di IAM: ${activeKidsOnGcp.map((id) => `${id.slice(0, 12)}...`).join(', ')}.`
-      : '';
-    const hintSuffix = isSigErr
-      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF milik ${cfg.clientEmail} [fp=${keyFp}].${activeInfo}`
-      : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
-    throw buildCredentialError({
-      scope: 'Google Drive OAuth2',
-      missingFields: [],
-      invalidFields: [emailField, keyField],
-      fieldReasons: {
-        [emailField]: `Service Account (iss): ${cfg.clientEmail} ditolak Google OAuth2 (${res.status}).`,
-        [keyField]: `Ditolak Google OAuth2 (${res.status}): ${errText || 'invalid_grant'}.${hintSuffix}`,
-      },
-    });
-  }
-
-  const json = (await res.json()) as { access_token?: string };
-  if (!json.access_token) {
-    throw new Error('Google OAuth2 tidak mengembalikan access_token.');
-  }
-  return json.access_token;
+async function getDriveServiceAccountToken(cfg: DriveAuthConfig, forceRefresh = false): Promise<string> {
+  return exchangeOAuth2RefreshToken(cfg, forceRefresh);
 }
 
 async function parseGoogleDriveApiError(res: Response): Promise<{
@@ -1504,21 +1401,6 @@ function buildDriveApiFailureError(
     errInfo.reason === 'storageQuotaExceeded' ||
     /storageQuotaExceeded|Service Accounts do not have storage quota/i.test(errInfo.message)
   ) {
-    if (driveCfg?.mode === 'service_account') {
-      return buildCredentialError({
-        scope: 'Google Drive',
-        missingFields: [
-          'GOOGLE_OAUTH_CLIENT_ID',
-          'GOOGLE_OAUTH_CLIENT_SECRET',
-          'GOOGLE_OAUTH_REFRESH_TOKEN',
-        ],
-        invalidFields: [driveCfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL'],
-        fieldReasons: {
-          [driveCfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL']:
-            `Service Account (${driveCfg.clientEmail}) ditolak Google Drive (${errInfo.status} / storageQuotaExceeded): akun robot tidak punya kuota pada Google Drive pribadi (@gmail.com). Gunakan kredensial OAuth 2.0 pemilik folder (${errInfo.message}).`,
-        },
-      });
-    }
     return Object.assign(
       new Error(`${context} (${errInfo.status}${reasonTag}): Kuota penyimpanan Google Drive penuh — ${errInfo.message}`),
       { statusCode: 502 }
@@ -1527,26 +1409,24 @@ function buildDriveApiFailureError(
 
   if (errInfo.status === 404 || errInfo.reason === 'notFound') {
     return buildCredentialError({
-      scope: 'Google Drive',
+      scope: 'Google Drive OAuth2',
       missingFields: [],
       invalidFields: [folderField],
       fieldReasons: {
-        [folderField]: `Folder Google Drive (${driveCfg?.rootFolderId || '-'}) tidak ditemukan atau tidak dapat diakses oleh akun Google yang terautentikasi (${errInfo.status} / notFound: ${errInfo.message}).`,
+        [folderField]: `Folder Google Drive (${driveCfg?.rootFolderId || '-'}) tidak ditemukan atau tidak dapat diakses oleh akun OAuth2 (${errInfo.status} / notFound: ${errInfo.message}).`,
       },
+      statusCode: 404,
     });
   }
 
   if (errInfo.status === 401 || errInfo.reason === 'authError' || errInfo.reason === 'invalidCredentials') {
-    const authField =
-      driveCfg?.mode === 'oauth2'
-        ? driveCfg.refreshTokenField
-        : driveCfg?.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
+    const authField = driveCfg?.refreshTokenField || 'GOOGLE_OAUTH_REFRESH_TOKEN';
     return buildCredentialError({
       scope: 'Google Drive OAuth2',
       missingFields: [],
       invalidFields: [authField],
       fieldReasons: {
-        [authField]: `Token akses Google Drive ditolak (${errInfo.status}${reasonTag}): ${errInfo.message}.`,
+        [authField]: `Token akses Google Drive OAuth2 ditolak (${errInfo.status}${reasonTag}): ${errInfo.message}.`,
       },
     });
   }
@@ -1556,11 +1436,11 @@ function buildDriveApiFailureError(
     (errInfo.reason === 'insufficientFilePermissions' || errInfo.reason === 'insufficientPermissions')
   ) {
     return buildCredentialError({
-      scope: 'Google Drive',
+      scope: 'Google Drive OAuth2',
       missingFields: [],
       invalidFields: [folderField],
       fieldReasons: {
-        [folderField]: `Akun Google tidak memiliki izin menulis ke folder ${folderField} (${errInfo.status} / ${errInfo.reason}): ${errInfo.message}.`,
+        [folderField]: `Akun Google OAuth2 tidak memiliki izin menulis/mengakses folder ${folderField} (${errInfo.status} / ${errInfo.reason}): ${errInfo.message}.`,
       },
     });
   }
@@ -1577,8 +1457,9 @@ async function ensureDriveSubfolder(
   parentId: string,
   driveCfg?: DriveAuthConfig
 ): Promise<string> {
+  const cleanParentId = stripOuterQuotes(parentId);
   const safeName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const safeParent = parentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const safeParent = cleanParentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const q = `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${safeParent}' in parents`;
   const params = new URLSearchParams({
     q,
@@ -1590,6 +1471,7 @@ async function ensureDriveSubfolder(
 
   const findRes = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
   });
   if (!findRes.ok) {
     const findErr = await parseGoogleDriveApiError(findRes);
@@ -1606,10 +1488,11 @@ async function ensureDriveSubfolder(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
+      cache: 'no-store',
       body: JSON.stringify({
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
+        parents: [cleanParentId],
       }),
     }
   );
@@ -1635,12 +1518,13 @@ async function resolveMonthlyChatDriveFolder(
   categoryFolderId: string;
   folderPath: string;
 }> {
+  const cleanRootFolderId = stripOuterQuotes(rootFolderId);
   const categoryFolder = resolveDriveCategoryFolder(roomId);
   const monthFolder = getJakartaYearMonth(isoDate);
   const categoryFolderId = await ensureDriveSubfolder(
     accessToken,
     categoryFolder,
-    rootFolderId,
+    cleanRootFolderId,
     driveCfg
   );
   const folderId = await ensureDriveSubfolder(
@@ -2577,6 +2461,88 @@ export async function completeChatVideoResumableUpload(params: {
 
 const STREAM_URL_TTL_MS = 5 * 60 * 1000;
 
+interface PrivateMessageLookupRow {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  sender_user_id?: string | null;
+  recipient_id?: string | null;
+  target_user_id?: string | null;
+  attachment_drive_file_id?: string | null;
+  drive_file_id?: string | null;
+  attachment_id?: string | null;
+}
+
+const MESSAGE_SELECT_CANDIDATES = [
+  'id,room_id,sender_id,sender_user_id,recipient_id,target_user_id,attachment_drive_file_id,drive_file_id,attachment_id',
+  'id,room_id,sender_id,sender_user_id,recipient_id,target_user_id,attachment_drive_file_id',
+  'id,room_id,sender_id,recipient_id,attachment_drive_file_id',
+];
+
+async function querySingleChatMessageByColumn(
+  column: string,
+  value: string
+): Promise<PrivateMessageLookupRow | null> {
+  if (!value) return null;
+  for (const selectExpr of MESSAGE_SELECT_CANDIDATES) {
+    const res = await supabaseRestJson<PrivateMessageLookupRow[]>(
+      `/rest/v1/community_chat_messages?${encodeURIComponent(column)}=eq.${encodeURIComponent(
+        value
+      )}&select=${encodeURIComponent(selectExpr)}&limit=1`
+    );
+    if (res.ok) {
+      return res.data?.[0] || null;
+    }
+    const errMsg = String(res.errorText || '');
+    if (/column .* does not exist|Could not find .* column|PGRST204/i.test(errMsg)) {
+      if (errMsg.toLowerCase().includes(column.toLowerCase())) {
+        return null;
+      }
+      continue;
+    }
+    break;
+  }
+  return null;
+}
+
+async function lookupPrivateMessageRecord(params: {
+  messageId: string;
+  fileId: string;
+  attachmentId: string;
+}): Promise<PrivateMessageLookupRow | null> {
+  if (
+    params.messageId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.messageId)
+  ) {
+    const byId = await querySingleChatMessageByColumn('id', params.messageId);
+    if (byId) return byId;
+  }
+
+  if (params.fileId) {
+    const byAttachDriveId = await querySingleChatMessageByColumn('attachment_drive_file_id', params.fileId);
+    if (byAttachDriveId) return byAttachDriveId;
+
+    const byDriveId = await querySingleChatMessageByColumn('drive_file_id', params.fileId);
+    if (byDriveId) return byDriveId;
+  }
+
+  const attachmentLookup = params.attachmentId || params.fileId;
+  if (attachmentLookup) {
+    const byAttachmentId = await querySingleChatMessageByColumn('attachment_id', attachmentLookup);
+    if (byAttachmentId) return byAttachmentId;
+
+    if (
+      params.attachmentId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.attachmentId)
+    ) {
+      const byMsgId = await querySingleChatMessageByColumn('id', params.attachmentId);
+      if (byMsgId) return byMsgId;
+    }
+  }
+
+  return null;
+}
+
 async function isDriveFileInsideRootCategory(
   accessToken: string,
   rootFolderId: string,
@@ -2585,31 +2551,73 @@ async function isDriveFileInsideRootCategory(
 ): Promise<boolean> {
   if (!Array.isArray(fileParents) || fileParents.length === 0) return false;
   const expectedCategory = resolveDriveCategoryFolder(roomId);
-  const monthFolderId = fileParents[0];
-  const monthRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
-      monthFolderId
-    )}?supportsAllDrives=true&fields=parents`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+  const visited = new Set<string>();
+  const queue: Array<{ folderId: string; sawExpectedCategory: boolean; depth: number }> = fileParents.map(
+    (id) => ({ folderId: id, sawExpectedCategory: false, depth: 1 })
   );
-  if (!monthRes.ok) return false;
-  const monthJson = (await monthRes.json().catch(() => ({}))) as { parents?: string[] };
-  const catId = monthJson.parents?.[0];
-  if (!catId) return false;
 
-  const catRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
-      catId
-    )}?supportsAllDrives=true&fields=name,parents`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  if (!catRes.ok) return false;
-  const catJson = (await catRes.json().catch(() => ({}))) as { name?: string; parents?: string[] };
-  return (
-    catJson.name === expectedCategory &&
-    Array.isArray(catJson.parents) &&
-    catJson.parents.includes(rootFolderId)
-  );
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (!current.folderId || visited.has(current.folderId) || current.depth > 5) continue;
+    visited.add(current.folderId);
+
+    if (current.folderId === rootFolderId) {
+      if (current.sawExpectedCategory) return true;
+      continue;
+    }
+
+    const folderRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        current.folderId
+      )}?supportsAllDrives=true&fields=id,name,parents`,
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
+    ).catch(() => null);
+    if (!folderRes || !folderRes.ok) continue;
+
+    const folderJson = (await folderRes.json().catch(() => ({}))) as { name?: string; parents?: string[] };
+    const isCatFolder = folderJson.name === expectedCategory;
+    const nextParents = Array.isArray(folderJson.parents) ? folderJson.parents : [];
+
+    if (isCatFolder && nextParents.includes(rootFolderId)) {
+      return true;
+    }
+
+    for (const parentId of nextParents) {
+      queue.push({
+        folderId: parentId,
+        sawExpectedCategory: current.sawExpectedCategory || isCatFolder,
+        depth: current.depth + 1,
+      });
+    }
+  }
+
+  return false;
+}
+
+function resolveForwardedContentDisposition(
+  upstreamHeader: string | null,
+  fileName: string,
+  mode: 'stream' | 'download' | 'thumbnail'
+): string {
+  const dispType = mode === 'download' ? 'attachment' : 'inline';
+  const safeAscii = sanitizeFileName(fileName, 'bin');
+  const cleanRawName = String(fileName || safeAscii).replace(/[\r\n"]/g, '').trim() || safeAscii;
+  if (upstreamHeader && upstreamHeader.toLowerCase().includes('filename')) {
+    return upstreamHeader.replace(/^(inline|attachment)/i, dispType);
+  }
+  return `${dispType}; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(cleanRawName)}`;
+}
+
+function sendPrivateDriveError(
+  res: PrivateDriveNodeResponse,
+  status: number,
+  payload: Record<string, unknown> & { error: string; reason?: string; stage?: string }
+): void {
+  res.status(status).json({
+    ok: false,
+    ...payload,
+    reason: payload.reason || payload.error,
+  });
 }
 
 export interface PrivateDriveNodeRequest {
@@ -2675,7 +2683,15 @@ export async function handlePrivateChatDriveAccess(
   res: PrivateDriveNodeResponse
 ): Promise<void> {
   res.setHeader('Cache-Control', 'private, no-store');
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type');
+  res.setHeader(
+    'Access-Control-Expose-Headers',
+    'Content-Range, Content-Length, Accept-Ranges, Content-Disposition, Content-Type'
+  );
+
+  let stage = 'parse_request';
+  let fileId = '';
+  let rawRoomId = '';
+  let messageId = '';
 
   const method = String(req.method || 'GET').toUpperCase();
   if (method === 'OPTIONS') {
@@ -2683,7 +2699,11 @@ export async function handlePrivateChatDriveAccess(
     return;
   }
   if (method !== 'GET' && method !== 'HEAD' && method !== 'POST') {
-    res.status(405).json({ ok: false, error: 'Method tidak diizinkan.' });
+    sendPrivateDriveError(res, 405, {
+      stage,
+      error: 'Method tidak diizinkan.',
+      reason: `Metode HTTP ${method} tidak didukung untuk akses lampiran privat.`,
+    });
     return;
   }
 
@@ -2693,7 +2713,11 @@ export async function handlePrivateChatDriveAccess(
       try {
         bodyObj = JSON.parse(req.body) as Record<string, unknown>;
       } catch {
-        res.status(400).json({ ok: false, error: 'Body JSON tidak valid.' });
+        sendPrivateDriveError(res, 400, {
+          stage,
+          error: 'Body JSON tidak valid.',
+          reason: 'Payload permintaan POST bukan format JSON yang valid.',
+        });
         return;
       }
     } else if (req.body && typeof req.body === 'object') {
@@ -2704,11 +2728,30 @@ export async function handlePrivateChatDriveAccess(
   const action = String(bodyObj.action || readNodeQuery(req.query, 'action') || '')
     .trim()
     .toLowerCase();
-  let fileId = String(
-    bodyObj.fileId || bodyObj.driveFileId || readNodeQuery(req.query, 'fileId') || ''
+  fileId = String(
+    bodyObj.fileId ||
+      bodyObj.driveFileId ||
+      bodyObj.drive_file_id ||
+      readNodeQuery(req.query, 'fileId') ||
+      readNodeQuery(req.query, 'driveFileId') ||
+      readNodeQuery(req.query, 'drive_file_id') ||
+      ''
   ).trim();
-  let rawRoomId = String(bodyObj.roomId || readNodeQuery(req.query, 'roomId') || '').trim();
-  const messageId = String(bodyObj.messageId || readNodeQuery(req.query, 'messageId') || '').trim();
+  const attachmentId = String(
+    bodyObj.attachmentId ||
+      bodyObj.attachment_id ||
+      readNodeQuery(req.query, 'attachmentId') ||
+      readNodeQuery(req.query, 'attachment_id') ||
+      ''
+  ).trim();
+  rawRoomId = String(bodyObj.roomId || readNodeQuery(req.query, 'roomId') || '').trim();
+  messageId = String(
+    bodyObj.messageId ||
+      bodyObj.message_id ||
+      readNodeQuery(req.query, 'messageId') ||
+      readNodeQuery(req.query, 'message_id') ||
+      ''
+  ).trim();
   const modeRaw = String(bodyObj.mode || readNodeQuery(req.query, 'mode') || 'stream')
     .trim()
     .toLowerCase();
@@ -2717,7 +2760,7 @@ export async function handlePrivateChatDriveAccess(
 
   let callerHeaders: CallerVerificationInput = {
     role: readNodeHeader(req.headers, 'x-user-role'),
-    blokRumah: readNodeHeader(req.headers, 'x-blok-rumah'),
+    blokRumah: readNodeHeader(req.headers, 'x-blok-rumah') || readNodeHeader(req.headers, 'x-pengurus-username'),
     petugasId: readNodeHeader(req.headers, 'x-petugas-id'),
     authorization: readNodeHeader(req.headers, 'authorization'),
     adminJabatan: readNodeHeader(req.headers, 'x-admin-jabatan'),
@@ -2731,6 +2774,7 @@ export async function handlePrivateChatDriveAccess(
   const sig = readNodeQuery(req.query, 'sig');
   const expParam = Number(readNodeQuery(req.query, 'exp') || '0');
   if ((method === 'GET' || method === 'HEAD') && sig) {
+    stage = 'verify_stream_signature';
     const ro = readNodeQuery(req.query, 'ro');
     const b = readNodeQuery(req.query, 'b');
     const p = readNodeQuery(req.query, 'p');
@@ -2739,16 +2783,18 @@ export async function handlePrivateChatDriveAccess(
       sig
     );
     if (!sigValid) {
+      const reason = 'Tanda tangan URL aliran media privat tidak valid atau telah kedaluwarsa.';
       await recordUnauthorizedDriveAccessAudit({
         headers: callerHeaders,
         roomId: rawRoomId,
         fileId,
         messageId,
-        reason: 'Tanda tangan akses stream privat tidak valid atau kedaluwarsa.',
+        reason,
       });
-      res.status(403).json({
-        ok: false,
-        error: 'Akses ditolak: token aliran media privat tidak valid atau telah kedaluwarsa.',
+      sendPrivateDriveError(res, 403, {
+        stage,
+        error: 'Akses lampiran privat ditolak.',
+        reason,
       });
       return;
     }
@@ -2761,143 +2807,178 @@ export async function handlePrivateChatDriveAccess(
   }
 
   try {
+    stage = 'verify_caller';
     let caller: VerifiedChatCaller;
     try {
       caller = await verifyChatCallerFromHeaders(callerHeaders);
     } catch (authErr) {
-      const msg = authErr instanceof Error ? authErr.message : 'Identitas tidak valid.';
+      const typedAuthErr = authErr as CredentialValidationError;
+      if (typedAuthErr?.missingFields?.length || typedAuthErr?.invalidFields?.length) {
+        throw authErr;
+      }
+      const statusCode = typeof typedAuthErr?.statusCode === 'number' ? typedAuthErr.statusCode : 403;
+      const reason = authErr instanceof Error ? authErr.message : 'Identitas peminta tidak valid.';
       await recordUnauthorizedDriveAccessAudit({
         headers: callerHeaders,
         roomId: rawRoomId,
         fileId,
         messageId,
-        reason: msg,
+        reason,
       });
-      res.status(403).json({ ok: false, error: msg });
+      sendPrivateDriveError(res, statusCode, {
+        stage,
+        error: 'Akses lampiran privat ditolak.',
+        reason,
+      });
       return;
     }
 
-    interface PrivateMessageLookupRow {
-      id: string;
-      room_id: string;
-      sender_id: string;
-      recipient_id?: string | null;
-      attachment_drive_file_id?: string | null;
+    stage = 'lookup_message_record';
+    if (
+      messageId &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(messageId) &&
+      !fileId
+    ) {
+      sendPrivateDriveError(res, 400, {
+        stage,
+        error: 'Format messageId tidak valid.',
+        reason: 'Parameter messageId harus berupa UUID valid atau sertakan drive_file_id/fileId.',
+      });
+      return;
     }
-    let dbMessageRow: PrivateMessageLookupRow | null = null;
 
-    if (messageId) {
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(messageId)) {
-        res.status(400).json({ ok: false, error: 'Format messageId tidak valid.' });
-        return;
-      }
-      const msgRes = await supabaseRestJson<PrivateMessageLookupRow[]>(
-        `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(
-          messageId
-        )}&select=id,room_id,sender_id,recipient_id,attachment_drive_file_id&limit=1`
-      );
-      const row = msgRes.data?.[0];
-      if (!row) {
-        await recordUnauthorizedDriveAccessAudit({
-          headers: callerHeaders,
-          roomId: rawRoomId,
-          fileId,
-          messageId,
-          reason: 'Pesan lampiran privat tidak ditemukan.',
-        });
-        res.status(403).json({ ok: false, error: 'Akses lampiran privat ditolak.' });
-        return;
-      }
-      dbMessageRow = row;
-    } else if (fileId && /^[a-zA-Z0-9_-]{10,120}$/.test(fileId)) {
-      const msgRes = await supabaseRestJson<PrivateMessageLookupRow[]>(
-        `/rest/v1/community_chat_messages?attachment_drive_file_id=eq.${encodeURIComponent(
-          fileId
-        )}&select=id,room_id,sender_id,recipient_id,attachment_drive_file_id&limit=1`
-      );
-      if (msgRes.data?.[0]) {
-        dbMessageRow = msgRes.data[0];
-      }
-    }
+    const dbMessageRow = await lookupPrivateMessageRecord({
+      messageId,
+      fileId,
+      attachmentId,
+    });
 
     if (dbMessageRow) {
-      if (!fileId && dbMessageRow.attachment_drive_file_id) {
-        fileId = String(dbMessageRow.attachment_drive_file_id).trim();
+      const dbFileId = String(
+        dbMessageRow.attachment_drive_file_id || dbMessageRow.drive_file_id || ''
+      ).trim();
+      if (!fileId && dbFileId) {
+        fileId = dbFileId;
       }
-      if (
-        fileId &&
-        dbMessageRow.attachment_drive_file_id &&
-        dbMessageRow.attachment_drive_file_id !== fileId
-      ) {
+      if (fileId && dbFileId && dbFileId !== fileId) {
+        const reason = 'ID berkas Google Drive yang diminta tidak cocok dengan record pesan terkait.';
         await recordUnauthorizedDriveAccessAudit({
           headers: callerHeaders,
           roomId: dbMessageRow.room_id,
           fileId,
           messageId,
-          reason: 'driveFileId tidak cocok dengan record pesan.',
+          reason,
         });
-        res.status(403).json({
-          ok: false,
-          error: 'Berkas Google Drive tidak cocok dengan pesan terkait.',
+        sendPrivateDriveError(res, 403, {
+          stage,
+          error: 'Akses lampiran privat ditolak.',
+          reason,
         });
         return;
       }
       const dbRoom = normalizeChatRoomId(String(dbMessageRow.room_id || ''));
-      if (rawRoomId && normalizeChatRoomId(rawRoomId) !== dbRoom) {
+      if (rawRoomId && dbRoom && normalizeChatRoomId(rawRoomId) !== dbRoom) {
+        const reason = 'roomId yang diminta tidak cocok dengan ruang asal pesan pada database.';
         await recordUnauthorizedDriveAccessAudit({
           headers: callerHeaders,
           roomId: rawRoomId,
           fileId,
           messageId,
-          reason: 'roomId tidak cocok dengan ruang asal pesan.',
+          reason,
         });
-        res.status(403).json({
-          ok: false,
-          error: 'Ruang chat lampiran tidak cocok.',
+        sendPrivateDriveError(res, 403, {
+          stage,
+          error: 'Akses lampiran privat ditolak.',
+          reason,
         });
         return;
       }
-      rawRoomId = dbRoom;
-    }
-
-    const roomId = normalizeChatRoomId(rawRoomId);
-    if (!/^[a-zA-Z0-9_-]{10,120}$/.test(fileId) || !roomId) {
+      if (dbRoom) rawRoomId = dbRoom;
+    } else if (!fileId && (messageId || attachmentId)) {
+      const reason =
+        'Record pesan atau lampiran chat tidak ditemukan di database berdasarkan messageId maupun attachment_id.';
       await recordUnauthorizedDriveAccessAudit({
         headers: callerHeaders,
         roomId: rawRoomId,
         fileId,
         messageId,
-        reason: 'Parameter fileId atau roomId tidak valid.',
+        reason,
       });
-      res.status(403).json({
-        ok: false,
-        error: 'Parameter akses berkas privat tidak valid.',
+      sendPrivateDriveError(res, 404, {
+        stage,
+        error: 'Lampiran chat tidak ditemukan.',
+        reason,
       });
       return;
     }
 
+    const roomId = normalizeChatRoomId(rawRoomId);
+    if (!/^[a-zA-Z0-9_-]{10,120}$/.test(fileId) || !roomId) {
+      const reason = !/^[a-zA-Z0-9_-]{10,120}$/.test(fileId)
+        ? `ID berkas Google Drive tidak valid atau kosong ("${fileId || '-'}").`
+        : `ID ruang chat tidak valid ("${rawRoomId || '-'}").`;
+      await recordUnauthorizedDriveAccessAudit({
+        headers: callerHeaders,
+        roomId: rawRoomId,
+        fileId,
+        messageId,
+        reason,
+      });
+      sendPrivateDriveError(res, 400, {
+        stage,
+        error: 'Parameter akses berkas privat tidak valid.',
+        reason,
+      });
+      return;
+    }
+
+    stage = 'authorize_room_access';
     let authorized = canCallerAccessRoom(caller, roomId);
-    let denyReason = 'Bukan anggota ruang chat terkait.';
+    let denyReason = 'Akun peminta bukan anggota sah ruang chat terkait.';
 
     if (roomId === 'grup_pengurus') {
-      if (caller.role !== 'admin') {
-        authorized = false;
-        denyReason = 'Berkas Grup Pengurus khusus untuk Pengurus aktif.';
+      authorized = caller.role === 'admin';
+      if (!authorized) {
+        denyReason = 'Berkas Group Pengurus hanya dapat diakses oleh akun Pengurus aktif.';
+      }
+    } else if (roomId === 'pengurus_keamanan') {
+      authorized = caller.role === 'admin' || caller.role === 'petugas';
+      if (!authorized) {
+        denyReason =
+          'Berkas Group Pengurus & Keamanan hanya dapat diakses oleh akun Pengurus atau Keamanan aktif.';
+      }
+    } else if (roomId === 'pengurus_warga') {
+      authorized = caller.role === 'admin' || caller.role === 'warga';
+      if (!authorized) {
+        denyReason = 'Berkas Group Pengurus & Warga khusus untuk Pengurus dan Warga aktif.';
+      }
+    } else if (roomId === 'warga_keamanan') {
+      authorized = caller.role === 'warga' || caller.role === 'petugas';
+      if (!authorized) {
+        denyReason = 'Berkas Group Warga & Keamanan khusus untuk Warga dan Petugas Keamanan aktif.';
       }
     } else if (roomId.startsWith('dm:')) {
-      if (!authorized) {
-        denyReason = 'Peminta bukan pengirim maupun penerima sah pada percakapan DM ini.';
-      } else if (dbMessageRow) {
-        const senderNorm = normalizeParticipantId(String(dbMessageRow.sender_id || ''));
-        const recNorm = dbMessageRow.recipient_id
-          ? normalizeParticipantId(String(dbMessageRow.recipient_id))
-          : '';
-        const isSenderOrRecipient =
-          caller.matchIds.has(senderNorm) || (recNorm ? caller.matchIds.has(recNorm) : false);
-        if (!isSenderOrRecipient && !canCallerAccessRoom(caller, roomId)) {
+      const matchesSenderOrRecipient = dbMessageRow
+        ? doesCallerMatchFieldValue(caller, dbMessageRow.sender_id) ||
+          doesCallerMatchFieldValue(caller, dbMessageRow.sender_user_id) ||
+          doesCallerMatchFieldValue(caller, dbMessageRow.recipient_id) ||
+          doesCallerMatchFieldValue(caller, dbMessageRow.target_user_id)
+        : false;
+
+      if (matchesSenderOrRecipient) {
+        authorized = true;
+      } else if (authorized && dbMessageRow) {
+        const hasExplicitSender = Boolean(dbMessageRow.sender_id || dbMessageRow.sender_user_id);
+        const hasExplicitRecipient = Boolean(
+          dbMessageRow.recipient_id || dbMessageRow.target_user_id
+        );
+        if (hasExplicitSender && hasExplicitRecipient) {
           authorized = false;
-          denyReason = 'Peminta bukan pengirim maupun penerima pesan DM.';
+          denyReason =
+            'Peminta bukan pengirim (sender_id/sender_user_id) maupun penerima (recipient_id/target_user_id) pesan DM ini.';
         }
+      } else if (!authorized) {
+        denyReason = 'Peminta bukan pengirim maupun penerima sah pada percakapan DM Personal ini.';
       }
     }
 
@@ -2909,23 +2990,35 @@ export async function handlePrivateChatDriveAccess(
         messageId,
         reason: denyReason,
       });
-      res.status(403).json({ ok: false, error: `Akses ditolak: ${denyReason}` });
+      sendPrivateDriveError(res, 403, {
+        stage,
+        error: 'Akses lampiran privat ditolak.',
+        reason: denyReason,
+      });
       return;
     }
 
+    stage = 'validate_drive_secrets';
     const driveCfg = getDriveConfig();
+
+    stage = 'authenticate_drive';
     const accessToken = await getDriveServiceAccountToken(driveCfg);
 
+    stage = 'fetch_drive_metadata';
     const metaRes = await fetch(
       `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
         fileId
       )}?supportsAllDrives=true&fields=id,name,mimeType,size,parents,trashed,thumbnailLink`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
     );
     if (!metaRes.ok) {
       const metaErr = await parseGoogleDriveApiError(metaRes);
       if (metaRes.status === 404) {
-        res.status(404).json({ ok: false, error: 'Berkas tidak ditemukan di Google Drive.' });
+        sendPrivateDriveError(res, 404, {
+          stage,
+          error: 'Berkas lampiran tidak ditemukan di Google Drive.',
+          reason: `Google Drive API mengembalikan 404 untuk fileId "${fileId}": ${metaErr.message}`,
+        });
         return;
       }
       throw buildDriveApiFailureError('Gagal membaca metadata berkas Google Drive', metaErr, driveCfg);
@@ -2941,7 +3034,11 @@ export async function handlePrivateChatDriveAccess(
       thumbnailLink?: string;
     };
     if (fileMeta.trashed) {
-      res.status(404).json({ ok: false, error: 'Berkas telah dihapus dari Google Drive.' });
+      sendPrivateDriveError(res, 404, {
+        stage,
+        error: 'Berkas telah dihapus dari Google Drive.',
+        reason: `Berkas Google Drive "${fileMeta.name || fileId}" berada di Trash/Sampah.`,
+      });
       return;
     }
 
@@ -2953,37 +3050,52 @@ export async function handlePrivateChatDriveAccess(
         roomId
       );
       if (!inRootTree) {
+        const reason = `Berkas Google Drive ("${fileMeta.name || fileId}") tidak terdaftar di database pesan maupun folder kategori ruang "${roomId}".`;
         await recordUnauthorizedDriveAccessAudit({
           headers: callerHeaders,
           roomId,
           fileId,
           messageId,
-          reason: 'Berkas Drive di luar struktur arsip ruang chat yang diminta.',
+          reason,
         });
-        res.status(403).json({
-          ok: false,
-          error: 'Berkas tidak terdaftar pada folder ruang chat ini.',
+        sendPrivateDriveError(res, 403, {
+          stage,
+          error: 'Akses lampiran privat ditolak.',
+          reason,
         });
         return;
       }
     }
 
     if (method === 'POST' && action === 'mint_stream_url') {
+      stage = 'mint_stream_url';
       const exp = Date.now() + STREAM_URL_TTL_MS;
+      const roleVal = (callerHeaders.role || caller.role).trim();
+      const blokVal = (
+        callerHeaders.blokRumah ||
+        callerHeaders.senderHint?.blokRumah ||
+        caller.slug ||
+        ''
+      ).trim();
+      const petVal = (
+        callerHeaders.petugasId ||
+        callerHeaders.senderHint?.petugasId ||
+        ''
+      ).trim();
       const signedSig = signPrivateStreamToken({
         fileId,
         roomId,
-        role: callerHeaders.role.trim(),
-        blokRumah: callerHeaders.blokRumah.trim(),
-        petugasId: callerHeaders.petugasId.trim(),
+        role: roleVal,
+        blokRumah: blokVal,
+        petugasId: petVal,
         exp,
       });
       const streamParams = new URLSearchParams({
         fileId,
         roomId,
-        ro: callerHeaders.role.trim(),
-        b: callerHeaders.blokRumah.trim(),
-        p: callerHeaders.petugasId.trim(),
+        ro: roleVal,
+        b: blokVal,
+        p: petVal,
         exp: String(exp),
         sig: signedSig,
       });
@@ -3004,8 +3116,10 @@ export async function handlePrivateChatDriveAccess(
     }
 
     if (mode === 'thumbnail' && fileMeta.thumbnailLink) {
+      stage = 'stream_thumbnail';
       const thumbRes = await fetch(fileMeta.thumbnailLink, {
         headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
       });
       if (thumbRes.ok) {
         res.setHeader('Content-Type', thumbRes.headers.get('content-type') || 'image/jpeg');
@@ -3021,6 +3135,7 @@ export async function handlePrivateChatDriveAccess(
       }
     }
 
+    stage = 'stream_drive_media';
     const rangeHeader = readNodeHeader(req.headers, 'range').trim();
     const driveFetchHeaders: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
@@ -3036,28 +3151,41 @@ export async function handlePrivateChatDriveAccess(
       {
         method: 'GET',
         headers: driveFetchHeaders,
+        cache: 'no-store',
       }
     );
 
     if (!mediaRes.ok && mediaRes.status !== 206) {
+      const mediaErr = await parseGoogleDriveApiError(mediaRes);
       if (mediaRes.status === 416) {
-        res.status(416).json({ ok: false, error: 'Rentang byte berkas Google Drive tidak valid (416).' });
+        sendPrivateDriveError(res, 416, {
+          stage,
+          error: 'Rentang byte berkas Google Drive tidak valid (416).',
+          reason: mediaErr.message,
+        });
         return;
       }
-      const mediaErr = await parseGoogleDriveApiError(mediaRes);
       throw buildDriveApiFailureError('Gagal mengalirkan berkas dari Google Drive', mediaErr, driveCfg);
     }
 
-    const safeFileName = sanitizeFileName(fileMeta.name || `lampiran-${fileId}`, 'bin');
-    res.setHeader(
-      'Content-Type',
-      fileMeta.mimeType || mediaRes.headers.get('content-type') || 'application/octet-stream'
-    );
+    const upstreamCt = (mediaRes.headers.get('content-type') || '').trim();
+    const resolvedCt =
+      (upstreamCt && upstreamCt !== 'application/octet-stream' ? upstreamCt : '') ||
+      fileMeta.mimeType ||
+      upstreamCt ||
+      'application/octet-stream';
+    const rawFileName = fileMeta.name || `lampiran-${fileId}`;
+
+    res.setHeader('Content-Type', resolvedCt);
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader(
       'Content-Disposition',
-      `${mode === 'download' ? 'attachment' : 'inline'}; filename="${safeFileName}"`
+      resolveForwardedContentDisposition(
+        mediaRes.headers.get('content-disposition'),
+        rawFileName,
+        mode
+      )
     );
 
     const contentRange = mediaRes.headers.get('content-range');
@@ -3076,15 +3204,22 @@ export async function handlePrivateChatDriveAccess(
   } catch (err) {
     const typedErr = err as CredentialValidationError;
     const statusCode = typeof typedErr?.statusCode === 'number' ? typedErr.statusCode : 500;
+    const errorMessage = err instanceof Error ? err.message : 'Gagal mengakses berkas privat Google Drive.';
     const missingFields = Array.isArray(typedErr?.missingFields) ? typedErr.missingFields : undefined;
     const invalidFields = Array.isArray(typedErr?.invalidFields) ? typedErr.invalidFields : undefined;
     const fieldReasons =
       typedErr?.fieldReasons && typeof typedErr.fieldReasons === 'object'
         ? typedErr.fieldReasons
         : undefined;
-    res.status(statusCode).json({
-      ok: false,
-      error: err instanceof Error ? err.message : 'Gagal mengakses berkas privat Google Drive.',
+    const detailReason =
+      fieldReasons && Object.keys(fieldReasons).length > 0
+        ? Object.values(fieldReasons).join(' ')
+        : errorMessage;
+
+    sendPrivateDriveError(res, statusCode, {
+      stage,
+      error: errorMessage,
+      reason: detailReason,
       ...(missingFields?.length ? { missingFields } : {}),
       ...(invalidFields?.length ? { invalidFields } : {}),
       ...(fieldReasons && Object.keys(fieldReasons).length ? { fieldReasons } : {}),
