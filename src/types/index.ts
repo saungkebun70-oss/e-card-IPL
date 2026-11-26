@@ -78,6 +78,7 @@ export interface PengurusAccountInfo extends PengurusItem {
   no_wa?: string;
   avatar_url?: string | null;
   aktif?: boolean;
+  is_active_pengurus?: boolean;
 }
 
 export interface SessionUser {
@@ -86,6 +87,8 @@ export interface SessionUser {
   nama_warga: string;
   jabatan?: AdminJabatan;
   admin_permission?: AdminPermission;
+  is_active_pengurus?: boolean;
+  central_settings_permissions?: Partial<Record<CentralSettingKey, PermissionGrantStatus>>;
   status_hunian?: StatusHunian;
   no_wa?: string;
   nominal_iuran?: number;
@@ -155,6 +158,12 @@ export interface Warga {
   bot_role?: BotAccessRole | null;
   avatar_url?: string | null;
   aktif: boolean;
+  is_active_pengurus?: boolean;
+  is_active_warga?: boolean;
+  warga_account_status?: WargaAccountStatus | string | null;
+  linked_pengurus_username?: string | null;
+  pengurus_status_updated_at?: string | null;
+  pengurus_status_updated_by?: string | null;
   created_at: string;
 }
 
@@ -819,7 +828,13 @@ export type CentralSettingModuleKey =
   | 'settings.reports_audit'
   | 'settings.system_integrations';
 
+export type CentralSettingKey = CentralSettingModuleKey;
+
 export type SettingPermissionStatus = 'granted' | 'revoked';
+
+export type PermissionGrantStatus = SettingPermissionStatus;
+
+export type WargaAccountStatus = 'active' | 'suspended_pengurus' | 'inactive';
 
 export type LoginAuthErrorCode =
   | 'ACTIVE_PENGURUS_MUST_USE_ADMIN_PORTAL'
@@ -921,6 +936,14 @@ export const CENTRAL_SETTING_MODULES: CentralSettingModuleMeta[] = [
   },
 ];
 
+export type CentralSettingDefinition = CentralSettingModuleMeta;
+
+export const CENTRAL_SETTING_DEFINITIONS: CentralSettingDefinition[] = CENTRAL_SETTING_MODULES;
+
+export const CENTRAL_SETTING_KEYS: CentralSettingKey[] = CENTRAL_SETTING_MODULES.map(
+  (m) => m.key
+);
+
 export interface PengurusSettingPermissionRecord {
   id?: string;
   pengurus_username: string;
@@ -929,6 +952,19 @@ export interface PengurusSettingPermissionRecord {
   granted_by?: string | null;
   updated_at?: string | null;
   notes?: string | null;
+}
+
+export interface PengurusSettingsPermissionRow {
+  id?: string;
+  pengurus_username: string;
+  setting_key: CentralSettingKey;
+  status: PermissionGrantStatus;
+  granted_by?: string | null;
+  granted_at?: string | null;
+  revoked_by?: string | null;
+  revoked_at?: string | null;
+  notes?: string | null;
+  updated_at?: string | null;
 }
 
 export interface PengurusWargaSyncStatus {

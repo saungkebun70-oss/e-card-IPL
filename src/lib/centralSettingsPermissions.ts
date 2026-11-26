@@ -173,12 +173,13 @@ function writeLocalCentralPermissions(rows: PengurusSettingsPermissionRow[]): vo
   }
 }
 
-function isBendaharaActor(
-  actor: Pick<
-    SessionUser | AccountLoginGuardRecord,
-    'blok_rumah' | 'role' | 'jabatan' | 'admin_permission' | 'is_active_pengurus'
-  >
-): boolean {
+function isBendaharaActor(actor: {
+  blok_rumah?: string | null;
+  role?: string | null;
+  jabatan?: string | null;
+  admin_permission?: string | null;
+  is_active_pengurus?: boolean | null;
+}): boolean {
   if (actor.is_active_pengurus === false) {
     return false;
   }

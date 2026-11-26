@@ -75,11 +75,17 @@ import { UserAvatar } from '../UserAvatar';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { AdminHybridDrivePanel } from './AdminHybridDrivePanel';
 import { AdminCentralSettingsPanel } from './AdminCentralSettingsPanel';
+import { AdminDelegationPermissionsPanel } from './AdminDelegationPermissionsPanel';
 import { fetchMySettingPermissions } from '../../lib/centralSettingsService';
+import {
+  useCentralSettingsAccess,
+  type CentralSettingPermissionMap,
+} from '../../lib/accessControl';
 
 export type SettingsDrawerTab =
   | 'profil'
   | 'terpusat'
+  | 'delegasi'
   | 'identitas'
   | 'pembayaran'
   | 'bot_wa'
@@ -101,6 +107,7 @@ interface AdminSettingsDrawerProps {
   titikPatroliList: TitikPatroli[];
   patrolMapConfig?: PatrolMapConfig | null;
   onAvatarUpdated?: (nextUrl: string | null) => void;
+  onCentralPermissionsUpdated?: (nextMap: CentralSettingPermissionMap) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -120,6 +127,7 @@ export function AdminSettingsDrawer({
   titikPatroliList,
   patrolMapConfig,
   onAvatarUpdated,
+  onCentralPermissionsUpdated,
   onClose,
   onRefresh,
   onToast,
@@ -153,9 +161,15 @@ export function AdminSettingsDrawer({
 
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>(resolveSafeTab(initialTab));
 
+  const delegationAccessControl = useCentralSettingsAccess(session, {
+    enabled: open && activeTab === 'delegasi',
+    onPermissionsLoaded: onCentralPermissionsUpdated,
+  });
+
   const reloadMyPermissions = async () => {
     const latest = await fetchMySettingPermissions(session);
     setMyPermissions(latest);
+    onCentralPermissionsUpdated?.(latest);
   };
 
   // Tab 1: Identitas, Logo, Stempel & WA Pengurus
@@ -544,6 +558,18 @@ export function AdminSettingsDrawer({
               wargaList={wargaList}
               myPermissions={myPermissions}
               onPermissionsChanged={reloadMyPermissions}
+              onNavigateTab={(nextTab) => setActiveTab(nextTab)}
+              onRefresh={onRefresh}
+              onToast={onToast}
+            />
+          )}
+          {/* TAB DELEGASI MATRIKS KHUSUS */}
+          {activeTab === 'delegasi' && (
+            <AdminDelegationPermissionsPanel
+              session={session}
+              wargaList={wargaList}
+              pengurusAccounts={pengurusAccounts}
+              accessControl={delegationAccessControl}
               onNavigateTab={(nextTab) => setActiveTab(nextTab)}
               onRefresh={onRefresh}
               onToast={onToast}

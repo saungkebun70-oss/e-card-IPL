@@ -15,6 +15,7 @@ import {
 import {
   CENTRAL_SETTING_DEFINITIONS,
   type AuditLogEntry,
+  type CentralSettingDefinition,
   type CentralSettingKey,
   type PengurusAccountInfo,
   type PermissionGrantStatus,
@@ -187,7 +188,9 @@ export function AdminDelegationPermissionsPanel({
       onToast('error', res.error);
       return;
     }
-    const def = CENTRAL_SETTING_DEFINITIONS.find((d) => d.key === settingKey);
+    const def = CENTRAL_SETTING_DEFINITIONS.find(
+      (d: CentralSettingDefinition) => d.key === settingKey
+    );
     onToast(
       'success',
       `Izin "${def?.label || settingKey}" untuk ${account.nama} (${account.jabatan}) diubah menjadi ${
@@ -289,7 +292,7 @@ export function AdminDelegationPermissionsPanel({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {CENTRAL_SETTING_DEFINITIONS.map((def) => {
+          {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => {
             const granted = canAccess(def.key);
             const linkedTab = SETTING_KEY_TAB_MAP[def.key];
 
@@ -442,7 +445,7 @@ export function AdminDelegationPermissionsPanel({
                   )}
 
                   <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-                    {CENTRAL_SETTING_DEFINITIONS.map((def) => {
+                    {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => {
                       const status = getPermissionStatus(selectedMobilePengurus.username, def.key);
                       const isGranted = status === 'granted';
                       const cellKey = `perm:${normalizePengurusUsername(selectedMobilePengurus.username)}:${def.key}`;
@@ -504,7 +507,7 @@ export function AdminDelegationPermissionsPanel({
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     <th className="py-3 px-4 min-w-[210px]">Pengurus</th>
-                    {CENTRAL_SETTING_DEFINITIONS.map((def) => (
+                    {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => (
                       <th key={def.key} className="py-3 px-2.5 text-center">
                         <span className="block text-slate-700">{SHORT_SETTING_LABELS[def.key]}</span>
                         <span className="block font-mono font-normal text-[10px] text-slate-400 normal-case mt-0.5">
@@ -533,7 +536,7 @@ export function AdminDelegationPermissionsPanel({
                             </div>
                           </div>
                         </td>
-                        {CENTRAL_SETTING_DEFINITIONS.map((def) => {
+                        {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => {
                           const status = getPermissionStatus(acc.username, def.key);
                           const isGranted = status === 'granted';
                           const cellKey = `perm:${normalizePengurusUsername(acc.username)}:${def.key}`;
