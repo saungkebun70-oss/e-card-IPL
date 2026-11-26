@@ -10,7 +10,7 @@ import {
   getAllAdminUserIds,
   getCanonicalUserId,
 } from './notificationService';
-import { canonicalBlockKey } from './phoneAndBlockUtils';
+import { canonicalBlockKey, compareBlokRumah, formatBlokRumah } from './phoneAndBlockUtils';
 import { SEED_WARGA } from './seedData';
 import {
   extractUploadErrorDetails,
@@ -648,7 +648,8 @@ function formatEnrichedContact(item: ChatContact): ChatContact {
     const jabatan = pengurusMeta?.jabatan || item.subtitle || 'Pengurus';
     const rawBlock = pengurusMeta?.blokRumah || item.blok_or_code || '';
     const canonBlock = canonicalBlockKey(rawBlock) || rawBlock.toUpperCase();
-    const unitLabel = canonBlock && /^B\d+/i.test(canonBlock) ? `Blok ${canonBlock}` : 'Sekretariat Blok B3/7';
+    const displayBlock = formatBlokRumah(rawBlock) || canonBlock;
+    const unitLabel = displayBlock && /^B\d+/i.test(displayBlock) ? `Blok ${displayBlock}` : 'Sekretariat Blok B03/07';
     const roleLabel = jabatan && jabatan !== 'Pengurus' ? `Pengurus · ${jabatan}` : 'Pengurus';
     return {
       ...item,
@@ -658,7 +659,7 @@ function formatEnrichedContact(item: ChatContact): ChatContact {
       subtitle: `${roleLabel} · ${unitLabel}`,
       role_label: roleLabel,
       unit_label: unitLabel,
-      blok_or_code: canonBlock || usernameKey.toUpperCase(),
+      blok_or_code: displayBlock || usernameKey.toUpperCase(),
       dedup_key: `admin:${usernameKey}:${canonBlock.toLowerCase()}`,
     };
   }
@@ -682,7 +683,8 @@ function formatEnrichedContact(item: ChatContact): ChatContact {
 
   const rawUnit = canonId.startsWith('warga:') ? canonId.slice('warga:'.length) : item.blok_or_code;
   const canonBlok = canonicalBlockKey(item.blok_or_code || rawUnit) || (item.blok_or_code || rawUnit).toUpperCase();
-  const unitLabel = canonBlok ? `Blok ${canonBlok}` : 'Warga';
+  const displayBlok = formatBlokRumah(item.blok_or_code || rawUnit) || canonBlok;
+  const unitLabel = displayBlok ? `Blok ${displayBlok}` : 'Warga';
   return {
     ...item,
     participant_id: `warga:${canonBlok.toLowerCase()}`,
@@ -691,7 +693,7 @@ function formatEnrichedContact(item: ChatContact): ChatContact {
     subtitle: `Warga · ${unitLabel}`,
     role_label: `Warga · ${unitLabel}`,
     unit_label: unitLabel,
-    blok_or_code: canonBlok,
+    blok_or_code: displayBlok,
     dedup_key: `warga:${canonBlok.toLowerCase()}`,
   };
 }
@@ -875,7 +877,9 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
   return Array.from(contactMap.values()).sort((a, b) => {
     const rp = rolePriority[a.role] - rolePriority[b.role];
     if (rp !== 0) return rp;
-    return a.blok_or_code.localeCompare(b.blok_or_code, 'id', { numeric: true });
+    const blokCmp = compareBlokRumah(a.blok_or_code, b.blok_or_code);
+    if (blokCmp !== 0) return blokCmp;
+    return a.display_name.localeCompare(b.display_name, 'id');
   });
 }
 
@@ -905,7 +909,7 @@ export function getGroupMembers(
           ? session.jabatan || 'Pengurus'
           : sessionRole === 'petugas'
             ? session.shift || 'Petugas Keamanan'
-            : `Warga Blok ${session.blok_rumah}`,
+            : `Warga Blok ${formatBlokRumah(session.blok_rumah) || session.blok_rumah}`,
       blok_or_code: session.blok_rumah,
       avatar_url: session.avatar_url || null,
     });

@@ -41,12 +41,14 @@ import {
 } from '../../types';
 import {
   canonicalizeBlokKey,
+  formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
   formatTanggalSingkat,
   formatTanggalWaktu,
   getCurrentBillingMonth,
   getNamaBulan,
+  matchesBlockSearch,
 } from '../../lib/format';
 import { LoadingSpinner } from '../LoadingSpinner';
 import {
@@ -222,7 +224,7 @@ export function AdminDashboardSlide({
     if (!q) return base;
     return base.filter(
       (t) =>
-        t.blok_rumah.toLowerCase().includes(q) ||
+        matchesBlockSearch(t.blok_rumah, trxSearch) ||
         t.nama_warga.toLowerCase().includes(q) ||
         t.no_kwitansi.toLowerCase().includes(q) ||
         t.metode_bayar.toLowerCase().includes(q)
@@ -702,7 +704,7 @@ export function AdminDashboardSlide({
                         />
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[#0F172A] truncate">
-                            {trx.blok_rumah} · {trx.nama_warga}
+                            {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} · {trx.nama_warga}
                           </p>
                           <p className="text-xs text-slate-500 font-mono tabular-nums truncate">
                             {formatRupiah(trx.nominal)} · {formatDaftarBulan(trx.bulan_dibayar)}
@@ -949,7 +951,7 @@ export function AdminDashboardSlide({
                           <span className="font-bold text-emerald-700">Setoran IPL Warga</span>
                           <span className="text-slate-300">·</span>
                           <span className="font-mono font-bold text-[#0F172A]">
-                            Blok {trx.blok_rumah} ({trx.nama_warga})
+                            Blok {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} ({trx.nama_warga})
                           </span>
                           <span className="text-slate-300">·</span>
                           <span className="font-semibold text-sky-700">
@@ -1217,7 +1219,7 @@ export function AdminDashboardSlide({
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           <span className="font-mono text-sm font-bold text-[#0F172A]">
-                            {trx.blok_rumah}
+                            {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah}
                           </span>
                           <span aria-hidden="true" className="text-slate-300">·</span>
                           <span className="text-sm font-semibold text-[#0F172A]">
@@ -1426,7 +1428,7 @@ export function AdminDashboardSlide({
             <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">
-                  Bukti Setoran — {previewTrx.blok_rumah} ({previewTrx.nama_warga})
+                  Bukti Setoran — {formatBlokRumah(previewTrx.blok_rumah)} ({previewTrx.nama_warga})
                 </h3>
                 <p className="text-xs text-slate-500 font-mono">
                   {formatRupiah(previewTrx.nominal)} · {formatDaftarBulan(previewTrx.bulan_dibayar)}
@@ -1445,7 +1447,7 @@ export function AdminDashboardSlide({
               {previewTrx.bukti_url ? (
                 <img
                   src={previewTrx.bukti_url}
-                  alt={`Bukti ${previewTrx.blok_rumah}`}
+                  alt={`Bukti ${formatBlokRumah(previewTrx.blok_rumah)}`}
                   referrerPolicy="no-referrer"
                   className="max-h-[65vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
                 />
@@ -1488,7 +1490,7 @@ export function AdminDashboardSlide({
               <p className="text-xs text-slate-600 leading-relaxed">
                 Anda akan menolak setoran dari{' '}
                 <span className="font-bold text-[#0F172A]">
-                  {rejectTarget.nama_warga} ({rejectTarget.blok_rumah})
+                  {rejectTarget.nama_warga} ({formatBlokRumah(rejectTarget.blok_rumah)})
                 </span>{' '}
                 sebesar{' '}
                 <span className="font-mono font-bold text-[#0F172A]">
@@ -1607,7 +1609,7 @@ export function AdminDashboardSlide({
                 Transaksi{' '}
                 <span className="font-bold text-[#0F172A]">
                   {ketuaReturnTarget.kind === 'ipl'
-                    ? `IPL ${ketuaReturnTarget.trx.nama_warga} (${ketuaReturnTarget.trx.blok_rumah})`
+                    ? `IPL ${ketuaReturnTarget.trx.nama_warga} (${formatBlokRumah(ketuaReturnTarget.trx.blok_rumah)})`
                     : `${ketuaReturnTarget.kas.no_bukti} (${ketuaReturnTarget.kas.penerima_atau_sumber})`}
                 </span>{' '}
                 akan dikembalikan ke status{' '}
@@ -1928,7 +1930,7 @@ export function AdminDashboardSlide({
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-bold text-[#0F172A]">
-                    {deleteTarget.blok_rumah} · {deleteTarget.nama_warga}
+                    {formatBlokRumah(deleteTarget.blok_rumah)} · {deleteTarget.nama_warga}
                   </span>
                   <span className="font-mono font-bold text-red-700 tabular-nums">
                     {formatRupiah(deleteTarget.nominal)}

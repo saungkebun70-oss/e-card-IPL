@@ -7,7 +7,13 @@ import {
   type TransaksiIPL,
   type Warga,
 } from '../types';
-import { formatDaftarBulan, formatTanggal } from './format';
+import {
+  compareBlokRumah,
+  formatBlokRumah,
+  formatDaftarBulan,
+  formatTanggal,
+  isSameBlockCode,
+} from './format';
 
 export interface CashAllocationSummary {
   totalTerverifikasi: number;
@@ -44,9 +50,10 @@ export function calculateCashAllocation(transaksiList: TransaksiIPL[]): CashAllo
 }
 
 function buildMatrixRows(wargaList: Warga[], statusList: StatusEcardBulanan[]) {
-  return wargaList.map((w) => {
+  const sortedWarga = [...wargaList].sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
+  return sortedWarga.map((w) => {
     const row: Record<string, string | number> = {
-      'Blok / No. Rumah': w.blok_rumah,
+      'Blok / No. Rumah': formatBlokRumah(w.blok_rumah) || w.blok_rumah,
       'Nama Warga': w.nama_warga,
       'Status Hunian': w.status_hunian,
       'No. WhatsApp': w.no_wa,
@@ -55,7 +62,7 @@ function buildMatrixRows(wargaList: Warga[], statusList: StatusEcardBulanan[]) {
     let totalLunas = 0;
     for (const b of BULAN_LIST) {
       const st = statusList.find(
-        (s) => s.blok_rumah === w.blok_rumah && s.tahun === TAHUN_AKTIF && s.bulan === b.angka
+        (s) => isSameBlockCode(s.blok_rumah, w.blok_rumah) && s.tahun === TAHUN_AKTIF && s.bulan === b.angka
       );
       const label = st?.status || 'Belum Tagihan';
       row[b.singkat] = label;
@@ -79,7 +86,7 @@ function buildCashLedgerRows(transaksiList: TransaksiIPL[]) {
       return {
         'No. Kwitansi': t.no_kwitansi,
         'Tanggal Setor': formatTanggal(t.tanggal_setor),
-        'Blok / No. Rumah': t.blok_rumah,
+        'Blok / No. Rumah': formatBlokRumah(t.blok_rumah) || t.blok_rumah,
         'Nama Warga': t.nama_warga,
         'Bulan Dibayar': formatDaftarBulan(t.bulan_dibayar),
         'Metode Pembayaran': t.metode_bayar,

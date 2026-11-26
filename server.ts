@@ -3,14 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { generateBotAutoReply } from './src/lib/botAutoReply';
-import {
-  buildInitialStatusBulanan,
-  SEED_PAYMENT_CONFIG,
-  SEED_TRANSAKSI,
-  SEED_WARGA,
-} from './src/lib/seedData';
-import { normalizePhoneNumber } from './src/lib/phoneAndBlockUtils';
+import sendBotWaHandler from './api/bot-wa/send';
+import webhookBotWaHandler from './api/bot-wa/webhook';
 import {
   inspectSupabaseStorageStatus,
   saveHybridThresholdSettings,
@@ -450,227 +444,22 @@ async function startServer() {
     res.json({ logs });
   });
 
-  app.post('/api/bot-wa/send', async (req, res) => {
-    const roleHeader = req.headers['x-user-role'];
-    const permHeader = req.headers['x-admin-permission'];
-    if (roleHeader !== 'admin' || permHeader !== 'full') {
-      res.status(403).json({ error: 'Pengiriman Bot WhatsApp khusus akun Bendahara.' });
-      return;
-    }
-
-    const body = req.body as {
-      provider?: 'Fonnte' | 'Wablas';
-      api_endpoint?: string;
-      api_token?: string;
-      targets?: Array<{
-        blok_rumah: string;
-        nama_warga: string;
-        no_wa: string;
-        pesan: string;
-      }>;
-    };
-
-    const provider = body.provider === 'Wablas' ? 'Wablas' : 'Fonnte';
-    const endpoint = String(body.api_endpoint || '').trim();
-    const token = String(body.api_token || '').trim();
-    const targets = Array.isArray(body.targets) ? body.targets.slice(0, 150) : [];
-
-    if (!token) {
-      res.status(400).json({ error: 'API Token gateway WhatsApp belum diisi.' });
-      return;
-    }
-    if (!endpoint) {
-      res.status(400).json({ error: 'API Endpoint URL gateway WhatsApp wajib diisi.' });
-      return;
-    }
-    if (targets.length === 0) {
-      res.status(400).json({ error: 'Tidak ada nomor tujuan pengiriman.' });
-      return;
-    }
-
-    try {
-      const parsedUrl = new URL(endpoint);
-      const allowedHost =
-        parsedUrl.protocol === 'https:' &&
-        (parsedUrl.hostname === 'api.fonnte.com' ||
-          parsedUrl.hostname === 'wablas.com' ||
-          parsedUrl.hostname.endsWith('.wablas.com'));
-      if (!allowedHost) {
-        res.status(400).json({
-          error: 'Endpoint harus menggunakan HTTPS resmi Fonnte (api.fonnte.com) atau Wablas (*.wablas.com).',
-        });
-        return;
-      }
-    } catch {
-      res.status(400).json({ error: 'Format API Endpoint URL tidak valid.' });
-      return;
-    }
-
-    const results: Array<{
-      blok_rumah: string;
-      nama_warga: string;
-      no_wa: string;
-      pesan: string;
-      status_kirim: 'Terkirim' | 'Gagal';
-      respon_gateway: string;
-    }> = [];
-
-    for (let i = 0; i < targets.length; i++) {
-      const item = targets[i];
-      let status_kirim: 'Terkirim' | 'Gagal' = 'Gagal';
-      let respon_gateway = '';
-
-      try {
-        const payload =
-          provider === 'Wablas'
-            ? { phone: item.no_wa, message: item.pesan }
-            : { target: item.no_wa, message: item.pesan, delay: '2-5', countryCode: '62' };
-
-        const gatewayRes = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            Authorization: token,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const rawText = await gatewayRes.text();
-        let parsedJson: { status?: boolean; reason?: string; detail?: string; message?: string } | null = null;
-        try {
-          parsedJson = JSON.parse(rawText) as {
-            status?: boolean;
-            reason?: string;
-            detail?: string;
-            message?: string;
-          };
-        } catch {
-          parsedJson = null;
-        }
-
-        const gatewayOk = gatewayRes.ok && parsedJson?.status !== false;
-        status_kirim = gatewayOk ? 'Terkirim' : 'Gagal';
-        const detailText =
-          parsedJson?.reason || parsedJson?.detail || parsedJson?.message || rawText.slice(0, 140);
-        respon_gateway = `${gatewayRes.status} — ${String(detailText || 'OK').slice(0, 140)}`;
-      } catch (err) {
-        status_kirim = 'Gagal';
-        respon_gateway = err instanceof Error ? err.message : 'Gagal terhubung ke gateway WA';
-      }
-
-      results.push({
-        blok_rumah: item.blok_rumah,
-        nama_warga: item.nama_warga,
-        no_wa: item.no_wa,
-        pesan: item.pesan,
-        status_kirim,
-        respon_gateway,
-      });
-
-      if (i < targets.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 450));
-      }
-    }
-
-    res.json({
-      ok: true,
-      sent: results.filter((r) => r.status_kirim === 'Terkirim').length,
-      failed: results.filter((r) => r.status_kirim === 'Gagal').length,
-      results,
-    });
+  app.all('/api/bot-wa/send', async (req, res) => {
+    await sendBotWaHandler(
+      req as unknown as Parameters<typeof sendBotWaHandler>[0],
+      res as unknown as Parameters<typeof sendBotWaHandler>[1]
+    );
   });
 
-  const handleWebhookGet = (_req: express.Request, res: express.Response) => {
-    res.json({
-      ok: true,
-      service: 'saung-kebun-wa-auto-reply-strict-isolation',
-      webhook_url: 'https://e-card-ipl.vercel.app/api/bot-wa/webhook',
-      security: 'Strict Sender-to-Unit Isolation Active',
-      commands: ['CEK', 'CEK#<BLOK> (Pengurus)', 'SALDO', 'REKENING', 'BAYAR', 'MENU'],
-    });
+  const delegateWebhook = async (req: express.Request, res: express.Response) => {
+    await webhookBotWaHandler(
+      req as unknown as Parameters<typeof webhookBotWaHandler>[0],
+      res as unknown as Parameters<typeof webhookBotWaHandler>[1]
+    );
   };
 
-  const handleWebhookPost = async (req: express.Request, res: express.Response) => {
-    const body = (req.body || {}) as Record<string, unknown>;
-    const incomingText = String(body.message || body.pesan || body.text || '').trim();
-    const senderName = String(body.name || body.pushName || 'Warga').trim();
-    const rawSender = String(body.sender || body.phone || body.from || '').trim();
-    const isGroup =
-      body.isGroup === true ||
-      String(body.isGroup || '').toLowerCase() === 'true' ||
-      rawSender.toLowerCase().includes('@g.us') ||
-      Boolean(body.member);
-    const dryRun = Boolean(body.dryRun);
-
-    if (!incomingText || !rawSender) {
-      res.json({ ok: true, ignored: true, reason: 'Pesan atau pengirim kosong.' });
-      return;
-    }
-
-    if (isGroup) {
-      res.json({ ok: true, ignored: true, reason: 'Pesan grup diabaikan demi privasi warga.' });
-      return;
-    }
-
-    const cleanSender = normalizePhoneNumber(rawSender);
-    if (!cleanSender || cleanSender.length < 9) {
-      res.json({ ok: true, ignored: true, reason: 'Nomor pengirim tidak valid.' });
-      return;
-    }
-
-    const statusList = buildInitialStatusBulanan(SEED_WARGA, SEED_TRANSAKSI);
-    const result = generateBotAutoReply(incomingText, {
-      wargaList: SEED_WARGA,
-      statusList,
-      paymentConfig: SEED_PAYMENT_CONFIG,
-      senderName,
-      senderPhone: cleanSender,
-    });
-
-    if (dryRun || !process.env.FONNTE_TOKEN) {
-      res.json({
-        ok: true,
-        dryRun: true,
-        sender: cleanSender,
-        command: result.command,
-        blok: result.blok || 'BOT-WA',
-        reply: result.reply,
-      });
-      return;
-    }
-
-    try {
-      const gatewayRes = await fetch('https://api.fonnte.com/send', {
-        method: 'POST',
-        headers: {
-          Authorization: process.env.FONNTE_TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target: cleanSender,
-          message: result.reply,
-          countryCode: '62',
-        }),
-      });
-      const text = await gatewayRes.text();
-      res.json({
-        ok: gatewayRes.ok,
-        sent: gatewayRes.ok,
-        command: result.command,
-        respon_gateway: `${gatewayRes.status} — ${text.slice(0, 140)}`,
-      });
-    } catch (err) {
-      res.status(502).json({
-        ok: false,
-        error: err instanceof Error ? err.message : 'Gagal mengirim balasan otomatis.',
-      });
-    }
-  };
-
-  app.get('/api/bot-wa/webhook', handleWebhookGet);
-  app.post('/api/bot-wa/webhook', handleWebhookPost);
-  app.get('/api/webhook/fonnte', handleWebhookGet);
-  app.post('/api/webhook/fonnte', handleWebhookPost);
+  app.all('/api/bot-wa/webhook', delegateWebhook);
+  app.all('/api/webhook/fonnte', delegateWebhook);
 
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');

@@ -21,6 +21,7 @@ import {
 import {
   buildWhatsAppLink,
   copyToClipboard,
+  formatBlokRumah,
   formatRupiah,
   getCurrentBillingMonth,
   getNamaBulan,
@@ -79,7 +80,7 @@ export function PanduanBotWaModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
 
-  const blok = profil?.blok_rumah || 'UNIT ANDA';
+  const blok = profil?.blok_rumah ? formatBlokRumah(profil.blok_rumah) : 'UNIT ANDA';
   const nama = profil?.nama_warga || 'Warga Saung Kebun';
   const nominal = profil?.nominal_iuran || NOMINAL_IPL_STANDAR;
   const currentMonth = getCurrentBillingMonth();

@@ -41,6 +41,7 @@ import {
   buildPengurusAccessWaMessage,
   buildWhatsAppLink,
   copyToClipboard,
+  formatBlokRumah,
   formatRupiah,
   formatTanggalWaktu,
   getCurrentBillingMonth,
@@ -790,7 +791,7 @@ export function AdminBotWaSlide({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-[#4C1D95]">{p.jabatan}</span>
-                    <span className="text-[11px] font-mono text-slate-500">Blok {p.blokRumah}</span>
+                    <span className="text-[11px] font-mono text-slate-500">Blok {formatBlokRumah(p.blokRumah) || p.blokRumah}</span>
                   </div>
                   <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
                   <p className="text-xs text-slate-600">
@@ -1097,7 +1098,7 @@ export function AdminBotWaSlide({
                       {formatTanggalWaktu(log.created_at)}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="font-mono font-bold text-[#0F172A]">{log.blok_rumah}</span>
+                      <span className="font-mono font-bold text-[#0F172A]">{formatBlokRumah(log.blok_rumah) || log.blok_rumah}</span>
                       <span className="text-slate-400 mx-1.5">·</span>
                       <span className="text-slate-700">{log.nama_warga}</span>
                     </td>

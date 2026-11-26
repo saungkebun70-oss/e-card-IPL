@@ -16,6 +16,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
+import { formatBlokRumah } from '../lib/format';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { NotificationBell } from './NotificationBell';
@@ -248,11 +249,12 @@ export function AppShell({
     onLogout();
   };
 
+  const displayWargaBlok = formatBlokRumah(session.blok_rumah) || session.blok_rumah;
   const roleSubtitleLabel = isAdmin
     ? `${session.jabatan || 'Pengurus'} · ${session.admin_permission === 'full' ? 'Akses Penuh' : 'Pengurus'}`
     : isPetugas
       ? `Keamanan · ${session.shift || 'Petugas'}`
-      : `Warga · Blok ${session.blok_rumah}`;
+      : `Warga · Blok ${displayWargaBlok}`;
 
   const renderSidebarNavigation = () => (
     <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-5 md:py-6 lg:py-5 space-y-6 md:space-y-7 lg:space-y-6">
@@ -680,12 +682,12 @@ export function AppShell({
                       ? activePageTitle
                       : isPetugas
                         ? `Keamanan · ${activePageTitle}`
-                        : `Blok ${session.blok_rumah} · ${activePageTitle}`}
+                        : `Blok ${displayWargaBlok} · ${activePageTitle}`}
                   </span>
                   <span className="hidden lg:inline">
                     {isAdmin
                       ? adminIdentityLabel
-                      : `Rumah Blok ${session.blok_rumah} · ${session.nama_warga}`}
+                      : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
                   </span>
                 </p>
               </div>

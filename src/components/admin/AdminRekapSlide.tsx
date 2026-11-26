@@ -29,12 +29,15 @@ import {
 } from '../../types';
 import {
   canonicalizeBlokKey,
+  compareBlokRumah,
   extractBlokPrefix,
+  formatBlokRumah,
   formatRupiah,
   formatTanggal,
   formatTanggalSingkat,
   getCurrentBillingMonth,
   getNamaBulan,
+  matchesBlockSearch,
 } from '../../lib/format';
 import {
   calculateCashAllocation,
@@ -123,20 +126,25 @@ export function AdminRekapSlide({
     [selectedTahun, selectedBulan, transaksiList, transaksiKasList]
   );
 
+  const sortedWargaList = useMemo(
+    () => [...wargaList].sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah)),
+    [wargaList]
+  );
+
   const blokOptions = useMemo(() => {
-    const prefixes = new Set<string>(['B3', 'B5', 'B6', 'B7', 'B8']);
-    for (const w of wargaList) {
+    const prefixes = new Set<string>(['B03', 'B05', 'B06', 'B07', 'B08']);
+    for (const w of sortedWargaList) {
       prefixes.add(extractBlokPrefix(w.blok_rumah));
     }
-    return ['Semua', ...Array.from(prefixes).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
-  }, [wargaList]);
+    return ['Semua', ...Array.from(prefixes).sort((a, b) => compareBlokRumah(a, b))];
+  }, [sortedWargaList]);
 
   const filteredWarga = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return wargaList.filter((w) => {
+    return sortedWargaList.filter((w) => {
       const prefix = extractBlokPrefix(w.blok_rumah);
       if (blokFilter !== 'Semua' && prefix !== blokFilter) return false;
-      if (q && !w.blok_rumah.toLowerCase().includes(q) && !w.nama_warga.toLowerCase().includes(q)) {
+      if (q && !matchesBlockSearch(w.blok_rumah, search) && !w.nama_warga.toLowerCase().includes(q)) {
         return false;
       }
 
@@ -158,7 +166,7 @@ export function AdminRekapSlide({
       }
       return true;
     });
-  }, [wargaList, statusList, blokFilter, statusFilter, search, currentMonth]);
+  }, [sortedWargaList, statusList, blokFilter, statusFilter, search, currentMonth]);
 
   useEffect(() => {
     setPage(1);
@@ -172,7 +180,7 @@ export function AdminRekapSlide({
   );
 
   const openManualModal = () => {
-    const first = wargaList[0];
+    const first = sortedWargaList[0];
     setSelectedWargaId(first?.id || '');
     const defaultBulan = [currentMonth];
     setSelectedMonths(defaultBulan);
@@ -850,7 +858,7 @@ export function AdminRekapSlide({
                     pagedWarga.map((w) => (
                       <tr key={w.id} className="hover:bg-slate-50/60">
                         <td className="py-3 px-4 sticky left-0 bg-white z-10 border-r border-slate-100 whitespace-nowrap">
-                          <p className="font-mono font-bold text-[#0F172A]">{w.blok_rumah}</p>
+                          <p className="font-mono font-bold text-[#0F172A]">{formatBlokRumah(w.blok_rumah) || w.blok_rumah}</p>
                           <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
                             {w.nama_warga}
                           </p>
@@ -972,9 +980,9 @@ export function AdminRekapSlide({
                   }}
                   className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
                 >
-                  {wargaList.map((w) => (
+                  {sortedWargaList.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.blok_rumah} — {w.nama_warga} ({w.status_hunian})
+                      {formatBlokRumah(w.blok_rumah) || w.blok_rumah} — {w.nama_warga} ({w.status_hunian})
                     </option>
                   ))}
                 </select>

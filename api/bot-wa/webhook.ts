@@ -6,6 +6,7 @@ interface VercelReq {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
   body?: unknown;
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
 }
 
 interface VercelRes {
@@ -38,6 +39,14 @@ interface StatusRow {
   status: string;
 }
 
+interface TransaksiKwitansiRow {
+  no_kwitansi?: string;
+  blok_rumah: string;
+  tahun: number;
+  bulan_dibayar?: number[];
+  status_verifikasi?: string;
+}
+
 interface RekeningItem {
   bank: string;
   nomor: string;
@@ -65,10 +74,23 @@ interface AppSettingsRow {
 }
 
 type EffectiveBotRole = 'warga' | 'admin' | 'bendahara';
+type SupabaseAuthMode = 'service_role' | 'anon_fallback' | 'missing';
 
 const APP_PORTAL_URL = 'https://e-card-ipl.vercel.app';
 const TAHUN_AKTIF = 2026;
 const NOMINAL_DEFAULT = 100000;
+const SUPABASE_TIMEOUT_MS = 10000;
+const GATEWAY_TIMEOUT_MS = 12000;
+
+const ACTIVE_PENGURUS_CALLERS = [
+  'andriansyah',
+  'erlangga',
+  'bpiwan',
+  'doni',
+  'wahyu',
+  'deny',
+];
+
 const BULAN_NAMA = [
   'Januari',
   'Februari',
@@ -97,13 +119,31 @@ const PLACEHOLDER_WA_NUMBERS = new Set([
 ]);
 
 const SUSUNAN_PENGURUS = [
-  { jabatan: 'Pembina', nama: 'Bp. Iwan', username: 'bpiwan', blok: 'B8/5', role: 'admin' as const },
-  { jabatan: 'Ketua', nama: 'Erlangga', username: 'erlangga', blok: 'B3/7', role: 'admin' as const },
-  { jabatan: 'Bendahara', nama: 'Andriansyah', username: 'andriansyah', blok: 'B7/16', role: 'bendahara' as const },
-  { jabatan: 'Humas', nama: 'Doni', username: 'doni', blok: 'B5/21', role: 'admin' as const },
-  { jabatan: 'Humas', nama: 'Wahyu', username: 'wahyu', blok: 'B5/24', role: 'admin' as const },
-  { jabatan: 'Seksi Olahraga', nama: 'Deny', username: 'deny', blok: 'B8/6', role: 'admin' as const },
+  { jabatan: 'Pembina', nama: 'Bp. Iwan', username: 'bpiwan', blok: 'B08/05', role: 'admin' as const },
+  { jabatan: 'Ketua', nama: 'Erlangga', username: 'erlangga', blok: 'B03/07', role: 'admin' as const },
+  { jabatan: 'Bendahara', nama: 'Andriansyah', username: 'andriansyah', blok: 'B07/16', role: 'bendahara' as const },
+  { jabatan: 'Humas', nama: 'Doni', username: 'doni', blok: 'B05/21', role: 'admin' as const },
+  { jabatan: 'Humas', nama: 'Wahyu', username: 'wahyu', blok: 'B05/24', role: 'admin' as const },
+  { jabatan: 'Seksi Olahraga', nama: 'Deny', username: 'deny', blok: 'B08/06', role: 'admin' as const },
 ];
+
+let cachedPengurusCaller = 'andriansyah';
+
+function sanitizeSecret(raw: string | null | undefined): string {
+  return String(raw || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+}
+
+function getHeader(
+  headers: Record<string, string | string[] | undefined>,
+  name: string
+): string {
+  const val = headers[name] ?? headers[name.toLowerCase()];
+  if (Array.isArray(val)) return val[0] || '';
+  return typeof val === 'string' ? val : '';
+}
 
 function formatRupiah(nominal: number): string {
   return `Rp ${Number(nominal || 0).toLocaleString('id-ID')}`;
@@ -185,76 +225,296 @@ function getDefaultUnpaidStatus(bulan: number): string {
   return now.getDate() > 7 ? 'Jatuh Tempo' : 'Belum Bayar';
 }
 
-function getSupabaseEnv() {
-  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
-  const key = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    ''
-  ).trim();
-  return { url, key };
+function isAllowedGatewayEndpoint(endpoint: string): boolean {
+  try {
+    const parsed = new URL(endpoint);
+    return (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname === 'api.fonnte.com' ||
+        parsed.hostname === 'wablas.com' ||
+        parsed.hostname.endsWith('.wablas.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getSupabaseEnv(): { url: string; key: string; authMode: SupabaseAuthMode } {
+  const url = sanitizeSecret(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL).replace(/\/+$/, '');
+  const serviceRoleKey = sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const anonKey = sanitizeSecret(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+
+  if (serviceRoleKey) {
+    return { url, key: serviceRoleKey, authMode: 'service_role' };
+  }
+  if (anonKey) {
+    return { url, key: anonKey, authMode: 'anon_fallback' };
+  }
+  return { url, key: '', authMode: 'missing' };
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildQueryBodyFromText(raw: string, contentType: string): Record<string, unknown> {
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+
+  const wantsForm = contentType.includes('application/x-www-form-urlencoded');
+  if (!wantsForm) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Coba form-urlencoded di bawah jika bukan JSON valid
+    }
+  }
+
+  if (wantsForm || trimmed.includes('=')) {
+    try {
+      const params = new URLSearchParams(trimmed);
+      const obj: Record<string, unknown> = {};
+      for (const [k, v] of params.entries()) {
+        obj[k] = v;
+      }
+      if (Object.keys(obj).length > 0) {
+        return obj;
+      }
+    } catch {
+      // Abaikan
+    }
+  }
+
+  return {};
+}
+
+async function readRawRequestStream(req: VercelReq): Promise<string> {
+  if (typeof req.on !== 'function') return '';
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let settled = false;
+    const finish = (text: string) => {
+      if (settled) return;
+      settled = true;
+      resolve(text);
+    };
+    const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), 3000);
+    req.on!('data', (chunk: unknown) => {
+      if (typeof chunk === 'string') chunks.push(Buffer.from(chunk, 'utf8'));
+      else if (Buffer.isBuffer(chunk)) chunks.push(chunk);
+    });
+    req.on!('end', () => {
+      clearTimeout(timer);
+      finish(Buffer.concat(chunks).toString('utf8'));
+    });
+    req.on!('error', () => {
+      clearTimeout(timer);
+      finish('');
+    });
+  });
+}
+
+async function parseIncomingBody(req: VercelReq): Promise<Record<string, unknown>> {
+  const contentType = getHeader(req.headers, 'content-type').toLowerCase();
+
+  if (Buffer.isBuffer(req.body)) {
+    return buildQueryBodyFromText(req.body.toString('utf8'), contentType);
+  }
+  if (typeof req.body === 'string') {
+    return buildQueryBodyFromText(req.body, contentType);
+  }
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    const obj = req.body as Record<string, unknown>;
+    if (Object.keys(obj).length > 0) {
+      return obj;
+    }
+  }
+
+  if (req.body === undefined || req.body === null) {
+    const rawText = await readRawRequestStream(req);
+    if (rawText) {
+      return buildQueryBodyFromText(rawText, contentType);
+    }
+  }
+
+  return {};
+}
+
+async function executeSupabaseGet<T>(
+  url: string,
+  key: string,
+  pathWithQuery: string,
+  callerUsername: string
+): Promise<{ ok: boolean; status: number; data: T[]; errorText?: string }> {
+  try {
+    const res = await fetchWithTimeout(
+      `${url}/rest/v1/${pathWithQuery}`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          'x-user-role': 'admin',
+          'x-admin-permission': 'full',
+          'x-blok-rumah': callerUsername,
+        },
+      },
+      SUPABASE_TIMEOUT_MS
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return {
+        ok: false,
+        status: res.status,
+        data: [],
+        errorText: errText.slice(0, 160),
+      };
+    }
+
+    const data = (await res.json()) as unknown;
+    return {
+      ok: true,
+      status: res.status,
+      data: Array.isArray(data) ? (data as T[]) : [],
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      data: [],
+      errorText: err instanceof Error ? err.message : 'Network error',
+    };
+  }
 }
 
 async function supabaseRestGetWithStatus<T>(
-  pathWithQuery: string
+  pathWithQuery: string,
+  options?: { retryNonEmptyOnAnon?: boolean }
 ): Promise<{ ok: boolean; status: number; data: T[] }> {
-  const { url, key } = getSupabaseEnv();
-  if (!url || !key) return { ok: false, status: 0, data: [] };
-  try {
-    const res = await fetch(`${url}/rest/v1/${pathWithQuery}`, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        'x-user-role': 'admin',
-        'x-admin-permission': 'full',
-        'x-blok-rumah': 'bot-webhook',
-      },
-    });
-    if (!res.ok) return { ok: false, status: res.status, data: [] };
-    const data = (await res.json()) as unknown;
-    return { ok: true, status: res.status, data: Array.isArray(data) ? (data as T[]) : [] };
-  } catch {
+  const { url, key, authMode } = getSupabaseEnv();
+  if (!url || !key) {
+    console.error('[BOT-WA-WEBHOOK] Konfigurasi Supabase tidak lengkap (authMode=missing).');
     return { ok: false, status: 0, data: [] };
   }
+
+  const primaryCaller = authMode === 'service_role' ? 'andriansyah' : cachedPengurusCaller;
+  const firstAttempt = await executeSupabaseGet<T>(url, key, pathWithQuery, primaryCaller);
+
+  if (firstAttempt.ok && (firstAttempt.data.length > 0 || authMode === 'service_role' || !options?.retryNonEmptyOnAnon)) {
+    return { ok: true, status: firstAttempt.status, data: firstAttempt.data };
+  }
+
+  // Pada mode anon_fallback (ketika SUPABASE_SERVICE_ROLE_KEY tidak diset di Vercel),
+  // Migration v16 RLS memvalidasi x-blok-rumah terhadap akun pengurus aktif di users_warga.
+  if (authMode === 'anon_fallback') {
+    const candidates = ACTIVE_PENGURUS_CALLERS.filter((c) => c !== primaryCaller);
+    for (const candidate of candidates) {
+      const attempt = await executeSupabaseGet<T>(url, key, pathWithQuery, candidate);
+      if (attempt.ok && attempt.data.length > 0) {
+        cachedPengurusCaller = candidate;
+        return { ok: true, status: attempt.status, data: attempt.data };
+      }
+    }
+  }
+
+  if (!firstAttempt.ok) {
+    console.error(
+      `[BOT-WA-WEBHOOK] Supabase GET gagal (${pathWithQuery.split('?')[0]}) status=${firstAttempt.status} mode=${authMode} detail=${firstAttempt.errorText || '-'}`
+    );
+  }
+
+  return { ok: firstAttempt.ok, status: firstAttempt.status, data: firstAttempt.data };
 }
 
-async function supabaseRestGet<T>(pathWithQuery: string): Promise<T[]> {
-  const res = await supabaseRestGetWithStatus<T>(pathWithQuery);
+async function supabaseRestGet<T>(
+  pathWithQuery: string,
+  options?: { retryNonEmptyOnAnon?: boolean }
+): Promise<T[]> {
+  const res = await supabaseRestGetWithStatus<T>(pathWithQuery, options);
   return res.data;
 }
 
-async function supabaseRestInsert(table: string, row: Record<string, unknown>): Promise<void> {
-  const { url, key } = getSupabaseEnv();
-  if (!url || !key) return;
-  try {
-    await fetch(`${url}/rest/v1/${table}`, {
-      method: 'POST',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-        'x-user-role': 'admin',
-        'x-admin-permission': 'full',
-        'x-blok-rumah': 'bot-webhook',
-      },
-      body: JSON.stringify(row),
-    });
-  } catch {
-    // Abaikan kegagalan logging non-kritis
+async function supabaseRestInsert(table: string, row: Record<string, unknown>): Promise<boolean> {
+  const { url, key, authMode } = getSupabaseEnv();
+  if (!url || !key) return false;
+
+  const callers =
+    authMode === 'service_role'
+      ? ['andriansyah']
+      : [cachedPengurusCaller, ...ACTIVE_PENGURUS_CALLERS.filter((c) => c !== cachedPengurusCaller)];
+
+  for (let i = 0; i < (authMode === 'service_role' ? 1 : callers.length); i++) {
+    const caller = callers[i];
+    try {
+      const res = await fetchWithTimeout(
+        `${url}/rest/v1/${table}`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+            'x-user-role': 'admin',
+            'x-admin-permission': 'full',
+            'x-blok-rumah': caller,
+          },
+          body: JSON.stringify(row),
+        },
+        SUPABASE_TIMEOUT_MS
+      );
+      if (res.ok) {
+        cachedPengurusCaller = caller;
+        return true;
+      }
+      if (res.status !== 401 && res.status !== 403) {
+        const errText = await res.text().catch(() => '');
+        console.error(
+          `[BOT-WA-WEBHOOK] Supabase INSERT ${table} gagal status=${res.status} detail=${errText.slice(0, 140)}`
+        );
+        return false;
+      }
+    } catch (err) {
+      console.error(
+        `[BOT-WA-WEBHOOK] Supabase INSERT ${table} exception:`,
+        err instanceof Error ? err.message : err
+      );
+      return false;
+    }
   }
+  return false;
 }
 
 async function fetchAllUsersWarga(): Promise<WargaRow[]> {
   const fullSelect =
     'id,blok_rumah,nama_warga,no_wa,secondary_whatsapp,status_hunian,nominal_iuran,pin_akses,role,bot_role,jabatan,admin_permission,aktif';
-  const resFull = await supabaseRestGetWithStatus<WargaRow>(`users_warga?select=${fullSelect}`);
-  if (resFull.ok) return resFull.data;
+  const resFull = await supabaseRestGetWithStatus<WargaRow>(`users_warga?select=${fullSelect}`, {
+    retryNonEmptyOnAnon: true,
+  });
+  if (resFull.ok && resFull.data.length > 0) return resFull.data;
 
   // Fallback jika kolom secondary_whatsapp / bot_role belum ditambahkan di database
   const basicSelect =
     'id,blok_rumah,nama_warga,no_wa,status_hunian,nominal_iuran,pin_akses,role,jabatan,admin_permission,aktif';
-  return supabaseRestGet<WargaRow>(`users_warga?select=${basicSelect}`);
+  return supabaseRestGet<WargaRow>(`users_warga?select=${basicSelect}`, {
+    retryNonEmptyOnAnon: true,
+  });
 }
 
 interface AuthenticatedSender {
@@ -278,7 +538,9 @@ async function authenticateSender(cleanSender: string): Promise<AuthenticatedSen
 
   const [allRows, appSettings] = await Promise.all([
     fetchAllUsersWarga(),
-    supabaseRestGet<AppSettingsRow>('app_settings?select=wa_pengurus,pengurus_wa_map&limit=1'),
+    supabaseRestGet<AppSettingsRow>('app_settings?select=wa_pengurus,pengurus_wa_map&limit=1', {
+      retryNonEmptyOnAnon: true,
+    }),
   ]);
 
   const residentRows = allRows.filter((r) => !r.role || r.role === 'warga');
@@ -437,25 +699,64 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
   const currentMonth = getCurrentMonth();
   const bulanNama = `${BULAN_NAMA[currentMonth - 1]} ${TAHUN_AKTIF}`;
   const formattedBlock = normalizeBlockCode(targetUnit.blok_rumah);
+  const nominalBulanan = targetUnit.nominal_iuran || NOMINAL_DEFAULT;
 
   const allYearStatus = await supabaseRestGet<StatusRow>(
-    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}&bulan=eq.${currentMonth}`
+    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}`
   );
-  const matchedStatus = allYearStatus.find((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
+  const unitYearRows = allYearStatus.filter((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
+  const matchedStatus = unitYearRows.find((s) => s.bulan === currentMonth);
   const statusBulan = matchedStatus?.status || getDefaultUnpaidStatus(currentMonth);
 
-  return [
+  const unpaidUpToNow: string[] = [];
+  for (let m = 1; m <= currentMonth; m++) {
+    const found = unitYearRows.find((s) => s.bulan === m);
+    const st = found?.status || getDefaultUnpaidStatus(m);
+    if (st !== 'Lunas' && st !== 'Menunggu Verifikasi') {
+      unpaidUpToNow.push(BULAN_SINGKAT[m - 1]);
+    }
+  }
+
+  let latestReceiptNo = '';
+  if (statusBulan === 'Lunas') {
+    const verifiedTrx = await supabaseRestGet<TransaksiKwitansiRow>(
+      `transaksi_ipl?select=no_kwitansi,blok_rumah,tahun,bulan_dibayar,status_verifikasi&tahun=eq.${TAHUN_AKTIF}&status_verifikasi=eq.Terverifikasi&order=tanggal_setor.desc&limit=50`
+    );
+    const matchedTrx = verifiedTrx.find(
+      (t) =>
+        isSameBlockCode(t.blok_rumah, targetUnit.blok_rumah) &&
+        (!Array.isArray(t.bulan_dibayar) || t.bulan_dibayar.includes(currentMonth))
+    );
+    latestReceiptNo = matchedTrx?.no_kwitansi || '';
+  }
+
+  const lines = [
     `*Status e-Card IPL — Unit ${formattedBlock}*`,
     `Nama: ${targetUnit.nama_warga}`,
     `Periode: *${bulanNama}*`,
     `Status: *${statusBulan.toUpperCase()}*`,
-    `Nominal Iuran: ${formatRupiah(targetUnit.nominal_iuran || NOMINAL_DEFAULT)} / bulan`,
+    `Nominal Iuran: ${formatRupiah(nominalBulanan)} / bulan`,
     `Jatuh Tempo: Tanggal 7`,
-    ``,
+  ];
+
+  if (latestReceiptNo) {
+    lines.push(`No. Kwitansi: *${latestReceiptNo}*`);
+  }
+
+  if (unpaidUpToNow.length > 0 && statusBulan !== 'Lunas') {
+    lines.push(
+      `Tunggakan s.d. ${BULAN_SINGKAT[currentMonth - 1]}: *${unpaidUpToNow.length} bulan* (${unpaidUpToNow.join(', ')}) · Total *${formatRupiah(unpaidUpToNow.length * nominalBulanan)}*`
+    );
+  }
+
+  lines.push(``);
+  lines.push(
     statusBulan === 'Lunas'
       ? `Terima kasih, iuran bulan ${bulanNama} sudah *LUNAS*. Kwitansi tersedia di ${APP_PORTAL_URL}`
-      : `Silakan setor via QRIS / Transfer Bank / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk melihat rekening resmi.`,
-  ].join('\n');
+      : `Silakan setor via QRIS / Transfer Bank / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk melihat rekening resmi.`
+  );
+
+  return lines.join('\n');
 }
 
 async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise<string> {
@@ -518,11 +819,13 @@ function parseRekeningList(raw: unknown): RekeningItem[] {
 
 async function buildRekeningReply(): Promise<string> {
   let configs = await supabaseRestGet<PaymentConfigRow>(
-    'payment_config?select=*&id=eq.default-payment-config&limit=1'
+    'payment_config?select=*&id=eq.default-payment-config&limit=1',
+    { retryNonEmptyOnAnon: true }
   );
   if (configs.length === 0) {
     configs = await supabaseRestGet<PaymentConfigRow>(
-      'payment_config?select=*&order=updated_at.desc&limit=1'
+      'payment_config?select=*&order=updated_at.desc&limit=1',
+      { retryNonEmptyOnAnon: true }
     );
   }
 
@@ -576,23 +879,38 @@ function parseCommandAndBlock(rawText: string): {
   parts: string[];
 } {
   const hashParts = rawText.split('#').map((s) => s.trim());
-  const head = (hashParts[0] || '').toUpperCase();
+  let head = (hashParts[0] || '').toUpperCase();
+  let targetBlockRaw = (hashParts[1] || '').trim();
 
-  // Tangani pola spasi: "CEK B03/07", "SALDO B03/07", atau "CEK B3/7"
   if (hashParts.length === 1) {
-    const spaceMatch = rawText.match(/^(CEK|SALDO)\s+(.+)$/i);
-    if (spaceMatch) {
+    const cekTagihanMatch = rawText.match(/^CEK\s+TAGIHAN(?:\s+(.+))?$/i);
+    if (cekTagihanMatch) {
       return {
-        command: spaceMatch[1].toUpperCase(),
-        targetBlockRaw: spaceMatch[2].trim(),
-        parts: [spaceMatch[1].toUpperCase(), spaceMatch[2].trim()],
+        command: 'CEK',
+        targetBlockRaw: (cekTagihanMatch[1] || '').trim(),
+        parts: ['CEK', (cekTagihanMatch[1] || '').trim()],
+      };
+    }
+
+    const spaceMatch = rawText.match(/^(CEK|SALDO|TAGIHAN|IPL|STATUS)\s+(.+)$/i);
+    if (spaceMatch) {
+      head = spaceMatch[1].toUpperCase();
+      targetBlockRaw = spaceMatch[2].trim();
+      return {
+        command: ['TAGIHAN', 'IPL', 'STATUS'].includes(head) ? 'CEK' : head,
+        targetBlockRaw,
+        parts: [head, targetBlockRaw],
       };
     }
   }
 
+  if (['TAGIHAN', 'IPL', 'STATUS', 'CEK TAGIHAN'].includes(head)) {
+    head = 'CEK';
+  }
+
   return {
     command: head,
-    targetBlockRaw: (hashParts[1] || '').trim(),
+    targetBlockRaw,
     parts: hashParts,
   };
 }
@@ -671,7 +989,7 @@ async function processAuthorizedMessage(
     };
   }
 
-  // 5. CEK atau CEK#<BLOK> / CEK <BLOK>
+  // 5. CEK / CEK TAGIHAN / TAGIHAN / IPL / STATUS / CEK#<BLOK>
   if (command === 'CEK') {
     const requestedBlock = normalizeBlockCode(targetBlockRaw);
 
@@ -944,11 +1262,14 @@ export default async function handler(req: VercelReq, res: VercelRes) {
   }
 
   if (req.method === 'GET') {
+    const { authMode, url } = getSupabaseEnv();
     res.status(200).json({
       ok: true,
       service: 'saung-kebun-wa-auto-reply-strict-isolation',
       webhook_url: `${APP_PORTAL_URL}/api/bot-wa/webhook`,
       security: 'Strict Sender-to-Unit Isolation Active',
+      supabase_configured: Boolean(url) && authMode !== 'missing',
+      supabase_auth_mode: authMode,
       commands: ['CEK', 'CEK#<BLOK> (Pengurus)', 'SALDO', 'REKENING', 'BAYAR', 'MENU'],
     });
     return;
@@ -959,157 +1280,236 @@ export default async function handler(req: VercelReq, res: VercelRes) {
     return;
   }
 
-  let body: Record<string, unknown> = {};
-  if (typeof req.body === 'string') {
-    try {
-      body = JSON.parse(req.body) as Record<string, unknown>;
-    } catch {
-      body = {};
+  let stage = 'parse_body';
+
+  try {
+    const body = await parseIncomingBody(req);
+
+    // Langkah A: Ekstraksi & Sanitasi Payload Fonnte / Wablas (JSON maupun x-www-form-urlencoded)
+    const rawSender = String(
+      body.sender || body.phone || body.from || body.pengirim || body.no_wa || body.hp || ''
+    ).trim();
+    const isGroup =
+      body.isGroup === true ||
+      String(body.isGroup || '').toLowerCase() === 'true' ||
+      rawSender.toLowerCase().includes('@g.us') ||
+      Boolean(body.member) ||
+      Boolean(body.participant);
+    const incomingText = String(
+      body.message || body.pesan || body.text || body.msg || body.body || ''
+    ).trim();
+    const senderName = String(
+      body.name || body.pushName || body.pushname || body.nama || 'Warga'
+    ).trim();
+    const dryRun =
+      body.dryRun === true || String(body.dryRun || '').toLowerCase() === 'true';
+
+    if (!incomingText || !rawSender) {
+      res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: 'Pesan atau pengirim kosong.',
+        stage,
+      });
+      return;
     }
-  } else if (req.body && typeof req.body === 'object') {
-    body = req.body as Record<string, unknown>;
-  }
 
-  // Langkah A: Ekstraksi & Sanitasi Payload Fonnte
-  const rawSender = String(body.sender || body.phone || body.from || '').trim();
-  const isGroup =
-    body.isGroup === true ||
-    String(body.isGroup || '').toLowerCase() === 'true' ||
-    rawSender.toLowerCase().includes('@g.us') ||
-    Boolean(body.member);
-  const incomingText = String(body.message || body.pesan || body.text || '').trim();
-  const senderName = String(body.name || body.pushName || 'Warga').trim();
-  const dryRun = Boolean(body.dryRun);
+    if (isGroup) {
+      res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: 'Pesan grup diabaikan demi privasi warga.',
+      });
+      return;
+    }
 
-  if (!incomingText || !rawSender) {
-    res.status(200).json({ ok: true, ignored: true, reason: 'Pesan atau pengirim kosong.' });
-    return;
-  }
+    const cleanSender = normalizePhoneNumber(rawSender);
+    if (!cleanSender || cleanSender.length < 9) {
+      res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: 'Nomor pengirim tidak valid.',
+      });
+      return;
+    }
 
-  if (isGroup) {
-    res.status(200).json({ ok: true, ignored: true, reason: 'Pesan grup diabaikan demi privasi warga.' });
-    return;
-  }
+    const rawText = incomingText.trim().toUpperCase();
 
-  const cleanSender = normalizePhoneNumber(rawSender);
-  if (!cleanSender || cleanSender.length < 9) {
-    res.status(200).json({ ok: true, ignored: true, reason: 'Nomor pengirim tidak valid.' });
-    return;
-  }
+    // Langkah B: Autentikasi Pengirim di Database
+    stage = 'authenticate_sender';
+    const auth = await authenticateSender(cleanSender);
 
-  const rawText = incomingText.trim().toUpperCase();
+    stage = 'build_reply';
+    let replyResult: { command: string; blok: string; reply: string };
+    if (!auth.found) {
+      replyResult = {
+        command: 'UNREGISTERED',
+        blok: 'UNREGISTERED',
+        reply: buildUnregisteredRejectionReply(),
+      };
+    } else {
+      replyResult = await processAuthorizedMessage(rawText, auth);
+    }
 
-  // Langkah B: Autentikasi Pengirim di Database
-  const auth = await authenticateSender(cleanSender);
+    const { authMode } = getSupabaseEnv();
 
-  let replyResult: { command: string; blok: string; reply: string };
-  if (!auth.found) {
-    // KONDISI 1: Nomor Pengirim TIDAK DITEMUKAN di database
-    replyResult = {
-      command: 'UNREGISTERED',
-      blok: 'UNREGISTERED',
-      reply: buildUnregisteredRejectionReply(),
-    };
-  } else {
-    // Langkah C: Identifikasi Perintah & Otorisasi Hak Akses
-    replyResult = await processAuthorizedMessage(rawText, auth);
-  }
+    if (dryRun) {
+      res.status(200).json({
+        ok: true,
+        dryRun: true,
+        sender: cleanSender,
+        authenticated: auth.found,
+        senderRole: auth.found ? auth.role : 'unregistered',
+        supabaseAuthMode: authMode,
+        command: replyResult.command,
+        blok: replyResult.blok,
+        reply: replyResult.reply,
+      });
+      return;
+    }
 
-  if (dryRun) {
+    // Langkah C: Ambil konfigurasi gateway dari bot_wa_config atau env
+    stage = 'load_gateway_config';
+    const configs = await supabaseRestGet<BotConfigRow>(
+      'bot_wa_config?select=aktif,provider,api_endpoint,api_token&limit=1',
+      { retryNonEmptyOnAnon: true }
+    );
+    const dbCfg = configs[0];
+
+    if (dbCfg && dbCfg.aktif === false) {
+      console.info(
+        `[BOT-WA-WEBHOOK] Bot nonaktif, balasan tidak dikirim. sender=${cleanSender} cmd=${replyResult.command}`
+      );
+      res.status(200).json({
+        ok: true,
+        sent: false,
+        command: replyResult.command,
+        reason: 'Bot WA dalam status nonaktif pada pengaturan Admin.',
+      });
+      return;
+    }
+
+    const token =
+      sanitizeSecret(dbCfg?.api_token) ||
+      sanitizeSecret(process.env.FONNTE_TOKEN) ||
+      sanitizeSecret(process.env.BOT_WA_TOKEN);
+    const provider = dbCfg?.provider === 'Wablas' ? 'Wablas' : 'Fonnte';
+    const defaultEndpoint =
+      provider === 'Wablas'
+        ? 'https://pati.wablas.com/api/send-message'
+        : 'https://api.fonnte.com/send';
+    const candidateEndpoint = sanitizeSecret(dbCfg?.api_endpoint);
+    const endpoint = isAllowedGatewayEndpoint(candidateEndpoint)
+      ? candidateEndpoint
+      : defaultEndpoint;
+
+    if (!token) {
+      const reason = 'API Token Fonnte belum tersimpan di bot_wa_config atau env FONNTE_TOKEN.';
+      console.error(`[BOT-WA-WEBHOOK] ${reason} sender=${cleanSender} mode=${authMode}`);
+      await supabaseRestInsert('bot_wa_logs', {
+        blok_rumah: replyResult.blok || 'BOT-WA',
+        nama_warga: auth.found ? auth.displayName : senderName,
+        no_wa: cleanSender,
+        jenis_pesan: `Auto-Reply (${replyResult.command})`,
+        status_kirim: 'Gagal',
+        respon_gateway: `CONFIG_MISSING — ${reason}`,
+        pesan: `Masuk: ${incomingText.slice(0, 120)}\n---\nBalasan: ${replyResult.reply.slice(0, 500)}`,
+      });
+      res.status(200).json({
+        ok: false,
+        sent: false,
+        command: replyResult.command,
+        blok: replyResult.blok,
+        supabaseAuthMode: authMode,
+        reason,
+      });
+      return;
+    }
+
+    // Langkah D: Kirim Balasan ke Gateway WA (dengan timeout & diagnosa jelas)
+    stage = 'send_gateway';
+    let statusKirim: 'Terkirim' | 'Gagal' = 'Gagal';
+    let responGateway = '';
+
+    try {
+      const payload =
+        provider === 'Wablas'
+          ? { phone: cleanSender, message: replyResult.reply }
+          : { target: cleanSender, message: replyResult.reply, countryCode: '62' };
+
+      const gatewayRes = await fetchWithTimeout(
+        endpoint,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+        GATEWAY_TIMEOUT_MS
+      );
+
+      const gatewayText = await gatewayRes.text();
+      let parsed: { status?: boolean; reason?: string; detail?: string; message?: string } | null = null;
+      try {
+        parsed = JSON.parse(gatewayText) as {
+          status?: boolean;
+          reason?: string;
+          detail?: string;
+          message?: string;
+        };
+      } catch {
+        parsed = null;
+      }
+
+      const ok = gatewayRes.ok && parsed?.status !== false;
+      statusKirim = ok ? 'Terkirim' : 'Gagal';
+      const detail =
+        parsed?.reason || parsed?.detail || parsed?.message || gatewayText || 'OK';
+      responGateway = `${gatewayRes.status} — ${String(detail).slice(0, 140)}`;
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.name === 'AbortError'
+          ? `Timeout ${GATEWAY_TIMEOUT_MS}ms menghubungi gateway ${provider}`
+          : err instanceof Error
+            ? err.message
+            : 'Network error';
+      responGateway = msg.slice(0, 140);
+    }
+
+    console.info(
+      `[BOT-WA-WEBHOOK] provider=${provider} mode=${authMode} sender=${cleanSender} blok=${replyResult.blok} cmd=${replyResult.command} status=${statusKirim} detail=${responGateway}`
+    );
+
+    stage = 'write_log';
+    await supabaseRestInsert('bot_wa_logs', {
+      blok_rumah: replyResult.blok || 'BOT-WA',
+      nama_warga: auth.found ? auth.displayName : senderName,
+      no_wa: cleanSender,
+      jenis_pesan: `Auto-Reply (${replyResult.command})`,
+      status_kirim: statusKirim,
+      respon_gateway: responGateway,
+      pesan: `Masuk: ${incomingText.slice(0, 120)}\n---\nBalasan: ${replyResult.reply.slice(0, 500)}`,
+    });
+
     res.status(200).json({
-      ok: true,
-      dryRun: true,
-      sender: cleanSender,
-      authenticated: auth.found,
-      senderRole: auth.found ? auth.role : 'unregistered',
+      ok: statusKirim === 'Terkirim',
+      sent: statusKirim === 'Terkirim',
+      provider,
+      supabaseAuthMode: authMode,
       command: replyResult.command,
       blok: replyResult.blok,
-      reply: replyResult.reply,
+      respon_gateway: responGateway,
     });
-    return;
-  }
-
-  // Ambil konfigurasi token Fonnte/Wablas dari Supabase bot_wa_config atau env FONNTE_TOKEN
-  const configs = await supabaseRestGet<BotConfigRow>(
-    'bot_wa_config?select=aktif,provider,api_endpoint,api_token&limit=1'
-  );
-  const dbCfg = configs[0];
-
-  if (dbCfg && dbCfg.aktif === false) {
-    res.status(200).json({
-      ok: true,
-      sent: false,
-      reason: 'Bot WA dalam status nonaktif pada pengaturan Admin.',
-    });
-    return;
-  }
-
-  const token = (dbCfg?.api_token || process.env.FONNTE_TOKEN || '').trim();
-  const provider = dbCfg?.provider === 'Wablas' ? 'Wablas' : 'Fonnte';
-  const endpoint =
-    (dbCfg?.api_endpoint || '').trim() ||
-    (provider === 'Wablas'
-      ? 'https://pati.wablas.com/api/send-message'
-      : 'https://api.fonnte.com/send');
-
-  if (!token) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Internal webhook error';
+    console.error(`[BOT-WA-WEBHOOK] Unhandled exception stage=${stage}:`, errorMsg);
     res.status(200).json({
       ok: false,
       sent: false,
-      command: replyResult.command,
-      reply: replyResult.reply,
-      reason: 'API Token Fonnte belum tersimpan di bot_wa_config atau env FONNTE_TOKEN.',
+      stage,
+      error: errorMsg,
     });
-    return;
   }
-
-  let statusKirim: 'Terkirim' | 'Gagal' = 'Gagal';
-  let responGateway = '';
-
-  try {
-    const payload =
-      provider === 'Wablas'
-        ? { phone: cleanSender, message: replyResult.reply }
-        : { target: cleanSender, message: replyResult.reply, countryCode: '62' };
-
-    const gatewayRes = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: token,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const gatewayText = await gatewayRes.text();
-    let parsed: { status?: boolean; reason?: string; detail?: string } | null = null;
-    try {
-      parsed = JSON.parse(gatewayText) as { status?: boolean; reason?: string; detail?: string };
-    } catch {
-      parsed = null;
-    }
-
-    const ok = gatewayRes.ok && parsed?.status !== false;
-    statusKirim = ok ? 'Terkirim' : 'Gagal';
-    responGateway = `${gatewayRes.status} — ${String(parsed?.reason || parsed?.detail || gatewayText).slice(0, 140)}`;
-  } catch (err) {
-    responGateway = err instanceof Error ? err.message : 'Network error';
-  }
-
-  await supabaseRestInsert('bot_wa_logs', {
-    blok_rumah: replyResult.blok || 'BOT-WA',
-    nama_warga: auth.found ? auth.displayName : senderName,
-    no_wa: cleanSender,
-    jenis_pesan: `Auto-Reply (${replyResult.command})`,
-    status_kirim: statusKirim,
-    respon_gateway: responGateway,
-    pesan: `Masuk: ${incomingText.slice(0, 120)}\n---\nBalasan: ${replyResult.reply.slice(0, 500)}`,
-  });
-
-  res.status(200).json({
-    ok: statusKirim === 'Terkirim',
-    sent: statusKirim === 'Terkirim',
-    command: replyResult.command,
-    respon_gateway: responGateway,
-  });
 }

@@ -24,7 +24,7 @@ import {
   type StatusEcardBulanan,
   type Warga,
 } from '../../types';
-import { copyToClipboard, formatRupiah } from '../../lib/format';
+import { copyToClipboard, formatBlokRumah, formatRupiah } from '../../lib/format';
 import { submitSetoranWarga, type SetorSubmitStage } from '../../lib/dataService';
 import { compressProofImage, formatFileSize } from '../../lib/imageCompressor';
 
@@ -269,7 +269,7 @@ export function WargaSetorSlide({
               <input
                 type="text"
                 readOnly
-                value={profil.blok_rumah}
+                value={formatBlokRumah(profil.blok_rumah)}
                 className="w-full min-h-[44px] rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 text-sm font-mono font-bold text-slate-700 cursor-not-allowed"
               />
             </div>

@@ -23,6 +23,7 @@ import {
   type Warga,
 } from '../../types';
 import {
+  formatBlokRumah,
   formatRupiah,
   formatTanggalWaktu,
   getCurrentBillingMonth,
@@ -290,7 +291,7 @@ export function WargaHomeSlide({
             <div className="sm:text-right">
               <p className="text-xs text-indigo-200/80">Blok / No. Rumah</p>
               <p className="text-2xl sm:text-3xl font-bold font-mono text-[#A7F3D0] tracking-tight tabular-nums mt-0.5">
-                {profil.blok_rumah}
+                {formatBlokRumah(profil.blok_rumah)}
               </p>
             </div>
           </div>

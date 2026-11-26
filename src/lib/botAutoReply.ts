@@ -325,9 +325,17 @@ export function generateBotAutoReply(
     };
   }
 
-  // 4. CEK atau CEK#<BLOK> / CEK <BLOK>
-  if (head === 'CEK') {
-    const requestedBlock = normalizeBlockCode(targetBlockRaw);
+  // 4. CEK / CEK TAGIHAN / TAGIHAN / IPL / STATUS / CEK#<BLOK> / CEK <BLOK>
+  if (
+    ['CEK', 'TAGIHAN', 'IPL', 'STATUS'].includes(head) ||
+    upper === 'CEK TAGIHAN' ||
+    upper.startsWith('CEK TAGIHAN ')
+  ) {
+    const resolvedTargetRaw =
+      upper.startsWith('CEK TAGIHAN ')
+        ? raw.slice('CEK TAGIHAN'.length).trim()
+        : targetBlockRaw;
+    const requestedBlock = normalizeBlockCode(resolvedTargetRaw);
 
     if (!isPrivileged && requestedBlock) {
       if (!senderUnit || !isSameBlockCode(requestedBlock, senderUnit.blok_rumah)) {

@@ -38,11 +38,14 @@ import {
   buildWargaBotActivationMessage,
   buildWhatsAppLink,
   canonicalizeBlokKey,
+  compareBlokRumah,
   copyToClipboard,
+  formatBlokRumah,
   formatPhoneDisplay,
   formatRupiah,
   generateRandomPin,
   isRealRegisteredPhone,
+  matchesBlockSearch,
   normalizeBlockCode,
   normalizePhoneNumber,
 } from '../../lib/format';
@@ -184,20 +187,22 @@ export function AdminWargaSlide({
   const filteredWarga = useMemo(() => {
     const q = search.trim().toLowerCase();
     const qNormPhone = normalizePhoneNumber(search);
-    return effectiveWargaList.filter((w) => {
-      const occupancy = resolveOccupancyStatus(w);
-      const matchOccupancy = occupancyFilter === 'all' || occupancy === occupancyFilter;
-      const matchSearch =
-        !q ||
-        w.blok_rumah.toLowerCase().includes(q) ||
-        w.nama_warga.toLowerCase().includes(q) ||
-        w.no_wa.includes(q) ||
-        (w.secondary_whatsapp || '').includes(q) ||
-        (qNormPhone.length >= 4 &&
-          (normalizePhoneNumber(w.no_wa).includes(qNormPhone) ||
-            normalizePhoneNumber(w.secondary_whatsapp).includes(qNormPhone)));
-      return matchOccupancy && matchSearch;
-    });
+    return effectiveWargaList
+      .filter((w) => {
+        const occupancy = resolveOccupancyStatus(w);
+        const matchOccupancy = occupancyFilter === 'all' || occupancy === occupancyFilter;
+        const matchSearch =
+          !q ||
+          matchesBlockSearch(w.blok_rumah, search) ||
+          w.nama_warga.toLowerCase().includes(q) ||
+          w.no_wa.includes(q) ||
+          (w.secondary_whatsapp || '').includes(q) ||
+          (qNormPhone.length >= 4 &&
+            (normalizePhoneNumber(w.no_wa).includes(qNormPhone) ||
+              normalizePhoneNumber(w.secondary_whatsapp).includes(qNormPhone)));
+        return matchOccupancy && matchSearch;
+      })
+      .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
   }, [effectiveWargaList, search, occupancyFilter]);
 
   useEffect(() => {
@@ -630,7 +635,7 @@ export function AdminWargaSlide({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-[#F5F3FF] border border-indigo-200/80 font-mono font-bold text-xs text-[#4C1D95] whitespace-nowrap">
-                          {w.blok_rumah}
+                          {formatBlokRumah(w.blok_rumah) || w.blok_rumah}
                         </span>
                         {isPrivilegedBot && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap">
@@ -888,7 +893,7 @@ export function AdminWargaSlide({
                       className="group bg-white dark:bg-[#111827] hover:bg-[#F8FAFC] dark:hover:bg-slate-800/80 transition-colors"
                     >
                       <td className="sticky left-0 z-10 bg-[var(--theme-surface-solid)] group-hover:bg-[#F8FAFC] dark:group-hover:bg-[#1e293b] py-3.5 px-4 font-mono font-bold text-[#0F172A] whitespace-nowrap align-middle border-r border-[#E2E8F0]/80 dark:border-slate-800 shadow-[4px_0_12px_-4px_rgba(15,23,42,0.08)] transition-colors">
-                        {w.blok_rumah}
+                        {formatBlokRumah(w.blok_rumah) || w.blok_rumah}
                       </td>
                       <td className="py-3.5 px-4 min-w-[180px] max-w-[250px] whitespace-normal align-middle">
                         <div className="flex items-center gap-2.5">
@@ -1166,7 +1171,7 @@ export function AdminWargaSlide({
           >
             <div className="shrink-0 px-4 sm:px-5 py-4 border-b border-indigo-100/80 bg-indigo-50/40 flex items-center justify-between gap-2">
               <h3 className="text-sm sm:text-base font-bold text-[#0F172A] truncate">
-                {form.id ? `Edit Data Warga — ${form.blok_rumah}` : 'Tambah Unit Warga Baru'}
+                {form.id ? `Edit Data Warga — ${formatBlokRumah(form.blok_rumah) || form.blok_rumah}` : 'Tambah Unit Warga Baru'}
               </h3>
               <button
                 type="button"
@@ -1583,7 +1588,7 @@ export function AdminWargaSlide({
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
                 Anda akan menghapus unit{' '}
                 <span className="font-mono font-bold text-[#0F172A]">
-                  {deleteTarget.blok_rumah}
+                  {formatBlokRumah(deleteTarget.blok_rumah) || deleteTarget.blok_rumah}
                 </span>{' '}
                 atas nama <span className="font-semibold">{deleteTarget.nama_warga}</span>. Tindakan
                 ini akan mencabut akses login e-Card rumah tersebut.

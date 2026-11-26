@@ -8,6 +8,7 @@ import {
 import { type TransaksiIPL, type TransaksiKas } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import {
+  formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
   formatTanggal,
@@ -216,7 +217,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                       <span className="col-span-7 sm:col-span-8 font-bold text-[#0F172A] break-words">
                         {props.trx.nama_warga}{' '}
                         <span className="font-mono text-emerald-700 whitespace-nowrap">
-                          (Blok {props.trx.blok_rumah})
+                          (Blok {formatBlokRumah(props.trx.blok_rumah) || props.trx.blok_rumah})
                         </span>
                       </span>
                     </div>

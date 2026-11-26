@@ -30,7 +30,7 @@ import {
   type BugReportStatus,
 } from '../lib/bugReportService';
 import { formatFileSize } from '../lib/imageCompressor';
-import { formatTanggalWaktu } from '../lib/format';
+import { formatBlokRumah, formatTanggalWaktu } from '../lib/format';
 
 interface BugReportCardProps {
   session: SessionUser;
@@ -608,7 +608,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                         <p className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {isAdmin && (
                             <span className="font-semibold text-slate-700">
-                              {item.reporter_name} ({item.reporter_role === 'warga' ? `Blok ${item.blok_rumah}` : item.reporter_role})
+                              {item.reporter_name} ({item.reporter_role === 'warga' ? `Blok ${formatBlokRumah(item.blok_rumah)}` : item.reporter_role})
                             </span>
                           )}
                           <span className="inline-flex items-center gap-1">

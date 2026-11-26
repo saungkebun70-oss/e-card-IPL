@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import { getStatusVerifikasiLabel, type TransaksiIPL, type Warga } from '../../types';
-import { formatDaftarBulan, formatRupiah, formatTanggalWaktu } from '../../lib/format';
+import { formatBlokRumah, formatDaftarBulan, formatRupiah, formatTanggalWaktu } from '../../lib/format';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 
 interface WargaRiwayatSlideProps {
@@ -28,7 +28,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
         <FileText className="w-10 h-10 text-indigo-300 mx-auto" />
         <h2 className="text-base font-bold text-[#0F172A] mt-3">Belum Ada Riwayat Setoran</h2>
         <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-          Riwayat pembayaran IPL untuk Blok {profil.blok_rumah} dan e-Kwitansi digital Anda akan
+          Riwayat pembayaran IPL untuk Blok {formatBlokRumah(profil.blok_rumah)} dan e-Kwitansi digital Anda akan
           tampil di halaman ini setelah setoran dikirim.
         </p>
         <button
@@ -47,7 +47,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
-            Riwayat Transaksi Blok {profil.blok_rumah}
+            Riwayat Transaksi Blok {formatBlokRumah(profil.blok_rumah)}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
             Menampilkan {riwayat.length} transaksi terbaru milik rumah Anda.

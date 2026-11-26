@@ -7,6 +7,7 @@ import {
   type TransaksiKas,
 } from '../types';
 import {
+  formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
   formatTanggal,
@@ -687,7 +688,7 @@ export async function downloadKwitansiIplPdf(
       1: { cellWidth: CONTENT_WIDTH - 54 },
     },
     body: [
-      ['Telah Diterima Dari', `${trx.nama_warga} (Blok / Unit ${trx.blok_rumah})`],
+      ['Telah Diterima Dari', `${trx.nama_warga} (Blok / Unit ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah})`],
       ['Nomor Kwitansi', trx.no_kwitansi],
       ['Tanggal Pembayaran', formatTanggal(trx.tanggal_setor)],
       ['Periode Tagihan IPL', `${formatDaftarBulan(trx.bulan_dibayar)} ${trx.tahun}`],
@@ -709,10 +710,11 @@ export async function downloadKwitansiIplPdf(
 
   addPageNumbers(doc);
   const safeName = trx.no_kwitansi.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const displayBlok = formatBlokRumah(trx.blok_rumah) || trx.blok_rumah;
   const mode = options?.mode || 'download';
   return exportPdfDocument(doc, `Kwitansi_IPL_${safeName}.pdf`, {
-    title: `Kwitansi IPL ${trx.blok_rumah} (${trx.no_kwitansi})`,
-    text: `Kwitansi Resmi IPL ${trx.nama_warga} Blok ${trx.blok_rumah} — ${formatRupiah(trx.nominal)}`,
+    title: `Kwitansi IPL ${displayBlok} (${trx.no_kwitansi})`,
+    text: `Kwitansi Resmi IPL ${trx.nama_warga} Blok ${displayBlok} — ${formatRupiah(trx.nominal)}`,
     dialogTitle:
       mode === 'print'
         ? 'Cetak atau Bagikan Kwitansi IPL PDF'

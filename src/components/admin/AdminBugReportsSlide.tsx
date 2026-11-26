@@ -32,7 +32,7 @@ import {
   type BugReportRecord,
   type BugReportStatus,
 } from '../../lib/bugReportService';
-import { formatTanggalWaktu } from '../../lib/format';
+import { formatBlokRumah, formatTanggalWaktu } from '../../lib/format';
 
 interface AdminBugReportsSlideProps {
   session: SessionUser;
@@ -524,7 +524,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                         <User className="w-3.5 h-3.5 text-slate-400" />
                         {item.reporter_name} (
                         {item.reporter_role === 'warga'
-                          ? `Blok ${item.blok_rumah}`
+                          ? `Blok ${formatBlokRumah(item.blok_rumah)}`
                           : item.reporter_role}
                         )
                       </span>

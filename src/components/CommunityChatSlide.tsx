@@ -55,6 +55,7 @@ import {
   type AttachmentPickerKind,
   type UploadQueueItem,
 } from '../lib/chat/attachmentUtils';
+import { matchesBlockSearch } from '../lib/format';
 import { UserAvatar } from './UserAvatar';
 import { ChatAttachmentMenu } from './chat/ChatAttachmentMenu';
 import { UploadProgress } from './chat/UploadProgress';
@@ -642,7 +643,7 @@ export function CommunityChatSlide({
     [avatarMap]
   );
 
-  // Deduplikasi ganda & filter pencarian kontak DM berdasarkan Peran, Nama, Blok/Nomor Rumah
+  // Deduplikasi ganda & filter pencarian kontak DM berdasarkan Peran, Nama, Blok/Nomor Rumah (toleran nol di depan)
   const filteredContacts = useMemo(() => {
     const q = contactSearch.trim().toLowerCase();
     const seen = new Set<string>();
@@ -652,7 +653,10 @@ export function CommunityChatSlide({
       if (contactRoleFilter !== 'semua' && c.role !== contactRoleFilter) continue;
       if (q) {
         const hay = `${c.display_name} ${c.subtitle} ${c.role_label || ''} ${c.unit_label || ''} ${c.blok_or_code}`.toLowerCase();
-        if (!hay.includes(q)) continue;
+        const blockMatched =
+          matchesBlockSearch(c.blok_or_code, contactSearch) ||
+          matchesBlockSearch(c.unit_label || '', contactSearch);
+        if (!hay.includes(q) && !blockMatched) continue;
       }
       const uniqueKey = c.dedup_key || `${c.participant_id}:${c.role}:${c.blok_or_code}`;
       if (seen.has(uniqueKey)) continue;

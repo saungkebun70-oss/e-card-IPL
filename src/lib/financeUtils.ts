@@ -5,7 +5,7 @@ import {
   type TransaksiKas,
   type Warga,
 } from '../types';
-import { canonicalizeBlokKey, formatDaftarBulan, formatRupiah, getNamaBulan } from './format';
+import { canonicalizeBlokKey, formatBlokRumah, formatDaftarBulan, formatRupiah, getNamaBulan } from './format';
 
 export interface GlobalCashSummary {
   totalIplMasuk: number;
@@ -266,7 +266,7 @@ export function buildMonthlyCashReport(
         tanggal: effDate,
         sortKey: new Date(trx.verified_at || trx.tanggal_setor).getTime() || parts.ts,
         noBukti: trx.no_kwitansi,
-        uraian: `IPL Blok ${trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
+        uraian: `IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
         kategori: `IPL Warga (${trx.metode_bayar})`,
         masuk: nominal,
         keluar: 0,
@@ -391,7 +391,7 @@ export function buildQuarterlyLpjReport(
         tanggal: effDate,
         sortKey: new Date(trx.verified_at || trx.tanggal_setor).getTime() || parts.ts,
         noBukti: trx.no_kwitansi,
-        uraian: `IPL Blok ${trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
+        uraian: `IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
         kategori: `IPL Warga (${trx.metode_bayar})`,
         masuk: nominal,
         keluar: 0,
@@ -453,7 +453,7 @@ export function buildQuarterlyLpjReport(
 
   // Hitung tingkat kepatuhan pembayaran warga per bulan pada triwulan ini
   const activeUnits = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
-  const activeUnitSet = new Set(activeUnits.map((w) => w.blok_rumah));
+  const activeUnitSet = new Set(activeUnits.map((w) => canonicalizeBlokKey(w.blok_rumah)));
   const totalUnitAktif = activeUnits.length;
 
   const kepatuhanPerBulan: KepatuhanBulananItem[] = tw.bulan.map((bulan) => {
@@ -464,9 +464,9 @@ export function buildQuarterlyLpjReport(
             s.tahun === tahun &&
             s.bulan === bulan &&
             s.status === 'Lunas' &&
-            activeUnitSet.has(s.blok_rumah)
+            activeUnitSet.has(canonicalizeBlokKey(s.blok_rumah))
         )
-        .map((s) => s.blok_rumah)
+        .map((s) => canonicalizeBlokKey(s.blok_rumah))
     );
 
     const nominalBulan = verifiedIpl

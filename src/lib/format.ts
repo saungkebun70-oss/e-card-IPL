@@ -77,12 +77,12 @@ export function getDefaultUnpaidStatusForMonth(bulan: number): StatusBulanEcard 
 }
 
 export function extractBlokPrefix(blokRumah: string): string {
-  const clean = blokRumah.trim().toUpperCase();
-  const slashIdx = clean.indexOf('/');
+  const formatted = formatBlokRumah(blokRumah).toUpperCase();
+  const slashIdx = formatted.indexOf('/');
   if (slashIdx > 0) {
-    return clean.slice(0, slashIdx);
+    return formatted.slice(0, slashIdx);
   }
-  return clean.slice(0, 3) || 'LAIN';
+  return formatted.slice(0, 3) || 'LAIN';
 }
 
 export function generateRandomPin(): string {
@@ -91,18 +91,24 @@ export function generateRandomPin(): string {
 
 import {
   canonicalBlockKey,
+  compareBlokRumah,
+  formatBlokRumah,
   formatPhoneDisplay,
   isRealRegisteredPhone,
   isSameBlockCode,
+  matchesBlockSearch,
   normalizeBlockCode,
   normalizePhoneNumber,
 } from './phoneAndBlockUtils';
 
 export {
   canonicalBlockKey,
+  compareBlokRumah,
+  formatBlokRumah,
   formatPhoneDisplay,
   isRealRegisteredPhone,
   isSameBlockCode,
+  matchesBlockSearch,
   normalizeBlockCode,
   normalizePhoneNumber,
 };
@@ -125,9 +131,10 @@ export function buildWhatsAppLink(phone: string, message: string): string {
 }
 
 export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blok_rumah' | 'pin_akses'>): string {
+  const displayBlok = formatBlokRumah(warga.blok_rumah) || warga.blok_rumah;
   return WA_ACCESS_TEMPLATE_DEFAULT
     .replaceAll('{nama_warga}', warga.nama_warga)
-    .replaceAll('{blok_rumah}', warga.blok_rumah)
+    .replaceAll('{blok_rumah}', displayBlok)
     .replaceAll('{pin_akses}', warga.pin_akses)
     .replaceAll('{link_aplikasi}', APP_PORTAL_URL);
 }
@@ -135,7 +142,7 @@ export function buildWargaAccessWaMessage(warga: Pick<Warga, 'nama_warga' | 'blo
 export function buildWargaBotActivationMessage(
   warga: Pick<Warga, 'nama_warga' | 'blok_rumah' | 'bot_role'>
 ): string {
-  const paddedBlock = normalizeBlockCode(warga.blok_rumah) || warga.blok_rumah;
+  const paddedBlock = formatBlokRumah(warga.blok_rumah) || warga.blok_rumah;
   const isPengurus = warga.bot_role === 'admin' || warga.bot_role === 'bendahara';
   return [
     `*Aktivasi Layanan Bot WhatsApp e-Card IPL — Perumahan Saung Kebun*`,

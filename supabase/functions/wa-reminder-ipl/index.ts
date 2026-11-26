@@ -15,13 +15,93 @@ const NAMA_BULAN = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
+const GATEWAY_TIMEOUT_MS = 12000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function sanitizeSecret(raw: string | null | undefined): string {
+  return String(raw || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+}
+
 function formatRupiah(nominal: number) {
   return `Rp ${Number(nominal || 0).toLocaleString('id-ID')}`;
+}
+
+function formatBlokRumah(rawBlok: string | null | undefined): string {
+  const cleaned = String(rawBlok || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/-/g, '/');
+  if (!cleaned) return '';
+  const match = cleaned.match(/^([A-Z]+)0*(\d+)\/0*(\d+)([A-Z]*)$/);
+  if (match) {
+    const [, prefix, blockNum, houseNum, suffix] = match;
+    return `${prefix}${blockNum.padStart(2, '0')}/${houseNum.padStart(2, '0')}${suffix}`;
+  }
+  return cleaned;
+}
+
+function canonicalBlockKey(rawBlok: string | null | undefined): string {
+  const cleaned = String(rawBlok || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/-/g, '/');
+  const match = cleaned.match(/^([A-Z]+)0*(\d+)\/0*(\d+)([A-Z]*)$/);
+  if (match) {
+    return `${match[1]}${Number(match[2])}/${Number(match[3])}${match[4]}`;
+  }
+  return cleaned;
+}
+
+function normalizePhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return '';
+  let cleaned = String(phone)
+    .trim()
+    .replace(/@(s\.whatsapp\.net|c\.us|g\.us|lid)$/i, '')
+    .replace(/[\s\-+.]/g, '')
+    .replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.startsWith('0')) cleaned = `62${cleaned.slice(1)}`;
+  else if (cleaned.startsWith('8')) cleaned = `62${cleaned}`;
+  return cleaned;
+}
+
+function isAllowedGatewayEndpoint(endpoint: string): boolean {
+  try {
+    const parsed = new URL(endpoint);
+    return (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname === 'api.fonnte.com' ||
+        parsed.hostname === 'wablas.com' ||
+        parsed.hostname.endsWith('.wablas.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // @ts-expect-error -- Deno global tersedia di runtime Edge Function Supabase
@@ -32,11 +112,13 @@ Deno.serve(async (req: Request) => {
 
   try {
     // @ts-expect-error -- Deno.env di runtime Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseUrl = sanitizeSecret(Deno.env.get('SUPABASE_URL'));
     // @ts-expect-error -- Deno.env di runtime Supabase
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const serviceRoleKey = sanitizeSecret(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
     // @ts-expect-error -- Deno.env di runtime Supabase
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://e-card-ipl.vercel.app';
+    const envFonnteToken = sanitizeSecret(Deno.env.get('FONNTE_TOKEN'));
+    // @ts-expect-error -- Deno.env di runtime Supabase
+    const appUrl = sanitizeSecret(Deno.env.get('APP_URL')) || 'https://e-card-ipl.vercel.app';
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const body = await req.json().catch(() => ({}));
@@ -51,6 +133,22 @@ Deno.serve(async (req: Request) => {
     if (!config || !config.aktif) {
       return new Response(
         JSON.stringify({ ok: false, sent: 0, message: 'Bot WA dalam status nonaktif.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    const token = sanitizeSecret(config.api_token) || envFonnteToken;
+    const provider = config.provider === 'Wablas' ? 'Wablas' : 'Fonnte';
+    const defaultEndpoint =
+      provider === 'Wablas'
+        ? 'https://pati.wablas.com/api/send-message'
+        : 'https://api.fonnte.com/send';
+    const rawEndpoint = sanitizeSecret(config.api_endpoint);
+    const endpoint = isAllowedGatewayEndpoint(rawEndpoint) ? rawEndpoint : defaultEndpoint;
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ ok: false, sent: 0, message: 'API Token gateway WhatsApp belum diisi.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
@@ -91,11 +189,11 @@ Deno.serve(async (req: Request) => {
     const paidOrPendingSet = new Set(
       (statusBulanIni || [])
         .filter((s: { status: string }) => s.status === 'Lunas' || s.status === 'Menunggu Verifikasi')
-        .map((s: { blok_rumah: string }) => s.blok_rumah)
+        .map((s: { blok_rumah: string }) => canonicalBlockKey(s.blok_rumah))
     );
 
     const targets = (wargaList || []).filter(
-      (w: { blok_rumah: string }) => !paidOrPendingSet.has(w.blok_rumah)
+      (w: { blok_rumah: string }) => !paidOrPendingSet.has(canonicalBlockKey(w.blok_rumah))
     );
 
     const bulanLabel = `${NAMA_BULAN[bulan - 1]} ${tahun}`;
@@ -113,9 +211,11 @@ Deno.serve(async (req: Request) => {
 
     for (let i = 0; i < targets.length; i++) {
       const w = targets[i];
+      const displayBlok = formatBlokRumah(w.blok_rumah) || w.blok_rumah;
+      const cleanPhone = normalizePhoneNumber(w.no_wa);
       const pesan = String(config.template_pesan || '')
         .replaceAll('{nama_warga}', w.nama_warga)
-        .replaceAll('{blok_rumah}', w.blok_rumah)
+        .replaceAll('{blok_rumah}', displayBlok)
         .replaceAll('{pin_akses}', w.pin_akses || '')
         .replaceAll('{bulan_tagihan}', bulanLabel)
         .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
@@ -124,33 +224,59 @@ Deno.serve(async (req: Request) => {
       let statusKirim: 'Terkirim' | 'Gagal' = 'Gagal';
       let responGateway = '';
 
-      try {
-        const headers: Record<string, string> = {
-          Authorization: config.api_token,
-          'Content-Type': 'application/json',
-        };
-        const payload =
-          config.provider === 'Wablas'
-            ? { phone: w.no_wa, message: pesan }
-            : { target: w.no_wa, message: pesan, delay: '2-5' };
+      if (!cleanPhone || cleanPhone.length < 10) {
+        responGateway = 'Nomor WhatsApp warga belum terdaftar / tidak valid';
+      } else {
+        try {
+          const headers: Record<string, string> = {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          };
+          const payload =
+            provider === 'Wablas'
+              ? { phone: cleanPhone, message: pesan }
+              : { target: cleanPhone, message: pesan, delay: '2-5', countryCode: '62' };
 
-        const res = await fetch(config.api_endpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-        });
-        const text = await res.text();
-        statusKirim = res.ok ? 'Terkirim' : 'Gagal';
-        responGateway = `${res.status} — ${text.slice(0, 140)}`;
-        if (res.ok) sent += 1;
-      } catch (err) {
-        responGateway = err instanceof Error ? err.message : 'Network error';
+          const res = await fetchWithTimeout(
+            endpoint,
+            {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(payload),
+            },
+            GATEWAY_TIMEOUT_MS
+          );
+          const text = await res.text();
+          let parsed: { status?: boolean; reason?: string; detail?: string; message?: string } | null = null;
+          try {
+            parsed = JSON.parse(text) as {
+              status?: boolean;
+              reason?: string;
+              detail?: string;
+              message?: string;
+            };
+          } catch {
+            parsed = null;
+          }
+          const ok = res.ok && parsed?.status !== false;
+          statusKirim = ok ? 'Terkirim' : 'Gagal';
+          const detail = parsed?.reason || parsed?.detail || parsed?.message || text;
+          responGateway = `${res.status} — ${String(detail || 'OK').slice(0, 140)}`;
+          if (ok) sent += 1;
+        } catch (err) {
+          responGateway =
+            err instanceof Error && err.name === 'AbortError'
+              ? `Timeout ${GATEWAY_TIMEOUT_MS}ms menghubungi gateway ${provider}`
+              : err instanceof Error
+                ? err.message
+                : 'Network error';
+        }
       }
 
       await supabase.from('bot_wa_logs').insert({
-        blok_rumah: w.blok_rumah,
+        blok_rumah: displayBlok,
         nama_warga: w.nama_warga,
-        no_wa: w.no_wa,
+        no_wa: cleanPhone || w.no_wa,
         jenis_pesan: jenisPesan,
         status_kirim: statusKirim,
         respon_gateway: responGateway,

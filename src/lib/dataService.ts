@@ -53,6 +53,8 @@ import {
 import {
   buildWargaBotActivationMessage,
   canonicalizeBlokKey,
+  compareBlokRumah,
+  formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
   generateBuktiKasNumber,
@@ -453,9 +455,13 @@ function buildWargaBlokCandidates(input: string): string[] {
   const rawNormalized = normalizeBlok(input).replace(/-/g, '/');
   if (!rawNormalized) return [];
   const candidates = [rawNormalized];
+  const padded = formatBlokRumah(rawNormalized);
+  if (padded && !candidates.includes(padded)) {
+    candidates.push(padded);
+  }
   const unpaddedMatch = rawNormalized.match(/^([A-Z]+)0*(\d+)\/0*(\d+)$/);
   if (unpaddedMatch) {
-    const canonical = `${unpaddedMatch[1]}${unpaddedMatch[2]}/${unpaddedMatch[3]}`;
+    const canonical = `${unpaddedMatch[1]}${Number(unpaddedMatch[2])}/${Number(unpaddedMatch[3])}`;
     if (!candidates.includes(canonical)) {
       candidates.unshift(canonical);
     }
@@ -1927,12 +1933,14 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
       })();
       const remoteBotLogs = !botLogRes.error ? ((botLogRes.data || []) as BotWaLog[]) : [];
 
-      const wargaList = ((wargaRes.data || []) as Warga[]).map((w) =>
-        normalizeWargaRecord({
-          ...w,
-          avatar_url: w.avatar_url || getCachedAvatarUrl('warga', w.blok_rumah) || null,
-        })
-      );
+      const wargaList = ((wargaRes.data || []) as Warga[])
+        .map((w) =>
+          normalizeWargaRecord({
+            ...w,
+            avatar_url: w.avatar_url || getCachedAvatarUrl('warga', w.blok_rumah) || null,
+          })
+        )
+        .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
       const pengurusAccounts = buildPengurusAccountsList(
         session,
         !adminAccRes.error
@@ -1989,9 +1997,7 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
   ensureLocalStoreInitialized();
   const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA)
     .map(normalizeWargaRecord)
-    .sort((a, b) =>
-      a.blok_rumah.localeCompare(b.blok_rumah, undefined, { numeric: true })
-    );
+    .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
   for (const w of wargaList) {
     syncLocalStatusForHouse(w.blok_rumah);
   }
@@ -4280,7 +4286,7 @@ export async function triggerManualWaReminderAdmin(
     no_wa: normalizeWaNumber(w.no_wa),
     pesan: config.template_pesan
       .replaceAll('{nama_warga}', w.nama_warga)
-      .replaceAll('{blok_rumah}', w.blok_rumah)
+      .replaceAll('{blok_rumah}', formatBlokRumah(w.blok_rumah) || w.blok_rumah)
       .replaceAll('{pin_akses}', w.pin_akses)
       .replaceAll('{bulan_tagihan}', bulanNama)
       .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
@@ -4440,7 +4446,7 @@ export async function sendWargaAccessCredentialsWaAdmin(
     no_wa: normalizeWaNumber(w.no_wa),
     pesan: templateToUse
       .replaceAll('{nama_warga}', w.nama_warga)
-      .replaceAll('{blok_rumah}', w.blok_rumah)
+      .replaceAll('{blok_rumah}', formatBlokRumah(w.blok_rumah) || w.blok_rumah)
       .replaceAll('{pin_akses}', w.pin_akses)
       .replaceAll('{bulan_tagihan}', bulanNama)
       .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))

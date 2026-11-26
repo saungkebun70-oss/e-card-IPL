@@ -11,7 +11,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { type SessionUser, type Warga } from '../../types';
-import { buildWhatsAppLink, formatRupiah } from '../../lib/format';
+import { buildWhatsAppLink, formatBlokRumah, formatRupiah } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 import { PanduanAplikasiModal } from './PanduanAplikasiModal';
@@ -46,7 +46,8 @@ export function WargaProfilSlide({
   const { brand } = useAppBrand();
   const [panduanWaOpen, setPanduanWaOpen] = useState(false);
   const [panduanAppOpen, setPanduanAppOpen] = useState(false);
-  const waMessage = `Halo ${brand.wa_pengurus_label || 'Pengurus Lingkungan Perumahan Saung Kebun'}, saya ${profil.nama_warga} dari Blok ${profil.blok_rumah} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal ${brand.app_name}.`;
+  const displayBlok = formatBlokRumah(profil.blok_rumah);
+  const waMessage = `Halo ${brand.wa_pengurus_label || 'Pengurus Lingkungan Perumahan Saung Kebun'}, saya ${profil.nama_warga} dari Blok ${displayBlok} ingin mengajukan bantuan terkait PIN / perubahan nomor WhatsApp pada portal ${brand.app_name}.`;
   const waHref = buildWhatsAppLink(brand.wa_pengurus, waMessage);
 
   return (
@@ -58,7 +59,7 @@ export function WargaProfilSlide({
             <ProfileAvatarEditor
               session={session}
               avatarUrl={profil.avatar_url ?? session.avatar_url ?? null}
-              subtitle={`Blok ${profil.blok_rumah} · Status ${profil.status_hunian}`}
+              subtitle={`Blok ${displayBlok} · Status ${profil.status_hunian}`}
               onAvatarUpdated={onAvatarUpdated}
               onToast={onToast}
             />
@@ -77,7 +78,7 @@ export function WargaProfilSlide({
                 <Home className="w-4 h-4 text-[#4C1D95]" />
                 Blok / No. Rumah
               </dt>
-              <dd className="font-mono font-bold text-[#0F172A] text-right">{profil.blok_rumah}</dd>
+              <dd className="font-mono font-bold text-[#0F172A] text-right">{displayBlok}</dd>
             </div>
             <div className="py-3.5 flex items-center justify-between gap-4">
               <dt className="text-slate-500">Status Hunian</dt>
@@ -134,7 +135,7 @@ export function WargaProfilSlide({
             <h3 className="text-base font-bold text-[#0F172A]">Keamanan &amp; Privasi Akun</h3>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed">
               Akun ini terkunci secara eksklusif untuk unit{' '}
-              <span className="font-mono font-semibold">{profil.blok_rumah}</span>. Demi keamanan
+              <span className="font-mono font-semibold">{displayBlok}</span>. Demi keamanan
               data warga, permintaan reset PIN 6 digit atau pembaruan nomor WhatsApp diproses
               langsung oleh Pengurus Lingkungan.
             </p>

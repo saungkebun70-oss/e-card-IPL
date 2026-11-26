@@ -22,7 +22,7 @@ import {
   TANGGAL_TERBIT_TAGIHAN,
   type Warga,
 } from '../../types';
-import { formatRupiah } from '../../lib/format';
+import { formatBlokRumah, formatRupiah } from '../../lib/format';
 
 interface PanduanAplikasiModalProps {
   open: boolean;
@@ -119,7 +119,7 @@ export function PanduanAplikasiModal({
                   <p className="text-xs text-slate-500 mt-0.5">
                     Perumahan Saung Kebun · Unit{' '}
                     <span className="font-mono font-semibold text-slate-700">
-                      {profil.blok_rumah}
+                      {formatBlokRumah(profil.blok_rumah)}
                     </span>{' '}
                     · Langkah <span className="font-mono tabular-nums">{step + 1}/{TOTAL_STEPS}</span>
                   </p>
