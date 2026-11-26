@@ -405,7 +405,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Contoh: asep"
-                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
+                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-4 text-base text-[#0F172A] placeholder:text-slate-400 focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
                   />
                 </div>
               </div>
@@ -429,7 +429,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••••"
-                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-12 text-sm text-[#0F172A] placeholder:text-slate-400 tracking-[0.28em] font-mono focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
+                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-12 text-base text-[#0F172A] placeholder:text-slate-400 tracking-[0.28em] font-mono focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
                   />
                   <button
                     type="button"

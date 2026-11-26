@@ -18,6 +18,7 @@ import {
   fetchPrivateAttachmentBlobUrl,
   isPrivateChatRoom,
   resolveChatAttachmentAccess,
+  sanitizeUserFacingChatUploadError,
 } from '../../lib/chatMediaUpload';
 import {
   formatFileSize,
@@ -183,12 +184,17 @@ export function PrivateDrivePreviewModal({
         if (signal.aborted) return;
         const rawReason = (err as { reason?: unknown } | null)?.reason;
         const cleanReason =
-          typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null;
+          typeof rawReason === 'string' && rawReason.trim()
+            ? sanitizeUserFacingChatUploadError(rawReason.trim())
+            : null;
         setState({
           loading: false,
           error:
             err instanceof Error
-              ? err.message
+              ? sanitizeUserFacingChatUploadError(
+                  err.message,
+                  'Gagal memverifikasi akses berkas lampiran.'
+                )
               : 'Gagal memverifikasi akses berkas lampiran.',
           reason: cleanReason,
           sourceUrl: null,

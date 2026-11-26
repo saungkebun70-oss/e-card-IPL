@@ -125,28 +125,52 @@ const STORAGE_KEYS = {
 const memoryStorageFallback = new Map<string, string>();
 
 function safeStorageGet(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return memoryStorageFallback.get(key) ?? null;
+  if (typeof window !== 'undefined') {
+    try {
+      const localVal = window.localStorage.getItem(key);
+      if (localVal !== null) return localVal;
+    } catch {
+      // Abaikan jika localStorage diblokir di WebView/Safari Private Mode
+    }
+    try {
+      const sessionVal = window.sessionStorage.getItem(key);
+      if (sessionVal !== null) return sessionVal;
+    } catch {
+      // Abaikan jika sessionStorage diblokir
+    }
   }
+  return memoryStorageFallback.get(key) ?? null;
 }
 
 function safeStorageSet(key: string, value: string) {
   memoryStorageFallback.set(key, value);
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Aman untuk iOS Safari Private Mode / WebView dengan kuota terbatas
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // Aman untuk iOS Safari Private Mode / WebView dengan kuota terbatas
+    }
+    try {
+      window.sessionStorage.setItem(key, value);
+    } catch {
+      // Abaikan jika sessionStorage diblokir
+    }
   }
 }
 
 function safeStorageRemove(key: string) {
   memoryStorageFallback.delete(key);
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Abaikan
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Abaikan
+    }
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Abaikan
+    }
   }
 }
 

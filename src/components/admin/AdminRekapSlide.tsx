@@ -19,6 +19,7 @@ import {
   isKetuaRole,
   NOMINAL_IPL_STANDAR,
   PETUGAS_PENERIMA,
+  resolveOccupancyStatus,
   TAHUN_AKTIF,
   type SessionUser,
   type StatusBulanEcard,
@@ -36,6 +37,7 @@ import {
   formatTanggal,
   formatTanggalSingkat,
   getCurrentBillingMonth,
+  getDefaultUnpaidStatusForMonth,
   getNamaBulan,
   matchesBlockSearch,
 } from '../../lib/format';
@@ -68,6 +70,11 @@ interface AdminRekapSlideProps {
 }
 
 type RekapSubTab = 'bulanan' | 'matriks' | 'ketua';
+type DelinquencyFilter = 'all' | 'gt1' | '2' | '3' | 'gt3';
+
+function isUnitKosong(w: Warga): boolean {
+  return resolveOccupancyStatus(w) === 'kosong';
+}
 
 function getMatrixCellBadge(status: StatusBulanEcard) {
   switch (status) {
@@ -107,6 +114,7 @@ export function AdminRekapSlide({
   // Filter Matriks 12 Bulan
   const [blokFilter, setBlokFilter] = useState<string>('Semua');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Lunas' | 'Menunggak'>('Semua');
+  const [delinquencyFilter, setDelinquencyFilter] = useState<DelinquencyFilter>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -131,6 +139,88 @@ export function AdminRekapSlide({
     [wargaList]
   );
 
+  const statusLookupMap = useMemo(() => {
+    const map = new Map<string, Map<number, StatusBulanEcard>>();
+    for (const s of statusList) {
+      if (s.tahun !== TAHUN_AKTIF) continue;
+      const key = canonicalizeBlokKey(s.blok_rumah);
+      if (!key) continue;
+      let monthMap = map.get(key);
+      if (!monthMap) {
+        monthMap = new Map<number, StatusBulanEcard>();
+        map.set(key, monthMap);
+      }
+      monthMap.set(s.bulan, s.status);
+    }
+    return map;
+  }, [statusList]);
+
+  const matrixSummary = useMemo(() => {
+    let berpenghuniCount = 0;
+    let kosongCount = 0;
+    let sudahSetorCount = 0;
+    let belumSetorCount = 0;
+    let menungguCount = 0;
+    let menunggak2Bln = 0;
+    let menunggak3Bln = 0;
+    let menunggakGt3Bln = 0;
+    let menunggakTotal = 0;
+    const unpaidMonthsByWargaId = new Map<string, number>();
+
+    for (const w of sortedWargaList) {
+      if (isUnitKosong(w)) {
+        kosongCount += 1;
+        unpaidMonthsByWargaId.set(w.id, 0);
+        continue;
+      }
+
+      berpenghuniCount += 1;
+      const wKey = canonicalizeBlokKey(w.blok_rumah);
+      const monthMap = statusLookupMap.get(wKey);
+
+      const currentSt: StatusBulanEcard =
+        monthMap?.get(currentMonth) ?? getDefaultUnpaidStatusForMonth(currentMonth);
+
+      if (currentSt === 'Lunas') {
+        sudahSetorCount += 1;
+      } else {
+        belumSetorCount += 1;
+        if (currentSt === 'Menunggu Verifikasi') {
+          menungguCount += 1;
+        }
+      }
+
+      let unpaidMonths = 0;
+      for (let m = 1; m <= currentMonth; m += 1) {
+        const mStatus: StatusBulanEcard = monthMap?.get(m) ?? getDefaultUnpaidStatusForMonth(m);
+        if (mStatus !== 'Lunas' && mStatus !== 'Menunggu Verifikasi') {
+          unpaidMonths += 1;
+        }
+      }
+
+      unpaidMonthsByWargaId.set(w.id, unpaidMonths);
+      if (unpaidMonths >= 2) {
+        menunggakTotal += 1;
+        if (unpaidMonths === 2) menunggak2Bln += 1;
+        else if (unpaidMonths === 3) menunggak3Bln += 1;
+        else menunggakGt3Bln += 1;
+      }
+    }
+
+    return {
+      berpenghuniCount,
+      kosongCount,
+      sudahSetorCount,
+      belumSetorCount,
+      menungguCount,
+      menunggak2Bln,
+      menunggak3Bln,
+      menunggakGt3Bln,
+      menunggakTotal,
+      unpaidMonthsByWargaId,
+    };
+  }, [sortedWargaList, statusLookupMap, currentMonth]);
+
   const blokOptions = useMemo(() => {
     const prefixes = new Set<string>(['B03', 'B05', 'B06', 'B07', 'B08']);
     for (const w of sortedWargaList) {
@@ -148,14 +238,20 @@ export function AdminRekapSlide({
         return false;
       }
 
+      if (delinquencyFilter !== 'all') {
+        if (isUnitKosong(w)) return false;
+        const unpaidCount = matrixSummary.unpaidMonthsByWargaId.get(w.id) ?? 0;
+        if (delinquencyFilter === 'gt1' && unpaidCount < 2) return false;
+        if (delinquencyFilter === '2' && unpaidCount !== 2) return false;
+        if (delinquencyFilter === '3' && unpaidCount !== 3) return false;
+        if (delinquencyFilter === 'gt3' && unpaidCount <= 3) return false;
+      }
+
       if (statusFilter !== 'Semua') {
         const wKey = canonicalizeBlokKey(w.blok_rumah);
-        const currentSt = statusList.find(
-          (s) =>
-            canonicalizeBlokKey(s.blok_rumah) === wKey &&
-            s.tahun === TAHUN_AKTIF &&
-            s.bulan === currentMonth
-        )?.status;
+        const currentSt =
+          statusLookupMap.get(wKey)?.get(currentMonth) ??
+          getDefaultUnpaidStatusForMonth(currentMonth);
         if (statusFilter === 'Lunas' && currentSt !== 'Lunas') return false;
         if (
           statusFilter === 'Menunggak' &&
@@ -166,11 +262,20 @@ export function AdminRekapSlide({
       }
       return true;
     });
-  }, [sortedWargaList, statusList, blokFilter, statusFilter, search, currentMonth]);
+  }, [
+    sortedWargaList,
+    statusLookupMap,
+    matrixSummary,
+    blokFilter,
+    statusFilter,
+    delinquencyFilter,
+    search,
+    currentMonth,
+  ]);
 
   useEffect(() => {
     setPage(1);
-  }, [blokFilter, statusFilter, search]);
+  }, [blokFilter, statusFilter, delinquencyFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredWarga.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -812,6 +917,120 @@ export function AdminRekapSlide({
             </div>
           </div>
 
+          {/* Kartu Ringkasan Statistik Matriks (Mengacu Bulan Berjalan) */}
+          <section
+            aria-label="Ringkasan Statistik Matriks IPL Bulan Berjalan"
+            className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3"
+          >
+            {/* 1. Blok Berpenghuni */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 sm:p-4">
+              <p className="text-[11px] font-semibold text-emerald-900">Blok Berpenghuni</p>
+              <p className="text-xl sm:text-2xl font-mono font-bold text-emerald-800 tabular-nums mt-1">
+                {matrixSummary.berpenghuniCount} Unit
+              </p>
+              <p className="text-[11px] text-emerald-800/80 mt-0.5">Unit terisi aktif</p>
+            </div>
+
+            {/* 2. Blok Kosong */}
+            <div className="rounded-2xl border border-orange-200 bg-orange-50/90 p-3.5 sm:p-4">
+              <p className="text-[11px] font-semibold text-orange-900">Blok Kosong</p>
+              <p className="text-xl sm:text-2xl font-mono font-bold text-orange-800 tabular-nums mt-1">
+                {matrixSummary.kosongCount} Unit
+              </p>
+              <p className="text-[11px] text-orange-800/80 mt-0.5">Unit kosong / belum dihuni</p>
+            </div>
+
+            {/* 3. Sudah Setor Iuran (Bulan Berjalan) */}
+            <div className="rounded-2xl border border-emerald-200 bg-white/95 p-3.5 sm:p-4">
+              <p className="text-[11px] font-semibold text-slate-600">
+                Sudah Setor ({getNamaBulan(currentMonth)})
+              </p>
+              <p className="text-xl sm:text-2xl font-mono font-bold text-[#047857] tabular-nums mt-1">
+                {matrixSummary.sudahSetorCount} Unit
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                Lunas · {matrixSummary.berpenghuniCount > 0
+                  ? `${Math.round((matrixSummary.sudahSetorCount / matrixSummary.berpenghuniCount) * 100)}%`
+                  : '0%'} berpenghuni
+              </p>
+            </div>
+
+            {/* 4. Belum Setor (Bulan Berjalan) */}
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3.5 sm:p-4">
+              <p className="text-[11px] font-semibold text-rose-900">
+                Belum Setor ({getNamaBulan(currentMonth)})
+              </p>
+              <p className="text-xl sm:text-2xl font-mono font-bold text-rose-700 tabular-nums mt-1">
+                {matrixSummary.belumSetorCount} Unit
+              </p>
+              <p className="text-[11px] text-rose-800/80 mt-0.5 tabular-nums">
+                {matrixSummary.menungguCount > 0
+                  ? `${matrixSummary.menungguCount} menunggu verifikasi`
+                  : `Unit berpenghuni belum lunas`}
+              </p>
+            </div>
+
+            {/* 5. Menunggak (> 1 Bulan) + Filter Rincian */}
+            <div className="col-span-2 md:col-span-2 xl:col-span-1 rounded-2xl border border-amber-300/90 bg-amber-50/85 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold text-amber-950">
+                    Menunggak (&gt; 1 Bulan)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDelinquencyFilter((prev) => (prev === 'gt1' ? 'all' : 'gt1'))
+                    }
+                    title="Filter unit menunggak lebih dari 1 bulan"
+                    className={`mt-1 text-left font-mono text-xl sm:text-2xl font-bold tabular-nums cursor-pointer underline-offset-4 hover:underline ${
+                      delinquencyFilter === 'gt1' ? 'text-[#4C1D95] underline' : 'text-amber-900'
+                    }`}
+                  >
+                    {matrixSummary.menunggakTotal} Unit
+                  </button>
+                </div>
+                {delinquencyFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setDelinquencyFilter('all')}
+                    className="px-2 py-1 rounded-lg bg-white border border-amber-300 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer shrink-0"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    { key: '2', label: '2 bln', count: matrixSummary.menunggak2Bln },
+                    { key: '3', label: '3 bln', count: matrixSummary.menunggak3Bln },
+                    { key: 'gt3', label: '>3 bln', count: matrixSummary.menunggakGt3Bln },
+                  ] as const
+                ).map((item) => {
+                  const active = delinquencyFilter === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() =>
+                        setDelinquencyFilter((prev) => (prev === item.key ? 'all' : item.key))
+                      }
+                      className={`px-2 py-1 rounded-lg border text-[10.5px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
+                        active
+                          ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-2xs'
+                          : 'bg-white/90 text-amber-950 border-amber-300/80 hover:bg-amber-100'
+                      }`}
+                    >
+                      {item.label}: {item.count}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
           {/* Matriks Pembayaran 12 Bulan (Jan – Des 2026) */}
           <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
             <div className="px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
@@ -820,7 +1039,18 @@ export function AdminRekapSlide({
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Filter status mengacu pada bulan berjalan ({getNamaBulan(currentMonth)} {TAHUN_AKTIF}).
+                  Hijau muda = berpenghuni · Oranye muda = blok kosong · Filter mengacu {getNamaBulan(currentMonth)} {TAHUN_AKTIF}.
+                  {delinquencyFilter !== 'all' && (
+                    <span className="ml-1 font-semibold text-[#4C1D95]">
+                      (Filter tunggakan:{' '}
+                      {delinquencyFilter === 'gt1'
+                        ? '> 1 bulan'
+                        : delinquencyFilter === 'gt3'
+                          ? '> 3 bulan'
+                          : `${delinquencyFilter} bulan`}
+                      )
+                    </span>
+                  )}
                 </p>
               </div>
               <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
@@ -832,14 +1062,14 @@ export function AdminRekapSlide({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-indigo-100/80 bg-indigo-50/70 text-[11px] font-semibold text-[#4C1D95]">
-                    <th className="py-3 px-4 sticky left-0 bg-indigo-50/95 z-10 whitespace-nowrap border-r border-indigo-100">
+                    <th className="py-3 px-4 sticky left-0 bg-indigo-50 z-10 whitespace-nowrap border-r border-indigo-100">
                       Blok / Warga
                     </th>
                     {BULAN_LIST.map((b) => (
                       <th
                         key={b.angka}
                         className={`py-3 px-2 text-center whitespace-nowrap ${
-                          b.angka === currentMonth ? 'bg-emerald-50/70 text-emerald-900' : ''
+                          b.angka === currentMonth ? 'bg-emerald-50/80 text-emerald-900' : ''
                         }`}
                       >
                         {b.singkat}
@@ -847,7 +1077,7 @@ export function AdminRekapSlide({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-200/70 text-xs">
                   {pagedWarga.length === 0 ? (
                     <tr>
                       <td colSpan={13} className="py-10 text-center text-sm text-slate-500">
@@ -855,41 +1085,67 @@ export function AdminRekapSlide({
                       </td>
                     </tr>
                   ) : (
-                    pagedWarga.map((w) => (
-                      <tr key={w.id} className="hover:bg-slate-50/60">
-                        <td className="py-3 px-4 sticky left-0 bg-white z-10 border-r border-slate-100 whitespace-nowrap">
-                          <p className="font-mono font-bold text-[#0F172A]">{formatBlokRumah(w.blok_rumah) || w.blok_rumah}</p>
-                          <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                            {w.nama_warga}
-                          </p>
-                        </td>
-                        {BULAN_LIST.map((b) => {
-                          const wKey = canonicalizeBlokKey(w.blok_rumah);
-                          const st =
-                            statusList.find(
-                              (s) =>
-                                canonicalizeBlokKey(s.blok_rumah) === wKey &&
-                                s.tahun === TAHUN_AKTIF &&
-                                s.bulan === b.angka
-                            )?.status || 'Belum Tagihan';
-                          const badge = getMatrixCellBadge(st);
-                          return (
-                            <td
-                              key={b.angka}
-                              className={`py-2.5 px-1.5 text-center ${
-                                b.angka === currentMonth ? 'bg-emerald-50/30' : ''
+                    pagedWarga.map((w) => {
+                      const kosong = isUnitKosong(w);
+                      const wKey = canonicalizeBlokKey(w.blok_rumah);
+                      const monthMap = statusLookupMap.get(wKey);
+                      return (
+                        <tr
+                          key={w.id}
+                          className={`group transition-colors ${
+                            kosong
+                              ? 'bg-orange-50/90 hover:bg-orange-100/80'
+                              : 'bg-emerald-50/80 hover:bg-emerald-100/75'
+                          }`}
+                        >
+                          <td
+                            className={`py-3 px-4 sticky left-0 z-10 whitespace-nowrap border-r transition-colors ${
+                              kosong
+                                ? 'bg-orange-50 group-hover:bg-orange-100 border-orange-200/90'
+                                : 'bg-emerald-50 group-hover:bg-emerald-100 border-emerald-200/90'
+                            }`}
+                          >
+                            <p
+                              className={`font-mono font-bold tabular-nums ${
+                                kosong ? 'text-orange-950' : 'text-emerald-950'
                               }`}
                             >
-                              <span
-                                className={`inline-block w-full min-w-[54px] py-1 px-1.5 rounded-md border text-[10px] font-semibold text-center ${badge.cls}`}
+                              {formatBlokRumah(w.blok_rumah) || w.blok_rumah}
+                            </p>
+                            <p
+                              className={`text-[11px] truncate max-w-[155px] ${
+                                kosong ? 'text-orange-800/90 font-medium' : 'text-emerald-900/80'
+                              }`}
+                            >
+                              {w.nama_warga}
+                            </p>
+                          </td>
+                          {BULAN_LIST.map((b) => {
+                            const st: StatusBulanEcard =
+                              monthMap?.get(b.angka) || 'Belum Tagihan';
+                            const badge = getMatrixCellBadge(st);
+                            return (
+                              <td
+                                key={b.angka}
+                                className={`py-2.5 px-1.5 text-center ${
+                                  b.angka === currentMonth
+                                    ? kosong
+                                      ? 'bg-orange-100/45'
+                                      : 'bg-emerald-100/50'
+                                    : ''
+                                }`}
                               >
-                                {badge.text}
-                              </span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))
+                                <span
+                                  className={`inline-block w-full min-w-[54px] py-1 px-1.5 rounded-md border text-[10px] font-semibold text-center ${badge.cls}`}
+                                >
+                                  {badge.text}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

@@ -170,22 +170,26 @@ export interface Warga {
 export function isOccupantNameEmpty(nama?: string | null): boolean {
   const clean = String(nama || '').trim();
   if (!clean || clean === '-' || clean === '—' || clean === '--') return true;
-  return /^unit\s+kosong\b/i.test(clean);
+  return /^(?:unit\s*)?kosong\b/i.test(clean) || /\bunit\s+kosong\b/i.test(clean);
 }
 
 export function resolveOccupancyStatus(
   warga?: Pick<Warga, 'occupancy_status' | 'status_hunian' | 'nama_warga'> | null
 ): OccupancyStatus {
   if (!warga) return 'aktif';
-  if (warga.occupancy_status === 'aktif' || warga.occupancy_status === 'kosong') {
-    return warga.occupancy_status;
+  if (warga.occupancy_status === 'kosong') {
+    return 'kosong';
   }
   const rawStatus = String(warga.status_hunian || '').trim().toLowerCase();
   if (rawStatus === 'kosong') return 'kosong';
+  if (isOccupantNameEmpty(warga.nama_warga)) return 'kosong';
+  if (warga.occupancy_status === 'aktif') {
+    return 'aktif';
+  }
   if (rawStatus === 'tetap' || rawStatus === 'kontrak' || rawStatus === 'aktif') {
     return 'aktif';
   }
-  return isOccupantNameEmpty(warga.nama_warga) ? 'kosong' : 'aktif';
+  return 'aktif';
 }
 
 export interface StatusEcardBulanan {

@@ -61,6 +61,7 @@ interface PaymentConfigRow {
   qris_image_url: string | null;
   qris_label: string;
   rekening_list: RekeningItem[];
+  nominal_ipl_bulanan?: number | null;
 }
 
 interface BotConfigRow {
@@ -409,6 +410,16 @@ async function parseIncomingBody(req: VercelReq): Promise<Record<string, unknown
   }
 
   if (Object.keys(parsedBody).length > 0) {
+    if (typeof parsedBody.payload === 'string') {
+      try {
+        const nested = JSON.parse(parsedBody.payload) as unknown;
+        if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+          return { ...parsedBody, ...(nested as Record<string, unknown>) };
+        }
+      } catch {
+        // Biarkan parsedBody apa adanya jika payload bukan JSON objek
+      }
+    }
     return parsedBody;
   }
 
@@ -481,7 +492,8 @@ async function supabaseRestGetWithStatus<T>(
 
   // Pada mode anon_fallback (ketika SUPABASE_SERVICE_ROLE_KEY tidak diset di Vercel),
   // Migration v16 RLS memvalidasi x-blok-rumah terhadap akun pengurus aktif di users_warga.
-  if (authMode === 'anon_fallback') {
+  // Lewati rotasi bila status === 400 karena merupakan kesalahan query/kolom, bukan penolakan RLS caller.
+  if (authMode === 'anon_fallback' && firstAttempt.status !== 400) {
     const candidates = ACTIVE_PENGURUS_CALLERS.filter((c) => c !== primaryCaller);
     for (const candidate of candidates) {
       const attempt = await executeSupabaseGet<T>(url, key, pathWithQuery, candidate);
@@ -896,9 +908,12 @@ async function buildRekeningReply(): Promise<string> {
   const banks = rekList.filter((r) => r.tipe.toLowerCase() !== 'e-wallet');
   const ewallets = rekList.filter((r) => r.tipe.toLowerCase() === 'e-wallet');
 
+  const nominalWajib =
+    Number(cfg?.nominal_ipl_bulanan) > 0 ? Number(cfg.nominal_ipl_bulanan) : NOMINAL_DEFAULT;
+
   const lines = [
     `*Info Pembayaran Resmi IPL Perumahan Saung Kebun*`,
-    `Iuran Wajib: ${formatRupiah(NOMINAL_DEFAULT)} / bulan (Jatuh tempo tgl 7)`,
+    `Iuran Wajib: ${formatRupiah(nominalWajib)} / bulan (Jatuh tempo tgl 7)`,
     ``,
   ];
 
@@ -940,12 +955,13 @@ function parseCommandAndBlock(rawText: string): {
   targetBlockRaw: string;
   parts: string[];
 } {
-  const hashParts = rawText.split('#').map((s) => s.trim());
-  let head = (hashParts[0] || '').toUpperCase();
+  const sanitizedRaw = rawText.trim().replace(/[?!.,:;]+$/g, '').trim();
+  const hashParts = sanitizedRaw.split('#').map((s) => s.trim());
+  let head = (hashParts[0] || '').toUpperCase().replace(/[?!.,:;]+$/g, '').trim();
   let targetBlockRaw = (hashParts[1] || '').trim();
 
   if (hashParts.length === 1) {
-    const cekTagihanMatch = rawText.match(/^CEK\s+TAGIHAN(?:\s+(.+))?$/i);
+    const cekTagihanMatch = sanitizedRaw.match(/^CEK\s+TAGIHAN(?:\s+(.+))?$/i);
     if (cekTagihanMatch) {
       return {
         command: 'CEK',
@@ -954,7 +970,7 @@ function parseCommandAndBlock(rawText: string): {
       };
     }
 
-    const spaceMatch = rawText.match(/^(CEK|SALDO|TAGIHAN|IPL|STATUS)\s+(.+)$/i);
+    const spaceMatch = sanitizedRaw.match(/^(CEK|SALDO|TAGIHAN|IPL|STATUS)\s+(.+)$/i);
     if (spaceMatch) {
       head = spaceMatch[1].toUpperCase();
       targetBlockRaw = spaceMatch[2].trim();
@@ -983,7 +999,8 @@ async function processAuthorizedMessage(
 ): Promise<{ command: string; blok: string; reply: string }> {
   const isPrivileged = auth.role === 'admin' || auth.role === 'bendahara';
   const ownBlockCode = auth.displayBlock;
-  const { command, targetBlockRaw, parts } = parseCommandAndBlock(rawText);
+  const normalizedCommandText = rawText.trim().replace(/[?!.,:;]+$/g, '').trim();
+  const { command, targetBlockRaw, parts } = parseCommandAndBlock(normalizedCommandText);
 
   // 1. REKENING / BAYAR / QRIS
   if (['REKENING', 'BAYAR', 'NOREK', 'QRIS', 'QR'].includes(command)) {
@@ -995,7 +1012,7 @@ async function processAuthorizedMessage(
   }
 
   // 2. PENGURUS
-  if (command === 'PENGURUS' || rawText.includes('SUSUNAN PENGURUS')) {
+  if (command === 'PENGURUS' || normalizedCommandText.includes('SUSUNAN PENGURUS')) {
     const lines = SUSUNAN_PENGURUS.map((p) => `• *${p.jabatan}*: ${p.nama}`);
     return {
       command: 'PENGURUS',
@@ -1014,7 +1031,7 @@ async function processAuthorizedMessage(
   // 3. MENU / BANTUAN / INFO / SALAM
   if (
     ['MENU', 'BANTUAN', 'INFO', 'HELP', 'BOT', 'HALO', 'HELLO', 'HAI', 'ASSALAMUALAIKUM', 'P', 'START'].includes(
-      rawText
+      normalizedCommandText
     ) ||
     command === 'MENU' ||
     command === 'HELP' ||

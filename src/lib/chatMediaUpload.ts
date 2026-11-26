@@ -175,6 +175,34 @@ export interface ChatUploadErrorDiagnostics {
   fieldReasons?: Record<string, string>;
 }
 
+export function sanitizeUserFacingChatUploadError(
+  rawMessage: string | null | undefined,
+  fallbackMessage = 'Gagal memproses lampiran. Silakan coba lagi.'
+): string {
+  const clean = String(rawMessage || '').trim();
+  if (!clean) return fallbackMessage;
+
+  if (
+    /invalid_grant|Invalid JWT Signature|GOOGLE_DRIVE_|GOOGLE_OAUTH_|GOOGLE_PRIVATE_KEY|SUPABASE_SERVICE_ROLE_KEY|Validasi secrets|field kosong:|Service Account|gserviceaccount\.com|Ditolak Google OAuth2|private_key/i.test(
+      clean
+    )
+  ) {
+    return 'Layanan penyimpanan lampiran privat sedang memerlukan pembaruan konfigurasi server. Silakan hubungi Admin atau coba beberapa saat lagi.';
+  }
+
+  const scrubbed = clean
+    .replace(/Google\s*Drive/gi, 'server penyimpanan privat')
+    .replace(/Service\s*Account/gi, 'server penyimpanan')
+    .replace(/Edge\s*Function/gi, 'layanan pemrosesan lampiran')
+    .replace(/chat-media-transfer|chat-drive-private-access|chat-video-resumable-(?:init|complete)/gi, 'layanan lampiran')
+    .replace(/berkas sementara(?:\s+di\s+transit)?|chat-transit|\btransit\b/gi, 'server unggahan')
+    .replace(/\{"error":"[^"]*"[^}]*\}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return scrubbed || fallbackMessage;
+}
+
 export class ChatMediaUploadError extends Error {
   stage?: string;
   reason?: string;
@@ -183,14 +211,12 @@ export class ChatMediaUploadError extends Error {
   fieldReasons?: Record<string, string>;
 
   constructor(message: string, diagnostics?: ChatUploadErrorDiagnostics | null) {
-    super(message);
+    const safeMessage = sanitizeUserFacingChatUploadError(message);
+    super(safeMessage);
     this.name = 'ChatMediaUploadError';
     if (diagnostics?.stage) this.stage = diagnostics.stage;
-    if (diagnostics?.reason) this.reason = diagnostics.reason;
-    if (diagnostics?.missingFields?.length) this.missingFields = [...diagnostics.missingFields];
-    if (diagnostics?.invalidFields?.length) this.invalidFields = [...diagnostics.invalidFields];
-    if (diagnostics?.fieldReasons && Object.keys(diagnostics.fieldReasons).length > 0) {
-      this.fieldReasons = { ...diagnostics.fieldReasons };
+    if (diagnostics?.reason) {
+      this.reason = sanitizeUserFacingChatUploadError(diagnostics.reason, safeMessage);
     }
   }
 }
@@ -496,7 +522,7 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
       }
       if (edgeFailure && (hasFieldDiagnostics(edgeFailure.diagnostics) || edgeFailure.message)) {
         throw new ChatMediaUploadError(
-          edgeFailure.message || `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+          edgeFailure.message || `Gagal memproses lampiran di server (${edgeFailure.status}).`,
           edgeFailure.diagnostics
         );
       }
@@ -515,7 +541,7 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
     throw new ChatMediaUploadError(
       edgeFailure.message ||
         lastApiFailure?.message ||
-        `Gagal memproses media di Edge Function (${edgeFailure.status}).`,
+        `Gagal memproses lampiran di server (${edgeFailure.status}).`,
       edgeFailure.diagnostics
     );
   }
@@ -523,7 +549,7 @@ async function callBackendOrEdgeFunction<T extends BackendErrorPayload>(params: 
   throw new ChatMediaUploadError(
     lastApiFailure?.message ||
       edgeFailure?.message ||
-      `Gagal memproses media di server (${lastApiFailure?.status ?? edgeFailure?.status ?? 500}).`,
+      `Gagal memproses lampiran di server (${lastApiFailure?.status ?? edgeFailure?.status ?? 500}).`,
     lastApiFailure?.diagnostics || edgeFailure?.diagnostics
   );
 }
@@ -670,9 +696,15 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
 
         const errText = await putRes.text().catch(() => '');
         if (putRes.status >= 400 && putRes.status < 500 && putRes.status !== 408 && putRes.status !== 429) {
-          throw new Error(`Server menolak potongan video (${putRes.status}): ${errText.slice(0, 140)}`);
+          throw new ChatMediaUploadError(
+            `Server menolak potongan video (${putRes.status}): ${errText.slice(0, 140)}`,
+            null
+          );
         }
-        lastChunkError = new Error(`Server video merespons ${putRes.status}: ${errText.slice(0, 120)}`);
+        lastChunkError = new ChatMediaUploadError(
+          `Server video merespons ${putRes.status}: ${errText.slice(0, 120)}`,
+          null
+        );
       } catch (err) {
         if (isAbortError(err)) throw err;
         lastChunkError = err instanceof Error ? err : new Error('Koneksi unggah video terputus.');
@@ -784,7 +816,10 @@ async function uploadNonVideoViaTransitToDrive(
   });
 
   if (uploadErr) {
-    throw new Error(`Gagal mengunggah berkas sementara: ${uploadErr.message}`);
+    throw new ChatMediaUploadError(
+      'Gagal menyiapkan unggahan lampiran. Silakan periksa koneksi internet dan coba lagi.',
+      null
+    );
   }
 
   if (signal?.aborted) {

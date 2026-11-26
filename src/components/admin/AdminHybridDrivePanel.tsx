@@ -25,7 +25,6 @@ import {
   getGoogleDriveAccessToken,
   googleDriveLogout,
   initGoogleDriveAuth,
-  isEmbeddedWebView,
   signInGoogleDrive,
   type DomainAuthCheckResult,
 } from '../../lib/googleDriveAuth';
@@ -100,7 +99,6 @@ export function AdminHybridDrivePanel({
   const [signInErrorMsg, setSignInErrorMsg] = useState<string | null>(null);
   const [domainStatus, setDomainStatus] = useState<DomainAuthCheckResult | null>(null);
   const [checkingDomain, setCheckingDomain] = useState(false);
-  const [inWebView] = useState(() => isEmbeddedWebView());
 
   const [driveAbout, setDriveAbout] = useState<DriveAboutInfo | null>(null);
   const [loadingDriveInfo, setLoadingDriveInfo] = useState(false);
@@ -517,22 +515,28 @@ export function AdminHybridDrivePanel({
 
         {needsAuth || !accessToken ? (
           <div className="space-y-3">
-            {inWebView && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs text-amber-950 space-y-1.5">
-                <p className="font-bold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Gunakan Google Chrome (Bukan APK/WebView) untuk Login Google Drive</span>
-                </p>
-                <p className="leading-relaxed">
-                  Google memblokir login OAuth di dalam WebView aplikasi Android. Buka alamat portal{' '}
-                  <span className="font-mono font-semibold">
-                    https://{typeof window !== 'undefined' ? window.location.hostname : 'e-card-ipl.vercel.app'}
-                  </span>{' '}
-                  melalui browser <strong>Google Chrome</strong> untuk menghubungkan akun{' '}
-                  <strong>{DRIVE_TARGET_EMAIL}</strong>.
-                </p>
+            {/* Status Koneksi Otomatis Server OAuth2 (Web, Android APK, iOS) */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-bold text-emerald-950">
+                    Terhubung Otomatis (Server Aktif)
+                  </p>
+                  <p className="text-xs text-emerald-900/85 leading-relaxed">
+                    Penyimpanan arsip &amp; lampiran ke{' '}
+                    <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span> berjalan
+                    otomatis melalui OAuth2 Server di Web, APK Android, maupun iOS tanpa perlu
+                    login Google di perangkat.
+                  </p>
+                </div>
               </div>
-            )}
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-600 text-white shrink-0 self-start sm:self-center">
+                OAuth2 Server Aktif
+              </span>
+            </div>
 
             {domainStatus?.checked && !domainStatus.authorized && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50/85 p-4 text-xs text-rose-950 space-y-2.5">
@@ -543,9 +547,8 @@ export function AdminHybridDrivePanel({
                       Domain &quot;{domainStatus.hostname}&quot; Belum Didaftarkan di Firebase
                     </p>
                     <p className="leading-relaxed text-rose-900">
-                      Jika muncul pesan <em>&quot;The requested action is invalid.&quot;</em> saat
-                      login Google, penyebabnya adalah domain di bawah ini belum masuk ke{' '}
-                      <strong>Authorized domains</strong> pada project Firebase{' '}
+                      Jika ingin membuka penjelajah file manual di browser, pastikan domain di bawah
+                      ini masuk ke <strong>Authorized domains</strong> pada project Firebase{' '}
                       <span className="font-mono font-semibold">{domainStatus.projectId}</span>:
                     </p>
                   </div>
@@ -564,18 +567,6 @@ export function AdminHybridDrivePanel({
                     <span>Salin Domain</span>
                   </button>
                 </div>
-
-                <ol className="list-decimal list-inside space-y-1 text-[11px] text-rose-900">
-                  <li>
-                    Buka <strong>Firebase Console → Authentication → Settings → Authorized domains</strong>.
-                  </li>
-                  <li>
-                    Klik <strong>Add domain</strong> lalu tempel <span className="font-mono font-semibold">{domainStatus.hostname}</span>.
-                  </li>
-                  <li>
-                    Simpan, lalu klik tombol <strong>Cek Ulang Domain</strong> di bawah sebelum klik <em>Sign in with Google</em>.
-                  </li>
-                </ol>
 
                 <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   <a
@@ -607,15 +598,15 @@ export function AdminHybridDrivePanel({
               </div>
             )}
 
-            <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-[#0F172A]">
-                  Google Drive belum terhubung di sesi ini
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-[#0F172A]">
+                  Penjelajah Folder Manual (Opsional — Khusus Browser)
                 </p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Klik tombol resmi Google di samping untuk masuk menggunakan{' '}
-                  <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span>. Token hanya
-                  disimpan sementara di memori selama tab aktif.
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Untuk menelusuri isi folder atau memicu arsip batch manual dari browser dengan akun{' '}
+                  <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span>, Anda dapat
+                  masuk Google secara opsional.
                 </p>
               </div>
 
@@ -623,19 +614,19 @@ export function AdminHybridDrivePanel({
                 type="button"
                 disabled={!canManage || signingIn}
                 onClick={handleGoogleSignIn}
-                className="gsi-material-button inline-flex items-center justify-center gap-3 min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm text-sm font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
+                className="gsi-material-button inline-flex items-center justify-center gap-2.5 min-h-[40px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-2xs text-xs font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
               >
                 <div className="gsi-material-button-state" />
-                <div className="gsi-material-button-content-wrapper flex items-center gap-2.5">
-                  <div className="gsi-material-button-icon w-5 h-5 shrink-0">
+                <div className="gsi-material-button-content-wrapper flex items-center gap-2">
+                  <div className="gsi-material-button-icon w-4 h-4 shrink-0">
                     {signingIn ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-[#4C1D95]" />
+                      <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
                     ) : (
                       <svg
                         version="1.1"
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 48 48"
-                        style={{ display: 'block', width: '20px', height: '20px' }}
+                        style={{ display: 'block', width: '16px', height: '16px' }}
                       >
                         <path
                           fill="#EA4335"
@@ -658,7 +649,7 @@ export function AdminHybridDrivePanel({
                     )}
                   </div>
                   <span className="gsi-material-button-contents">
-                    {signingIn ? 'Menghubungkan...' : 'Sign in with Google'}
+                    {signingIn ? 'Menghubungkan...' : 'Masuk Google (Opsional)'}
                   </span>
                 </div>
               </button>
@@ -799,16 +790,12 @@ export function AdminHybridDrivePanel({
             <span
               className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 self-start sm:self-center ${
                 backendMonitor.shouldRouteNewMediaToDrive
-                  ? accessToken
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-amber-600 text-white'
+                  ? 'bg-emerald-600 text-white'
                   : 'bg-white border border-emerald-200 text-emerald-800'
               }`}
             >
               {backendMonitor.shouldRouteNewMediaToDrive
-                ? accessToken
-                  ? 'OAuth2 Drive Siap'
-                  : 'Perlu Sign in Google'
+                ? 'Terhubung Otomatis (Server Aktif)'
                 : `Batas Peringatan ${backendMonitor.settings?.thresholdPercent ?? 80}%`}
             </span>
           </div>

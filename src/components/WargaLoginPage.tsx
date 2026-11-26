@@ -456,13 +456,13 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Contoh: B3/7"
-                  className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 font-mono uppercase transition-colors"
+                  placeholder="Contoh: B03/07"
+                  className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white px-4 text-base text-[#0F172A] placeholder:text-slate-400 focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 font-mono uppercase transition-colors"
                 />
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  Gunakan format Blok dan Nomor Rumah sesuai data pengurus, misalnya{' '}
-                  <span className="font-mono text-slate-700">B3/7</span> atau{' '}
-                  <span className="font-mono text-slate-700">B7/16</span>.
+                  Gunakan format Blok dan Nomor Rumah, misalnya{' '}
+                  <span className="font-mono text-slate-700">B03/07</span> atau{' '}
+                  <span className="font-mono text-slate-700">B07/16</span> (penulisan <span className="font-mono">B3/7</span> tetap dikenali).
                 </p>
               </div>
 
@@ -485,7 +485,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••••"
-                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-12 text-sm text-[#0F172A] placeholder:text-slate-400 tracking-[0.28em] font-mono focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
+                    className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white pl-10 pr-12 text-base text-[#0F172A] placeholder:text-slate-400 tracking-[0.28em] font-mono focus:border-[#4A583E] focus:outline-none focus:ring-2 focus:ring-[#4A583E]/15 transition-colors"
                   />
                   <button
                     type="button"
@@ -599,7 +599,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
 
           <p className="text-[11px] text-slate-500 text-center mt-4 leading-relaxed">
             Belum memiliki PIN atau lupa PIN? Hubungi Pengurus di Sekretariat Blok{' '}
-            <span className="font-mono font-semibold text-slate-700">B3/7</span> atau Bendahara.
+            <span className="font-mono font-semibold text-slate-700">B03/07</span> atau Bendahara.
           </p>
 
           <footer className="mt-5 pt-4 border-t border-slate-200/80 text-center space-y-2">
