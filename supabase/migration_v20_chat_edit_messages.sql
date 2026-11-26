@@ -5,7 +5,7 @@
 -- Mencakup:
 --   1. Menambahkan kolom `is_edited` (boolean NOT NULL DEFAULT false),
 --      `original_content` (text), dan `edited_at` (timestamptz) pada tabel
---      `public.community_chat_messages` (serta `public.chat_messages` bila ada).
+--      `public.community_chat_messages`.
 --   2. Memastikan `REPLICA IDENTITY FULL` & publikasi `supabase_realtime` aktif
 --      agar pembaruan pesan langsung tersinkron ke seluruh anggota grup & DM.
 --   3. RPC aman `public.edit_chat_message(p_message_id uuid, p_new_message text)`:
@@ -30,16 +30,6 @@ alter table if exists public.community_chat_messages
 create index if not exists idx_community_chat_is_edited
   on public.community_chat_messages (room_id, is_edited)
   where is_edited = true;
-
--- Kompatibilitas apabila lingkungan juga memiliki tabel bernama `chat_messages`
-do $$
-begin
-  if to_regclass('public.chat_messages') is not null then
-    execute 'alter table public.chat_messages add column if not exists is_edited boolean not null default false';
-    execute 'alter table public.chat_messages add column if not exists original_content text';
-    execute 'alter table public.chat_messages add column if not exists edited_at timestamptz';
-  end if;
-end $$;
 
 -- 2. Pastikan Supabase Realtime mengirimkan payload lengkap saat UPDATE
 alter table if exists public.community_chat_messages replica identity full;

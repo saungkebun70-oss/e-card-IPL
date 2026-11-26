@@ -415,11 +415,15 @@ export function AdminRekapSlide({
     <div className="space-y-5 pb-28 print:pb-0 overflow-x-hidden">
       {/* Sub-Tab Switcher & Quick Action Input Tunai */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="inline-flex p-1.5 bg-indigo-50/80 border border-indigo-100/90 backdrop-blur-md rounded-2xl w-full sm:w-fit overflow-x-auto">
+        <div
+          className={`grid ${
+            isKetua ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'
+          } gap-1.5 w-full sm:flex-1 sm:max-w-2xl p-1.5 bg-slate-100 border border-slate-200/80 rounded-2xl`}
+        >
           <button
             type="button"
             onClick={() => setSubTab('bulanan')}
-            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
               subTab === 'bulanan'
                 ? 'bg-[#4C1D95] text-white shadow-sm'
                 : 'text-slate-600 hover:text-[#4C1D95]'
@@ -431,7 +435,7 @@ export function AdminRekapSlide({
           <button
             type="button"
             onClick={() => setSubTab('matriks')}
-            className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
               subTab === 'matriks'
                 ? 'bg-[#4C1D95] text-white shadow-sm'
                 : 'text-slate-600 hover:text-[#4C1D95]'
@@ -444,7 +448,7 @@ export function AdminRekapSlide({
             <button
               type="button"
               onClick={() => setSubTab('ketua')}
-              className={`flex-1 sm:flex-none min-h-[40px] px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+              className={`col-span-2 sm:col-span-1 w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
                 subTab === 'ketua'
                   ? 'bg-[#4C1D95] text-white shadow-sm'
                   : 'text-slate-600 hover:text-[#4C1D95]'
@@ -459,7 +463,7 @@ export function AdminRekapSlide({
         <button
           type="button"
           onClick={openManualModal}
-          className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+          className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
         >
           <Banknote className="w-4 h-4 shrink-0" />
           <span>Input Tunai Manual</span>
@@ -852,7 +856,7 @@ export function AdminRekapSlide({
           </section>
 
           {/* Toolbar Filter & Export */}
-          <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="relative z-10 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
                 <Search className="w-4 h-4 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -917,123 +921,9 @@ export function AdminRekapSlide({
             </div>
           </div>
 
-          {/* Kartu Ringkasan Statistik Matriks (Mengacu Bulan Berjalan) */}
-          <section
-            aria-label="Ringkasan Statistik Matriks IPL Bulan Berjalan"
-            className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3"
-          >
-            {/* 1. Blok Berpenghuni */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 sm:p-4">
-              <p className="text-[11px] font-semibold text-emerald-900">Blok Berpenghuni</p>
-              <p className="text-xl sm:text-2xl font-mono font-bold text-emerald-800 tabular-nums mt-1">
-                {matrixSummary.berpenghuniCount} Unit
-              </p>
-              <p className="text-[11px] text-emerald-800/80 mt-0.5">Unit terisi aktif</p>
-            </div>
-
-            {/* 2. Blok Kosong */}
-            <div className="rounded-2xl border border-orange-200 bg-orange-50/90 p-3.5 sm:p-4">
-              <p className="text-[11px] font-semibold text-orange-900">Blok Kosong</p>
-              <p className="text-xl sm:text-2xl font-mono font-bold text-orange-800 tabular-nums mt-1">
-                {matrixSummary.kosongCount} Unit
-              </p>
-              <p className="text-[11px] text-orange-800/80 mt-0.5">Unit kosong / belum dihuni</p>
-            </div>
-
-            {/* 3. Sudah Setor Iuran (Bulan Berjalan) */}
-            <div className="rounded-2xl border border-emerald-200 bg-white/95 p-3.5 sm:p-4">
-              <p className="text-[11px] font-semibold text-slate-600">
-                Sudah Setor ({getNamaBulan(currentMonth)})
-              </p>
-              <p className="text-xl sm:text-2xl font-mono font-bold text-[#047857] tabular-nums mt-1">
-                {matrixSummary.sudahSetorCount} Unit
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                Lunas · {matrixSummary.berpenghuniCount > 0
-                  ? `${Math.round((matrixSummary.sudahSetorCount / matrixSummary.berpenghuniCount) * 100)}%`
-                  : '0%'} berpenghuni
-              </p>
-            </div>
-
-            {/* 4. Belum Setor (Bulan Berjalan) */}
-            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3.5 sm:p-4">
-              <p className="text-[11px] font-semibold text-rose-900">
-                Belum Setor ({getNamaBulan(currentMonth)})
-              </p>
-              <p className="text-xl sm:text-2xl font-mono font-bold text-rose-700 tabular-nums mt-1">
-                {matrixSummary.belumSetorCount} Unit
-              </p>
-              <p className="text-[11px] text-rose-800/80 mt-0.5 tabular-nums">
-                {matrixSummary.menungguCount > 0
-                  ? `${matrixSummary.menungguCount} menunggu verifikasi`
-                  : `Unit berpenghuni belum lunas`}
-              </p>
-            </div>
-
-            {/* 5. Menunggak (> 1 Bulan) + Filter Rincian */}
-            <div className="col-span-2 md:col-span-2 xl:col-span-1 rounded-2xl border border-amber-300/90 bg-amber-50/85 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[11px] font-semibold text-amber-950">
-                    Menunggak (&gt; 1 Bulan)
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDelinquencyFilter((prev) => (prev === 'gt1' ? 'all' : 'gt1'))
-                    }
-                    title="Filter unit menunggak lebih dari 1 bulan"
-                    className={`mt-1 text-left font-mono text-xl sm:text-2xl font-bold tabular-nums cursor-pointer underline-offset-4 hover:underline ${
-                      delinquencyFilter === 'gt1' ? 'text-[#4C1D95] underline' : 'text-amber-900'
-                    }`}
-                  >
-                    {matrixSummary.menunggakTotal} Unit
-                  </button>
-                </div>
-                {delinquencyFilter !== 'all' && (
-                  <button
-                    type="button"
-                    onClick={() => setDelinquencyFilter('all')}
-                    className="px-2 py-1 rounded-lg bg-white border border-amber-300 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer shrink-0"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { key: '2', label: '2 bln', count: matrixSummary.menunggak2Bln },
-                    { key: '3', label: '3 bln', count: matrixSummary.menunggak3Bln },
-                    { key: 'gt3', label: '>3 bln', count: matrixSummary.menunggakGt3Bln },
-                  ] as const
-                ).map((item) => {
-                  const active = delinquencyFilter === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() =>
-                        setDelinquencyFilter((prev) => (prev === item.key ? 'all' : item.key))
-                      }
-                      className={`px-2 py-1 rounded-lg border text-[10.5px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
-                        active
-                          ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-2xs'
-                          : 'bg-white/90 text-amber-950 border-amber-300/80 hover:bg-amber-100'
-                      }`}
-                    >
-                      {item.label}: {item.count}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
           {/* Matriks Pembayaran 12 Bulan (Jan – Des 2026) */}
-          <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
+          <section className="relative z-10 glass-card bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
+            <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-[#0F172A]">
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
@@ -1058,7 +948,123 @@ export function AdminRekapSlide({
               </span>
             </div>
 
-            <div className="overflow-x-auto w-full">
+            {/* Kartu Ringkasan Statistik Matriks di Dalam Kontainer Matriks */}
+            <div className="px-4 sm:px-5 pt-4">
+              <section
+                aria-label="Ringkasan Statistik Matriks IPL Bulan Berjalan"
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4"
+              >
+                {/* 1. Blok Berpenghuni */}
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5">
+                  <p className="text-[11px] font-semibold text-emerald-900">Blok Berpenghuni</p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-emerald-800 tabular-nums mt-1">
+                    {matrixSummary.berpenghuniCount} Unit
+                  </p>
+                  <p className="text-[11px] text-emerald-800/80 mt-0.5">Unit terisi aktif</p>
+                </div>
+
+                {/* 2. Blok Kosong */}
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/90 p-3.5">
+                  <p className="text-[11px] font-semibold text-orange-900">Blok Kosong</p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-orange-800 tabular-nums mt-1">
+                    {matrixSummary.kosongCount} Unit
+                  </p>
+                  <p className="text-[11px] text-orange-800/80 mt-0.5">Unit kosong / belum dihuni</p>
+                </div>
+
+                {/* 3. Sudah Setor (Bulan Berjalan) */}
+                <div className="rounded-2xl border border-emerald-200 bg-white p-3.5">
+                  <p className="text-[11px] font-semibold text-slate-600">
+                    Sudah Setor ({getNamaBulan(currentMonth)})
+                  </p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-[#047857] tabular-nums mt-1">
+                    {matrixSummary.sudahSetorCount} Unit
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                    Lunas · {matrixSummary.berpenghuniCount > 0
+                      ? `${Math.round((matrixSummary.sudahSetorCount / matrixSummary.berpenghuniCount) * 100)}%`
+                      : '0%'} berpenghuni
+                  </p>
+                </div>
+
+                {/* 4. Belum Setor (Bulan Berjalan) */}
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3.5">
+                  <p className="text-[11px] font-semibold text-rose-900">
+                    Belum Setor ({getNamaBulan(currentMonth)})
+                  </p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-rose-700 tabular-nums mt-1">
+                    {matrixSummary.belumSetorCount} Unit
+                  </p>
+                  <p className="text-[11px] text-rose-800/80 mt-0.5 tabular-nums">
+                    {matrixSummary.menungguCount > 0
+                      ? `${matrixSummary.menungguCount} menunggu verifikasi`
+                      : 'Unit berpenghuni belum lunas'}
+                  </p>
+                </div>
+
+                {/* 5. Menunggak (> 1 Bulan) + Filter Rincian */}
+                <div className="col-span-2 sm:col-span-1 rounded-2xl border border-amber-300/90 bg-amber-50/85 p-3.5 flex flex-col justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] font-semibold text-amber-950">
+                        Menunggak (&gt; 1 Bulan)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDelinquencyFilter((prev) => (prev === 'gt1' ? 'all' : 'gt1'))
+                        }
+                        title="Filter unit menunggak lebih dari 1 bulan"
+                        className={`mt-1 text-left font-mono text-lg sm:text-xl font-bold tabular-nums cursor-pointer underline-offset-4 hover:underline ${
+                          delinquencyFilter === 'gt1' ? 'text-[#4C1D95] underline' : 'text-amber-900'
+                        }`}
+                      >
+                        {matrixSummary.menunggakTotal} Unit
+                      </button>
+                    </div>
+                    {delinquencyFilter !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => setDelinquencyFilter('all')}
+                        className="px-2 py-1 rounded-lg bg-white border border-amber-300 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer shrink-0"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(
+                      [
+                        { key: '2', label: '2 bln', count: matrixSummary.menunggak2Bln },
+                        { key: '3', label: '3 bln', count: matrixSummary.menunggak3Bln },
+                        { key: 'gt3', label: '>3 bln', count: matrixSummary.menunggakGt3Bln },
+                      ] as const
+                    ).map((item) => {
+                      const active = delinquencyFilter === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            setDelinquencyFilter((prev) => (prev === item.key ? 'all' : item.key))
+                          }
+                          className={`px-2 py-1 rounded-lg border text-[10.5px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
+                            active
+                              ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-2xs'
+                              : 'bg-white/90 text-amber-950 border-amber-300/80 hover:bg-amber-100'
+                          }`}
+                        >
+                          {item.label}: {item.count}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="relative z-0 overflow-x-auto w-full border-t border-indigo-100/80">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-indigo-100/80 bg-indigo-50/70 text-[11px] font-semibold text-[#4C1D95]">

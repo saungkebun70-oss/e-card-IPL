@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   Download,
@@ -232,7 +233,7 @@ export function PrivateDrivePreviewModal({
     };
   }, [message, onClose]);
 
-  if (!message) return null;
+  if (!message || typeof document === 'undefined') return null;
 
   const fileName = message.attachment_name || 'Lampiran Chat';
   const extLabel = getFileExtensionLabel(fileName, state.mimeType || message.attachment_mime);
@@ -265,12 +266,13 @@ export function PrivateDrivePreviewModal({
     void loadAttachment(message, controller.signal);
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label={`Pratinjau lampiran ${fileName}`}
-      className="fixed inset-0 z-[80] flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/75 backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[10000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 no-print"
     >
       <button
         type="button"
@@ -279,11 +281,11 @@ export function PrivateDrivePreviewModal({
         className="absolute inset-0 w-full h-full cursor-default"
       />
 
-      <div className="relative z-10 w-full max-w-3xl max-h-[90dvh] flex flex-col rounded-3xl bg-white border border-indigo-100 shadow-2xl overflow-hidden min-w-0">
-        {/* Header Modal */}
-        <div className="px-3.5 py-3 sm:px-5 sm:py-3.5 border-b border-indigo-100 bg-indigo-50/60 flex items-center justify-between gap-2.5 shrink-0 min-w-0">
+      <div className="relative z-10 w-full max-w-lg max-h-[88dvh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col min-w-0">
+        {/* Header Modal (shrink-0) */}
+        <div className="shrink-0 px-4 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3 min-w-0 bg-white">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-xl bg-white border border-indigo-100 text-[#312E81] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 text-[#312E81] flex items-center justify-center shrink-0">
               {attachmentType === 'photo' ? (
                 <ImageIcon className="w-4 h-4" />
               ) : attachmentType === 'video' ? (
@@ -317,14 +319,14 @@ export function PrivateDrivePreviewModal({
             type="button"
             onClick={onClose}
             aria-label="Tutup pratinjau"
-            className="min-h-[40px] min-w-[40px] rounded-xl border border-indigo-200 bg-white hover:bg-slate-100 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0"
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body Pratinjau */}
-        <div className="flex-1 min-h-[240px] overflow-auto bg-slate-900/5 p-3 sm:p-4 flex items-center justify-center">
+        {/* Konten Media (flex-1 min-h-0) */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-50/70 flex items-center justify-center">
           {state.loading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-center">
               <Loader2 className="w-7 h-7 animate-spin text-[#312E81]" />
@@ -372,7 +374,7 @@ export function PrivateDrivePreviewModal({
               alt={fileName}
               referrerPolicy="no-referrer"
               onError={() => setImageLoadFailed(true)}
-              className="max-h-[64dvh] max-w-full rounded-2xl object-contain shadow-sm bg-white"
+              className="w-auto h-auto max-w-full max-h-[54dvh] object-contain rounded-2xl shadow-sm mx-auto bg-white"
             />
           ) : attachmentType === 'video' && state.sourceUrl ? (
             isPrivate || state.sourceUrl.includes('chat-drive-private-access') ? (
@@ -381,7 +383,7 @@ export function PrivateDrivePreviewModal({
                 controls
                 playsInline
                 autoPlay
-                className="w-full max-h-[64dvh] rounded-2xl bg-black shadow-md"
+                className="w-full max-h-[54dvh] rounded-2xl bg-black shadow-md"
               >
                 Peramban Anda tidak mendukung pemutaran video langsung.
               </video>
@@ -402,7 +404,7 @@ export function PrivateDrivePreviewModal({
             <iframe
               title={`Pratinjau ${fileName}`}
               src={state.sourceUrl}
-              className="w-full h-[60dvh] rounded-2xl border border-indigo-100 bg-white"
+              className="w-full h-[54dvh] rounded-2xl border border-indigo-100 bg-white"
             />
           ) : (
             <div className="max-w-md w-full rounded-2xl border border-indigo-100 bg-white p-5 text-center space-y-3">
@@ -414,22 +416,22 @@ export function PrivateDrivePreviewModal({
                 <p className="text-xs text-slate-600">
                   {imageLoadFailed
                     ? 'Pratinjau gambar tidak dapat ditampilkan di layar ini.'
-                    : 'Berkas terverifikasi aman. Silakan unduh atau buka di tab baru.'}
+                    : 'Berkas terverifikasi aman. Silakan unduh atau buka berkas.'}
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer Aksi */}
-        <div className="px-3.5 py-3 sm:px-5 border-t border-indigo-100 bg-white flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <p className="text-[11px] text-slate-500">
+        {/* Footer Aksi (shrink-0) */}
+        <div className="shrink-0 px-4 py-3.5 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]">
+          <p className="text-[11px] text-slate-500 text-center sm:text-left">
             {isPrivate
               ? 'Akses privat terverifikasi untuk anggota ruang.'
-              : 'Tautan baca aman untuk anggota ruang chat.'}
+              : 'Lampiran aman untuk anggota ruang chat.'}
           </p>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 w-full sm:w-auto">
             {state.sourceUrl && (
               <a
                 href={state.sourceUrl}
@@ -454,9 +456,18 @@ export function PrivateDrivePreviewModal({
                 <span>Buka di Tab Baru</span>
               </a>
             )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center justify-center cursor-pointer"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

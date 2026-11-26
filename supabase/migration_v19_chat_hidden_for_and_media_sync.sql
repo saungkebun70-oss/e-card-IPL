@@ -56,14 +56,6 @@ create index if not exists idx_community_chat_hidden_for_gin
   on public.community_chat_messages
   using gin (hidden_for);
 
--- Kompatibilitas opsional apabila lingkungan memiliki tabel bernama `chat_messages`
-do $$
-begin
-  if to_regclass('public.chat_messages') is not null then
-    execute 'alter table public.chat_messages add column if not exists hidden_for jsonb not null default ''[]''::jsonb';
-  end if;
-end $$;
-
 -- 2. Pastikan Supabase Realtime mengirimkan seluruh kolom pada INSERT/UPDATE/DELETE
 alter table if exists public.community_chat_messages replica identity full;
 

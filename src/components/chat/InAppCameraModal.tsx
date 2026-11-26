@@ -297,7 +297,7 @@ export function InAppCameraModal({
               className="min-h-[44px] px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4 shrink-0" />
-              <span>Foto Ulang</span>
+              <span>Ulangi</span>
             </button>
             <button
               type="button"
