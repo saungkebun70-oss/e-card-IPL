@@ -56,6 +56,7 @@ import { isBendaharaFullAccess, type SessionUser } from '../../types';
 
 interface AdminHybridDrivePanelProps {
   session: SessionUser;
+  canManageOverride?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -82,10 +83,14 @@ const THRESHOLD_PERCENT_OPTIONS = [60, 70, 75, 80, 85, 90];
 
 export function AdminHybridDrivePanel({
   session,
+  canManageOverride,
   onRefresh,
   onToast,
 }: AdminHybridDrivePanelProps) {
-  const canManage = isBendaharaFullAccess(session) || session.jabatan === 'Ketua';
+  const canManage =
+    canManageOverride !== undefined
+      ? canManageOverride
+      : isBendaharaFullAccess(session) || session.jabatan === 'Ketua';
 
   const [config, setConfig] = useState<HybridDriveConfig>(() => loadHybridDriveConfig());
   const [needsAuth, setNeedsAuth] = useState(true);

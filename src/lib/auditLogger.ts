@@ -1,4 +1,5 @@
 import type { AuditLogEntry, SessionUser } from '../types';
+import { canAccessCentralSetting, readLocalCentralPermissions } from './centralSettingsPermissions';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const LOCAL_AUDIT_KEY = 'saungkebun_audit_logs_v1';
@@ -136,8 +137,19 @@ export async function deleteAuditLogEntry(
   session: SessionUser,
   logId: string
 ): Promise<{ ok: boolean; error?: string }> {
-  if (session.role !== 'admin') {
-    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log aktivitas.' };
+  if (
+    session.role !== 'admin' ||
+    !canAccessCentralSetting(
+      session,
+      'settings.reports_audit',
+      session.central_settings_permissions || readLocalCentralPermissions()
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        'Akses ditolak: penghapusan log audit khusus Bendahara atau Pengurus berizin settings.reports_audit.',
+    };
   }
 
   const supabase = getSupabaseClient(session);
@@ -168,8 +180,19 @@ export async function deleteAuditLogEntry(
 export async function deleteAllAuditLogs(
   session: SessionUser
 ): Promise<{ ok: boolean; error?: string }> {
-  if (session.role !== 'admin') {
-    return { ok: false, error: 'Hanya Pengurus/Admin yang dapat menghapus log aktivitas.' };
+  if (
+    session.role !== 'admin' ||
+    !canAccessCentralSetting(
+      session,
+      'settings.reports_audit',
+      session.central_settings_permissions || readLocalCentralPermissions()
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        'Akses ditolak: pengosongan log audit khusus Bendahara atau Pengurus berizin settings.reports_audit.',
+    };
   }
 
   const supabase = getSupabaseClient(session);

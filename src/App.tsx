@@ -58,6 +58,7 @@ import {
   AdminSettingsDrawer,
   type SettingsDrawerTab,
 } from './components/admin/AdminSettingsDrawer';
+import type { CentralSettingPermissionMap } from './lib/accessControl';
 import { KeamananSlide } from './components/KeamananSlide';
 import type { ChatRoomId } from './lib/chatService';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
@@ -742,6 +743,7 @@ export default function App() {
         const validSettingsTabs: SettingsDrawerTab[] = [
           'terpusat',
           'profil',
+          'delegasi',
           'identitas',
           'pembayaran',
           'bot_wa',
@@ -777,6 +779,32 @@ export default function App() {
       }
     },
     [session, handleTabChange]
+  );
+
+  const handleCentralPermissionsUpdated = useCallback(
+    (nextMap: CentralSettingPermissionMap) => {
+      setSession((prev) => {
+        if (!prev || prev.role !== 'admin') return prev;
+        const current = prev.central_settings_permissions || {};
+        const prevKeys = Object.keys(current);
+        const nextKeys = Object.keys(nextMap);
+        const unchanged =
+          prevKeys.length === nextKeys.length &&
+          nextKeys.every(
+            (key) =>
+              current[key as keyof CentralSettingPermissionMap] ===
+              nextMap[key as keyof CentralSettingPermissionMap]
+          );
+        if (unchanged) return prev;
+        const updated: SessionUser = {
+          ...prev,
+          central_settings_permissions: nextMap,
+        };
+        saveStoredSession(updated);
+        return updated;
+      });
+    },
+    []
   );
 
   const handleLoginSuccess = (newSession: SessionUser) => {
@@ -1224,6 +1252,7 @@ export default function App() {
           titikPatroliList={adminData.titikPatroliList}
           patrolMapConfig={adminData.patrolMapConfig}
           onAvatarUpdated={handleAvatarUpdated}
+          onCentralPermissionsUpdated={handleCentralPermissionsUpdated}
           onClose={() => setSettingsOpen(false)}
           onRefresh={() => loadPortalData(session, { silent: true })}
           onToast={pushToast}

@@ -65,6 +65,7 @@ interface AdminSecurityManagePanelProps {
   petugasList: PetugasKeamanan[];
   titikPatroliList: TitikPatroli[];
   patrolMapConfig?: PatrolMapConfig | null;
+  canEditOverride?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -74,11 +75,13 @@ export function AdminSecurityManagePanel({
   petugasList,
   titikPatroliList,
   patrolMapConfig,
+  canEditOverride,
   onRefresh,
   onToast,
 }: AdminSecurityManagePanelProps) {
-  const canEdit = isBendaharaFullAccess(session);
-  const canCalibrateGps = isBendaharaFullAccess(session) || isKetuaRole(session);
+  const canEdit =
+    canEditOverride !== undefined ? canEditOverride : isBendaharaFullAccess(session);
+  const canCalibrateGps = canEdit || isBendaharaFullAccess(session) || isKetuaRole(session);
   const avatarMap = useAvatarMap();
 
   // State Peta Mapping Rute Patroli & Editor Pin

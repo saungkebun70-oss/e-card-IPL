@@ -64,6 +64,7 @@ interface AdminBotWaSlideProps {
   pengurusAccounts?: PengurusAccountInfo[];
   statusList: StatusEcardBulanan[];
   paymentConfig?: PaymentConfig;
+  canManageOverride?: boolean;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
@@ -76,11 +77,13 @@ export function AdminBotWaSlide({
   pengurusAccounts,
   statusList,
   paymentConfig,
+  canManageOverride,
   onRefresh,
   onToast,
 }: AdminBotWaSlideProps) {
   const { brand } = useAppBrand();
-  const canManageFull = isBendaharaOnly(session);
+  const canManageFull =
+    canManageOverride !== undefined ? canManageOverride : isBendaharaOnly(session);
   const [config, setConfig] = useState<BotWaConfig>(botConfig);
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
