@@ -225,7 +225,7 @@ export function AdminRekapSlide({
       } else {
         onToast(
           'success',
-          `Setoran tunai ${selectedWargaObj.blok_rumah} berhasil dicatat & otomatis Terverifikasi.`
+          `Setoran tunai ${formatBlokRumah(selectedWargaObj.blok_rumah) || selectedWargaObj.blok_rumah} berhasil dicatat & otomatis Terverifikasi.`
         );
         setManualModalOpen(false);
         await onRefresh();

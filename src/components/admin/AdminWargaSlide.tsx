@@ -256,7 +256,7 @@ export function AdminWargaSlide({
           (isRealRegisteredPhone(otherSecondary) && otherSecondary === normPrimary))
       ) {
         return {
-          error: `No. WA +${normPrimary} sudah terdaftar pada unit ${w.blok_rumah} (${w.nama_warga}). Satu nomor WA tidak boleh dipakai untuk dua rumah berbeda.`,
+          error: `No. WA +${normPrimary} sudah terdaftar pada unit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah} (${w.nama_warga}). Satu nomor WA tidak boleh dipakai untuk dua rumah berbeda.`,
         };
       }
 
@@ -266,7 +266,7 @@ export function AdminWargaSlide({
           (isRealRegisteredPhone(otherSecondary) && otherSecondary === normSecondary))
       ) {
         return {
-          error: `No. WA Cadangan +${normSecondary} sudah terdaftar pada unit ${w.blok_rumah} (${w.nama_warga}).`,
+          error: `No. WA Cadangan +${normSecondary} sudah terdaftar pada unit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah} (${w.nama_warga}).`,
         };
       }
     }
@@ -331,8 +331,8 @@ export function AdminWargaSlide({
         onToast(
           'success',
           form.id
-            ? `Data warga Blok ${normalizedPayload.blok_rumah} berhasil diperbarui.`
-            : `Warga baru Blok ${normalizedPayload.blok_rumah} berhasil ditambahkan.`
+            ? `Data warga Blok ${formatBlokRumah(normalizedPayload.blok_rumah) || normalizedPayload.blok_rumah} berhasil diperbarui.`
+            : `Warga baru Blok ${formatBlokRumah(normalizedPayload.blok_rumah) || normalizedPayload.blok_rumah} berhasil ditambahkan.`
         );
         setModalOpen(false);
         await onRefresh();
@@ -376,11 +376,12 @@ export function AdminWargaSlide({
         });
         onToast('error', res.error || 'Gagal memperbarui status hunian unit.');
       } else {
+        const displayBlok = formatBlokRumah(warga.blok_rumah) || warga.blok_rumah;
         onToast(
           'success',
           nextOccupancy === 'kosong'
-            ? `Unit ${warga.blok_rumah} ditandai Rumah Kosong (riwayat IPL tetap tersimpan).`
-            : `Unit ${warga.blok_rumah} diaktifkan sebagai Dihuni / Aktif.`
+            ? `Unit ${displayBlok} ditandai Rumah Kosong (riwayat IPL tetap tersimpan).`
+            : `Unit ${displayBlok} diaktifkan sebagai Dihuni / Aktif.`
         );
         await onRefresh();
       }
@@ -396,7 +397,7 @@ export function AdminWargaSlide({
     } else {
       onToast(
         'success',
-        `PIN baru untuk ${warga.blok_rumah} (${warga.nama_warga}): ${res.data.pin_akses}`
+        `PIN baru untuk ${formatBlokRumah(warga.blok_rumah) || warga.blok_rumah} (${warga.nama_warga}): ${res.data.pin_akses}`
       );
       await onRefresh();
     }
@@ -409,7 +410,7 @@ export function AdminWargaSlide({
       setCopiedId(warga.id);
       onToast(
         'success',
-        `Template WA akses & PIN Blok ${warga.blok_rumah} (e-card-ipl.vercel.app) berhasil disalin.`
+        `Template WA akses & PIN Blok ${formatBlokRumah(warga.blok_rumah) || warga.blok_rumah} (e-card-ipl.vercel.app) berhasil disalin.`
       );
       setTimeout(() => setCopiedId(null), 2000);
     } else {
@@ -441,7 +442,7 @@ export function AdminWargaSlide({
       if (res.error) {
         onToast('error', res.error);
       } else {
-        onToast('info', `Data unit ${deleteTarget.blok_rumah} berhasil dihapus.`);
+        onToast('info', `Data unit ${formatBlokRumah(deleteTarget.blok_rumah) || deleteTarget.blok_rumah} berhasil dihapus.`);
         setDeleteTarget(null);
         await onRefresh();
       }
@@ -736,7 +737,7 @@ export function AdminWargaSlide({
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(w)}
-                        aria-label={`Hapus ${w.blok_rumah}`}
+                        aria-label={`Hapus ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
                         className="min-h-[30px] min-w-[30px] flex items-center justify-center rounded-xl border border-indigo-100 bg-white hover:bg-red-50 hover:border-red-200 text-red-600 cursor-pointer shrink-0"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1095,8 +1096,8 @@ export function AdminWargaSlide({
                               <button
                                 type="button"
                                 onClick={() => openEditModal(w)}
-                                aria-label={`Edit ${w.blok_rumah}`}
-                                title={`Edit data ${w.blok_rumah}`}
+                                aria-label={`Edit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
+                                title={`Edit data ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
                                 className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-slate-200 bg-white/95 hover:bg-indigo-50 text-slate-600 cursor-pointer shrink-0 transition-colors"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -1105,8 +1106,8 @@ export function AdminWargaSlide({
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(w)}
-                                aria-label={`Hapus ${w.blok_rumah}`}
-                                title={`Hapus unit ${w.blok_rumah}`}
+                                aria-label={`Hapus ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
+                                title={`Hapus unit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
                                 className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-slate-200 bg-white/95 hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-red-700 cursor-pointer shrink-0 transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

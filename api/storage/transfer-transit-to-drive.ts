@@ -1779,10 +1779,10 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       roomId
     );
 
-    const delRes = await fetch(`${sbUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
+    const deleteTransitPromise = fetch(`${sbUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
       method: 'DELETE',
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-    });
+    }).catch(() => null);
 
     const isPhoto =
       effectiveMime.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(safeName);
@@ -1812,8 +1812,8 @@ export default async function handler(req: VercelReq, res: VercelRes) {
         : driveThumbnailLink;
     const finalSize = Number(uploaded.size || buf.byteLength);
 
-    let messageUpdated = false;
-    if (messageId) {
+    const updateMessagePromise = (async (): Promise<boolean> => {
+      if (!messageId) return false;
       const rpcV2 = await sbRest('/rest/v1/rpc/update_chat_message_attachment_v2', {
         method: 'POST',
         body: JSON.stringify({
@@ -1833,54 +1833,59 @@ export default async function handler(req: VercelReq, res: VercelRes) {
           p_drive_thumbnail_link: driveThumbnailLink,
         }),
       });
-      if (rpcV2.ok) {
-        messageUpdated = true;
-      } else {
-        const rpcRes = await sbRest('/rest/v1/rpc/update_chat_message_attachment', {
-          method: 'POST',
+      if (rpcV2.ok) return true;
+
+      const rpcRes = await sbRest('/rest/v1/rpc/update_chat_message_attachment', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_message_id: messageId,
+          p_attachment_type: attachmentType,
+          p_attachment_name: uploaded.name || safeName,
+          p_attachment_mime: effectiveMime,
+          p_attachment_size_bytes: finalSize,
+          p_attachment_storage_provider: 'google_drive',
+          p_attachment_drive_file_id: uploaded.id,
+          p_attachment_drive_folder_path: folderPath,
+          p_attachment_url: attachmentUrl,
+          p_attachment_thumbnail_url: thumbnailUrl,
+          p_attachment_status: 'ready',
+        }),
+      });
+      if (rpcRes.ok) return true;
+
+      const patchRes = await sbRest(
+        `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(messageId)}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
           body: JSON.stringify({
-            p_message_id: messageId,
-            p_attachment_type: attachmentType,
-            p_attachment_name: uploaded.name || safeName,
-            p_attachment_mime: effectiveMime,
-            p_attachment_size_bytes: finalSize,
-            p_attachment_storage_provider: 'google_drive',
-            p_attachment_drive_file_id: uploaded.id,
-            p_attachment_drive_folder_path: folderPath,
-            p_attachment_url: attachmentUrl,
-            p_attachment_thumbnail_url: thumbnailUrl,
-            p_attachment_status: 'ready',
+            attachment_type: attachmentType,
+            attachment_name: uploaded.name || safeName,
+            attachment_mime: effectiveMime,
+            attachment_size_bytes: finalSize,
+            attachment_storage_provider: 'google_drive',
+            attachment_drive_file_id: uploaded.id,
+            attachment_drive_folder_path: folderPath,
+            attachment_url: attachmentUrl,
+            attachment_thumbnail_url: thumbnailUrl,
+            attachment_status: 'ready',
+            drive_permission_scope: drivePermissionScope,
+            drive_web_view_link: driveWebViewLink,
+            drive_thumbnail_link: driveThumbnailLink,
           }),
-        });
-        if (rpcRes.ok) {
-          messageUpdated = true;
-        } else {
-          const patchRes = await sbRest(
-            `/rest/v1/community_chat_messages?id=eq.${encodeURIComponent(messageId)}`,
-            {
-              method: 'PATCH',
-              headers: { Prefer: 'return=minimal' },
-              body: JSON.stringify({
-                attachment_type: attachmentType,
-                attachment_name: uploaded.name || safeName,
-                attachment_mime: effectiveMime,
-                attachment_size_bytes: finalSize,
-                attachment_storage_provider: 'google_drive',
-                attachment_drive_file_id: uploaded.id,
-                attachment_drive_folder_path: folderPath,
-                attachment_url: attachmentUrl,
-                attachment_thumbnail_url: thumbnailUrl,
-                attachment_status: 'ready',
-                drive_permission_scope: drivePermissionScope,
-                drive_web_view_link: driveWebViewLink,
-                drive_thumbnail_link: driveThumbnailLink,
-              }),
-            }
-          );
-          messageUpdated = patchRes.ok;
         }
-      }
-    }
+      );
+      return patchRes.ok;
+    })();
+
+    const [delOutcome, updateOutcome] = await Promise.allSettled([
+      deleteTransitPromise,
+      updateMessagePromise,
+    ]);
+    const transitDeleted =
+      delOutcome.status === 'fulfilled' && Boolean(delOutcome.value?.ok);
+    const messageUpdated =
+      updateOutcome.status === 'fulfilled' ? Boolean(updateOutcome.value) : false;
 
     res.status(200).json({
       ok: true,
@@ -1897,7 +1902,7 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       attachmentUrl,
       thumbnailUrl,
       webViewLink: driveWebViewLink,
-      transitDeleted: delRes.ok,
+      transitDeleted,
       messageUpdated,
     });
   } catch (err) {

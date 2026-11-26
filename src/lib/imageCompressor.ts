@@ -243,3 +243,140 @@ export async function compressLogoImage(
     img.src = objectUrl;
   });
 }
+
+const CHAT_COMPRESSIBLE_IMAGE_EXT_RE = /\.(jpe?g|png|webp)$/i;
+const CHAT_COMPRESSIBLE_IMAGE_MIME_SET = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
+
+/**
+ * Mengompresi foto dari Kamera atau Galeri Chat Cepat (JPG, PNG, WEBP)
+ * menggunakan HTML5 <canvas> (sisi terpanjang maks 1600px, kualitas 0.82).
+ * Dokumen (PDF/Excel/Word) dan video tidak dikompresi.
+ */
+export async function compressChatImage(
+  file: File,
+  maxDimension = 1600,
+  quality = 0.82
+): Promise<CompressedImageResult> {
+  const originalSize = file.size;
+  const cleanMime = String(file.type || '').trim().toLowerCase();
+  const cleanName = String(file.name || '').trim().toLowerCase();
+
+  const isTargetMime = CHAT_COMPRESSIBLE_IMAGE_MIME_SET.has(cleanMime);
+  const isTargetExt = !cleanMime && CHAT_COMPRESSIBLE_IMAGE_EXT_RE.test(cleanName);
+
+  if ((!isTargetMime && !isTargetExt) || originalSize < 100 * 1024) {
+    return {
+      file,
+      originalSize,
+      compressedSize: originalSize,
+      wasCompressed: false,
+    };
+  }
+
+  return new Promise((resolve) => {
+    let objectUrl = '';
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch {
+      resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+      return;
+    }
+
+    const img = new Image();
+    const cleanup = () => {
+      try {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      } catch {
+        // Abaikan
+      }
+    };
+
+    img.onload = () => {
+      cleanup();
+      try {
+        const naturalW = img.naturalWidth || img.width;
+        const naturalH = img.naturalHeight || img.height;
+
+        if (!naturalW || !naturalH) {
+          resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+          return;
+        }
+
+        let targetWidth = naturalW;
+        let targetHeight = naturalH;
+        const needsResize = naturalW > maxDimension || naturalH > maxDimension;
+
+        if (needsResize) {
+          if (naturalW >= naturalH) {
+            targetHeight = Math.max(1, Math.round((naturalH * maxDimension) / naturalW));
+            targetWidth = maxDimension;
+          } else {
+            targetWidth = Math.max(1, Math.round((naturalW * maxDimension) / naturalH));
+            targetHeight = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx || typeof canvas.toBlob !== 'function') {
+          resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+          return;
+        }
+
+        const outMime = cleanMime === 'image/webp' ? 'image/webp' : 'image/jpeg';
+        const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
+
+        if (outMime === 'image/jpeg') {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, targetWidth, targetHeight);
+        } else {
+          ctx.clearRect(0, 0, targetWidth, targetHeight);
+        }
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob || (!needsResize && blob.size >= originalSize)) {
+              resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+              return;
+            }
+            if (blob.size >= originalSize * 0.98 && !needsResize) {
+              resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+              return;
+            }
+
+            const baseName = file.name.replace(/\.[^.]+$/, '') || `foto-${Date.now()}`;
+            const compressedFile = createSafeFile(blob, `${baseName}.${outExt}`, outMime);
+
+            resolve({
+              file: compressedFile,
+              originalSize,
+              compressedSize: compressedFile.size || blob.size,
+              wasCompressed: true,
+            });
+          },
+          outMime,
+          quality
+        );
+      } catch {
+        resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+      }
+    };
+
+    img.onerror = () => {
+      cleanup();
+      resolve({ file, originalSize, compressedSize: originalSize, wasCompressed: false });
+    };
+
+    img.src = objectUrl;
+  });
+}
+

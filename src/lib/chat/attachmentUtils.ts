@@ -17,12 +17,17 @@ export interface UploadErrorDetails {
   fieldReasons?: Record<string, string>;
 }
 
+export const CHAT_QUICK_OPEN_STORAGE_KEY = 'saung_kebun_quick_chat_open';
+export const CHAT_QUICK_ROOM_STORAGE_KEY = 'saung_kebun_quick_chat_room';
+export const CHAT_QUICK_VIEW_STORAGE_KEY = 'saung_kebun_quick_chat_view';
+
 export interface UploadQueueItem {
   localId: string;
   roomId: ChatRoomId;
   file: File;
   pickerKind: AttachmentPickerKind;
   attachmentType: Exclude<ChatAttachmentType, 'none'>;
+  localPreviewUrl?: string | null;
   status: UploadItemStatus;
   percent: number;
   phase: ChatUploadPhase | 'failed';
@@ -174,7 +179,7 @@ export function validatePickedAttachment(
     if (!isVideo) {
       return {
         valid: false,
-        error: 'Pilih berkas video (.mp4, .mov, .mkv, .webm, dll.) untuk jalur unggah langsung Google Drive.',
+        error: 'Pilih berkas video (.mp4, .mov, .mkv, .webm, dll.) untuk lampiran video.',
       };
     }
     if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
@@ -187,7 +192,7 @@ export function validatePickedAttachment(
   }
 
   // Keamanan routing ketat: bila user memilih berkas video melalui Galeri/Kamera/Dokumen,
-  // tetap arahkan ke jalur Direct Resumable Video agar TIDAK PERNAH masuk chat-transit.
+  // tetap arahkan ke jalur Direct Resumable Video agar tidak melewati jalur dokumen.
   if (isVideo) {
     if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
       return {
@@ -201,7 +206,7 @@ export function validatePickedAttachment(
   if (file.size > MAX_NON_VIDEO_UPLOAD_BYTES) {
     return {
       valid: false,
-      error: `Ukuran foto/dokumen (${formatFileSize(file.size)}) melebihi batas transit 20 MB.`,
+      error: `Ukuran foto/dokumen (${formatFileSize(file.size)}) melebihi batas maksimal 20 MB.`,
     };
   }
 
@@ -230,13 +235,13 @@ export function describeUploadStage(
     case 'uploading_transit':
       return 'Mengunggah';
     case 'transferring_to_drive':
-      return 'Finalisasi Drive';
+      return 'Memproses';
     case 'initializing_video_session':
-      return 'Menyiapkan Drive';
+      return 'Menyiapkan Video';
     case 'uploading_video_direct':
       return 'Mengunggah Video';
     case 'finalizing_video':
-      return 'Finalisasi Drive';
+      return 'Menyelesaikan';
     default:
       return 'Mengunggah';
   }

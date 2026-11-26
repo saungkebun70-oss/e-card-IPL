@@ -21,7 +21,7 @@ import {
   type PengurusItem,
   type Warga,
 } from '../../types';
-import { buildWhatsAppLink, copyToClipboard } from '../../lib/format';
+import { buildWhatsAppLink, copyToClipboard, formatBlokRumah } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { UserAvatar } from '../UserAvatar';
@@ -154,7 +154,7 @@ const ENRICHED_PENGURUS: PengurusProfileDetail[] = SUSUNAN_PENGURUS.map((item) =
     deskripsiTugas: `Melayani koordinasi warga Perumahan Saung Kebun pada bidang ${item.jabatan}.`,
     tanggungJawab: ['Koordinasi kegiatan lingkungan dan pelayanan warga'],
     layananWarga: ['Koordinasi lingkungan & titip setoran tunai IPL'],
-    keteranganLokasi: `Blok ${item.blokRumah}`,
+    keteranganLokasi: `Blok ${formatBlokRumah(item.blokRumah) || item.blokRumah}`,
   };
   return { ...item, ...detail };
 });
@@ -214,11 +214,12 @@ export function ProfilLingkungan({
   };
 
   const handleCopyLokasi = async (p: PengurusProfileDetail) => {
-    const text = `${p.nama} (${p.jabatan} Saung Kebun) — Blok ${p.blokRumah}`;
+    const displayBlok = formatBlokRumah(p.blokRumah) || p.blokRumah;
+    const text = `${p.nama} (${p.jabatan} Saung Kebun) — Blok ${displayBlok}`;
     const ok = await copyToClipboard(text);
     if (ok) {
       setCopiedUsername(p.username);
-      onToast('success', `Info lokasi ${p.nama} (Blok ${p.blokRumah}) disalin.`);
+      onToast('success', `Info lokasi ${p.nama} (Blok ${displayBlok}) disalin.`);
       setTimeout(() => {
         setCopiedUsername((prev) => (prev === p.username ? null : prev));
       }, 2200);
@@ -234,7 +235,8 @@ export function ProfilLingkungan({
 
   const buildWaPengurusHref = (p: PengurusProfileDetail) => {
     const targetWa = brand.pengurus_wa_map?.[p.username] || brand.wa_pengurus;
-    const msg = `Halo ${p.nama} (${p.jabatan} Perumahan Saung Kebun), saya ${profil.nama_warga} dari Blok ${profil.blok_rumah}. Saya ingin berkoordinasi terkait keperluan lingkungan / iuran IPL.`;
+    const displayBlok = formatBlokRumah(profil.blok_rumah) || profil.blok_rumah;
+    const msg = `Halo ${p.nama} (${p.jabatan} Perumahan Saung Kebun), saya ${profil.nama_warga} dari Blok ${displayBlok}. Saya ingin berkoordinasi terkait keperluan lingkungan / iuran IPL.`;
     return buildWhatsAppLink(targetWa, msg);
   };
 
@@ -448,7 +450,7 @@ export function ProfilLingkungan({
 
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 mt-1.5">
                           <span className="font-mono font-semibold text-slate-700 tabular-nums">
-                            Blok {p.blokRumah}
+                            Blok {formatBlokRumah(p.blokRumah) || p.blokRumah}
                           </span>
                           <span aria-hidden="true">·</span>
                           <span>
@@ -703,7 +705,7 @@ export function ProfilLingkungan({
                       ) : (
                         <>
                           <Copy className="w-4 h-4 text-[#4C1D95] shrink-0" />
-                          <span>Salin Blok {selectedPengurus.blokRumah}</span>
+                          <span>Salin Blok {formatBlokRumah(selectedPengurus.blokRumah) || selectedPengurus.blokRumah}</span>
                         </>
                       )}
                     </button>
@@ -763,7 +765,7 @@ function OrgNodeButton({
           </p>
           <p className="text-sm font-bold text-[#0F172A] truncate">{pengurus.nama}</p>
           <p className="text-xs font-mono text-slate-500 tabular-nums">
-            Blok {pengurus.blokRumah}
+            Blok {formatBlokRumah(pengurus.blokRumah) || pengurus.blokRumah}
           </p>
         </div>
       </div>

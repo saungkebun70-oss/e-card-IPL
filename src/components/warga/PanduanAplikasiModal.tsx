@@ -192,7 +192,7 @@ export function PanduanAplikasiModal({
                           Selamat datang di portal resmi <strong>e-Card Verifikasi &amp; IPL Digital</strong>{' '}
                           Perumahan Saung Kebun. Akun Anda terkunci khusus untuk unit{' '}
                           <span className="font-mono font-semibold text-slate-800">
-                            {profil.blok_rumah}
+                            {formatBlokRumah(profil.blok_rumah) || profil.blok_rumah}
                           </span>{' '}
                           demi menjaga privasi data warga.
                         </p>
@@ -209,7 +209,10 @@ export function PanduanAplikasiModal({
                               Buka halaman Portal Warga di{' '}
                               <span className="font-mono text-slate-800">{APP_PORTAL_URL}</span>, lalu masukkan
                               Username Blok Rumah Anda (contoh:{' '}
-                              <span className="font-mono font-semibold">{profil.blok_rumah}</span>) dan PIN 6 digit resmi dari pengurus.
+                              <span className="font-mono font-semibold">
+                                {formatBlokRumah(profil.blok_rumah) || profil.blok_rumah}
+                              </span>
+                              ) dan PIN 6 digit resmi dari pengurus.
                             </p>
                           </div>
                         </li>

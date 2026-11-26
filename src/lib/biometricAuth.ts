@@ -8,6 +8,7 @@ import {
   type CheckBiometryResult,
 } from '@aparajita/capacitor-biometric-auth';
 import type { SessionUser } from '../types';
+import { formatBlokRumah } from './phoneAndBlockUtils';
 
 const PETUGAS_BIOMETRIC_STORAGE_KEY = 'saungkebun_petugas_biometric_v1';
 const WARGA_BIOMETRIC_STORAGE_KEY = 'saungkebun_warga_biometric_v1';
@@ -637,13 +638,14 @@ export async function enrollWargaBiometric(
     let webAuthnCredentialId: string | undefined;
 
     if (availability.provider === 'capacitor') {
+      const displayBlok = formatBlokRumah(session.blok_rumah) || session.blok_rumah;
       await BiometricAuth.authenticate({
-        reason: `Aktifkan masuk cepat ${availability.label} untuk Blok ${session.blok_rumah}`,
+        reason: `Aktifkan masuk cepat ${availability.label} untuk Blok ${displayBlok}`,
         cancelTitle: 'Batal',
         allowDeviceCredential: true,
         iosFallbackTitle: 'Gunakan Kode Sandi HP',
         androidTitle: 'Aktifkan Masuk Cepat Portal Warga',
-        androidSubtitle: `Konfirmasi ${availability.label} · ${session.nama_warga} (${session.blok_rumah})`,
+        androidSubtitle: `Konfirmasi ${availability.label} · ${session.nama_warga} (${displayBlok})`,
         androidConfirmationRequired: false,
         androidBiometryStrength: AndroidBiometryStrength.weak,
       });
@@ -683,13 +685,14 @@ export async function authenticateWargaBiometric(
 
   try {
     if (availability.provider === 'capacitor') {
+      const displayBlok = formatBlokRumah(profile.blok_rumah) || profile.blok_rumah;
       await BiometricAuth.authenticate({
-        reason: `Verifikasi ${availability.label} untuk masuk Portal Warga (${profile.blok_rumah})`,
+        reason: `Verifikasi ${availability.label} untuk masuk Portal Warga (${displayBlok})`,
         cancelTitle: 'Gunakan PIN',
         allowDeviceCredential: true,
         iosFallbackTitle: 'Gunakan Kode Sandi HP',
         androidTitle: 'Masuk Portal Warga',
-        androidSubtitle: `${profile.nama} · Blok ${profile.blok_rumah}`,
+        androidSubtitle: `${profile.nama} · Blok ${displayBlok}`,
         androidConfirmationRequired: false,
         androidBiometryStrength: AndroidBiometryStrength.weak,
       });

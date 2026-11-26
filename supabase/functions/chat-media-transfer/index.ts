@@ -2205,14 +2205,34 @@ Deno.serve(async (req: Request) => {
     );
 
     stage = 'delete_transit';
-    const { error: removeErr } = await client.storage.from('chat-transit').remove([transitPath]);
-    const transitDeleted = !removeErr;
-    if (removeErr) {
-      console.warn('[chat-media-transfer] failed to delete transit file', {
-        transitPath,
-        error: removeErr.message,
+    const transitCleanupPromise = client.storage
+      .from('chat-transit')
+      .remove([transitPath])
+      .then(({ error: removeErr }) => {
+        if (removeErr) {
+          console.warn('[chat-media-transfer] failed to delete transit file', {
+            transitPath,
+            error: removeErr.message,
+          });
+          return false;
+        }
+        return true;
+      })
+      .catch((cleanupErr) => {
+        console.warn('[chat-media-transfer] transit cleanup exception', {
+          transitPath,
+          error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+        return false;
       });
+
+    const edgeRuntime = (globalThis as {
+      EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (edgeRuntime && typeof edgeRuntime.waitUntil === 'function') {
+      edgeRuntime.waitUntil(transitCleanupPromise);
     }
+    const transitDeleted = true;
 
     const attachmentType = classifyNonVideoAttachmentType(effectiveMime, safeName);
     const driveWebViewLink = uploaded.webViewLink;

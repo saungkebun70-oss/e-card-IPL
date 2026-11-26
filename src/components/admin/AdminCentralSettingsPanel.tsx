@@ -45,7 +45,7 @@ import {
   syncPengurusToWargaStatus,
 } from '../../lib/centralSettingsService';
 import { fetchAuditLogs } from '../../lib/auditLogger';
-import { formatTanggalWaktu } from '../../lib/format';
+import { formatBlokRumah, formatTanggalWaktu } from '../../lib/format';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { UserAvatar } from '../UserAvatar';
 
@@ -302,7 +302,7 @@ export function AdminCentralSettingsPanel({
         'success',
         nextActivePengurus
           ? `Akun Pengurus ${item.pengurus_nama} diaktifkan kembali (eksklusif Portal Pengurus).`
-          : `Hak Pengurus ${item.pengurus_nama} dinonaktifkan. Akun Warga Blok ${item.linked_blok_rumah} otomatis aktif kembali.`
+          : `Hak Pengurus ${item.pengurus_nama} dinonaktifkan. Akun Warga Blok ${formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah} otomatis aktif kembali.`
       );
       await onRefresh();
       const latestLogs = await fetchAuditLogs(session);
@@ -741,7 +741,7 @@ export function AdminCentralSettingsPanel({
                             {pengurus.nama}
                           </p>
                           <p className="text-xs text-slate-500 leading-relaxed">
-                            {pengurus.jabatan} · Blok {pengurus.blokRumah} ·{' '}
+                            {pengurus.jabatan} · Blok {formatBlokRumah(pengurus.blokRumah) || pengurus.blokRumah} ·{' '}
                             <span className="font-mono">@{pengurus.username}</span> ·{' '}
                             <span className="font-mono font-semibold tabular-nums text-[#4C1D95]">
                               {grantedCount}/{CENTRAL_SETTING_MODULES.length} modul
@@ -890,7 +890,7 @@ export function AdminCentralSettingsPanel({
                           <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono">@{item.pengurus_username}</span>
                             <span>·</span>
-                            <span className="font-mono">Blok {item.linked_blok_rumah}</span>
+                            <span className="font-mono">Blok {formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah}</span>
                           </p>
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold">
                             <span
@@ -906,7 +906,7 @@ export function AdminCentralSettingsPanel({
                                 item.is_active_warga ? 'text-emerald-700' : 'text-amber-700'
                               }
                             >
-                              Warga Blok {item.linked_blok_rumah}:{' '}
+                              Warga Blok {formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah}:{' '}
                               {item.is_active_warga
                                 ? 'Aktif Otomatis (Jalur Warga)'
                                 : 'Terkunci (Eksklusif Pengurus)'}
@@ -962,8 +962,8 @@ export function AdminCentralSettingsPanel({
                       <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 space-y-2.5">
                         <p className="text-xs font-semibold text-amber-950 leading-relaxed">
                           {confirmSyncTarget.nextActivePengurus
-                            ? `Aktifkan kembali hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Login jalur Warga untuk Blok ${item.linked_blok_rumah} akan diblokir sesuai aturan eksklusivitas.`
-                            : `Nonaktifkan hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Akun Warga Blok ${item.linked_blok_rumah} akan otomatis diaktifkan kembali agar dapat login via Portal Warga.`}
+                            ? `Aktifkan kembali hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Login jalur Warga untuk Blok ${formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah} akan diblokir sesuai aturan eksklusivitas.`
+                            : `Nonaktifkan hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Akun Warga Blok ${formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah} akan otomatis diaktifkan kembali agar dapat login via Portal Warga.`}
                         </p>
                         <input
                           type="text"

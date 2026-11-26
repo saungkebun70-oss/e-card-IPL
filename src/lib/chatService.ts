@@ -102,6 +102,9 @@ export interface ChatMessage {
   drive_web_view_link?: string | null;
   drive_thumbnail_link?: string | null;
   hidden_for?: string[];
+  /** Client-only instant preview URL sebelum upload selesai (tidak disimpan ke DB) */
+  local_preview_url?: string | null;
+  local_upload_local_id?: string | null;
 }
 
 export interface SendChatMessageInput {
@@ -621,7 +624,7 @@ export function buildSenderSubtitle(session: SessionUser): string {
   if (session.role === 'petugas') {
     return session.shift ? `Keamanan · ${session.shift}` : 'Petugas Keamanan';
   }
-  return `Warga Blok ${session.blok_rumah}`;
+  return `Warga Blok ${formatBlokRumah(session.blok_rumah) || session.blok_rumah}`;
 }
 
 export function getChatReadStorageKey(session: SessionUser): string {
@@ -872,8 +875,8 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
       participant_id: `warga:${canonicalBlockKey(w.blok_rumah).toLowerCase()}`,
       role: 'warga',
       display_name: w.nama_warga,
-      subtitle: `Warga Blok ${w.blok_rumah}`,
-      blok_or_code: w.blok_rumah,
+      subtitle: `Warga Blok ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`,
+      blok_or_code: formatBlokRumah(w.blok_rumah) || w.blok_rumah,
       avatar_url: w.avatar_url || null,
     });
   }
@@ -961,12 +964,13 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
                   blok_or_code: blok,
                 });
               } else if (String(raw.status_hunian || '').toLowerCase() !== 'kosong') {
+                const dispBlok = formatBlokRumah(blok) || blok;
                 upsertContact({
                   participant_id: `warga:${canonicalBlockKey(blok).toLowerCase()}`,
                   role: 'warga',
                   display_name: nama,
-                  subtitle: `Warga Blok ${blok}`,
-                  blok_or_code: blok,
+                  subtitle: `Warga Blok ${dispBlok}`,
+                  blok_or_code: dispBlok,
                 });
               }
             }
@@ -2216,6 +2220,7 @@ export function createChatUploadQueueItem(params: {
   file: File;
   pickerKind: AttachmentPickerKind;
   attachmentType: Exclude<ChatAttachmentType, 'none'>;
+  localPreviewUrl?: string | null;
 }): UploadQueueItem {
   const localId = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return {
@@ -2224,12 +2229,13 @@ export function createChatUploadQueueItem(params: {
     file: params.file,
     pickerKind: params.pickerKind,
     attachmentType: params.attachmentType,
+    localPreviewUrl: params.localPreviewUrl ?? null,
     status: 'uploading',
     percent: 1,
     phase: params.attachmentType === 'video' ? 'initializing_video_session' : 'preparing',
     phaseLabel:
       params.attachmentType === 'video'
-        ? 'Menyiapkan jalur langsung Google Drive...'
+        ? 'Menyiapkan unggahan video...'
         : 'Menyiapkan berkas...',
     bytesUploaded: 0,
     totalBytes: params.file.size,
@@ -2274,7 +2280,7 @@ export async function executeChatUploadQueueItem(params: {
       status: 'completed',
       percent: 100,
       phase: 'completed',
-      phaseLabel: 'Tersimpan di Google Drive.',
+      phaseLabel: 'Lampiran siap dikirim.',
       bytesUploaded: prev.totalBytes,
       error: null,
       errorDetails: null,
@@ -2292,7 +2298,7 @@ export async function executeChatUploadQueueItem(params: {
     }
 
     const message =
-      err instanceof Error ? err.message : 'Gagal mengunggah lampiran ke Google Drive.';
+      err instanceof Error ? err.message : 'Gagal mengunggah lampiran.';
     const errorDetails = extractUploadErrorDetails(err);
     onPatchItem(item.localId, (prev) => ({
       ...prev,
@@ -2397,4 +2403,203 @@ export async function sendChatMessagesWithUploadedAttachments(params: {
 
   return { messages, sentLocalIds };
 }
+
+export interface TypingIndicatorUser {
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  senderBadge: string;
+  updatedAt: number;
+}
+
+const TYPING_BROADCAST_THROTTLE_MS = 1500;
+const TYPING_EXPIRE_MS = 4000;
+
+function formatTypingSenderBadge(session: SessionUser): string {
+  const role = normalizeChatUserRole(session.role);
+  if (role === 'admin') {
+    return (session.jabatan || 'Pengurus').trim();
+  }
+  if (role === 'petugas') {
+    return 'Keamanan';
+  }
+  const cleanBlok = formatBlokRumah(session.blok_rumah) || (session.blok_rumah || '').trim();
+  return cleanBlok ? `Blok ${cleanBlok}` : 'Warga';
+}
+
+/**
+ * Mengelola indikator real-time "Sedang Mengetik..." per ruang obrolan via Supabase Realtime Broadcast
+ * (ephemeral murni lewat WebSocket tanpa menulis apa pun ke database).
+ */
+export function subscribeChatTypingRoom(
+  session: SessionUser,
+  roomId: ChatRoomId,
+  onTypingUsersChange: (users: TypingIndicatorUser[]) => void
+): {
+  sendTyping: (isTyping: boolean) => void;
+  unsubscribe: () => void;
+} {
+  const normalizedRoom = normalizeRoomId(roomId);
+  const myCtx = buildChatSessionSenderContext(session);
+  const myIds = getChatParticipantMatchIds(session);
+  const myBadge = formatTypingSenderBadge(session);
+  const myName = (session.nama_warga || myCtx.namaWarga || 'Pengguna').trim();
+
+  const supabase = getSupabaseClient(session);
+  if (!supabase || !isSupabaseConfigured() || !canAccessChatRoom(session, normalizedRoom)) {
+    onTypingUsersChange([]);
+    return {
+      sendTyping: () => undefined,
+      unsubscribe: () => undefined,
+    };
+  }
+
+  let disposed = false;
+  let lastTypingSentAt = 0;
+  let lastBroadcastWasTyping = false;
+  const activeTypers = new Map<string, TypingIndicatorUser>();
+
+  const emitActiveTypers = () => {
+    if (disposed) return;
+    const now = Date.now();
+    let changed = false;
+    for (const [key, entry] of Array.from(activeTypers.entries())) {
+      if (now - entry.updatedAt > TYPING_EXPIRE_MS) {
+        activeTypers.delete(key);
+        changed = true;
+      }
+    }
+    const sorted = Array.from(activeTypers.values()).sort((a, b) => a.updatedAt - b.updatedAt);
+    if (changed || sorted.length >= 0) {
+      onTypingUsersChange(sorted);
+    }
+  };
+
+  const expireTimer = setInterval(() => {
+    if (disposed || activeTypers.size === 0) return;
+    const now = Date.now();
+    let expired = false;
+    for (const [key, entry] of Array.from(activeTypers.entries())) {
+      if (now - entry.updatedAt > TYPING_EXPIRE_MS) {
+        activeTypers.delete(key);
+        expired = true;
+      }
+    }
+    if (expired) {
+      const sorted = Array.from(activeTypers.values()).sort((a, b) => a.updatedAt - b.updatedAt);
+      onTypingUsersChange(sorted);
+    }
+  }, 1000);
+
+  let channelSubscribed = false;
+  const channel = supabase
+    .channel(`typing:${normalizedRoom}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
+    .on('broadcast', { event: 'typing' }, (msg) => {
+      if (disposed) return;
+      const payload = (msg?.payload || {}) as Record<string, unknown>;
+      const senderId = String(payload.senderId || '').trim();
+      if (!senderId) return;
+      const normSenderId = normalizeChatParticipantId(senderId);
+      if (senderId === myCtx.senderId || myIds.has(senderId) || myIds.has(normSenderId)) {
+        return;
+      }
+
+      const isTyping = Boolean(payload.isTyping);
+      const mapKey = normSenderId || senderId;
+      if (!isTyping) {
+        if (activeTypers.delete(mapKey)) {
+          emitActiveTypers();
+        }
+        return;
+      }
+
+      const senderName = String(payload.senderName || 'Pengguna').trim() || 'Pengguna';
+      const senderRole = normalizeSenderRole(payload.senderRole);
+      const senderBadge = String(payload.senderBadge || '').trim();
+
+      activeTypers.set(mapKey, {
+        senderId: mapKey,
+        senderName,
+        senderRole,
+        senderBadge,
+        updatedAt: Date.now(),
+      });
+      emitActiveTypers();
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channelSubscribed = true;
+      }
+    });
+
+  const sendTyping = (isTyping: boolean) => {
+    if (disposed || !channelSubscribed) return;
+    const now = Date.now();
+    if (isTyping) {
+      if (lastBroadcastWasTyping && now - lastTypingSentAt < TYPING_BROADCAST_THROTTLE_MS) {
+        return;
+      }
+      lastTypingSentAt = now;
+      lastBroadcastWasTyping = true;
+    } else {
+      if (!lastBroadcastWasTyping) return;
+      lastBroadcastWasTyping = false;
+      lastTypingSentAt = 0;
+    }
+
+    void channel
+      .send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          roomId: normalizedRoom,
+          senderId: myCtx.senderId,
+          senderName: myName,
+          senderRole: myCtx.role,
+          senderBadge: myBadge,
+          isTyping,
+          sentAt: now,
+        },
+      })
+      .catch(() => undefined);
+  };
+
+  return {
+    sendTyping,
+    unsubscribe: () => {
+      if (disposed) return;
+      if (lastBroadcastWasTyping && channelSubscribed) {
+        lastBroadcastWasTyping = false;
+        void channel
+          .send({
+            type: 'broadcast',
+            event: 'typing',
+            payload: {
+              roomId: normalizedRoom,
+              senderId: myCtx.senderId,
+              senderName: myName,
+              senderRole: myCtx.role,
+              senderBadge: myBadge,
+              isTyping: false,
+              sentAt: Date.now(),
+            },
+          })
+          .catch(() => undefined);
+      }
+      disposed = true;
+      clearInterval(expireTimer);
+      activeTypers.clear();
+      try {
+        void supabase.removeChannel(channel);
+      } catch {
+        // Abaikan
+      }
+    },
+  };
+}
+
 

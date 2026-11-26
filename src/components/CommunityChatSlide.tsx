@@ -45,19 +45,28 @@ import {
   sendChatMessage,
   sendChatMessagesWithUploadedAttachments,
   subscribeChatMessagesRealtime,
+  subscribeChatTypingRoom,
   type ChatContact,
   type ChatMessage,
   type ChatRoomId,
   type DmThreadPreview,
   type GroupChatRoomId,
+  type TypingIndicatorUser,
 } from '../lib/chatService';
-import { extractDriveFileIdFromAttachment } from '../lib/chatMediaUpload';
+import {
+  extractDriveFileIdFromAttachment,
+  seedPrivateAttachmentBlobCache,
+  type ChatMediaUploadResult,
+} from '../lib/chatMediaUpload';
 import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
 import {
+  CHAT_QUICK_ROOM_STORAGE_KEY,
+  CHAT_QUICK_VIEW_STORAGE_KEY,
   validatePickedAttachment,
   type AttachmentPickerKind,
   type UploadQueueItem,
 } from '../lib/chat/attachmentUtils';
+import { compressChatImage } from '../lib/imageCompressor';
 import { matchesBlockSearch } from '../lib/format';
 import { UserAvatar } from './UserAvatar';
 import { ChatAttachmentMenu } from './chat/ChatAttachmentMenu';
@@ -69,6 +78,7 @@ interface CommunityChatSlideProps {
   session: SessionUser;
   initialRoomId?: ChatRoomId | null;
   variant?: 'page' | 'floating';
+  onAttachmentPickingChange?: (picking: boolean) => void;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -131,6 +141,7 @@ export function CommunityChatSlide({
   session,
   initialRoomId,
   variant = 'floating',
+  onAttachmentPickingChange,
   onToast,
 }: CommunityChatSlideProps) {
   const isFloating = variant === 'floating';
@@ -143,16 +154,46 @@ export function CommunityChatSlide({
     if (initialRoomId && canAccessChatRoom(session, initialRoomId)) {
       return initialRoomId;
     }
+    try {
+      if (typeof window !== 'undefined') {
+        const storedRoom = window.sessionStorage.getItem(CHAT_QUICK_ROOM_STORAGE_KEY) as ChatRoomId | null;
+        if (storedRoom && canAccessChatRoom(session, storedRoom)) {
+          return storedRoom;
+        }
+      }
+    } catch {
+      // Abaikan jika sessionStorage tidak tersedia
+    }
     return accessibleRooms[0]?.id || 'forum_umum';
   });
-  const [primaryTab, setPrimaryTab] = useState<ChatPrimaryTab>(() =>
-    initialRoomId && isDmRoomId(initialRoomId) ? 'dm' : 'group'
-  );
+  const [primaryTab, setPrimaryTab] = useState<ChatPrimaryTab>(() => {
+    if (initialRoomId) return isDmRoomId(initialRoomId) ? 'dm' : 'group';
+    try {
+      if (typeof window !== 'undefined') {
+        const storedRoom = window.sessionStorage.getItem(CHAT_QUICK_ROOM_STORAGE_KEY);
+        if (storedRoom) return isDmRoomId(storedRoom) ? 'dm' : 'group';
+      }
+    } catch {
+      // Abaikan
+    }
+    return 'group';
+  });
   const [contactSearch, setContactSearch] = useState('');
   const [contactRoleFilter, setContactRoleFilter] = useState<'semua' | UserRole>('semua');
-  const [floatingView, setFloatingView] = useState<'list' | 'thread'>(() =>
-    initialRoomId ? 'thread' : 'list'
-  );
+  const [floatingView, setFloatingView] = useState<'list' | 'thread'>(() => {
+    if (initialRoomId) return 'thread';
+    try {
+      if (typeof window !== 'undefined') {
+        const savedView = window.sessionStorage.getItem(CHAT_QUICK_VIEW_STORAGE_KEY);
+        if (savedView === 'thread' || savedView === 'list') {
+          return savedView;
+        }
+      }
+    } catch {
+      // Abaikan
+    }
+    return 'list';
+  });
   const [showGroupMembers, setShowGroupMembers] = useState(false);
 
   const [contacts, setContacts] = useState<ChatContact[]>([]);
@@ -172,6 +213,7 @@ export function CommunityChatSlide({
   const [clearingRoom, setClearingRoom] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [previewAttachmentMsg, setPreviewAttachmentMsg] = useState<ChatMessage | null>(null);
+  const [typingUsers, setTypingUsers] = useState<TypingIndicatorUser[]>([]);
 
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -179,6 +221,12 @@ export function CommunityChatSlide({
   activeRoomIdRef.current = activeRoomId;
   const uploadQueueRef = useRef<UploadQueueItem[]>(uploadQueue);
   uploadQueueRef.current = uploadQueue;
+  const uploadPromisesRef = useRef<Map<string, Promise<ChatMediaUploadResult | null>>>(new Map());
+  const handedOffPreviewUrlsRef = useRef<Set<string>>(new Set());
+  const typingControllerRef = useRef<{
+    sendTyping: (isTyping: boolean) => void;
+    unsubscribe: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (initialRoomId && canAccessChatRoom(session, initialRoomId)) {
@@ -187,6 +235,28 @@ export function CommunityChatSlide({
       if (isFloating) setFloatingView('thread');
     }
   }, [initialRoomId, session, isFloating]);
+
+  // Pertahankan ruang obrolan terakhir & view floating di sessionStorage agar tahan saat reload memori kamera Android
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && activeRoomId) {
+        window.sessionStorage.setItem(CHAT_QUICK_ROOM_STORAGE_KEY, activeRoomId);
+      }
+    } catch {
+      // Abaikan
+    }
+  }, [activeRoomId]);
+
+  useEffect(() => {
+    if (!isFloating) return;
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(CHAT_QUICK_VIEW_STORAGE_KEY, floatingView);
+      }
+    } catch {
+      // Abaikan
+    }
+  }, [floatingView, isFloating]);
 
   // Pastikan activeRoomId selalu valid bila sesi/role berubah
   useEffect(() => {
@@ -329,9 +399,32 @@ export function CommunityChatSlide({
         if (item.status === 'uploading') {
           item.abortController.abort();
         }
+        if (item.localPreviewUrl && !handedOffPreviewUrlsRef.current.has(item.localPreviewUrl)) {
+          try {
+            URL.revokeObjectURL(item.localPreviewUrl);
+          } catch {
+            // Abaikan
+          }
+        }
       });
     };
   }, []);
+
+  // Indikator real-time "Sedang Mengetik..." per ruang obrolan via Supabase Realtime Broadcast (tanpa menulis DB)
+  useEffect(() => {
+    setTypingUsers([]);
+    const sub = subscribeChatTypingRoom(session, activeRoomId, (users) => {
+      setTypingUsers(users);
+    });
+    typingControllerRef.current = sub;
+    return () => {
+      sub.unsubscribe();
+      if (typingControllerRef.current === sub) {
+        typingControllerRef.current = null;
+      }
+      setTypingUsers([]);
+    };
+  }, [session, activeRoomId]);
 
   // Realtime WebSocket + sinkronisasi lintas tab + sinkronisasi otomatis saat kembali aktif/online
   useEffect(() => {
@@ -447,6 +540,15 @@ export function CommunityChatSlide({
     [uploadQueue]
   );
 
+  const revokeUnusedPreviewUrl = useCallback((url?: string | null) => {
+    if (!url || handedOffPreviewUrlsRef.current.has(url)) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Abaikan
+    }
+  }, []);
+
   const patchUploadQueueItem = useCallback(
     (localId: string, updater: (prev: UploadQueueItem) => UploadQueueItem) => {
       setUploadQueue((prev) => prev.map((q) => (q.localId === localId ? updater(q) : q)));
@@ -454,18 +556,76 @@ export function CommunityChatSlide({
     []
   );
 
-  const removeUploadQueueItem = useCallback((localId: string) => {
-    setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
-  }, []);
+  const removeUploadQueueItem = useCallback(
+    (localId: string) => {
+      const target = uploadQueueRef.current.find((q) => q.localId === localId);
+      revokeUnusedPreviewUrl(target?.localPreviewUrl);
+      uploadPromisesRef.current.delete(localId);
+      setUploadQueue((prev) => prev.filter((q) => q.localId !== localId));
+    },
+    [revokeUnusedPreviewUrl]
+  );
 
   const runQueueUpload = useCallback(
-    (item: UploadQueueItem) => {
-      void executeChatUploadQueueItem({
-        session,
-        item,
-        onPatchItem: patchUploadQueueItem,
-        onAborted: removeUploadQueueItem,
-      });
+    (item: UploadQueueItem, shouldCompressPhoto = false): Promise<ChatMediaUploadResult | null> => {
+      const task = (async () => {
+        let workingItem = item;
+        if (shouldCompressPhoto && item.attachmentType === 'photo') {
+          patchUploadQueueItem(item.localId, (prev) => ({
+            ...prev,
+            phaseLabel: 'Mengoptimalkan ukuran foto...',
+          }));
+          try {
+            const compressed = await compressChatImage(item.file, 1600, 0.82);
+            if (item.abortController.signal.aborted) {
+              return null;
+            }
+            if (compressed.wasCompressed && compressed.file !== item.file) {
+              workingItem = {
+                ...item,
+                file: compressed.file,
+                totalBytes: compressed.file.size,
+              };
+              patchUploadQueueItem(item.localId, (prev) => ({
+                ...prev,
+                file: compressed.file,
+                totalBytes: compressed.file.size,
+              }));
+            }
+          } catch {
+            // Lanjutkan dengan berkas asli bila kompresi dilewati
+          }
+        }
+
+        const result = await executeChatUploadQueueItem({
+          session,
+          item: workingItem,
+          onPatchItem: patchUploadQueueItem,
+          onAborted: removeUploadQueueItem,
+        });
+
+        if (result && result.driveFileId && workingItem.localPreviewUrl) {
+          handedOffPreviewUrlsRef.current.add(workingItem.localPreviewUrl);
+          seedPrivateAttachmentBlobCache(
+            session,
+            result.driveFileId,
+            workingItem.localPreviewUrl,
+            result.mimeType || workingItem.file.type
+          );
+        } else if (result && result.driveFileId && workingItem.attachmentType === 'photo') {
+          seedPrivateAttachmentBlobCache(
+            session,
+            result.driveFileId,
+            workingItem.file,
+            result.mimeType || workingItem.file.type
+          );
+        }
+
+        return result;
+      })();
+
+      uploadPromisesRef.current.set(item.localId, task);
+      return task;
     },
     [session, patchUploadQueueItem, removeUploadQueueItem]
   );
@@ -475,7 +635,7 @@ export function CommunityChatSlide({
       // Bersihkan otomatis kotak error & antrean gagal lama ketika pengguna memilih file baru
       clearFailedUploads();
       const targetRoomId = activeRoomIdRef.current;
-      const newItems: UploadQueueItem[] = [];
+      const newEntries: Array<{ item: UploadQueueItem; compressPhoto: boolean }> = [];
 
       for (const file of files) {
         const check = validatePickedAttachment(file, kind);
@@ -483,21 +643,34 @@ export function CommunityChatSlide({
           onToast?.('error', check.error);
           continue;
         }
-        newItems.push(
-          createChatUploadQueueItem({
-            roomId: targetRoomId,
-            file,
-            pickerKind: kind,
-            attachmentType: check.resolvedType,
-          })
-        );
+        const isPhotoAttachment = check.resolvedType === 'photo';
+        let localPreviewUrl: string | null = null;
+        if (isPhotoAttachment && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          try {
+            localPreviewUrl = URL.createObjectURL(file);
+          } catch {
+            localPreviewUrl = null;
+          }
+        }
+        const item = createChatUploadQueueItem({
+          roomId: targetRoomId,
+          file,
+          pickerKind: kind,
+          attachmentType: check.resolvedType,
+          localPreviewUrl,
+        });
+        newEntries.push({
+          item,
+          compressPhoto: isPhotoAttachment && (kind === 'camera' || kind === 'photo'),
+        });
       }
 
-      if (newItems.length === 0) return;
+      if (newEntries.length === 0) return;
 
-      setUploadQueue((prev) => [...prev.filter((item) => item.status !== 'failed'), ...newItems]);
-      newItems.forEach((item) => {
-        runQueueUpload(item);
+      const itemsOnly = newEntries.map((entry) => entry.item);
+      setUploadQueue((prev) => [...prev.filter((item) => item.status !== 'failed'), ...itemsOnly]);
+      newEntries.forEach(({ item, compressPhoto }) => {
+        void runQueueUpload(item, compressPhoto);
       });
     },
     [onToast, runQueueUpload, clearFailedUploads]
@@ -518,7 +691,10 @@ export function CommunityChatSlide({
       if (!target) return;
       const restarted = createRetryChatUploadQueueItem(target);
       setUploadQueue((prev) => prev.map((q) => (q.localId === localId ? restarted : q)));
-      runQueueUpload(restarted);
+      const shouldCompress =
+        restarted.attachmentType === 'photo' &&
+        (restarted.pickerKind === 'camera' || restarted.pickerKind === 'photo');
+      void runQueueUpload(restarted, shouldCompress);
     },
     [runQueueUpload]
   );
@@ -535,18 +711,18 @@ export function CommunityChatSlide({
     const cleanText = draft.trim();
     if (sending) return;
 
-    if (hasUploadingAttachments) {
-      onToast?.('info', 'Tunggu hingga semua lampiran selesai diunggah sebelum mengirim.');
-      return;
-    }
     if (hasFailedAttachments) {
       onToast?.('error', 'Ada lampiran gagal diunggah. Pilih Coba Lagi atau Hapus terlebih dahulu.');
       return;
     }
 
     const readyItems = completedAttachments;
-    if (!cleanText && readyItems.length === 0) return;
+    const uploadingItems = uploadQueue.filter((item) => item.status === 'uploading');
+    if (!cleanText && readyItems.length === 0 && uploadingItems.length === 0) return;
 
+    typingControllerRef.current?.sendTyping(false);
+
+    const targetRoomId = activeRoomId;
     const replyToId = replyTarget?.id || null;
     const replyPreview = replyTarget
       ? `${replyTarget.sender_name}: ${replyTarget.message.slice(0, 90)}`
@@ -565,9 +741,9 @@ export function CommunityChatSlide({
     setReplyTarget(null);
 
     try {
-      if (readyItems.length === 0) {
+      if (readyItems.length === 0 && uploadingItems.length === 0) {
         const { message } = await sendChatMessage(session, {
-          room_id: activeRoomId,
+          room_id: targetRoomId,
           message: cleanText,
           reply_to_id: replyToId,
           reply_preview: replyPreview,
@@ -579,24 +755,171 @@ export function CommunityChatSlide({
           return [...prev, message];
         });
       } else {
-        const sentIds = new Set<string>();
-        await sendChatMessagesWithUploadedAttachments({
-          session,
-          roomId: activeRoomId,
-          items: readyItems,
-          caption: cleanText,
-          replyToId,
-          replyPreview,
-          recipient: recipientPayload,
-          onMessageSent: (message, localId) => {
-            sentIds.add(localId);
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === message.id)) return prev;
-              return [...prev, message];
-            });
-          },
-        });
-        setUploadQueue((prev) => prev.filter((q) => !sentIds.has(q.localId)));
+        if (readyItems.length > 0) {
+          const sentIds = new Set<string>();
+          readyItems.forEach((item) => {
+            if (item.localPreviewUrl) {
+              handedOffPreviewUrlsRef.current.add(item.localPreviewUrl);
+            }
+          });
+          await sendChatMessagesWithUploadedAttachments({
+            session,
+            roomId: targetRoomId,
+            items: readyItems,
+            caption: cleanText,
+            replyToId,
+            replyPreview,
+            recipient: recipientPayload,
+            onMessageSent: (message, localId) => {
+              sentIds.add(localId);
+              const matchedItem = readyItems.find((i) => i.localId === localId);
+              const enrichedMsg: ChatMessage = matchedItem?.localPreviewUrl
+                ? { ...message, local_preview_url: matchedItem.localPreviewUrl }
+                : message;
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
+                return [...prev, enrichedMsg];
+              });
+            },
+          });
+          setUploadQueue((prev) => prev.filter((q) => !sentIds.has(q.localId)));
+        }
+
+        if (uploadingItems.length > 0) {
+          const uploadingIds = new Set(uploadingItems.map((u) => u.localId));
+          setUploadQueue((prev) => prev.filter((q) => !uploadingIds.has(q.localId)));
+
+          uploadingItems.forEach((uItem, idx) => {
+            const optimisticId = `optimistic-${uItem.localId}`;
+            const fallbackLabel =
+              uItem.attachmentType === 'video'
+                ? `[Video] ${uItem.file.name}`
+                : uItem.attachmentType === 'photo'
+                  ? `[Foto] ${uItem.file.name}`
+                  : `[Dokumen] ${uItem.file.name}`;
+            const useCaption = readyItems.length === 0 && idx === 0 && Boolean(cleanText);
+            const msgBody = useCaption ? cleanText : fallbackLabel;
+            const useReply = readyItems.length === 0 && idx === 0;
+
+            if (uItem.localPreviewUrl) {
+              handedOffPreviewUrlsRef.current.add(uItem.localPreviewUrl);
+            }
+
+            const optimisticMsg: ChatMessage = {
+              id: optimisticId,
+              room_id: targetRoomId,
+              sender_role: session.role,
+              sender_id: myParticipantId,
+              sender_name: session.nama_warga,
+              sender_subtitle: '',
+              sender_avatar_url: session.avatar_url || null,
+              recipient_id: recipientPayload?.participant_id || null,
+              recipient_name: recipientPayload?.display_name || null,
+              recipient_role: recipientPayload?.role || null,
+              message: msgBody,
+              reply_to_id: useReply ? replyToId : null,
+              reply_preview: useReply ? replyPreview : null,
+              created_at: new Date().toISOString(),
+              is_local_only: true,
+              attachment_type: uItem.attachmentType,
+              attachment_name: uItem.file.name,
+              attachment_mime: uItem.file.type || null,
+              attachment_size_bytes: uItem.file.size,
+              attachment_storage_provider: 'google_drive',
+              attachment_status:
+                uItem.attachmentType === 'photo' && uItem.localPreviewUrl
+                  ? 'ready'
+                  : uItem.attachmentType === 'video'
+                    ? 'uploading_video'
+                    : 'pending_transfer',
+              local_preview_url: uItem.localPreviewUrl ?? null,
+              local_upload_local_id: uItem.localId,
+            };
+
+            setMessages((prev) => [...prev, optimisticMsg]);
+
+            const pendingPromise = uploadPromisesRef.current.get(uItem.localId);
+            void (async () => {
+              try {
+                const upload = pendingPromise ? await pendingPromise : null;
+                uploadPromisesRef.current.delete(uItem.localId);
+                if (!upload) {
+                  setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+                  if (!uItem.abortController.signal.aborted) {
+                    onToast?.('error', `Gagal mengunggah ${uItem.file.name}.`);
+                  }
+                  return;
+                }
+
+                if (upload.driveFileId && uItem.localPreviewUrl) {
+                  seedPrivateAttachmentBlobCache(
+                    session,
+                    upload.driveFileId,
+                    uItem.localPreviewUrl,
+                    upload.mimeType || uItem.file.type
+                  );
+                }
+
+                const { message: sentMessage } = await sendChatMessage(session, {
+                  room_id: targetRoomId,
+                  message: useCaption
+                    ? cleanText
+                    : upload.attachmentType === 'video'
+                      ? `[Video] ${upload.fileName}`
+                      : upload.attachmentType === 'photo'
+                        ? `[Foto] ${upload.fileName}`
+                        : `[Dokumen] ${upload.fileName}`,
+                  reply_to_id: useReply ? replyToId : null,
+                  reply_preview: useReply ? replyPreview : null,
+                  recipient: recipientPayload,
+                  attachment: {
+                    attachment_type: upload.attachmentType,
+                    attachment_name: upload.fileName,
+                    attachment_mime: upload.mimeType,
+                    attachment_size_bytes: upload.sizeBytes,
+                    attachment_storage_provider: 'google_drive',
+                    attachment_drive_file_id: upload.driveFileId,
+                    attachment_drive_folder_path: upload.folderPath,
+                    attachment_url: upload.attachmentUrl,
+                    attachment_thumbnail_url: upload.thumbnailUrl,
+                    attachment_status: 'ready',
+                    drive_permission_scope: upload.drivePermissionScope || null,
+                    drive_web_view_link: upload.driveWebViewLink ?? upload.webViewLink ?? null,
+                    drive_thumbnail_link: upload.driveThumbnailLink ?? null,
+                  },
+                });
+
+                const hydratedSent: ChatMessage = uItem.localPreviewUrl
+                  ? { ...sentMessage, local_preview_url: uItem.localPreviewUrl }
+                  : sentMessage;
+
+                setMessages((prev) => {
+                  const alreadyInserted = prev.some((m) => m.id === hydratedSent.id);
+                  if (alreadyInserted) {
+                    return prev
+                      .filter((m) => m.id !== optimisticId)
+                      .map((m) =>
+                        m.id === hydratedSent.id && uItem.localPreviewUrl
+                          ? { ...m, local_preview_url: uItem.localPreviewUrl }
+                          : m
+                      );
+                  }
+                  const hasOptimistic = prev.some((m) => m.id === optimisticId);
+                  return hasOptimistic
+                    ? prev.map((m) => (m.id === optimisticId ? hydratedSent : m))
+                    : [...prev, hydratedSent];
+                });
+                void syncDirectoriesAndUnread();
+              } catch (err) {
+                setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+                onToast?.(
+                  'error',
+                  err instanceof Error ? err.message : `Gagal mengirim ${uItem.file.name}.`
+                );
+              }
+            })();
+          });
+        }
       }
 
       void syncDirectoriesAndUnread();
@@ -1530,6 +1853,40 @@ export function CommunityChatSlide({
                 </div>
               )}
 
+              {/* Indikator Real-Time "Sedang Mengetik..." */}
+              {typingUsers.length > 0 && (
+                <div
+                  aria-live="polite"
+                  className="flex items-center gap-2 px-2 py-0.5 text-[11px] font-medium text-[#3730A3] min-w-0"
+                >
+                  <span className="inline-flex items-center gap-1 shrink-0" aria-hidden="true">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-[#312E81] animate-bounce"
+                      style={{ animationDelay: '0ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-[#0284C7] animate-bounce"
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-[#312E81] animate-bounce"
+                      style={{ animationDelay: '300ms' }}
+                    />
+                  </span>
+                  <span className="truncate">
+                    {isDmRoomId(activeRoomId)
+                      ? 'Sedang mengetik...'
+                      : typingUsers.length === 1
+                        ? `${typingUsers[0].senderName}${
+                            typingUsers[0].senderBadge ? ` (${typingUsers[0].senderBadge})` : ''
+                          } sedang mengetik...`
+                        : `${typingUsers[0].senderName}${
+                            typingUsers[0].senderBadge ? ` (${typingUsers[0].senderBadge})` : ''
+                          } dan ${typingUsers.length - 1} lainnya sedang mengetik...`}
+                  </span>
+                </div>
+              )}
+
               <UploadProgress
                 items={uploadQueue}
                 onCancel={handleCancelUpload}
@@ -1545,7 +1902,7 @@ export function CommunityChatSlide({
                 >
                   {hasFailedAttachments
                     ? 'Perbaiki atau hapus unggahan yang gagal sebelum mengirim pesan.'
-                    : 'Mengunggah lampiran ke Google Drive... Tombol kirim aktif setelah selesai.'}
+                    : 'Mengunggah lampiran... Anda dapat langsung menekan Kirim.'}
                 </p>
               )}
 
@@ -1553,6 +1910,7 @@ export function CommunityChatSlide({
                 <ChatAttachmentMenu
                   disabled={sending}
                   onSelectFiles={handleSelectAttachmentFiles}
+                  onPickingStateChange={onAttachmentPickingChange}
                 />
 
                 <textarea
@@ -1560,7 +1918,11 @@ export function CommunityChatSlide({
                   rows={1}
                   maxLength={1000}
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setDraft(nextVal);
+                    typingControllerRef.current?.sendTyping(Boolean(nextVal.trim()));
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={
                     completedAttachments.length > 0 || hasUploadingAttachments
@@ -1573,9 +1935,8 @@ export function CommunityChatSlide({
                   type="submit"
                   disabled={
                     sending ||
-                    hasUploadingAttachments ||
                     hasFailedAttachments ||
-                    (!draft.trim() && completedAttachments.length === 0)
+                    (!draft.trim() && completedAttachments.length === 0 && !hasUploadingAttachments)
                   }
                   aria-label="Kirim pesan"
                   className="h-11 min-h-[44px] px-3.5 sm:px-4 rounded-2xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"

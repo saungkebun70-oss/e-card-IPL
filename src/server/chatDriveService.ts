@@ -2085,15 +2085,14 @@ export async function transferChatTransitToDrive(params: {
     driveCfg
   );
 
-  // WAJIB hapus objek sementara di chat-transit setelah sukses di Drive
-  const deleteRes = await fetch(`${supabaseUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
+  // Hapus objek sementara di chat-transit secara paralel dengan pembaruan metadata pesan
+  const deleteTransitPromise = fetch(`${supabaseUrl}/storage/v1/object/chat-transit/${encodedPath}`, {
     method: 'DELETE',
     headers: {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
     },
-  });
-  const transitDeleted = deleteRes.ok;
+  }).catch(() => null);
 
   const effectiveMime = contentTypeHeader || declaredMime;
   const attachmentType = classifyNonVideoAttachmentType(effectiveMime, safeName);
@@ -2127,22 +2126,28 @@ export async function transferChatTransitToDrive(params: {
         : null
       : driveThumbnailLink;
 
-  const messageUpdated = await updateChatAttachmentRecord({
-    messageId: params.messageId,
-    attachmentType,
-    attachmentName: uploaded.name,
-    attachmentMime: effectiveMime,
-    attachmentSizeBytes: uploaded.size,
-    storageProvider: 'google_drive',
-    driveFileId: uploaded.id,
-    driveFolderPath: folderPath,
-    attachmentUrl,
-    thumbnailUrl,
-    status: 'ready',
-    drivePermissionScope,
-    driveWebViewLink,
-    driveThumbnailLink,
-  });
+  const [delOutcome, updateOutcome] = await Promise.allSettled([
+    deleteTransitPromise,
+    updateChatAttachmentRecord({
+      messageId: params.messageId,
+      attachmentType,
+      attachmentName: uploaded.name,
+      attachmentMime: effectiveMime,
+      attachmentSizeBytes: uploaded.size,
+      storageProvider: 'google_drive',
+      driveFileId: uploaded.id,
+      driveFolderPath: folderPath,
+      attachmentUrl,
+      thumbnailUrl,
+      status: 'ready',
+      drivePermissionScope,
+      driveWebViewLink,
+      driveThumbnailLink,
+    }),
+  ]);
+  const transitDeleted = delOutcome.status === 'fulfilled' && Boolean(delOutcome.value?.ok);
+  const messageUpdated =
+    updateOutcome.status === 'fulfilled' ? Boolean(updateOutcome.value) : false;
 
   return {
     ok: true,

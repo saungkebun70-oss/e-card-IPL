@@ -576,7 +576,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
     phase: 'initializing_video_session',
     bytesUploaded: 0,
     totalBytes: file.size,
-    label: 'Menyiapkan jalur langsung Google Drive...',
+    label: 'Menyiapkan unggahan video...',
   });
 
   // 1. Minta sessionUri Google Drive Resumable Upload (TANPA melewati Supabase Storage)
@@ -604,7 +604,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
   });
 
   if (!initResp.sessionUri) {
-    throw new Error('Server tidak mengembalikan URI unggah Google Drive.');
+    throw new Error('Server tidak mengembalikan alamat unggah video.');
   }
 
   // 2. Unggah chunk demi chunk langsung dari browser ke Google Drive
@@ -644,7 +644,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
             phase: 'uploading_video_direct',
             bytesUploaded: offset,
             totalBytes: file.size,
-            label: `Mengunggah video langsung ke Drive (${pct}%)...`,
+            label: `Mengunggah video (${pct}%)...`,
           });
           chunkCompleted = true;
           break;
@@ -653,7 +653,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
         if (putRes.status === 200 || putRes.status === 201) {
           const uploadedMeta = (await putRes.json().catch(() => ({}))) as { id?: string };
           if (!uploadedMeta.id) {
-            throw new Error('Google Drive selesai menerima video tetapi tidak mengembalikan ID berkas.');
+            throw new Error('Server selesai menerima video tetapi ID berkas tidak ditemukan.');
           }
           driveFileId = uploadedMeta.id;
           offset = file.size;
@@ -662,7 +662,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
             phase: 'uploading_video_direct',
             bytesUploaded: file.size,
             totalBytes: file.size,
-            label: 'Video selesai dikirim ke Drive, memverifikasi...',
+            label: 'Video selesai diunggah, memverifikasi...',
           });
           chunkCompleted = true;
           break;
@@ -670,18 +670,18 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
 
         const errText = await putRes.text().catch(() => '');
         if (putRes.status >= 400 && putRes.status < 500 && putRes.status !== 408 && putRes.status !== 429) {
-          throw new Error(`Google Drive menolak chunk video (${putRes.status}): ${errText.slice(0, 140)}`);
+          throw new Error(`Server menolak potongan video (${putRes.status}): ${errText.slice(0, 140)}`);
         }
-        lastChunkError = new Error(`Google Drive merespons ${putRes.status}: ${errText.slice(0, 120)}`);
+        lastChunkError = new Error(`Server video merespons ${putRes.status}: ${errText.slice(0, 120)}`);
       } catch (err) {
         if (isAbortError(err)) throw err;
         lastChunkError = err instanceof Error ? err : new Error('Koneksi unggah video terputus.');
-        if (/Google Drive menolak chunk video/i.test(lastChunkError.message)) {
+        if (/menolak potongan video/i.test(lastChunkError.message)) {
           throw lastChunkError;
         }
       }
 
-      // Cek posisi byte terakhir yang diterima Drive sebelum retry
+      // Cek posisi byte terakhir yang diterima server sebelum retry
       const serverOffset = await probeResumableOffset(initResp.sessionUri, file.size, signal);
       if (serverOffset !== null && serverOffset > offset) {
         offset = serverOffset;
@@ -695,12 +695,12 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
     }
 
     if (!chunkCompleted) {
-      throw lastChunkError || new Error('Gagal mengunggah potongan video ke Google Drive.');
+      throw lastChunkError || new Error('Gagal mengunggah potongan video.');
     }
   }
 
   if (!driveFileId) {
-    throw new Error('ID berkas video Google Drive tidak diperoleh setelah unggah selesai.');
+    throw new Error('ID berkas video tidak diperoleh setelah unggah selesai.');
   }
 
   onProgress?.({
@@ -730,7 +730,7 @@ async function uploadVideoDirectToDrive(params: UploadChatAttachmentParams): Pro
     phase: 'completed',
     bytesUploaded: file.size,
     totalBytes: file.size,
-    label: 'Video tersimpan aman di Google Drive.',
+    label: 'Video siap dikirim.',
   });
 
   return {
@@ -752,12 +752,12 @@ async function uploadNonVideoViaTransitToDrive(
   }
 
   if (isVideoMediaFile(file)) {
-    throw new Error('Berkas video tidak boleh melalui bucket transit chat-transit.');
+    throw new Error('Berkas video menggunakan jalur unggah langsung.');
   }
 
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) {
-    throw new Error('Koneksi Supabase belum aktif untuk unggah transit lampiran.');
+    throw new Error('Koneksi Supabase belum aktif untuk unggah lampiran.');
   }
 
   const { roleFolder, slug } = buildTransitSlug(session);
@@ -775,7 +775,7 @@ async function uploadNonVideoViaTransitToDrive(
     phase: 'uploading_transit',
     bytesUploaded: 0,
     totalBytes: file.size,
-    label: 'Mengunggah sementara ke transit aman...',
+    label: 'Mengunggah lampiran...',
   });
 
   const { error: uploadErr } = await supabase.storage.from('chat-transit').upload(transitPath, file, {
@@ -784,7 +784,7 @@ async function uploadNonVideoViaTransitToDrive(
   });
 
   if (uploadErr) {
-    throw new Error(`Gagal mengunggah ke bucket chat-transit: ${uploadErr.message}`);
+    throw new Error(`Gagal mengunggah berkas sementara: ${uploadErr.message}`);
   }
 
   if (signal?.aborted) {
@@ -797,7 +797,7 @@ async function uploadNonVideoViaTransitToDrive(
     phase: 'transferring_to_drive',
     bytesUploaded: file.size,
     totalBytes: file.size,
-    label: 'Memindahkan berkas ke Google Drive & membersihkan transit...',
+    label: 'Memproses lampiran aman...',
   });
 
   try {
@@ -820,7 +820,7 @@ async function uploadNonVideoViaTransitToDrive(
       phase: 'completed',
       bytesUploaded: file.size,
       totalBytes: file.size,
-      label: 'Lampiran tersimpan di Google Drive & transit telah dihapus.',
+      label: 'Lampiran siap dikirim.',
     });
 
     return transferResp;
@@ -1014,6 +1014,34 @@ function setPrivateBlobCacheEntry(key: string, entry: CachedPrivateBlobEntry): v
   }
 }
 
+/**
+ * Mengisi cache Blob URL lokal secara instan setelah upload selesai agar gelembung chat
+ * langsung menampilkan pratinjau foto tanpa jeda unduh ulang atau berkedip.
+ */
+export function seedPrivateAttachmentBlobCache(
+  session: SessionUser,
+  driveFileId: string,
+  source: Blob | File | string,
+  mimeType?: string
+): string {
+  const cleanId = String(driveFileId || '').trim();
+  const resolvedMime =
+    (mimeType || (typeof source !== 'string' ? source.type : '') || 'image/jpeg').trim() ||
+    'image/jpeg';
+  const objectUrl = typeof source === 'string' ? source : URL.createObjectURL(source);
+  if (!cleanId || !objectUrl) return objectUrl;
+
+  const normalizedSession = normalizeChatSessionForUpload(session);
+  const senderCtx = buildChatSessionSenderContext(normalizedSession);
+  const key = buildPrivateBlobCacheKey(senderCtx.senderId, cleanId);
+  setPrivateBlobCacheEntry(key, {
+    objectUrl,
+    mimeType: resolvedMime,
+    createdAt: Date.now(),
+  });
+  return objectUrl;
+}
+
 async function raceWithAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) return promise;
   if (signal.aborted) {
@@ -1065,7 +1093,7 @@ export async function resolveChatAttachmentAccess(
 
   const fileId = extractDriveFileIdFromAttachment(target);
   if (!fileId) {
-    throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
+    throw new Error('ID berkas untuk lampiran privat tidak tersedia.');
   }
 
   const minted = await callBackendOrEdgeFunction<{
@@ -1103,7 +1131,7 @@ export async function resolveChatAttachmentAccess(
 }
 
 /**
- * Mengambil berkas/thumbnail via proxy `chat-drive-private-access` dengan cache Blob URL di memori
+ * Mengambil berkas/thumbnail via proxy terverifikasi dengan cache Blob URL di memori
  * agar tidak mengunduh berkas berulang kali saat scroll, pindah tab, atau membuka pratinjau penuh.
  */
 export async function fetchPrivateAttachmentBlobUrl(
@@ -1113,7 +1141,7 @@ export async function fetchPrivateAttachmentBlobUrl(
 ): Promise<{ objectUrl: string; mimeType: string; revoke: () => void }> {
   const fileId = extractDriveFileIdFromAttachment(target);
   if (!fileId) {
-    throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
+    throw new Error('ID berkas untuk lampiran privat tidak tersedia.');
   }
 
   const normalizedSession = normalizeChatSessionForUpload(session);
@@ -1268,7 +1296,7 @@ export async function fetchPrivateAttachmentBlobUrl(
       }
       if (!response) {
         throw new ChatMediaUploadError(
-          lastError || 'Gagal memuat berkas privat dari Google Drive.',
+          lastError || 'Gagal memuat berkas privat lampiran.',
           lastDiagnostics
         );
       }

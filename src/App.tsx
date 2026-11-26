@@ -61,6 +61,12 @@ import {
 import type { CentralSettingPermissionMap } from './lib/accessControl';
 import { KeamananSlide } from './components/KeamananSlide';
 import type { ChatRoomId } from './lib/chatService';
+import {
+  CHAT_QUICK_OPEN_STORAGE_KEY,
+  CHAT_QUICK_ROOM_STORAGE_KEY,
+  CHAT_QUICK_VIEW_STORAGE_KEY,
+} from './lib/chat/attachmentUtils';
+import { formatBlokRumah } from './lib/format';
 import { ContentLoadingState, LoadingOverlay } from './components/LoadingSpinner';
 import {
   initNativeNotificationsOnLaunch,
@@ -249,8 +255,36 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>(() =>
     initialAuthRef.current?.session?.role === 'admin' ? 'dashboard' : 'beranda'
   );
-  const [chatModalOpen, setChatModalOpen] = useState(false);
-  const [initialChatRoomId, setInitialChatRoomId] = useState<ChatRoomId | null>(null);
+  const [chatModalOpen, setChatModalOpen] = useState<boolean>(() => {
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        initialAuthRef.current?.session &&
+        initialAuthRef.current.session.role !== 'petugas'
+      ) {
+        return window.sessionStorage.getItem(CHAT_QUICK_OPEN_STORAGE_KEY) === 'true';
+      }
+    } catch {
+      // Abaikan
+    }
+    return false;
+  });
+  const [initialChatRoomId, setInitialChatRoomId] = useState<ChatRoomId | null>(() => {
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        initialAuthRef.current?.session &&
+        initialAuthRef.current.session.role !== 'petugas' &&
+        window.sessionStorage.getItem(CHAT_QUICK_OPEN_STORAGE_KEY) === 'true'
+      ) {
+        return (window.sessionStorage.getItem(CHAT_QUICK_ROOM_STORAGE_KEY) as ChatRoomId | null) || null;
+      }
+    } catch {
+      // Abaikan
+    }
+    return null;
+  });
+  const isPickingAttachmentRef = useRef<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsDrawerTab>('terpusat');
   const settingsOpenRef = useRef(false);
@@ -259,6 +293,28 @@ export default function App() {
   const activeTabRef = useRef<string>(activeTab);
   const lastHomeBackNoticeRef = useRef<number>(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const handleAttachmentPickingChange = useCallback((picking: boolean) => {
+    isPickingAttachmentRef.current = picking;
+  }, []);
+
+  const updateChatModalOpen = useCallback((nextOpen: boolean) => {
+    if (!nextOpen && isPickingAttachmentRef.current) {
+      return;
+    }
+    setChatModalOpen(nextOpen);
+    try {
+      if (typeof window !== 'undefined') {
+        if (nextOpen) {
+          window.sessionStorage.setItem(CHAT_QUICK_OPEN_STORAGE_KEY, 'true');
+        } else {
+          window.sessionStorage.removeItem(CHAT_QUICK_OPEN_STORAGE_KEY);
+        }
+      }
+    } catch {
+      // Abaikan
+    }
+  }, []);
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
@@ -413,6 +469,11 @@ export default function App() {
           '',
           activePath
         );
+      }
+
+      // Jangan tutup modal/overlay saat pengguna sedang memilih lampiran atau memakai kamera perangkat
+      if (isPickingAttachmentRef.current) {
+        return;
       }
 
       // 1. Tutup drawer Pengaturan Admin jika sedang terbuka
@@ -585,6 +646,7 @@ export default function App() {
       clearSyncTimers();
 
       if (document.visibilityState !== 'visible') return;
+      if (isPickingAttachmentRef.current) return;
       if (session.role === 'admin' && settingsOpenRef.current) return;
 
       const now = Date.now();
@@ -759,14 +821,14 @@ export default function App() {
         const roomId = targetUrl.slice('chat:'.length) as ChatRoomId;
         setSettingsOpen(false);
         if (roomId) setInitialChatRoomId(roomId);
-        setChatModalOpen(true);
+        updateChatModalOpen(true);
         return;
       }
       if (targetUrl.startsWith('tab:')) {
         const tabId = targetUrl.replace('tab:', '');
         setSettingsOpen(false);
         if (tabId === 'chat') {
-          setChatModalOpen(true);
+          updateChatModalOpen(true);
           return;
         }
         const wargaValid = ['beranda', 'setor', 'riwayat', 'keamanan', 'lingkungan', 'profil'];
@@ -823,7 +885,9 @@ export default function App() {
           }).`
         : newSession.role === 'petugas'
           ? `Selamat bertugas, ${newSession.nama_warga} (${newSession.shift || 'Petugas Keamanan'}).`
-          : `Selamat datang, ${newSession.nama_warga} (Blok ${newSession.blok_rumah}).`
+          : `Selamat datang, ${newSession.nama_warga} (Blok ${
+              formatBlokRumah(newSession.blok_rumah) || newSession.blok_rumah
+            }).`
     );
   };
 
@@ -832,8 +896,18 @@ export default function App() {
     void removeCurrentDevicePushToken(session);
     clearStoredSession(session, portalRoute);
     setSession(null);
+    isPickingAttachmentRef.current = false;
     setChatModalOpen(false);
     setInitialChatRoomId(null);
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(CHAT_QUICK_OPEN_STORAGE_KEY);
+        window.sessionStorage.removeItem(CHAT_QUICK_ROOM_STORAGE_KEY);
+        window.sessionStorage.removeItem(CHAT_QUICK_VIEW_STORAGE_KEY);
+      }
+    } catch {
+      // Abaikan
+    }
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;
@@ -854,8 +928,18 @@ export default function App() {
     }
     setPortalRoute(nextRoute);
     setSession(loadStoredSession(nextRoute));
+    isPickingAttachmentRef.current = false;
     setChatModalOpen(false);
     setInitialChatRoomId(null);
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(CHAT_QUICK_OPEN_STORAGE_KEY);
+        window.sessionStorage.removeItem(CHAT_QUICK_ROOM_STORAGE_KEY);
+        window.sessionStorage.removeItem(CHAT_QUICK_VIEW_STORAGE_KEY);
+      }
+    } catch {
+      // Abaikan
+    }
     setSettingsOpen(false);
     lastAdminFingerprintRef.current = null;
     lastWargaFingerprintRef.current = null;
@@ -971,7 +1055,7 @@ export default function App() {
           message={
             session.role === 'admin'
               ? 'Memuat Dashboard Pengurus...'
-              : `Memuat Data Rumah Blok ${session.blok_rumah}...`
+              : `Memuat Data Rumah Blok ${formatBlokRumah(session.blok_rumah) || session.blok_rumah}...`
           }
           subMessage="Mengambil status e-Card, kas, dan aktivitas terbaru dari Supabase"
         />
@@ -1205,8 +1289,10 @@ export default function App() {
         }}
         onNavigateTarget={handleNavigateNotificationTarget}
         chatOpen={chatModalOpen}
-        onChatOpenChange={setChatModalOpen}
+        onChatOpenChange={updateChatModalOpen}
         chatInitialRoomId={initialChatRoomId}
+        isPickingAttachmentRef={isPickingAttachmentRef}
+        onAttachmentPickingChange={handleAttachmentPickingChange}
         onToast={pushToast}
         onOpenSettings={
           session.role === 'admin'

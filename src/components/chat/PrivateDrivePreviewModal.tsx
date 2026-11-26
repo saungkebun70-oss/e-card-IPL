@@ -114,7 +114,7 @@ export function PrivateDrivePreviewModal({
           if (signal.aborted) return;
           const safeUrl = access.url || target.drive_web_view_link || '';
           if (!safeUrl) {
-            throw new Error('Tautan Google Drive untuk video ini tidak tersedia.');
+            throw new Error('Tautan untuk video ini tidak tersedia.');
           }
           setState({
             loading: false,
@@ -165,7 +165,7 @@ export function PrivateDrivePreviewModal({
               ? target.drive_web_view_link || ''
               : '';
           if (!safeUrl) {
-            throw new Error('Tautan Google Drive untuk lampiran ini tidak tersedia.');
+            throw new Error('Tautan untuk lampiran ini tidak tersedia.');
           }
           setState({
             loading: false,
@@ -178,7 +178,7 @@ export function PrivateDrivePreviewModal({
           return;
         }
 
-        throw new Error('ID berkas Google Drive untuk lampiran privat tidak tersedia.');
+        throw new Error('ID berkas untuk lampiran privat tidak tersedia.');
       } catch (err) {
         if (signal.aborted) return;
         const rawReason = (err as { reason?: unknown } | null)?.reason;
@@ -189,7 +189,7 @@ export function PrivateDrivePreviewModal({
           error:
             err instanceof Error
               ? err.message
-              : 'Gagal memverifikasi akses berkas di Google Drive.',
+              : 'Gagal memverifikasi akses berkas lampiran.',
           reason: cleanReason,
           sourceUrl: null,
           mimeType: target.attachment_mime || '',
@@ -301,7 +301,7 @@ export function PrivateDrivePreviewModal({
                 <span> · </span>
                 <span className="inline-flex items-center gap-1 font-semibold text-[#312E81]">
                   {isPrivate && <Lock className="w-3 h-3 inline" />}
-                  {isPrivate ? 'Akses Privat Terverifikasi' : 'Google Drive Publik'}
+                  {isPrivate ? 'Akses Privat Terverifikasi' : 'Lampiran Ruang Chat'}
                 </span>
               </p>
             </div>
@@ -324,8 +324,8 @@ export function PrivateDrivePreviewModal({
               <Loader2 className="w-7 h-7 animate-spin text-[#312E81]" />
               <p className="text-xs sm:text-sm font-semibold text-[#0F172A]">
                 {isPrivate
-                  ? 'Memverifikasi izin anggota ruang & memuat dari Google Drive...'
-                  : 'Menyiapkan pratinjau Google Drive...'}
+                  ? 'Memverifikasi izin anggota ruang & memuat lampiran...'
+                  : 'Menyiapkan pratinjau lampiran...'}
               </p>
             </div>
           ) : state.error ? (
@@ -387,8 +387,7 @@ export function PrivateDrivePreviewModal({
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-[#0F172A] break-words">{fileName}</p>
                   <p className="text-xs text-slate-500">
-                    Video tersimpan di Google Drive. Gunakan tombol di bawah untuk memutar atau
-                    membuka berkas langsung di Google Drive.
+                    Video siap diputar. Gunakan tombol di bawah untuk memutar atau membuka berkas.
                   </p>
                 </div>
               </div>
@@ -420,8 +419,8 @@ export function PrivateDrivePreviewModal({
         <div className="px-3.5 py-3 sm:px-5 border-t border-indigo-100 bg-white flex flex-wrap items-center justify-between gap-2 shrink-0">
           <p className="text-[11px] text-slate-500">
             {isPrivate
-              ? 'Dilayani aman via proxy chat-drive-private-access.'
-              : 'Tautan baca anggota ruang via Google Drive.'}
+              ? 'Akses privat terverifikasi untuk anggota ruang.'
+              : 'Tautan baca aman untuk anggota ruang chat.'}
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -446,7 +445,7 @@ export function PrivateDrivePreviewModal({
                 className="min-h-[40px] px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#312E81] text-xs font-semibold inline-flex items-center justify-center gap-1.5"
               >
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                <span>Buka di Google Drive</span>
+                <span>Buka di Tab Baru</span>
               </a>
             )}
           </div>

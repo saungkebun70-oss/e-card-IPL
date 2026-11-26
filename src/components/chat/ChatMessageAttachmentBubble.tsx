@@ -121,10 +121,18 @@ export function ChatMessageAttachmentBubble({
     message.attachment_status === 'pending_transfer' ||
     message.attachment_status === 'uploading_video';
   const isFailed = message.attachment_status === 'failed';
+  const isOptimisticLocalPreview = Boolean(
+    message.local_preview_url && message.id?.startsWith('optimistic-')
+  );
   const isReady =
-    !isPending &&
+    (!isPending || isOptimisticLocalPreview) &&
     !isFailed &&
-    Boolean(driveFileId || message.drive_web_view_link || message.attachment_url);
+    Boolean(
+      driveFileId ||
+        message.local_preview_url ||
+        message.drive_web_view_link ||
+        message.attachment_url
+    );
 
   const resolvedMessage = useMemo<ChatMessage>(
     () => ({
@@ -240,14 +248,16 @@ export function ChatMessageAttachmentBubble({
     : null;
 
   const fallbackExternalPhotoSrc = !driveFileId
-    ? [
+    ? message.local_preview_url ||
+      [
         message.attachment_thumbnail_url,
         message.drive_thumbnail_link,
         message.attachment_url,
-      ].find((u) => isSafeExternalUrl(u)) || null
+      ].find((u) => isSafeExternalUrl(u)) ||
+      null
     : null;
 
-  const resolvedPhotoSrc = driveFileId ? proxyPhotoUrl : fallbackExternalPhotoSrc;
+  const resolvedPhotoSrc = driveFileId ? proxyPhotoUrl || message.local_preview_url || null : fallbackExternalPhotoSrc;
 
   const publicDriveLink = !isPrivateRoom
     ? isSafeExternalUrl(message.drive_web_view_link)
@@ -318,8 +328,8 @@ export function ChatMessageAttachmentBubble({
           <p className="text-[11.5px] font-semibold truncate">{fileName}</p>
           <p className={`text-[10.5px] truncate ${subTextClass}`}>
             {message.attachment_status === 'uploading_video'
-              ? 'Sedang mengunggah video ke Google Drive...'
-              : 'Sedang memindahkan ke Google Drive...'}
+              ? 'Sedang mengunggah video...'
+              : 'Sedang memproses lampiran...'}
           </p>
         </div>
       </div>
@@ -368,6 +378,12 @@ export function ChatMessageAttachmentBubble({
                 onError={() => setImageError(true)}
                 className="w-full max-h-60 min-h-[110px] object-cover block bg-slate-900/10"
               />
+              {isOptimisticLocalPreview ? (
+                <span className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-slate-950/65 text-white text-[10px] font-semibold inline-flex items-center gap-1 backdrop-blur-xs">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Mengirim...</span>
+                </span>
+              ) : null}
               <span className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-950/60 text-white text-[10px] font-semibold inline-flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity backdrop-blur-xs">
                 <Maximize2 className="w-3 h-3" />
                 <span>Pratinjau</span>
@@ -469,7 +485,7 @@ export function ChatMessageAttachmentBubble({
               <p className={`text-[10.5px] truncate mt-0.5 ${subTextClass}`}>
                 <span className="font-semibold">{extLabel}</span>
                 {sizeLabel ? <span className="tabular-nums"> · {sizeLabel}</span> : null}
-                <span> · {isPrivateRoom ? 'Privat' : 'Google Drive'}</span>
+                <span> · {isPrivateRoom ? 'Privat' : 'Lampiran'}</span>
               </p>
             </div>
           </button>

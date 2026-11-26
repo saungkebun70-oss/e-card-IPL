@@ -58,6 +58,8 @@ interface AppShellProps {
   chatOpen?: boolean;
   onChatOpenChange?: (open: boolean) => void;
   chatInitialRoomId?: ChatRoomId | null;
+  isPickingAttachmentRef?: React.MutableRefObject<boolean>;
+  onAttachmentPickingChange?: (picking: boolean) => void;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
   avatarUrl?: string | null;
   headerAction?: React.ReactNode;
@@ -76,6 +78,8 @@ export function AppShell({
   chatOpen: controlledChatOpen,
   onChatOpenChange,
   chatInitialRoomId,
+  isPickingAttachmentRef,
+  onAttachmentPickingChange,
   onToast,
   avatarUrl,
   headerAction,
@@ -772,6 +776,8 @@ export function AppShell({
         open={isChatModalOpen}
         onOpenChange={setChatModalOpen}
         initialRoomId={chatInitialRoomId}
+        isPickingAttachmentRef={isPickingAttachmentRef}
+        onAttachmentPickingChange={onAttachmentPickingChange}
         onToast={onToast}
       />
 

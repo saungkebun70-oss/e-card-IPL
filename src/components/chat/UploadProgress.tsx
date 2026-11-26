@@ -88,23 +88,43 @@ export function UploadProgress({
             }`}
           >
             <div className="flex items-start gap-2 min-w-0">
-              <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                  isFailed
-                    ? 'bg-rose-100 text-rose-700'
-                    : isCompleted
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-white text-[#312E81] border border-indigo-100'
-                }`}
-              >
-                {isUploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : isFailed ? (
-                  <AlertCircle className="w-4 h-4" />
-                ) : (
-                  <Icon className="w-4 h-4" />
-                )}
-              </div>
+              {item.attachmentType === 'photo' && item.localPreviewUrl ? (
+                <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 mt-0.5 border border-indigo-200 bg-white shadow-2xs">
+                  <img
+                    src={item.localPreviewUrl}
+                    alt={item.file.name}
+                    className="w-full h-full object-cover"
+                  />
+                  {isUploading && (
+                    <span className="absolute inset-0 bg-slate-950/35 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                    </span>
+                  )}
+                  {isFailed && (
+                    <span className="absolute inset-0 bg-rose-950/45 flex items-center justify-center">
+                      <AlertCircle className="w-3.5 h-3.5 text-white" />
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    isFailed
+                      ? 'bg-rose-100 text-rose-700'
+                      : isCompleted
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-white text-[#312E81] border border-indigo-100'
+                  }`}
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isFailed ? (
+                    <AlertCircle className="w-4 h-4" />
+                  ) : (
+                    <Icon className="w-4 h-4" />
+                  )}
+                </div>
+              )}
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 min-w-0">

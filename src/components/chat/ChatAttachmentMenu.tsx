@@ -1,14 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, FileText, Film, Image as ImageIcon, Paperclip, X } from 'lucide-react';
 import {
   DOCUMENT_ACCEPT_ATTR,
   VIDEO_ACCEPT_ATTR,
   type AttachmentPickerKind,
 } from '../../lib/chat/attachmentUtils';
+import { InAppCameraModal } from './InAppCameraModal';
 
 interface ChatAttachmentMenuProps {
   disabled?: boolean;
   onSelectFiles: (files: File[], kind: AttachmentPickerKind) => void;
+  onPickingStateChange?: (picking: boolean) => void;
 }
 
 interface AttachmentOptionMeta {
@@ -23,7 +25,7 @@ const ATTACHMENT_OPTIONS: AttachmentOptionMeta[] = [
   {
     kind: 'camera',
     label: 'Kamera',
-    subtitle: 'Foto langsung · Transit Drive',
+    subtitle: 'Ambil foto langsung',
     icon: Camera,
     iconWrapClass: 'bg-indigo-100 text-[#312E81]',
   },
@@ -44,19 +46,53 @@ const ATTACHMENT_OPTIONS: AttachmentOptionMeta[] = [
   {
     kind: 'video',
     label: 'Video Semua Ukuran',
-    subtitle: 'Langsung Drive · Tanpa transit',
+    subtitle: 'Semua ukuran · Kirim langsung',
     icon: Film,
     iconWrapClass: 'bg-emerald-100 text-emerald-800',
   },
 ];
 
-export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAttachmentMenuProps) {
+export function ChatAttachmentMenu({
+  disabled = false,
+  onSelectFiles,
+  onPickingStateChange,
+}: ChatAttachmentMenuProps) {
   const [open, setOpen] = useState(false);
+  const [inAppCameraOpen, setInAppCameraOpen] = useState(false);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const nativePickingActiveRef = useRef(false);
+  const focusResetTimerRef = useRef<number | null>(null);
+
+  const clearFocusResetTimer = useCallback(() => {
+    if (focusResetTimerRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(focusResetTimerRef.current);
+      focusResetTimerRef.current = null;
+    }
+  }, []);
+
+  const beginPicking = useCallback(() => {
+    clearFocusResetTimer();
+    onPickingStateChange?.(true);
+  }, [clearFocusResetTimer, onPickingStateChange]);
+
+  const finishPicking = useCallback(() => {
+    clearFocusResetTimer();
+    nativePickingActiveRef.current = false;
+    onPickingStateChange?.(false);
+  }, [clearFocusResetTimer, onPickingStateChange]);
+
+  useEffect(() => {
+    return () => {
+      clearFocusResetTimer();
+      nativePickingActiveRef.current = false;
+      onPickingStateChange?.(false);
+    };
+  }, [clearFocusResetTimer, onPickingStateChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,13 +117,82 @@ export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAtta
     };
   }, [open]);
 
+  // Saat picker native (Kamera/Galeri/File) ditutup/dibatalkan tanpa event onChange pada browser tertentu,
+  // lepaskan kunci modal secara aman setelah jeda singkat ketika fokus kembali ke aplikasi.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const scheduleSafeReleaseIfIdle = () => {
+      if (!nativePickingActiveRef.current) return;
+      clearFocusResetTimer();
+      focusResetTimerRef.current = window.setTimeout(() => {
+        focusResetTimerRef.current = null;
+        if (nativePickingActiveRef.current) {
+          finishPicking();
+        }
+      }, 1200);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        scheduleSafeReleaseIfIdle();
+      }
+    };
+
+    window.addEventListener('focus', scheduleSafeReleaseIfIdle);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('focus', scheduleSafeReleaseIfIdle);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [clearFocusResetTimer, finishPicking]);
+
+  // Tangkap event `cancel` bawaan HTMLInputElement saat user menekan batal di file picker/kamera
+  useEffect(() => {
+    const inputs = [
+      cameraInputRef.current,
+      photoInputRef.current,
+      documentInputRef.current,
+      videoInputRef.current,
+    ].filter((el): el is HTMLInputElement => Boolean(el));
+
+    const handleCancel = () => {
+      finishPicking();
+    };
+
+    inputs.forEach((input) => input.addEventListener('cancel', handleCancel));
+    return () => {
+      inputs.forEach((input) => input.removeEventListener('cancel', handleCancel));
+    };
+  }, [finishPicking]);
+
+  const triggerNativeInput = useCallback(
+    (kind: AttachmentPickerKind) => {
+      beginPicking();
+      nativePickingActiveRef.current = true;
+      if (kind === 'camera') cameraInputRef.current?.click();
+      else if (kind === 'photo') photoInputRef.current?.click();
+      else if (kind === 'document') documentInputRef.current?.click();
+      else videoInputRef.current?.click();
+    },
+    [beginPicking]
+  );
+
   const handleOpenPicker = (kind: AttachmentPickerKind) => {
     setOpen(false);
     if (disabled) return;
-    if (kind === 'camera') cameraInputRef.current?.click();
-    else if (kind === 'photo') photoInputRef.current?.click();
-    else if (kind === 'document') documentInputRef.current?.click();
-    else videoInputRef.current?.click();
+
+    if (kind === 'camera') {
+      const supportsInAppCamera =
+        typeof navigator !== 'undefined' &&
+        Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+      if (supportsInAppCamera) {
+        beginPicking();
+        setInAppCameraOpen(true);
+        return;
+      }
+    }
+
+    triggerNativeInput(kind);
   };
 
   const handleInputChange = (
@@ -96,6 +201,7 @@ export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAtta
   ) => {
     const fileList = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = '';
+    finishPicking();
     if (fileList.length > 0) {
       onSelectFiles(fileList, kind);
     }
@@ -128,7 +234,7 @@ export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAtta
         >
           <div className="px-2 pt-0.5 pb-1 flex items-center justify-between gap-2 border-b border-indigo-100/80">
             <span className="text-[11px] font-bold text-[#312E81]">Kirim Lampiran</span>
-            <span className="text-[10px] text-slate-500">Simpan ke Google Drive</span>
+            <span className="text-[10px] text-slate-500">Pilih Jenis Berkas</span>
           </div>
 
           <div className="grid grid-cols-1 gap-1 pt-0.5">
@@ -162,7 +268,7 @@ export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAtta
         </div>
       )}
 
-      {/* Hidden inputs terpisah sesuai jalur masing-masing */}
+      {/* Hidden inputs terpisah di luar popover agar tidak pernah ter-unmount saat kamera/picker terbuka */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -201,6 +307,24 @@ export function ChatAttachmentMenu({ disabled = false, onSelectFiles }: ChatAtta
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+      />
+
+      {/* Modal Kamera In-App (getUserMedia) + Fallback ke input kamera bawaan */}
+      <InAppCameraModal
+        open={inAppCameraOpen}
+        onCapture={(file) => {
+          setInAppCameraOpen(false);
+          finishPicking();
+          onSelectFiles([file], 'camera');
+        }}
+        onFallbackNativeCamera={() => {
+          setInAppCameraOpen(false);
+          triggerNativeInput('camera');
+        }}
+        onClose={() => {
+          setInAppCameraOpen(false);
+          finishPicking();
+        }}
       />
     </div>
   );

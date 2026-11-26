@@ -4,6 +4,8 @@
 
 interface VercelReq {
   method?: string;
+  url?: string;
+  query?: Record<string, string | string[] | undefined>;
   headers: Record<string, string | string[] | undefined>;
   body?: unknown;
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -270,9 +272,38 @@ async function fetchWithTimeout(
   }
 }
 
+function parseMultipartFormText(raw: string, contentType: string): Record<string, unknown> {
+  const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;\s]+))/i);
+  const boundary = (boundaryMatch?.[1] || boundaryMatch?.[2] || '').trim();
+  const obj: Record<string, unknown> = {};
+  if (!boundary) return obj;
+
+  const parts = raw.split(`--${boundary}`);
+  for (const part of parts) {
+    const cleanPart = part.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+    if (!cleanPart || cleanPart === '--') continue;
+    const sepIdx = cleanPart.indexOf('\r\n\r\n') >= 0 ? cleanPart.indexOf('\r\n\r\n') : cleanPart.indexOf('\n\n');
+    if (sepIdx < 0) continue;
+    const headerBlock = cleanPart.slice(0, sepIdx);
+    const bodyBlock = cleanPart
+      .slice(sepIdx + (cleanPart[sepIdx] === '\r' ? 4 : 2))
+      .replace(/\r?\n$/, '');
+    const nameMatch = headerBlock.match(/name="([^"]+)"/i);
+    if (nameMatch?.[1]) {
+      obj[nameMatch[1].trim()] = bodyBlock;
+    }
+  }
+  return obj;
+}
+
 function buildQueryBodyFromText(raw: string, contentType: string): Record<string, unknown> {
   const trimmed = raw.trim();
   if (!trimmed) return {};
+
+  if (contentType.includes('multipart/form-data')) {
+    const mp = parseMultipartFormText(raw, contentType);
+    if (Object.keys(mp).length > 0) return mp;
+  }
 
   const wantsForm = contentType.includes('application/x-www-form-urlencoded');
   if (!wantsForm) {
@@ -330,30 +361,58 @@ async function readRawRequestStream(req: VercelReq): Promise<string> {
   });
 }
 
+function extractQueryParamsFallback(req: VercelReq): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (req.query && typeof req.query === 'object') {
+    for (const [k, v] of Object.entries(req.query)) {
+      if (Array.isArray(v)) {
+        if (v[0] !== undefined) result[k] = v[0];
+      } else if (v !== undefined) {
+        result[k] = v;
+      }
+    }
+  }
+  if (typeof req.url === 'string' && req.url.includes('?')) {
+    try {
+      const qs = req.url.slice(req.url.indexOf('?') + 1);
+      const params = new URLSearchParams(qs);
+      for (const [k, v] of params.entries()) {
+        if (!(k in result)) {
+          result[k] = v;
+        }
+      }
+    } catch {
+      // Abaikan
+    }
+  }
+  return result;
+}
+
 async function parseIncomingBody(req: VercelReq): Promise<Record<string, unknown>> {
   const contentType = getHeader(req.headers, 'content-type').toLowerCase();
 
+  let parsedBody: Record<string, unknown> = {};
   if (Buffer.isBuffer(req.body)) {
-    return buildQueryBodyFromText(req.body.toString('utf8'), contentType);
-  }
-  if (typeof req.body === 'string') {
-    return buildQueryBodyFromText(req.body, contentType);
-  }
-  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    parsedBody = buildQueryBodyFromText(req.body.toString('utf8'), contentType);
+  } else if (typeof req.body === 'string') {
+    parsedBody = buildQueryBodyFromText(req.body, contentType);
+  } else if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
     const obj = req.body as Record<string, unknown>;
     if (Object.keys(obj).length > 0) {
-      return obj;
+      parsedBody = obj;
     }
-  }
-
-  if (req.body === undefined || req.body === null) {
+  } else if (req.body === undefined || req.body === null) {
     const rawText = await readRawRequestStream(req);
     if (rawText) {
-      return buildQueryBodyFromText(rawText, contentType);
+      parsedBody = buildQueryBodyFromText(rawText, contentType);
     }
   }
 
-  return {};
+  if (Object.keys(parsedBody).length > 0) {
+    return parsedBody;
+  }
+
+  return extractQueryParamsFallback(req);
 }
 
 async function executeSupabaseGet<T>(
@@ -426,7 +485,7 @@ async function supabaseRestGetWithStatus<T>(
     const candidates = ACTIVE_PENGURUS_CALLERS.filter((c) => c !== primaryCaller);
     for (const candidate of candidates) {
       const attempt = await executeSupabaseGet<T>(url, key, pathWithQuery, candidate);
-      if (attempt.ok && attempt.data.length > 0) {
+      if (attempt.ok && (attempt.data.length > 0 || !firstAttempt.ok)) {
         cachedPengurusCaller = candidate;
         return { ok: true, status: attempt.status, data: attempt.data };
       }
@@ -702,7 +761,8 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
   const nominalBulanan = targetUnit.nominal_iuran || NOMINAL_DEFAULT;
 
   const allYearStatus = await supabaseRestGet<StatusRow>(
-    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}`
+    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}`,
+    { retryNonEmptyOnAnon: true }
   );
   const unitYearRows = allYearStatus.filter((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
   const matchedStatus = unitYearRows.find((s) => s.bulan === currentMonth);
@@ -720,7 +780,8 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
   let latestReceiptNo = '';
   if (statusBulan === 'Lunas') {
     const verifiedTrx = await supabaseRestGet<TransaksiKwitansiRow>(
-      `transaksi_ipl?select=no_kwitansi,blok_rumah,tahun,bulan_dibayar,status_verifikasi&tahun=eq.${TAHUN_AKTIF}&status_verifikasi=eq.Terverifikasi&order=tanggal_setor.desc&limit=50`
+      `transaksi_ipl?select=no_kwitansi,blok_rumah,tahun,bulan_dibayar,status_verifikasi&tahun=eq.${TAHUN_AKTIF}&status_verifikasi=eq.Terverifikasi&order=tanggal_setor.desc&limit=50`,
+      { retryNonEmptyOnAnon: true }
     );
     const matchedTrx = verifiedTrx.find(
       (t) =>
@@ -762,7 +823,8 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
 async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise<string> {
   const formattedBlock = normalizeBlockCode(targetUnit.blok_rumah);
   const allYearStatus = await supabaseRestGet<StatusRow>(
-    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${tahun}`
+    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${tahun}`,
+    { retryNonEmptyOnAnon: true }
   );
   const unitRows = allYearStatus.filter((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
 

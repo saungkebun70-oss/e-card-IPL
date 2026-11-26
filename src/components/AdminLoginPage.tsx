@@ -30,6 +30,7 @@ import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { LoadingSpinner } from './LoadingSpinner';
+import { formatBlokRumah } from '../lib/format';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -406,8 +407,10 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
                       </p>
                       {revokedNotice.validation?.linked_blok_rumah && (
                         <p className="text-[11px] font-mono text-emerald-800 font-semibold">
-                          Akun Warga Aktif: Blok {revokedNotice.validation.linked_blok_rumah} · Status:{' '}
-                          {revokedNotice.validation.warga_account_status || 'active'}
+                          Akun Warga Aktif: Blok{' '}
+                          {formatBlokRumah(revokedNotice.validation.linked_blok_rumah) ||
+                            revokedNotice.validation.linked_blok_rumah}{' '}
+                          · Status: {revokedNotice.validation.warga_account_status || 'active'}
                         </p>
                       )}
                     </div>

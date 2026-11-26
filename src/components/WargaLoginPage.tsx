@@ -29,6 +29,7 @@ import { useAppBrand } from '../lib/brandContext';
 import { BrandLogo } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { LoadingSpinner } from './LoadingSpinner';
+import { formatBlokRumah } from '../lib/format';
 
 interface WargaLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
@@ -335,7 +336,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                         {enrolledProfile.nama}
                       </p>
                       <p className="text-xs text-slate-500 truncate">
-                        Blok {enrolledProfile.blok_rumah}
+                        Blok {formatBlokRumah(enrolledProfile.blok_rumah) || enrolledProfile.blok_rumah}
                         {enrolledProfile.status_hunian ? ` · ${enrolledProfile.status_hunian}` : ''}
                       </p>
                     </div>

@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -12,6 +13,8 @@ interface FloatingChatWidgetProps {
   onOpenChange?: (open: boolean) => void;
   initialRoomId?: ChatRoomId | null;
   hidden?: boolean;
+  isPickingAttachmentRef?: React.MutableRefObject<boolean>;
+  onAttachmentPickingChange?: (picking: boolean) => void;
   onToast?: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -163,6 +166,8 @@ export function FloatingChatWidget({
   onOpenChange,
   initialRoomId,
   hidden = false,
+  isPickingAttachmentRef,
+  onAttachmentPickingChange,
   onToast,
 }: FloatingChatWidgetProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -255,20 +260,23 @@ export function FloatingChatWidget({
     };
   }, []);
 
-  // Tutup panel chat melayang jika disembunyikan
+  // Tutup panel chat melayang jika disembunyikan (kecuali saat sedang mengambil foto/lampiran)
   useEffect(() => {
-    if (hidden && isOpen) {
+    if (hidden && isOpen && !isPickingAttachmentRef?.current) {
       setOpen(false);
     }
-  }, [hidden, isOpen, setOpen]);
+  }, [hidden, isOpen, setOpen, isPickingAttachmentRef]);
 
   // Tangkap Escape & tombol Back Android saat chat melayang terbuka
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape' && !isPickingAttachmentRef?.current) {
+        setOpen(false);
+      }
     };
     const onBackOverlay = (e: Event) => {
+      if (isPickingAttachmentRef?.current) return;
       const detail = (e as CustomEvent<{ handled?: boolean }>).detail;
       if (detail && !detail.handled) {
         detail.handled = true;
@@ -281,7 +289,7 @@ export function FloatingChatWidget({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('ecard-handle-back-overlay', onBackOverlay);
     };
-  }, [isOpen, setOpen]);
+  }, [isOpen, setOpen, isPickingAttachmentRef]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -399,7 +407,11 @@ export function FloatingChatWidget({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.16 }}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                if (!isPickingAttachmentRef?.current) {
+                  setOpen(false);
+                }
+              }}
               className="fixed inset-0 bg-slate-950/35 backdrop-blur-[2px] sm:bg-slate-950/15 sm:backdrop-blur-[1px] pointer-events-auto"
             />
 
@@ -449,6 +461,7 @@ export function FloatingChatWidget({
                   session={session}
                   variant="floating"
                   initialRoomId={initialRoomId}
+                  onAttachmentPickingChange={onAttachmentPickingChange}
                   onToast={onToast}
                 />
               </div>

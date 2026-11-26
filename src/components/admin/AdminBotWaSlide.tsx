@@ -271,7 +271,7 @@ export function AdminBotWaSlide({
   const currentMonthLabel = `${getNamaBulan(getCurrentBillingMonth())} ${TAHUN_AKTIF}`;
   const samplePreview = config.template_pesan
     .replaceAll('{nama_warga}', 'Bapak/Ibu Doni')
-    .replaceAll('{blok_rumah}', 'B5/21')
+    .replaceAll('{blok_rumah}', 'B05/21')
     .replaceAll('{pin_akses}', '482910')
     .replaceAll('{bulan_tagihan}', currentMonthLabel)
     .replaceAll('{nominal_tagihan}', formatRupiah(100000))
@@ -1148,7 +1148,7 @@ export function AdminBotWaSlide({
         open={panduanModalOpen}
         onClose={() => setPanduanModalOpen(false)}
         profil={{
-          blok_rumah: 'B5/21',
+          blok_rumah: 'B05/21',
           nama_warga: 'DONI',
           nominal_iuran: 100000,
           no_wa: '6281234567890',
