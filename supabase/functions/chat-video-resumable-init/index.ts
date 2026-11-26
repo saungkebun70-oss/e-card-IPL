@@ -1,5 +1,6 @@
 import {
   buildCorsHeaders,
+  buildDriveApiFailureError,
   canCallerAccessRoom,
   getAllowedResumableOrigin,
   getDriveServiceAccountToken,
@@ -8,6 +9,7 @@ import {
   loadDriveServiceAccountConfig,
   MAX_VIDEO_RESUMABLE_BYTES,
   normalizeChatRoomId,
+  parseGoogleDriveApiError,
   resolveMonthlyChatDriveFolder,
   sanitizeFileName,
   type SenderCallerHint,
@@ -77,7 +79,9 @@ Deno.serve(async (req: Request) => {
     const { folderId, folderPath } = await resolveMonthlyChatDriveFolder(
       accessToken,
       driveCfg.rootFolderId,
-      roomId
+      roomId,
+      null,
+      driveCfg
     );
 
     const allowedOrigin = getAllowedResumableOrigin(req);
@@ -106,11 +110,12 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!initRes.ok) {
-      const errText = await initRes.text().catch(() => '');
-      return jsonResponse(req, 502, {
-        ok: false,
-        error: `Gagal menginisiasi sesi Resumable Upload Google Drive (${initRes.status}): ${errText.slice(0, 180)}`,
-      });
+      const initErr = await parseGoogleDriveApiError(initRes);
+      throw buildDriveApiFailureError(
+        'Gagal menginisiasi sesi Resumable Upload Google Drive',
+        initErr,
+        driveCfg
+      );
     }
 
     const sessionUri = (initRes.headers.get('location') || '').trim();

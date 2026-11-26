@@ -218,11 +218,36 @@ interface CredentialValidationError extends Error {
   fieldReasons?: Record<string, string>;
 }
 
+type DriveAuthConfig =
+  | {
+      mode: 'oauth2';
+      clientId: string;
+      clientSecret: string;
+      refreshToken: string;
+      rootFolderId: string;
+      clientIdField: string;
+      clientSecretField: string;
+      refreshTokenField: string;
+      rootFolderField: string;
+    }
+  | {
+      mode: 'service_account';
+      clientEmail: string;
+      privateKey: string;
+      rootFolderId: string;
+      privateKeyId?: string;
+      clientEmailField?: string;
+      privateKeyField?: string;
+      rootFolderField?: string;
+    };
+
 const DEFAULT_DRIVE_CLIENT_EMAIL = 'saung-kebun-drive@saung-kebun-87b23.iam.gserviceaccount.com';
 const DEFAULT_DRIVE_ROOT_FOLDER_ID = '1708f9PjDgjOUC6pEdyirmRdPhQCtd_uz';
 
 function stripOuterQuotes(raw?: string | null): string {
-  let clean = String(raw || '').trim();
+  let clean = String(raw || '')
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
   while (
     clean.length >= 2 &&
     ((clean.startsWith('"') && clean.endsWith('"')) ||
@@ -231,6 +256,11 @@ function stripOuterQuotes(raw?: string | null): string {
     clean = clean.slice(1, -1).trim();
   }
   return clean;
+}
+
+function isUrlLikeValue(raw: string): boolean {
+  const clean = raw.trim();
+  return /^https?:\/\//i.test(clean) || /^[a-z0-9+.-]+:\/\//i.test(clean);
 }
 
 function readFirstSecretEnv(names: string[]): { value: string; sourceName: string | null } {
@@ -411,7 +441,17 @@ function getSupabaseEnv() {
   return { url, serviceKey };
 }
 
-function getDriveEnv() {
+function getDriveEnv(): DriveAuthConfig {
+  const oauthClientIdEnv = readFirstSecretEnv(['GOOGLE_OAUTH_CLIENT_ID']);
+  const oauthClientSecretEnv = readFirstSecretEnv(['GOOGLE_OAUTH_CLIENT_SECRET']);
+  const oauthRefreshTokenEnv = readFirstSecretEnv(['GOOGLE_OAUTH_REFRESH_TOKEN']);
+  const folderEnv = readFirstSecretEnv([
+    'GOOGLE_DRIVE_FOLDER_ID',
+    'GOOGLE_DRIVE_ROOT_FOLDER_ID',
+    'GOOGLE_DRIVE_ROOT_ID',
+    'GOOGLE_ROOT_ID',
+  ]);
+
   const jsonEnv = readFirstSecretEnv([
     'GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON',
     'GOOGLE_SERVICE_ACCOUNT_JSON',
@@ -424,25 +464,92 @@ function getDriveEnv() {
     'GOOGLE_SERVICE_ACCOUNT_JSON',
   ]);
   const keyIdEnv = readFirstSecretEnv(['GOOGLE_DRIVE_PRIVATE_KEY_ID', 'GOOGLE_PRIVATE_KEY_ID']);
-  const folderEnv = readFirstSecretEnv(['GOOGLE_DRIVE_ROOT_FOLDER_ID', 'GOOGLE_DRIVE_FOLDER_ID']);
+
+  const hasAnyOAuthEnv = Boolean(
+    oauthClientIdEnv.value || oauthClientSecretEnv.value || oauthRefreshTokenEnv.value
+  );
+  const hasLegacySaKey = Boolean(keyEnv.value || jsonEnv.value);
+
+  if (hasAnyOAuthEnv || !hasLegacySaKey) {
+    const clientId = oauthClientIdEnv.value;
+    const clientSecret = oauthClientSecretEnv.value;
+    const refreshToken = oauthRefreshTokenEnv.value;
+    const rootFolderId = folderEnv.value;
+    const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_FOLDER_ID';
+
+    const missingFields: string[] = [];
+    const invalidFields: string[] = [];
+    const fieldReasons: Record<string, string> = {};
+
+    if (!clientId) {
+      missingFields.push('GOOGLE_OAUTH_CLIENT_ID');
+      fieldReasons.GOOGLE_OAUTH_CLIENT_ID = 'Environment variable GOOGLE_OAUTH_CLIENT_ID kosong.';
+    } else if (isUrlLikeValue(clientId) || /\s/.test(clientId)) {
+      invalidFields.push('GOOGLE_OAUTH_CLIENT_ID');
+      fieldReasons.GOOGLE_OAUTH_CLIENT_ID = isUrlLikeValue(clientId)
+        ? 'Nilai GOOGLE_OAUTH_CLIENT_ID masih berupa URL lengkap (https://...); isi dengan OAuth Client ID mentah.'
+        : 'Nilai GOOGLE_OAUTH_CLIENT_ID mengandung spasi atau karakter tidak valid.';
+    }
+
+    if (!clientSecret) {
+      missingFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
+      fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = 'Environment variable GOOGLE_OAUTH_CLIENT_SECRET kosong.';
+    } else if (isUrlLikeValue(clientSecret) || /\s/.test(clientSecret)) {
+      invalidFields.push('GOOGLE_OAUTH_CLIENT_SECRET');
+      fieldReasons.GOOGLE_OAUTH_CLIENT_SECRET = isUrlLikeValue(clientSecret)
+        ? 'Nilai GOOGLE_OAUTH_CLIENT_SECRET masih berupa URL lengkap (https://...); isi dengan Client Secret mentah.'
+        : 'Nilai GOOGLE_OAUTH_CLIENT_SECRET mengandung spasi atau karakter tidak valid.';
+    }
+
+    if (!refreshToken) {
+      missingFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
+      fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = 'Environment variable GOOGLE_OAUTH_REFRESH_TOKEN kosong.';
+    } else if (isUrlLikeValue(refreshToken) || /\s/.test(refreshToken)) {
+      invalidFields.push('GOOGLE_OAUTH_REFRESH_TOKEN');
+      fieldReasons.GOOGLE_OAUTH_REFRESH_TOKEN = isUrlLikeValue(refreshToken)
+        ? 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN masih berupa URL lengkap (https://...); isi dengan Refresh Token mentah.'
+        : 'Nilai GOOGLE_OAUTH_REFRESH_TOKEN mengandung spasi atau karakter tidak valid.';
+    }
+
+    if (!rootFolderId) {
+      missingFields.push('GOOGLE_DRIVE_FOLDER_ID');
+      fieldReasons.GOOGLE_DRIVE_FOLDER_ID =
+        'Environment variable GOOGLE_DRIVE_FOLDER_ID kosong (fallback GOOGLE_DRIVE_ROOT_FOLDER_ID / GOOGLE_DRIVE_ROOT_ID / GOOGLE_ROOT_ID juga kosong).';
+    } else if (isUrlLikeValue(rootFolderId) || !/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+      invalidFields.push(folderField);
+      fieldReasons[folderField] = isUrlLikeValue(rootFolderId)
+        ? `Nilai ${folderField} masih berupa URL lengkap (https://...); salin hanya ID folder di belakang /folders/.`
+        : `Format ${folderField} tidak valid (harus berupa ID folder Google Drive tanpa spasi/URL).`;
+    }
+
+    if (missingFields.length > 0 || invalidFields.length > 0) {
+      throw buildCredentialError({ scope: 'Google Drive OAuth2', missingFields, invalidFields, fieldReasons });
+    }
+
+    return {
+      mode: 'oauth2',
+      clientId,
+      clientSecret,
+      refreshToken,
+      rootFolderId,
+      clientIdField: 'GOOGLE_OAUTH_CLIENT_ID',
+      clientSecretField: 'GOOGLE_OAUTH_CLIENT_SECRET',
+      refreshTokenField: 'GOOGLE_OAUTH_REFRESH_TOKEN',
+      rootFolderField: folderField,
+    };
+  }
 
   const embeddedJson =
     (jsonEnv.value ? extractServiceAccountJson(jsonEnv.value) : null) ||
     (keyEnv.value ? extractServiceAccountJson(keyEnv.value) : null);
-  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL)
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
-    .trim();
+  const clientEmail = (emailEnv.value || embeddedJson?.clientEmail || DEFAULT_DRIVE_CLIENT_EMAIL).trim();
   const privateKey = keyEnv.value ? normalizePrivateKeyPem(keyEnv.value) : '';
-  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '')
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
-    .trim();
-  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID)
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200D\u2060\uFEFF]/g, '')
-    .trim();
+  const privateKeyId = (keyIdEnv.value || embeddedJson?.privateKeyId || '').trim();
+  const rootFolderId = (folderEnv.value || DEFAULT_DRIVE_ROOT_FOLDER_ID).trim();
 
   const emailField = emailEnv.sourceName || 'GOOGLE_DRIVE_CLIENT_EMAIL';
   const keyField = keyEnv.sourceName || 'GOOGLE_DRIVE_PRIVATE_KEY';
-  const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_ROOT_FOLDER_ID';
+  const folderField = folderEnv.sourceName || 'GOOGLE_DRIVE_FOLDER_ID';
 
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
@@ -480,9 +587,11 @@ function getDriveEnv() {
     }
   }
 
-  if (!/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
+  if (isUrlLikeValue(rootFolderId) || !/^[a-zA-Z0-9_-]{8,150}$/.test(rootFolderId)) {
     invalidFields.push(folderField);
-    fieldReasons[folderField] = 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
+    fieldReasons[folderField] = isUrlLikeValue(rootFolderId)
+      ? `Nilai ${folderField} masih berupa URL lengkap (https://...); salin hanya ID folder Google Drive.`
+      : 'Harus berupa ID folder Google Drive yang valid (bukan URL/teks bebas).';
   }
 
   if (missingFields.length > 0 || invalidFields.length > 0) {
@@ -490,6 +599,7 @@ function getDriveEnv() {
   }
 
   return {
+    mode: 'service_account',
     clientEmail,
     privateKey,
     rootFolderId,
@@ -1015,13 +1125,65 @@ async function fetchGoogleServiceAccountJwks(
   }
 }
 
-async function getDriveToken(cfg: {
-  clientEmail: string;
-  privateKey: string;
-  privateKeyId?: string;
-  clientEmailField?: string;
-  privateKeyField?: string;
-}): Promise<string> {
+async function exchangeOAuth2RefreshToken(
+  cfg: Extract<DriveAuthConfig, { mode: 'oauth2' }>
+): Promise<string> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      refresh_token: cfg.refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  if (!res.ok) {
+    const rawText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim();
+    let errCode = '';
+    let errDesc = '';
+    if (rawText.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(rawText) as { error?: string; error_description?: string };
+        errCode = String(parsed.error || '').trim();
+        errDesc = String(parsed.error_description || '').trim();
+      } catch {
+        // fallback ke rawText
+      }
+    }
+    const detail = (errDesc || rawText || `HTTP ${res.status}`).slice(0, 180);
+    if (errCode === 'invalid_client') {
+      throw buildCredentialError({
+        scope: 'Google Drive OAuth2',
+        missingFields: [],
+        invalidFields: [cfg.clientIdField, cfg.clientSecretField],
+        fieldReasons: {
+          [cfg.clientIdField]: `Google OAuth2 menolak client_id (${res.status} / ${errCode}): ${detail}.`,
+          [cfg.clientSecretField]: `Pastikan ${cfg.clientSecretField} cocok dengan ${cfg.clientIdField} pada OAuth Client ID Google Cloud.`,
+        },
+      });
+    }
+    throw buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields: [],
+      invalidFields: [cfg.refreshTokenField],
+      fieldReasons: {
+        [cfg.refreshTokenField]: `Pertukaran refresh_token ditolak Google OAuth2 (${res.status}${
+          errCode ? ` / ${errCode}` : ''
+        }): ${detail}. Pastikan refresh token masih aktif, OAuth Consent Screen berstatus Published/Production, dan scope Drive disetujui.`,
+      },
+    });
+  }
+  const json = (await res.json()) as { access_token?: string };
+  if (!json.access_token) throw new Error('Access token OAuth2 Google Drive tidak tersedia.');
+  return json.access_token;
+}
+
+async function getDriveToken(cfg: DriveAuthConfig): Promise<string> {
+  if (cfg.mode === 'oauth2') {
+    return exchangeOAuth2RefreshToken(cfg);
+  }
+
   const keyField = cfg.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
   const emailField = cfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL';
 
@@ -1078,7 +1240,7 @@ async function getDriveToken(cfg: {
           invalidFields: [emailField, keyField],
           fieldReasons: {
             [emailField]: `Service Account ${cfg.clientEmail} memiliki ${activeKidsOnGcp.length} kunci aktif di Google Cloud IAM (${kidListLabel || 'tidak ada'}).`,
-            [keyField]: `Kunci privat di secret [fp=${keyFp}, mod=${privateKeyModulus.slice(0, 10)}...] TIDAK COCOK dengan kunci aktif mana pun milik ${cfg.clientEmail} di Google Cloud IAM (Key ID aktif: ${kidListLabel || 'kosong'}). Pastikan Anda menyalin seluruh file JSON atau nilai private_key dari salah satu Key ID aktif tersebut (bukan dari kunci lama/terhapus atau Service Account Firebase lain).`,
+            [keyField]: `Kunci privat di secret [fp=${keyFp}, mod=${privateKeyModulus.slice(0, 10)}...] TIDAK COCOK dengan kunci aktif mana pun milik ${cfg.clientEmail} di Google Cloud IAM (Key ID aktif: ${kidListLabel || 'kosong'}).`,
           },
         });
       }
@@ -1121,7 +1283,7 @@ async function getDriveToken(cfg: {
       ? ` Key ID aktif di IAM: ${activeKidsOnGcp.map((id) => `${id.slice(0, 12)}...`).join(', ')}.`
       : '';
     const hintSuffix = isSigErr
-      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF (belum dihapus/dirotasi di Google Cloud IAM) milik ${cfg.clientEmail} [fp=${keyFp}${resolvedKid ? `, kid=${resolvedKid.slice(0, 12)}...` : ''}].${activeInfo}`
+      ? ` Pastikan ${keyField} berasal dari JSON key AKTIF milik ${cfg.clientEmail} [fp=${keyFp}].${activeInfo}`
       : ` [iss=${cfg.clientEmail}, fp=${keyFp}].`;
     throw buildCredentialError({
       scope: 'Google Drive OAuth2',
@@ -1136,6 +1298,115 @@ async function getDriveToken(cfg: {
   const json = (await res.json()) as { access_token?: string };
   if (!json.access_token) throw new Error('Access token Drive tidak tersedia.');
   return json.access_token;
+}
+
+async function parseGoogleDriveApiError(res: Response): Promise<{
+  status: number;
+  reason: string;
+  message: string;
+}> {
+  const rawText = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim();
+  let reason = '';
+  let message = '';
+  if (rawText.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawText) as {
+        error?: {
+          message?: string;
+          status?: string;
+          errors?: Array<{ reason?: string; message?: string }>;
+        };
+      };
+      reason = String(parsed?.error?.errors?.[0]?.reason || parsed?.error?.status || '').trim();
+      message = String(parsed?.error?.message || '').trim();
+    } catch {
+      // Gunakan rawText
+    }
+  }
+  return {
+    status: res.status,
+    reason,
+    message: (message || rawText || `HTTP ${res.status}`).slice(0, 220),
+  };
+}
+
+function buildDriveApiFailureError(
+  context: string,
+  errInfo: { status: number; reason: string; message: string },
+  driveCfg?: DriveAuthConfig
+): Error {
+  const reasonTag = errInfo.reason ? ` / ${errInfo.reason}` : '';
+  const folderField = driveCfg?.rootFolderField || 'GOOGLE_DRIVE_FOLDER_ID';
+
+  if (
+    errInfo.reason === 'storageQuotaExceeded' ||
+    /storageQuotaExceeded|Service Accounts do not have storage quota/i.test(errInfo.message)
+  ) {
+    if (driveCfg?.mode === 'service_account') {
+      return buildCredentialError({
+        scope: 'Google Drive',
+        missingFields: [
+          'GOOGLE_OAUTH_CLIENT_ID',
+          'GOOGLE_OAUTH_CLIENT_SECRET',
+          'GOOGLE_OAUTH_REFRESH_TOKEN',
+        ],
+        invalidFields: [driveCfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL'],
+        fieldReasons: {
+          [driveCfg.clientEmailField || 'GOOGLE_DRIVE_CLIENT_EMAIL']:
+            `Service Account (${driveCfg.clientEmail}) ditolak Google Drive (${errInfo.status} / storageQuotaExceeded): akun robot tidak punya kuota pada Google Drive pribadi (@gmail.com). Gunakan kredensial OAuth 2.0 pemilik folder (${errInfo.message}).`,
+        },
+      });
+    }
+    return Object.assign(
+      new Error(`${context} (${errInfo.status}${reasonTag}): Kuota penyimpanan Google Drive penuh — ${errInfo.message}`),
+      { statusCode: 502 }
+    );
+  }
+
+  if (errInfo.status === 404 || errInfo.reason === 'notFound') {
+    return buildCredentialError({
+      scope: 'Google Drive',
+      missingFields: [],
+      invalidFields: [folderField],
+      fieldReasons: {
+        [folderField]: `Folder atau berkas Google Drive tidak ditemukan / tidak dapat diakses oleh akun Google yang terautentikasi (${errInfo.status} / notFound: ${errInfo.message}).`,
+      },
+    });
+  }
+
+  if (errInfo.status === 401 || errInfo.reason === 'authError' || errInfo.reason === 'invalidCredentials') {
+    const authField =
+      driveCfg?.mode === 'oauth2'
+        ? driveCfg.refreshTokenField
+        : driveCfg?.privateKeyField || 'GOOGLE_DRIVE_PRIVATE_KEY';
+    return buildCredentialError({
+      scope: 'Google Drive OAuth2',
+      missingFields: [],
+      invalidFields: [authField],
+      fieldReasons: {
+        [authField]: `Token akses Google Drive ditolak (${errInfo.status}${reasonTag}): ${errInfo.message}.`,
+      },
+    });
+  }
+
+  if (
+    errInfo.status === 403 &&
+    (errInfo.reason === 'insufficientFilePermissions' || errInfo.reason === 'insufficientPermissions')
+  ) {
+    return buildCredentialError({
+      scope: 'Google Drive',
+      missingFields: [],
+      invalidFields: [folderField],
+      fieldReasons: {
+        [folderField]: `Akun Google tidak memiliki izin mengakses berkas/folder ${folderField} (${errInfo.status} / ${errInfo.reason}): ${errInfo.message}.`,
+      },
+    });
+  }
+
+  return Object.assign(
+    new Error(`${context} (${errInfo.status}${reasonTag}): ${errInfo.message}`),
+    { statusCode: 502 }
+  );
 }
 
 async function isInsideRootCategory(
@@ -1403,8 +1674,12 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!metaRes.ok) {
-      res.status(404).json({ ok: false, error: 'Berkas tidak ditemukan di Google Drive.' });
-      return;
+      const metaErr = await parseGoogleDriveApiError(metaRes);
+      if (metaRes.status === 404) {
+        res.status(404).json({ ok: false, error: 'Berkas tidak ditemukan di Google Drive.' });
+        return;
+      }
+      throw buildDriveApiFailureError('Gagal membaca metadata berkas Google Drive', metaErr, driveCfg);
     }
     const fileMeta = (await metaRes.json()) as {
       id: string;
@@ -1497,11 +1772,12 @@ export default async function handler(req: VercelReq, res: VercelRes) {
       { method: 'GET', headers: driveHeaders }
     );
     if (!mediaRes.ok && mediaRes.status !== 206) {
-      res.status(mediaRes.status === 416 ? 416 : 502).json({
-        ok: false,
-        error: `Gagal mengalirkan berkas dari Google Drive (${mediaRes.status}).`,
-      });
-      return;
+      if (mediaRes.status === 416) {
+        res.status(416).json({ ok: false, error: 'Rentang byte berkas Google Drive tidak valid (416).' });
+        return;
+      }
+      const mediaErr = await parseGoogleDriveApiError(mediaRes);
+      throw buildDriveApiFailureError('Gagal mengalirkan berkas dari Google Drive', mediaErr, driveCfg);
     }
 
     const safeFileName = sanitizeFileName(fileMeta.name || `lampiran-${fileId}`);

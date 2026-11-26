@@ -1,6 +1,7 @@
 import {
   applyRoomDrivePermissionPolicy,
   buildCorsHeaders,
+  buildDriveApiFailureError,
   buildPrivateDriveProxyUrl,
   canCallerAccessRoom,
   getDriveServiceAccountToken,
@@ -8,6 +9,7 @@ import {
   jsonResponse,
   loadDriveServiceAccountConfig,
   normalizeChatRoomId,
+  parseGoogleDriveApiError,
   resolveMonthlyChatDriveFolder,
   type SenderCallerHint,
   updateChatAttachmentRecord,
@@ -61,11 +63,14 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!metaRes.ok) {
-      const errText = await metaRes.text().catch(() => '');
-      return jsonResponse(req, 404, {
-        ok: false,
-        error: `Berkas video tidak ditemukan di Google Drive (${metaRes.status}): ${errText.slice(0, 140)}`,
-      });
+      const metaErr = await parseGoogleDriveApiError(metaRes);
+      if (metaRes.status === 404) {
+        return jsonResponse(req, 404, {
+          ok: false,
+          error: `Berkas video tidak ditemukan di Google Drive (${metaRes.status}): ${metaErr.message}`,
+        });
+      }
+      throw buildDriveApiFailureError('Gagal membaca metadata video Google Drive', metaErr, driveCfg);
     }
 
     const fileMeta = (await metaRes.json()) as {
@@ -95,7 +100,9 @@ Deno.serve(async (req: Request) => {
     const expectedFolder = await resolveMonthlyChatDriveFolder(
       accessToken,
       driveCfg.rootFolderId,
-      roomId
+      roomId,
+      null,
+      driveCfg
     );
     const parentIds = Array.isArray(fileMeta.parents) ? fileMeta.parents : [];
     let parentVerified = parentIds.length === 0 || parentIds.includes(expectedFolder.folderId);
@@ -140,7 +147,8 @@ Deno.serve(async (req: Request) => {
     const drivePermissionScope = await applyRoomDrivePermissionPolicy(
       accessToken,
       driveFileId,
-      roomId
+      roomId,
+      driveCfg
     );
 
     const driveWebViewLink =
