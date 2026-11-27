@@ -2,14 +2,11 @@ import React from 'react';
 import {
   AlertCircle,
   CheckCircle2,
-  FileText,
-  Film,
-  Image as ImageIcon,
   Loader2,
   RotateCcw,
-  Trash2,
   X,
 } from 'lucide-react';
+import { Icon3D, type Icon3DName } from '../Icon3D';
 import {
   describeUploadStage,
   formatFileSize,
@@ -25,10 +22,10 @@ export interface UploadProgressProps {
   className?: string;
 }
 
-function getAttachmentIcon(type: UploadQueueItem['attachmentType']) {
-  if (type === 'photo') return ImageIcon;
-  if (type === 'video') return Film;
-  return FileText;
+function getAttachmentIcon3D(type: UploadQueueItem['attachmentType']): Icon3DName {
+  if (type === 'photo') return 'galeri';
+  if (type === 'video') return 'video';
+  return 'dokumen';
 }
 
 export function UploadProgress({
@@ -46,7 +43,7 @@ export function UploadProgress({
       className={`max-h-48 overflow-y-auto space-y-2 pr-0.5 overscroll-contain min-w-0 ${className}`.trim()}
     >
       {items.map((item) => {
-        const Icon = getAttachmentIcon(item.attachmentType);
+        const icon3dName = getAttachmentIcon3D(item.attachmentType);
         const clampedPercent = Math.max(0, Math.min(100, Math.round(item.percent)));
         const stageText = describeUploadStage(item.phase, item.status);
         const extLabel = getFileExtensionLabel(item.file.name, item.file.type);
@@ -86,11 +83,11 @@ export function UploadProgress({
                 </div>
               ) : (
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                     isFailed
                       ? 'bg-[#C87058]/15 text-[#7A311E]'
                       : isCompleted
-                        ? 'bg-[#2B3F29] text-[#FFFDF8]'
+                        ? ''
                         : 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
                   }`}
                 >
@@ -99,7 +96,7 @@ export function UploadProgress({
                   ) : isFailed ? (
                     <AlertCircle className="w-4 h-4" />
                   ) : (
-                    <Icon className="w-4 h-4" />
+                    <Icon3D name={icon3dName} className="w-9 h-9 rounded-xl shadow-xs" />
                   )}
                 </div>
               )}
@@ -195,9 +192,9 @@ export function UploadProgress({
                         onClick={() => onRemove(item.localId)}
                         aria-label={`Hapus ${item.file.name} dari antrean`}
                         title="Hapus"
-                        className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4A554A] inline-flex items-center justify-center cursor-pointer shrink-0"
+                        className="min-h-[36px] min-w-[36px] p-1 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] inline-flex items-center justify-center cursor-pointer shrink-0"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
                       </button>
                     )}
                   </>

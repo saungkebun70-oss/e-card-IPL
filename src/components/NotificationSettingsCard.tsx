@@ -5,13 +5,13 @@ import {
   CheckCircle2,
   Radio,
   RefreshCw,
-  Send,
   ShieldAlert,
   Smartphone,
   Vibrate,
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import type { SessionUser } from '../types';
 import {
   ANDROID_NOTIFICATION_CHANNEL_ID,
@@ -438,7 +438,7 @@ export function NotificationSettingsCard({
               {sendingServerPush === 'self' ? (
                 <LoadingSpinner size="xs" tone="white" />
               ) : (
-                <Send className="w-3.5 h-3.5" />
+                <Icon3D name="kirim" className="w-5 h-5 rounded-md shadow-2xs" />
               )}
               <span>
                 {sendingServerPush === 'self' ? 'Mengirim...' : 'Tes ke Perangkat Sendiri'}

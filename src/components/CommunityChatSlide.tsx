@@ -7,19 +7,17 @@ import {
   Home,
   Loader2,
   Lock,
-  MessageSquare,
   Pencil,
   RefreshCw,
   Search,
-  Send,
   Shield,
   ShieldCheck,
-  Trash2,
   User,
   Users,
   X,
 } from 'lucide-react';
 import type { SessionUser, UserRole } from '../types';
+import { Icon3D } from './Icon3D';
 import {
   buildDmRoomId,
   canAccessChatRoom,
@@ -1245,9 +1243,7 @@ export function CommunityChatSlide({
             <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-[#E6E2D6] space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-[#2B3F29] text-[#FFFDF8] flex items-center justify-center shrink-0 shadow-xs">
-                    <MessageSquare className="w-4 h-4" />
-                  </div>
+                  <Icon3D name="chat_cepat" className="w-8 h-8 rounded-xl shadow-xs" />
                   <div className="min-w-0">
                     <h2 className="text-xs sm:text-sm font-bold text-[#1B271B] leading-tight truncate">
                       Pesan &amp; Koordinasi
@@ -1949,7 +1945,7 @@ export function CommunityChatSlide({
                                       : 'hover:bg-[#C87058]/10 text-[#6E786D] hover:text-[#9A422B]'
                                   }`}
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
                                 </button>
                               )}
                             </div>
@@ -2160,7 +2156,7 @@ export function CommunityChatSlide({
                   ) : editingTarget ? (
                     <Check className="w-4 h-4" />
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Icon3D name="kirim" className="w-6 h-6 rounded-lg shadow-2xs" />
                   )}
                   <span className="hidden sm:inline">{editingTarget ? 'Simpan' : 'Kirim'}</span>
                 </button>

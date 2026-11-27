@@ -6,10 +6,10 @@ import {
   Calendar,
   ArrowRight,
   ShieldCheck,
-  Megaphone,
   Check,
   Bot,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   BULAN_LIST,
   NOMINAL_IPL_STANDAR,
@@ -203,7 +203,7 @@ export function WargaHomeSlide({
         >
           <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC] flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-bold text-[#1B271B]">
-              <Megaphone className="w-4 h-4 text-[#2B3F29] shrink-0" />
+              <Icon3D name="pengumuman" className="w-7 h-7 rounded-lg shadow-2xs" />
               <span>Pengumuman Pengurus</span>
               {unreadNotifications.length > 0 && (
                 <>

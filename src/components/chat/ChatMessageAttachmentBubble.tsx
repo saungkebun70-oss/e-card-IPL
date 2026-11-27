@@ -3,17 +3,13 @@ import {
   AlertCircle,
   Download,
   ExternalLink,
-  File,
-  FileSpreadsheet,
-  FileText,
-  Film,
-  Image as ImageIcon,
   Loader2,
   Lock,
   Maximize2,
   Play,
   RotateCcw,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import type { SessionUser } from '../../types';
 import type { ChatAttachmentType, ChatMessage } from '../../lib/chatService';
 import {
@@ -73,28 +69,6 @@ function resolveEffectiveAttachmentInfo(message: ChatMessage): {
   return { type, driveFileId, fileName, mimeType };
 }
 
-function renderDocumentIcon(fileName: string, mimeType: string) {
-  const lowerName = fileName.toLowerCase();
-  const lowerMime = mimeType.toLowerCase();
-  if (
-    /\.(xls|xlsx|csv)$/i.test(lowerName) ||
-    lowerMime.includes('spreadsheet') ||
-    lowerMime.includes('excel') ||
-    lowerMime === 'text/csv'
-  ) {
-    return <FileSpreadsheet className="w-4 h-4" />;
-  }
-  if (
-    /\.(pdf|doc|docx|txt|ppt|pptx)$/i.test(lowerName) ||
-    lowerMime === 'application/pdf' ||
-    lowerMime.includes('wordprocessing') ||
-    lowerMime === 'application/msword' ||
-    lowerMime.startsWith('text/')
-  ) {
-    return <FileText className="w-4 h-4" />;
-  }
-  return <File className="w-4 h-4" />;
-}
 
 export function ChatMessageAttachmentBubble({
   session,
@@ -396,13 +370,7 @@ export function ChatMessageAttachmentBubble({
                 onClick={() => onOpenAttachment(resolvedMessage)}
                 className="flex-1 min-w-0 flex items-center gap-2.5 text-left cursor-pointer"
               >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isMine ? 'bg-white/15 text-[#FFFDF8]' : 'bg-[#FFFDF8] text-[#243825] border border-[#E6E2D6]'
-                  }`}
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </div>
+                <Icon3D name="galeri" className="w-9 h-9 rounded-xl shadow-xs" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold truncate">{fileName}</p>
                   <p className={`text-[10.5px] truncate ${subTextClass}`}>
@@ -460,7 +428,7 @@ export function ChatMessageAttachmentBubble({
               <span> · {isPrivateRoom ? 'Privat' : 'Putar'}</span>
             </p>
           </div>
-          <Film className={`w-4 h-4 shrink-0 ${subTextClass}`} />
+          <Icon3D name="video" className="w-8 h-8 rounded-xl shadow-xs" />
         </button>
       ) : (
         <div
@@ -471,15 +439,7 @@ export function ChatMessageAttachmentBubble({
             onClick={() => onOpenAttachment(resolvedMessage)}
             className="w-full flex items-start gap-2.5 text-left cursor-pointer min-w-0"
           >
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                isMine
-                  ? 'bg-white/20 text-[#FFFDF8]'
-                  : 'bg-[#FFFDF8] text-[#243825] border border-[#E6E2D6]'
-              }`}
-            >
-              {renderDocumentIcon(fileName, mimeType || message.attachment_mime || '')}
-            </div>
+            <Icon3D name="dokumen" className="w-9 h-9 rounded-xl shadow-xs" />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold leading-snug line-clamp-2 break-words">{fileName}</p>
               <p className={`text-[10.5px] truncate mt-0.5 ${subTextClass}`}>

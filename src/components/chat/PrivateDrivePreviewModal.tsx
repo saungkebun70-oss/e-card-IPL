@@ -4,14 +4,12 @@ import {
   AlertTriangle,
   Download,
   ExternalLink,
-  FileText,
-  Film,
-  Image as ImageIcon,
   Loader2,
   Lock,
   RotateCcw,
   X,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import type { SessionUser } from '../../types';
 import type { ChatMessage } from '../../lib/chatService';
 import {
@@ -285,15 +283,16 @@ export function PrivateDrivePreviewModal({
         {/* Header Modal (shrink-0) */}
         <div className="shrink-0 px-4 py-3.5 border-b border-[#E6E2D6] flex items-center justify-between gap-3 min-w-0 bg-[#FFFDF8]">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
-              {attachmentType === 'photo' ? (
-                <ImageIcon className="w-4 h-4" />
-              ) : attachmentType === 'video' ? (
-                <Film className="w-4 h-4" />
-              ) : (
-                <FileText className="w-4 h-4" />
-              )}
-            </div>
+            <Icon3D
+              name={
+                attachmentType === 'photo'
+                  ? 'galeri'
+                  : attachmentType === 'video'
+                    ? 'video'
+                    : 'dokumen'
+              }
+              className="w-9 h-9 rounded-xl shadow-xs"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-xs sm:text-sm font-bold text-[#1B271B] truncate">{fileName}</p>
               <p className="text-[11px] text-[#4A554A] truncate mt-0.5">
@@ -389,9 +388,7 @@ export function PrivateDrivePreviewModal({
               </video>
             ) : (
               <div className="max-w-md w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-5 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] text-[#243825] mx-auto flex items-center justify-center">
-                  <Film className="w-6 h-6" />
-                </div>
+                <Icon3D name="video" className="w-12 h-12 rounded-2xl mx-auto shadow-xs" />
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-[#1B271B] break-words">{fileName}</p>
                   <p className="text-xs text-[#4A554A]">
@@ -408,9 +405,7 @@ export function PrivateDrivePreviewModal({
             />
           ) : (
             <div className="max-w-md w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-5 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] text-[#243825] mx-auto flex items-center justify-center">
-                <FileText className="w-6 h-6" />
-              </div>
+              <Icon3D name="dokumen" className="w-12 h-12 rounded-2xl mx-auto shadow-xs" />
               <div className="space-y-1">
                 <p className="text-sm font-bold text-[#1B271B] break-words">{fileName}</p>
                 <p className="text-xs text-[#4A554A]">

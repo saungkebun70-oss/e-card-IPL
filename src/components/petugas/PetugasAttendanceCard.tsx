@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   Calendar,
-  Camera,
   CheckCircle2,
   Clock,
   Eye,
@@ -11,9 +10,9 @@ import {
   LogOut,
   Moon,
   ShieldCheck,
-  Trash2,
   X,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   SHIFT_PETUGAS_OPTIONS,
   STANDARD_SECURITY_SHIFTS,
@@ -651,7 +650,7 @@ export function PetugasAttendanceCard({
                       onClick={() => setLightboxUrl(item.clock_in_photo_url)}
                       className="text-[11px] font-semibold text-[#2B3F29] hover:underline inline-flex items-center gap-1 cursor-pointer"
                     >
-                      <Camera className="w-3.5 h-3.5" />
+                      <Icon3D name="kamera" className="w-4 h-4 rounded-sm" />
                       <span>Lihat Foto Absen Masuk</span>
                     </button>
                   )}
@@ -739,7 +738,7 @@ export function PetugasAttendanceCard({
                       onClick={clearSelectedPhoto}
                       className="absolute top-2 right-2 min-h-[36px] px-3 rounded-full bg-[#1B271B]/80 hover:bg-[#C87058] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
                       <span>Hapus</span>
                     </button>
                   </div>
@@ -749,7 +748,7 @@ export function PetugasAttendanceCard({
                     onClick={() => cameraInputRef.current?.click()}
                     className="w-full min-h-[48px] rounded-2xl border border-dashed border-[#C6D2BF] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-[#1B271B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition"
                   >
-                    <Camera className="w-4 h-4 text-[#2B3F29]" />
+                    <Icon3D name="kamera" className="w-6 h-6 rounded-lg shadow-2xs" />
                     <span>Ambil Foto Kamera / Pilih Galeri</span>
                   </button>
                 )}

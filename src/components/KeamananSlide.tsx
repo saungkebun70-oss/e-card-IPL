@@ -7,15 +7,14 @@ import {
   Keyboard,
   Loader2,
   MapPin,
-  Megaphone,
   Moon,
   Radio,
   RefreshCw,
   Settings,
   ShieldCheck,
-  Smartphone,
   X,
 } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import {
   APP_PETUGAS_PORTAL_URL,
   type LogPatroli,
@@ -741,9 +740,7 @@ export function KeamananSlide({
         >
           <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0 mt-0.5">
-                <Radio className="w-4 h-4" />
-              </div>
+              <Icon3D name="scan_nfc" className="w-9 h-9 rounded-xl shadow-xs mt-0.5" />
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
                   Scan Checkpoint Patroli RFID / NFC
@@ -865,7 +862,7 @@ export function KeamananSlide({
                     <Radio className="relative w-4 h-4 text-[#1B271B]" />
                   </span>
                 ) : (
-                  <Smartphone className="w-5 h-5 shrink-0" />
+                  <Icon3D name="scan_nfc" className="w-6 h-6 rounded-lg shadow-xs" />
                 )}
                 <span>
                   {submittingPatrol
@@ -1273,7 +1270,7 @@ export function KeamananSlide({
       {securityAnnouncements.length > 0 && (
         <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] flex items-center gap-2">
-            <Megaphone className="w-4 h-4 text-[#8C621A] shrink-0" />
+            <Icon3D name="pengumuman" className="w-7 h-7 rounded-lg shadow-2xs" />
             <h2 className="text-sm font-bold text-[#1B271B]">
               Imbauan &amp; Info Keamanan Lingkungan
             </h2>

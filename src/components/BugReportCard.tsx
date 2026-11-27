@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bug,
-  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -10,11 +9,10 @@ import {
   Loader2,
   Monitor,
   RefreshCw,
-  Send,
-  Trash2,
   X,
   FileCode2,
 } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import type { SessionUser } from '../types';
 import {
   BUG_CATEGORY_LABELS,
@@ -413,7 +411,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                     {capturingScreen ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Camera className="w-3.5 h-3.5" />
+                      <Icon3D name="kamera" className="w-5 h-5 rounded-md shadow-2xs" />
                     )}
                     <span>Tangkap Layar</span>
                   </button>
@@ -449,7 +447,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                   className="p-2 rounded-full text-[#6E786D] hover:text-[#9A422B] hover:bg-[#C87058]/15 transition-colors cursor-pointer"
                   aria-label="Hapus screenshot"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
                 </button>
               </div>
             )}
@@ -534,7 +532,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
+                  <Icon3D name="kirim" className="w-5 h-5 rounded-md shadow-2xs" />
                   <span>Kirim Laporan Bug</span>
                 </>
               )}

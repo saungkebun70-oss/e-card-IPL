@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, FileText, Film, Image as ImageIcon, Paperclip, X } from 'lucide-react';
+import { Paperclip, X } from 'lucide-react';
+import { Icon3D, type Icon3DName } from '../Icon3D';
 import {
   DOCUMENT_ACCEPT_ATTR,
   VIDEO_ACCEPT_ATTR,
@@ -17,8 +18,7 @@ interface AttachmentOptionMeta {
   kind: AttachmentPickerKind;
   label: string;
   subtitle: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconWrapClass: string;
+  icon3d: Icon3DName;
 }
 
 const ATTACHMENT_OPTIONS: AttachmentOptionMeta[] = [
@@ -26,29 +26,25 @@ const ATTACHMENT_OPTIONS: AttachmentOptionMeta[] = [
     kind: 'camera',
     label: 'Kamera',
     subtitle: 'Ambil foto langsung',
-    icon: Camera,
-    iconWrapClass: 'bg-[#2B3F29] text-[#FFFDF8]',
+    icon3d: 'kamera',
   },
   {
     kind: 'photo',
     label: 'Galeri Foto',
     subtitle: 'JPG, PNG, WEBP · Maks 20 MB',
-    icon: ImageIcon,
-    iconWrapClass: 'bg-[#E5EEE3] text-[#243825]',
+    icon3d: 'galeri',
   },
   {
     kind: 'document',
     label: 'Dokumen',
     subtitle: 'PDF, Excel, Word · Maks 20 MB',
-    icon: FileText,
-    iconWrapClass: 'bg-[#F2D8A7]/50 text-[#4A3410]',
+    icon3d: 'dokumen',
   },
   {
     kind: 'video',
     label: 'Video Semua Ukuran',
     subtitle: 'Semua ukuran · Kirim langsung',
-    icon: Film,
-    iconWrapClass: 'bg-[#384E35]/15 text-[#243825]',
+    icon3d: 'video',
   },
 ];
 
@@ -238,32 +234,25 @@ export function ChatAttachmentMenu({
           </div>
 
           <div className="grid grid-cols-1 gap-1 pt-0.5">
-            {ATTACHMENT_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.kind}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => handleOpenPicker(opt.kind)}
-                  className="w-full min-h-[46px] px-2.5 py-2 rounded-xl text-left flex items-center gap-2.5 hover:bg-[#E5EEE3]/65 active:bg-[#E5EEE3] transition-colors cursor-pointer min-w-0"
-                >
-                  <span
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${opt.iconWrapClass}`}
-                  >
-                    <Icon className="w-4 h-4" />
+            {ATTACHMENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.kind}
+                type="button"
+                role="menuitem"
+                onClick={() => handleOpenPicker(opt.kind)}
+                className="w-full min-h-[46px] px-2.5 py-2 rounded-xl text-left flex items-center gap-2.5 hover:bg-[#E5EEE3]/65 active:bg-[#E5EEE3] transition-colors cursor-pointer min-w-0"
+              >
+                <Icon3D name={opt.icon3d} className="w-9 h-9 rounded-xl shadow-xs" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-[#1B271B] leading-tight truncate">
+                    {opt.label}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-bold text-[#1B271B] leading-tight truncate">
-                      {opt.label}
-                    </span>
-                    <span className="block text-[10.5px] text-[#6E786D] leading-tight truncate mt-0.5">
-                      {opt.subtitle}
-                    </span>
+                  <span className="block text-[10.5px] text-[#6E786D] leading-tight truncate mt-0.5">
+                    {opt.subtitle}
                   </span>
-                </button>
-              );
-            })}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}

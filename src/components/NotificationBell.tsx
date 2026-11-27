@@ -13,13 +13,6 @@ import {
   Bell,
   BellRing,
   CheckCheck,
-  CreditCard,
-  Inbox,
-  Megaphone,
-  Settings,
-  ShieldAlert,
-  Trash2,
-  Wallet,
   X,
 } from 'lucide-react';
 import type {
@@ -60,6 +53,7 @@ import {
 } from '../lib/notificationAlertService';
 import { UserAvatar } from './UserAvatar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { Icon3D, type Icon3DName } from './Icon3D';
 
 type FilterTab = 'all' | 'finance_ipl' | 'patrol' | 'info_system';
 
@@ -82,36 +76,34 @@ const FILTER_TABS: Array<{ id: FilterTab; label: string; shortLabel: string }> =
 const SWIPE_LOCK_THRESHOLD = 8;
 const SWIPE_DELETE_THRESHOLD = 85;
 
-function getCategoryVisual(category: ActivityNotificationCategory) {
+function getCategoryVisual(category: ActivityNotificationCategory): {
+  icon3d: Icon3DName;
+  label: string;
+} {
   switch (category) {
     case 'ipl':
       return {
-        icon: CreditCard,
-        bg: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
+        icon3d: 'ecard',
         label: 'IPL',
       };
     case 'finance':
       return {
-        icon: Wallet,
-        bg: 'bg-[#E5EEE3] text-[#2B3F29] border-[#C6D2BF]',
+        icon3d: 'plus_kas',
         label: 'Kas',
       };
     case 'patrol':
       return {
-        icon: ShieldAlert,
-        bg: 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]',
+        icon3d: 'keamanan',
         label: 'Patroli',
       };
     case 'announcement':
       return {
-        icon: Megaphone,
-        bg: 'bg-[#E5EEE3]/75 text-[#384E35] border-[#C6D2BF]',
+        icon3d: 'pengumuman',
         label: 'Pengumuman',
       };
     default:
       return {
-        icon: Settings,
-        bg: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
+        icon3d: 'pengaturan',
         label: 'Sistem',
       };
   }
@@ -146,7 +138,6 @@ function SwipeableNotificationItem({
   });
 
   const visual = getCategoryVisual(notif.category);
-  const Icon = visual.icon;
 
   const triggerDismiss = useCallback(
     (direction: 'left' | 'right') => {
@@ -341,12 +332,12 @@ function SwipeableNotificationItem({
         className="absolute inset-0 bg-[#C87058] text-white flex items-center justify-between px-4 pointer-events-none"
       >
         <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wide">
-          <Trash2 className="w-4 h-4 shrink-0" />
+          <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-xs" />
           <span>Hapus</span>
         </div>
         <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wide">
           <span>Hapus</span>
-          <Trash2 className="w-4 h-4 shrink-0" />
+          <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-xs" />
         </div>
       </div>
 
@@ -379,11 +370,7 @@ function SwipeableNotificationItem({
         )}
 
         <div className="relative z-10 shrink-0 mt-0.5">
-          <div
-            className={`w-9 h-9 rounded-2xl border flex items-center justify-center ${visual.bg}`}
-          >
-            <Icon className="w-4 h-4" />
-          </div>
+          <Icon3D name={visual.icon3d} className="w-9 h-9 rounded-xl shadow-xs" />
           {notif.actor_name && (
             <div className="absolute -bottom-1 -right-1">
               <UserAvatar
@@ -441,7 +428,7 @@ function SwipeableNotificationItem({
               {deleting ? (
                 <LoadingSpinner size="xs" tone="danger" />
               ) : (
-                <Trash2 className="w-3.5 h-3.5" />
+                <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
               )}
             </button>
           </div>
@@ -911,15 +898,12 @@ export function NotificationBell({
         data-testid="header-notification-bell"
         className={`relative w-10 h-10 border inline-flex items-center justify-center visible opacity-100 transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
       >
-        {bellShaking ? (
-          <BellRing
-            className={`w-[18px] h-[18px] animate-bell-shake ${
-              variant === 'dark' ? 'text-[#F2D8A7]' : 'text-[#2B3F29]'
-            }`}
-          />
-        ) : (
-          <Bell className="w-[18px] h-[18px]" />
-        )}
+        <Icon3D
+          name="notifikasi"
+          className={`w-7 h-7 rounded-lg shadow-2xs transition-transform ${
+            bellShaking ? 'animate-bell-shake' : ''
+          }`}
+        />
         {displayUnreadCount > 0 && (
           <span
             data-testid="notification-unread-badge"
@@ -957,9 +941,7 @@ export function NotificationBell({
             className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] sm:left-auto sm:w-[348px] max-w-[calc(100vw-1.5rem)] z-[72] rounded-3xl border border-[#C6D2BF] bg-[#FFFDF8] shadow-2xl p-4 text-left animate-dropdown-pop"
           >
             <div className="flex items-start gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 mt-0.5">
-                <BellRing className="w-4 h-4" />
-              </div>
+              <Icon3D name="notifikasi" className="w-9 h-9 rounded-2xl shrink-0 mt-0.5 shadow-xs" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-[#1B271B]">Aktifkan Notifikasi HP?</p>
                 <p className="text-[11px] text-[#4A554A] leading-relaxed mt-0.5">
@@ -1077,7 +1059,7 @@ export function NotificationBell({
                     {deletingAll ? (
                       <LoadingSpinner size="xs" tone="danger" />
                     ) : (
-                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                      <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
                     )}
                     <span>{deletingAll ? 'Menghapus...' : 'Hapus semua'}</span>
                   </button>
@@ -1140,9 +1122,7 @@ export function NotificationBell({
                   </div>
                 ) : filteredItems.length === 0 ? (
                   <div className="py-12 px-6 text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center mx-auto shadow-2xs">
-                      <Inbox className="w-5 h-5" />
-                    </div>
+                    <Icon3D name="inbox" className="w-14 h-14 rounded-2xl mx-auto shadow-xs" />
                     <p className="text-sm font-bold text-[#1B271B]">
                       Belum ada aktivitas terbaru
                     </p>

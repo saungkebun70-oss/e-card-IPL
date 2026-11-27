@@ -2,13 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bug,
   ChevronRight,
-  FileCheck2,
-  LogOut,
   Menu,
-  MessageSquare,
   PhoneCall,
-  ReceiptText,
-  Settings,
   UserCircle2,
   X,
   type LucideIcon,
@@ -19,6 +14,7 @@ import { useAppBrand } from '../lib/brandContext';
 import { formatBlokRumah } from '../lib/format';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
+import { Icon3D, type Icon3DName } from './Icon3D';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
 import bgHeaderAsset from '../assets/bg-header.jpg';
@@ -45,6 +41,7 @@ export interface NavItem {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
+  icon3d?: Icon3DName;
   badgeCount?: number;
   isCenterFab?: boolean;
 }
@@ -298,15 +295,24 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                  isActive
-                    ? 'bg-white/15 text-[#FFFDF8]'
-                    : 'bg-[#E5EEE3] text-[#243825]'
-                }`}
-              >
-                <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.3 : 2} />
-              </span>
+              {item.icon3d ? (
+                <Icon3D
+                  name={item.icon3d}
+                  className={`w-8 h-8 shadow-xs transition-transform duration-200 ${
+                    isActive ? 'scale-[1.03]' : ''
+                  }`}
+                />
+              ) : (
+                <span
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? 'bg-white/15 text-[#FFFDF8]'
+                      : 'bg-[#E5EEE3] text-[#243825]'
+                  }`}
+                >
+                  <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.3 : 2} />
+                </span>
+              )}
               <span className="truncate flex-1">{labelText}</span>
               {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                 <span
@@ -343,15 +349,7 @@ export function AppShell({
               : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
           }`}
         >
-          <span
-            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-              isChatModalOpen
-                ? 'bg-white/15 text-[#FFFDF8]'
-                : 'bg-[#E5EEE3] text-[#243825]'
-            }`}
-          >
-            <MessageSquare className="w-[17px] h-[17px]" />
-          </span>
+          <Icon3D name="chat_cepat" className="w-8 h-8 shadow-xs" />
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p
@@ -380,15 +378,7 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  isLpjActive
-                    ? 'bg-white/15 text-[#FFFDF8]'
-                    : 'bg-[#E5EEE3] text-[#243825]'
-                }`}
-              >
-                <FileCheck2 className="w-[17px] h-[17px]" />
-              </span>
+              <Icon3D name="laporan_lpj" className="w-8 h-8 shadow-xs" />
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Laporan LPJ (PDF)</p>
                 <p
@@ -444,9 +434,7 @@ export function AppShell({
                 onClick={handleOpenSettingsFromSidebar}
                 className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
               >
-                <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
-                  <Settings className="w-[17px] h-[17px]" />
-                </span>
+                <Icon3D name="pengaturan" className="w-8 h-8 shadow-xs" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate leading-tight">Pengaturan Sistem</p>
                   <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -495,9 +483,7 @@ export function AppShell({
               onClick={() => handleSelectNav('riwayat')}
               className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
-                <ReceiptText className="w-[17px] h-[17px]" />
-              </span>
+              <Icon3D name="riwayat" className="w-8 h-8 shadow-xs" />
               <span className="truncate flex-1">Kwitansi Digital</span>
             </button>
 
@@ -586,7 +572,7 @@ export function AppShell({
             onClick={handleLogoutFromSidebar}
             className="w-full min-h-[42px] px-3.5 rounded-2xl bg-[#C87058]/14 hover:bg-[#C87058] text-[#A44831] hover:text-white border border-[#C87058]/35 text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
-            <LogOut className="w-3.5 h-3.5 shrink-0" />
+            <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
             <span>Keluar / Logout</span>
           </button>
 
@@ -680,7 +666,7 @@ export function AppShell({
                   onClick={handleLogoutFromSidebar}
                   className="w-full min-h-[44px] px-4 rounded-2xl bg-[#C87058] hover:bg-[#B75F47] active:scale-[0.98] font-bold text-sm text-[#FFFDF8] shadow-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4 shrink-0" />
+                  <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
                   <span>Keluar / Logout</span>
                 </button>
                 <AppVersionFooter compact className="px-1" />
@@ -750,7 +736,7 @@ export function AppShell({
                   title="Pengaturan Sistem Terpusat"
                   className="hidden sm:inline-flex h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] items-center justify-center transition-colors cursor-pointer shrink-0"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Icon3D name="pengaturan" className="w-6 h-6 rounded-lg" />
                 </button>
               )}
               <NotificationBell
@@ -824,7 +810,7 @@ export function AppShell({
                 title="Pengaturan Sistem Terpusat"
                 className="h-10 w-10 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <Settings className="w-4 h-4" />
+                <Icon3D name="pengaturan" className="w-6 h-6 rounded-lg" />
               </button>
             )}
 
@@ -895,7 +881,11 @@ export function AppShell({
                     isActive ? 'scale-[1.04] ring-[#E5EEE3]' : 'hover:scale-[1.02]'
                   }`}
                 >
-                  <Icon className="w-5 h-5 shrink-0" strokeWidth={2.4} />
+                  {item.icon3d ? (
+                    <Icon3D name={item.icon3d} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm" />
+                  ) : (
+                    <Icon className="w-5 h-5 shrink-0" strokeWidth={2.4} />
+                  )}
                   <span className="text-[9px] font-bold tracking-wide leading-none text-[#FFFDF8]">
                     {dockLabel}
                   </span>
@@ -920,10 +910,19 @@ export function AppShell({
               }`}
             >
               <div className="relative">
-                <Icon
-                  className="w-[18px] h-[18px] sm:w-[19px] sm:h-[19px]"
-                  strokeWidth={isActive ? 2.4 : 1.9}
-                />
+                {item.icon3d ? (
+                  <Icon3D
+                    name={item.icon3d}
+                    className={`w-[22px] h-[22px] sm:w-[24px] sm:h-[24px] rounded-md transition-transform duration-150 ${
+                      isActive ? 'scale-105' : ''
+                    }`}
+                  />
+                ) : (
+                  <Icon
+                    className="w-[18px] h-[18px] sm:w-[19px] sm:h-[19px]"
+                    strokeWidth={isActive ? 2.4 : 1.9}
+                  />
+                )}
                 {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-[#C87058] text-white text-[9px] font-bold font-mono flex items-center justify-center tabular-nums shadow-xs">
                     {item.badgeCount > 9 ? '9+' : item.badgeCount}

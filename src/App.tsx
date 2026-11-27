@@ -998,17 +998,18 @@ export default function App() {
   const navItems: NavItem[] =
     session.role === 'warga'
       ? [
-          { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'E-Card', icon: CreditCard },
-          { id: 'riwayat', label: 'Riwayat & Kwitansi', shortLabel: 'Riwayat', icon: ReceiptText },
+          { id: 'beranda', label: 'Beranda & e-Card', shortLabel: 'E-Card', icon: CreditCard, icon3d: 'ecard' },
+          { id: 'riwayat', label: 'Riwayat & Kwitansi', shortLabel: 'Riwayat', icon: ReceiptText, icon3d: 'riwayat' },
           {
             id: 'setor',
             label: 'Setor Iuran IPL',
             shortLabel: 'Setor',
             icon: ArrowUpCircle,
+            icon3d: 'setor',
             isCenterFab: true,
           },
-          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
-          { id: 'lingkungan', label: 'Info Lingkungan & Kas RT', shortLabel: 'Info', icon: Building2 },
+          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield, icon3d: 'keamanan' },
+          { id: 'lingkungan', label: 'Info Lingkungan & Kas RT', shortLabel: 'Info', icon: Building2, icon3d: 'warga' },
         ]
       : [
           {
@@ -1016,18 +1017,20 @@ export default function App() {
             label: 'Dashboard & Verifikasi',
             shortLabel: 'Dasbor',
             icon: LayoutDashboard,
+            icon3d: 'dasbor',
             badgeCount: pendingCount > 0 ? pendingCount : undefined,
           },
-          { id: 'warga', label: 'Master Warga & PIN', shortLabel: 'Warga', icon: Users },
+          { id: 'warga', label: 'Master Warga & PIN', shortLabel: 'Warga', icon: Users, icon3d: 'warga' },
           {
             id: 'keuangan',
             label: 'Verifikasi & Catat Kas',
             shortLabel: 'Kas',
             icon: Plus,
+            icon3d: 'plus_kas',
             isCenterFab: true,
           },
-          { id: 'rekap', label: 'Rekapitulasi Bulanan', shortLabel: 'Rekap', icon: TableProperties },
-          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield },
+          { id: 'rekap', label: 'Rekapitulasi Bulanan', shortLabel: 'Rekap', icon: TableProperties, icon3d: 'rekap' },
+          { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield, icon3d: 'keamanan' },
         ];
 
   const renderContent = () => {

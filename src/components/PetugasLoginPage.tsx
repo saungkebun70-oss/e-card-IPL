@@ -2,20 +2,18 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
-  Bell,
   CheckCircle2,
   DownloadCloud,
   Eye,
   EyeOff,
-  Fingerprint,
   Loader2,
   Lock,
   RefreshCw,
   ScanFace,
   Shield,
-  Trash2,
   UserCheck,
 } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import { type SessionUser } from '../types';
 import { loginPetugasKeamanan, loginPetugasWithBiometric } from '../lib/dataService';
 import {
@@ -208,7 +206,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
       (biometryAvailability.provider === 'capacitor' ||
         (biometryAvailability.provider === 'webauthn' && enrolledProfile.webauthn_credential_id))
   );
-  const BiometricIcon = biometryAvailability?.isFace ? ScanFace : Fingerprint;
+  const isFaceBiometry = Boolean(biometryAvailability?.isFace);
   const biometryLabel = biometryAvailability?.label || 'Sidik Jari';
 
   const kopResmiText =
@@ -286,7 +284,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
             title={`Versi v${currentVersion}`}
             className="relative h-9 w-9 rounded-full bg-[#FFFDF8]/88 hover:bg-[#FFFDF8] backdrop-blur-md border border-white/40 text-[#243825] flex items-center justify-center shadow-sm transition active:scale-95 cursor-pointer"
           >
-            <Bell className="w-4 h-4" />
+            <Icon3D name="notifikasi" className="w-7 h-7 rounded-xl" />
             {updateAvailable && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C87058]" />
             )}
@@ -322,7 +320,7 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
                 aria-label="Hapus akses biometrik di perangkat ini"
                 className="h-9 w-9 rounded-full bg-white/10 hover:bg-[#C87058]/80 text-[#E5EEE3] hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
               >
-                <Trash2 className="w-4 h-4" />
+                <Icon3D name="hapus" className="w-6 h-6 rounded-lg shadow-xs" />
               </button>
             )}
           </div>
@@ -345,7 +343,11 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
               role="status"
               className="flex items-start gap-2.5 rounded-2xl bg-[#243825]/85 backdrop-blur-md border border-[#C6D2BF]/40 px-4 py-3 text-xs text-[#E5EEE3] shadow-lg"
             >
-              <BiometricIcon className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
+              {isFaceBiometry ? (
+                <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
+              ) : (
+                <Icon3D name="sidik_jari" className="w-5 h-5 rounded-md mt-0.5" />
+              )}
               <span>{infoMsg}</span>
             </div>
           )}
@@ -407,7 +409,11 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
           {/* Toggle Masuk cepat Sidik Jari */}
           <label className="flex items-center justify-between gap-3 rounded-2xl bg-[#243825]/55 backdrop-blur-md border border-white/15 px-4 py-2.5 cursor-pointer">
             <div className="flex items-center gap-2.5 min-w-0">
-              <BiometricIcon className="w-4 h-4 text-[#E5EEE3] shrink-0" />
+              {isFaceBiometry ? (
+                <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0" />
+              ) : (
+                <Icon3D name="sidik_jari" className="w-6 h-6 rounded-lg shadow-2xs" />
+              )}
               <span className="text-xs font-semibold text-[#FFFDF8] truncate">
                 Masuk cepat {biometryLabel}
               </span>
@@ -462,8 +468,10 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
             >
               {biometricLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin text-[#2B3F29]" />
+              ) : isFaceBiometry ? (
+                <ScanFace className="w-6 h-6 text-[#243825]" />
               ) : (
-                <BiometricIcon className="w-6 h-6 text-[#243825]" />
+                <Icon3D name="sidik_jari" className="w-9 h-9 rounded-xl shadow-xs" />
               )}
             </button>
           </div>

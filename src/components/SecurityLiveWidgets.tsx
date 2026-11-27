@@ -11,8 +11,8 @@ import {
   Radio,
   Shield,
   ShieldAlert,
-  Trash2,
 } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import { type LogPatroli, type PetugasKontakDarurat } from '../types';
 import { formatTanggalWaktu, normalizePhoneNumber } from '../lib/format';
 import { buildAvatarKey, useAvatarMap } from '../lib/avatarService';
@@ -220,7 +220,7 @@ export function SecurityPatrolFeedCard({
               }}
               className="px-2.5 py-1 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
             >
-              <Trash2 className="w-3 h-3" />
+              <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
               <span>Hapus Semua</span>
             </button>
           )}
@@ -253,7 +253,7 @@ export function SecurityPatrolFeedCard({
               {deletingAllLogs ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
-                <Trash2 className="w-3 h-3" />
+                <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
               )}
               <span>Ya, Hapus Semua</span>
             </button>
@@ -351,7 +351,7 @@ export function SecurityPatrolFeedCard({
                             {isDeletingThis ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C87058]" />
                             ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
                             )}
                           </button>
                         )
