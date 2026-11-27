@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bug,
   ChevronRight,
   Menu,
   PhoneCall,
-  UserCircle2,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -397,15 +395,12 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  isBugReportsActive
-                    ? 'bg-white/15 text-[#FFFDF8]'
-                    : 'bg-[#C87058]/15 text-[#A94E38]'
+              <Icon3D
+                name="laporan_bug"
+                className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
+                  isBugReportsActive ? 'scale-[1.04]' : ''
                 }`}
-              >
-                <Bug className="w-[17px] h-[17px]" />
-              </span>
+              />
               <span className="truncate flex-1">Laporan Bug</span>
               {pendingBugCount > 0 && (
                 <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#C87058] text-white tabular-nums shrink-0">
@@ -419,9 +414,7 @@ export function AppShell({
               onClick={handleOpenProfileFromSidebar}
               className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
-                <UserCircle2 className="w-[17px] h-[17px]" />
-              </span>
+              <Icon3D name="profil" className="w-7 h-7 shadow-xs" />
               <span className="truncate flex-1">Profil Pengurus</span>
             </button>
 
@@ -454,15 +447,12 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  isProfilActive
-                    ? 'bg-white/15 text-[#FFFDF8]'
-                    : 'bg-[#E5EEE3] text-[#243825]'
+              <Icon3D
+                name="profil"
+                className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
+                  isProfilActive ? 'scale-[1.04]' : ''
                 }`}
-              >
-                <UserCircle2 className="w-[17px] h-[17px]" />
-              </span>
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Profil Warga</p>
                 <p

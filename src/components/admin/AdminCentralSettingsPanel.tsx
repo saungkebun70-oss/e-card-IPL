@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpRight,
   Bot,
-  Check,
   CreditCard,
   HardDrive,
   History,
@@ -11,17 +10,15 @@ import {
   Lock,
   MessageSquare,
   Radio,
-  RefreshCw,
   Save,
-  Search,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Unlock,
   UserCheck,
   UserMinus,
-  Users,
 } from 'lucide-react';
+import { Icon3D, type Icon3DName } from '../Icon3D';
 import {
   CENTRAL_SETTING_MODULES,
   SUSUNAN_PENGURUS,
@@ -380,8 +377,9 @@ export function AdminCentralSettingsPanel({
                 disabled={loadingPerms || loadingSync}
                 className="min-h-[42px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-xs sm:text-sm font-medium text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
               >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 shrink-0 text-[#2B3F29] ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
+                <Icon3D
+                  name="refresh"
+                  className={`w-4 h-4 rounded-sm shrink-0 ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
                 />
                 <span className="whitespace-nowrap">Sinkronkan</span>
               </button>
@@ -401,18 +399,21 @@ export function AdminCentralSettingsPanel({
                 {
                   id: 'modules' as const,
                   label: '6 Modul Sistem',
+                  icon3d: null,
                   icon: SlidersHorizontal,
                   spanClass: 'sm:col-span-2 lg:col-span-1',
                 },
                 {
                   id: 'delegation' as const,
                   label: 'Delegasi Hak Pengurus',
-                  icon: Users,
+                  icon3d: 'delegasi' as Icon3DName,
+                  icon: null,
                   spanClass: '',
                 },
                 {
                   id: 'sync_audit' as const,
                   label: 'Status Pengurus & Warga',
+                  icon3d: null,
                   icon: ShieldCheck,
                   spanClass: '',
                 },
@@ -433,11 +434,15 @@ export function AdminCentralSettingsPanel({
                       : 'border-[#E6E2D6] bg-[#F7F4EC] text-[#4A554A] hover:bg-[#E5EEE3] hover:border-[#C6D2BF] hover:text-[#243825]'
                   }`}
                 >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      active ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'
-                    }`}
-                  />
+                  {item.icon3d ? (
+                    <Icon3D name={item.icon3d} className="w-4 h-4 rounded-sm shrink-0" />
+                  ) : Icon ? (
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        active ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'
+                      }`}
+                    />
+                  ) : null}
                   <span>{item.label}</span>
                 </button>
               );
@@ -693,7 +698,7 @@ export function AdminCentralSettingsPanel({
                 </p>
               </div>
               <div className="relative w-full sm:w-64 shrink-0">
-                <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -760,7 +765,7 @@ export function AdminCentralSettingsPanel({
                           {isBatchBusy ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Check className="w-3.5 h-3.5" />
+                            <Icon3D name="centang" className="w-4 h-4 rounded-sm" />
                           )}
                           <span>Beri Semua</span>
                         </button>
@@ -859,7 +864,7 @@ export function AdminCentralSettingsPanel({
                 onClick={() => void loadBendaharaData()}
                 className="min-h-[38px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-[#2B3F29] ${loadingSync ? 'animate-spin' : ''}`} />
+                <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingSync ? 'animate-spin' : ''}`} />
                 <span>Perbarui</span>
               </button>
             </div>

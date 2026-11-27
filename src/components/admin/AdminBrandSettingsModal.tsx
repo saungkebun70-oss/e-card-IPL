@@ -15,9 +15,9 @@ import {
   Users,
   Copy,
   Check,
-  MessageCircle,
   Link2,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   APP_ADMIN_PORTAL_URL,
   DEFAULT_APP_BRAND_CONFIG,
@@ -672,7 +672,7 @@ export function AdminBrandSettingsModal({
                             rel="noopener noreferrer"
                             className="flex-1 min-h-[34px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-[11px] font-semibold inline-flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
                           >
-                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                            <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                             <span>Kirim Link WA</span>
                           </a>
                           <button

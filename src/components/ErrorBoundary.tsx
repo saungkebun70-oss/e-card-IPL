@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { Icon3D } from './Icon3D';
 import { recordCapturedError } from '../lib/bugReportService';
 
 interface ErrorBoundaryState {
@@ -48,7 +49,7 @@ export class ErrorBoundary extends React.Component<
               onClick={() => window.location.reload()}
               className="mt-5 min-h-[46px] px-6 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
-              <RefreshCw className="w-4 h-4" />
+              <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
               <span>Muat Ulang Aplikasi</span>
             </button>
             <p

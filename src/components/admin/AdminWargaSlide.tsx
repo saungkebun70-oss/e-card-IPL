@@ -1,17 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Plus,
-  Search,
-  KeyRound,
   Copy,
   Pencil,
   Trash2,
   X,
   Check,
-  RefreshCw,
   ChevronLeft,
   ChevronRight,
-  MessageCircle,
   Database,
   Bot,
   Loader2,
@@ -21,6 +17,7 @@ import {
   Building,
   ArrowLeftRight,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   isBendaharaFullAccess,
   isBendaharaOnly,
@@ -487,7 +484,7 @@ export function AdminWargaSlide({
       {/* Toolbar Pencarian & Tombol Aksi */}
       <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 w-full max-w-full min-w-0">
         <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
-          <Search className="w-4 h-4 text-[#2B3F29] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="search"
             value={search}
@@ -754,7 +751,7 @@ export function AdminWargaSlide({
                       onClick={() => void handleResetPin(w)}
                       className="min-h-[34px] py-1.5 px-2.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1F2A1E] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
-                      <KeyRound className="w-3.5 h-3.5 text-[#9C6514] shrink-0" />
+                      <Icon3D name="ganti_pin" className="w-4 h-4 rounded-sm shrink-0" />
                       <span>Reset PIN</span>
                     </button>
                   )}
@@ -806,7 +803,7 @@ export function AdminWargaSlide({
                       rel="noopener noreferrer"
                       className="min-h-[34px] py-1.5 px-2.5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
-                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                       <span>Kirim WA</span>
                     </a>
                   ) : (
@@ -815,7 +812,7 @@ export function AdminWargaSlide({
                       onClick={() => void handleCopyLoginInfo(w)}
                       className="min-h-[34px] py-1.5 px-2.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4B5549] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
-                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                       <span>Kirim WA</span>
                     </button>
                   )}
@@ -1001,7 +998,7 @@ export function AdminWargaSlide({
                               title="Acak / Reset PIN 6 Digit"
                               className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
                             >
-                              <KeyRound className="w-3.5 h-3.5 text-[#8A5F16] shrink-0" />
+                              <Icon3D name="ganti_pin" className="w-4 h-4 rounded-sm shrink-0" />
                               <span>Reset PIN</span>
                             </button>
                           )}
@@ -1057,7 +1054,7 @@ export function AdminWargaSlide({
                               title="Kirim Template Akses Akun & PIN langsung ke WhatsApp warga"
                               className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                              <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                               <span>Kirim WA</span>
                             </a>
                           ) : (
@@ -1067,7 +1064,7 @@ export function AdminWargaSlide({
                               title="Belum ada nomor WA terdaftar — salin template untuk dikirim manual"
                               className="min-h-[34px] px-3 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4B5549] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                              <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                               <span>Kirim WA</span>
                             </button>
                           )}
@@ -1413,7 +1410,7 @@ export function AdminWargaSlide({
                     onClick={() => setForm({ ...form, pin_akses: generateRandomPin() })}
                     className="shrink-0 min-h-[44px] px-3 sm:px-3.5 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   >
-                    <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                    <Icon3D name="refresh" className="w-4 h-4 rounded-sm shrink-0" />
                     <span>Acak PIN</span>
                   </button>
                 </div>

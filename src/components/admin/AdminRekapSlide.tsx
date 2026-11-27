@@ -1,15 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Download,
-  FileSpreadsheet,
   Banknote,
-  Search,
   X,
   Check,
   ChevronLeft,
   ChevronRight,
-  Printer,
-  FileText,
   TableProperties,
   BookOpen,
   FileBarChart2,
@@ -554,7 +549,7 @@ export function AdminRekapSlide({
                 {printingPdf ? (
                   <LoadingSpinner size="xs" tone="current" />
                 ) : (
-                  <Printer className="w-4 h-4 text-[#4A554A]" />
+                  <Icon3D name="cetak" className="w-4 h-4 rounded-sm" />
                 )}
                 <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
               </button>
@@ -568,7 +563,7 @@ export function AdminRekapSlide({
                 {downloadingPdf ? (
                   <LoadingSpinner size="xs" tone="white" />
                 ) : (
-                  <FileText className="w-4 h-4 text-[#E5EEE3]" />
+                  <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm" />
                 )}
                 <span>{downloadingPdf ? 'Menyiapkan PDF...' : 'Unduh PDF A4'}</span>
               </button>
@@ -578,7 +573,7 @@ export function AdminRekapSlide({
                 onClick={handleExportExcel}
                 className="min-h-[42px] px-4 rounded-full bg-[#E5EEE3] hover:bg-[#D3E3D0] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
               >
-                <FileSpreadsheet className="w-4 h-4 text-[#243825]" />
+                <Icon3D name="excel" className="w-4 h-4 rounded-sm" />
                 <span>Excel</span>
               </button>
             </div>
@@ -887,7 +882,7 @@ export function AdminRekapSlide({
           <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="search"
                   value={search}
@@ -934,7 +929,7 @@ export function AdminRekapSlide({
                 onClick={handleExportCsv}
                 className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <Download className="w-4 h-4 text-[#4A554A]" />
+                <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm" />
                 <span>Export CSV</span>
               </button>
 
@@ -943,7 +938,7 @@ export function AdminRekapSlide({
                 onClick={handleExportExcel}
                 className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
               >
-                <FileSpreadsheet className="w-4 h-4 text-[#E5EEE3]" />
+                <Icon3D name="excel" className="w-4 h-4 rounded-sm" />
                 <span>Export Excel (.xlsx)</span>
               </button>
             </div>

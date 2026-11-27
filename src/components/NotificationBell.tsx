@@ -11,7 +11,6 @@ import {
 import { createPortal } from 'react-dom';
 import {
   BellRing,
-  CheckCheck,
   X,
 } from 'lucide-react';
 import bgHeaderAsset from '../assets/bg-header.jpg';
@@ -1055,7 +1054,7 @@ export function NotificationBell({
                     {markingAll ? (
                       <LoadingSpinner size="xs" tone="theme" />
                     ) : (
-                      <CheckCheck className="w-3.5 h-3.5 shrink-0" />
+                      <Icon3D name="centang" className="w-4 h-4 rounded-sm" />
                     )}
                     <span>Tandai dibaca</span>
                   </button>

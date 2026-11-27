@@ -10,7 +10,6 @@ import {
   Loader2,
   Moon,
   Plus,
-  RefreshCw,
   Save,
   ShieldCheck,
   Trash2,
@@ -19,6 +18,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   DEFAULT_SECURITY_OFFICER_NAMES,
   STANDARD_SECURITY_SHIFTS,
@@ -702,7 +702,7 @@ export function AdminShiftOvertimePanel({
             onClick={() => void loadAll(true)}
             className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
             <span>Sinkronkan</span>
           </button>
         </div>

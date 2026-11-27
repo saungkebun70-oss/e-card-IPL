@@ -8,8 +8,6 @@ import {
   Loader2,
   Lock,
   Pencil,
-  RefreshCw,
-  Search,
   Shield,
   ShieldCheck,
   User,
@@ -1262,7 +1260,7 @@ export function CommunityChatSlide({
                   title="Sinkronkan percakapan & kontak"
                   className="h-8 w-8 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] flex items-center justify-center cursor-pointer transition-colors shrink-0"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                  <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
@@ -1313,7 +1311,7 @@ export function CommunityChatSlide({
                   {/* Pencarian & Filter Peran Penerima DM */}
                   <div className="space-y-2 shrink-0 min-w-0">
                     <div className="relative min-w-0">
-                      <Search className="w-3.5 h-3.5 text-[#6E786D] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="search"
                         value={contactSearch}

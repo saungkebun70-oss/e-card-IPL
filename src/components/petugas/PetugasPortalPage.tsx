@@ -10,18 +10,15 @@ import {
   Map as MapIcon,
   MapPin,
   Menu,
-  MessageCircle,
   Navigation,
   PhoneCall,
   Play,
   Radio,
-  RefreshCw,
   ScanFace,
   Shield,
   ShieldAlert,
   Smartphone,
   Square,
-  UserCircle2,
   Wallet,
   X,
 } from 'lucide-react';
@@ -1192,9 +1189,7 @@ export function PetugasPortalPage({
           onClick={handleOpenProfileFromSidebar}
           className="w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug font-medium text-[#4A554A] hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6] transition-all duration-200 cursor-pointer"
         >
-          <span className="w-9 h-9 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
-            <UserCircle2 className="w-[18px] h-[18px]" />
-          </span>
+          <Icon3D name="profil" className="w-9 h-9 shrink-0 shadow-xs" />
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Profil &amp; Tema Petugas</p>
             <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -1416,7 +1411,7 @@ export function PetugasPortalPage({
               aria-label="Muat ulang data petugas"
               className="h-10 w-10 rounded-full bg-[#FFFDF8]/10 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/15 text-[#E5EEE3] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
             </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">
@@ -1839,7 +1834,7 @@ export function PetugasPortalPage({
                                 rel="noopener noreferrer"
                                 className="min-h-[40px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1"
                               >
-                                <MessageCircle className="w-3.5 h-3.5" />
+                                <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm" />
                                 <span>WA</span>
                               </a>
                               <a

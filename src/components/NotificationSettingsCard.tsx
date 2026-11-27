@@ -4,7 +4,6 @@ import {
   BellRing,
   CheckCircle2,
   Radio,
-  RefreshCw,
   ShieldAlert,
   Smartphone,
   Vibrate,
@@ -317,7 +316,7 @@ export function NotificationSettingsCard({
                 </span>
                 {pushInfo.isBackgroundSyncFallback && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-[#E2C285] bg-[#F2D8A7]/45 px-2 py-0.5 text-[10px] font-bold text-[#4A3410]">
-                    <RefreshCw className="w-3 h-3" />
+                    <Icon3D name="refresh" className="w-3.5 h-3.5 rounded-sm" />
                     Background Sync Fallback
                   </span>
                 )}
@@ -362,7 +361,7 @@ export function NotificationSettingsCard({
           <div className="px-3.5 py-3 bg-[#F2D8A7]/35 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-start gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-[#FFFDF8] border border-[#E2C285] flex items-center justify-center text-[#6E4D12] shrink-0">
-                <RefreshCw className="w-4 h-4" />
+                <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-[#4A3410]">
@@ -386,7 +385,7 @@ export function NotificationSettingsCard({
               {syncingFallback ? (
                 <LoadingSpinner size="xs" />
               ) : (
-                <RefreshCw className="w-3.5 h-3.5" />
+                <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
               )}
               <span>{syncingFallback ? 'Memeriksa...' : 'Cek Sekarang'}</span>
             </button>

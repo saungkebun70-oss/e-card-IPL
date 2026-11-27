@@ -4,9 +4,9 @@ import {
   ArrowRight,
   Database,
   HardDrive,
-  RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   fetchBackendStorageStatus,
   formatBytesCompact,
@@ -113,7 +113,7 @@ export function AdminStorageUsageWidget({
             aria-label="Segarkan status penyimpanan"
             className="min-h-[34px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Segarkan</span>
           </button>
 

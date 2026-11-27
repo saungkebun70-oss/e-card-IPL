@@ -5,11 +5,9 @@ import {
   Clock,
   Image as ImageIcon,
   X,
-  RefreshCw,
   AlertTriangle,
   Loader2,
   Users,
-  Search,
   Wallet,
   ReceiptText,
   ShieldCheck,
@@ -620,7 +618,7 @@ export function AdminDashboardSlide({
             title="Muat Ulang Data"
             className="min-h-[34px] px-3 rounded-full bg-white/12 hover:bg-white/22 border border-white/20 disabled:opacity-60 text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>
         </div>
@@ -1163,7 +1161,7 @@ export function AdminDashboardSlide({
             </div>
 
             <div className="relative sm:w-64">
-              <Search className="w-4 h-4 text-[#6B7168] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={trxSearch}

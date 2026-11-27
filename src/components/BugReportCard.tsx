@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bug,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -8,7 +7,6 @@ import {
   ImagePlus,
   Loader2,
   Monitor,
-  RefreshCw,
   X,
   FileCode2,
 } from 'lucide-react';
@@ -229,9 +227,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
       {/* Header Kartu */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#C87058]/15 border border-[#E2A898] flex items-center justify-center shrink-0">
-            <Bug className="w-5 h-5 text-[#9A422B]" />
-          </div>
+          <Icon3D name="laporan_bug" className="w-10 h-10 shadow-xs shrink-0" />
           <div>
             <h3 className="text-sm sm:text-base font-bold text-[#1B271B]">
               Pelaporan Bug Cepat
@@ -556,7 +552,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               disabled={loadingReports}
               className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingReports ? 'animate-spin' : ''}`} />
+              <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingReports ? 'animate-spin' : ''}`} />
               <span>Muat Ulang</span>
             </button>
           </div>
@@ -568,7 +564,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             </div>
           ) : reports.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#C6D2BF] bg-[#F7F4EC] p-6 text-center">
-              <Bug className="w-6 h-6 text-[#6E786D] mx-auto" />
+              <Icon3D name="laporan_bug" className="w-11 h-11 mx-auto shadow-xs" />
               <p className="text-xs font-semibold text-[#4A554A] mt-2">
                 Belum ada laporan bug yang tercatat.
               </p>

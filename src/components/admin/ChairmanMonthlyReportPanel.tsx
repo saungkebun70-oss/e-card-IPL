@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
-  Download,
   FileBarChart2,
   Loader2,
   Receipt,
@@ -12,6 +11,7 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   BULAN_LIST,
   isKetuaRole,
@@ -223,7 +223,7 @@ export function ChairmanMonthlyReportPanel({
             {generatingPdf ? (
               <Loader2 className="w-4 h-4 animate-spin shrink-0" />
             ) : (
-              <Download className="w-4 h-4 shrink-0" />
+              <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm shrink-0" />
             )}
             <span>{generatingPdf ? 'Menyusun PDF...' : 'Unduh PDF Ketua'}</span>
           </button>

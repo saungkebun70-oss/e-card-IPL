@@ -9,7 +9,6 @@ import {
   Home,
   Loader2,
   Lock,
-  RefreshCw,
   ScanFace,
   UserCog,
 } from 'lucide-react';
@@ -290,7 +289,7 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
             ) : updateFeedback ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-[#2B3F29]" />
             ) : (
-              <RefreshCw className="w-3.5 h-3.5 text-[#2B3F29]" />
+              <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
             )}
             <span>
               {updating

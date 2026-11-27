@@ -8,10 +8,8 @@ import {
   Loader2,
   LocateFixed,
   MapPin,
-  MessageCircle,
   Plus,
   Radio,
-  RefreshCw,
   RotateCcw,
   Shield,
   ShieldAlert,
@@ -20,6 +18,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
+import { Icon3D } from '../Icon3D';
 import {
   APP_PETUGAS_PORTAL_URL,
   isBendaharaFullAccess,
@@ -703,7 +702,7 @@ export function AdminSecurityManagePanel({
                     title="Acak PIN 6 Digit"
                     className="min-h-[42px] min-w-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 flex items-center justify-center text-[#4A554A] cursor-pointer transition-colors"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
                   </button>
                 </div>
               </div>
@@ -788,7 +787,7 @@ export function AdminSecurityManagePanel({
                         rel="noopener noreferrer"
                         className="min-h-[36px] px-3 rounded-full bg-[#E5EEE3] hover:bg-[#D5E4D2] border border-[#C6D2BF] text-[#243825] text-xs font-semibold inline-flex items-center gap-1 transition-colors"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm" />
                         <span>Kirim Akses WA</span>
                       </a>
                       <button

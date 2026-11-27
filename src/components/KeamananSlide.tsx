@@ -9,8 +9,6 @@ import {
   MapPin,
   Moon,
   Radio,
-  RefreshCw,
-  Settings,
   ShieldCheck,
   X,
 } from 'lucide-react';
@@ -559,7 +557,7 @@ export function KeamananSlide({
               onClick={onOpenPetugasSettings}
               className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
             >
-              <Settings className="w-4 h-4 shrink-0" />
+              <Icon3D name="pengaturan" className="w-4 h-4 rounded-sm shrink-0" />
               <span>Kelola Petugas &amp; NFC</span>
             </button>
           )}
@@ -569,8 +567,9 @@ export function KeamananSlide({
             onClick={() => void onRefresh()}
             className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <RefreshCw
-              className={`w-4 h-4 text-[#2B3F29] shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
+            <Icon3D
+              name="refresh"
+              className={`w-4 h-4 rounded-sm shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
             />
             <span>{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>

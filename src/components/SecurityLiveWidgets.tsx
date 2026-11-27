@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Loader2,
   MapPin,
-  MessageCircle,
   PhoneCall,
   Radio,
   Shield,
@@ -114,7 +113,7 @@ export function EmergencySecurityContactCard({
                     rel="noopener noreferrer"
                     className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
                   >
-                    <MessageCircle className="w-4 h-4 shrink-0" />
+                    <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
                     <span>Chat WA Darurat</span>
                   </a>
                   <a
