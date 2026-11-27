@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import iconArsipDrive from '../assets/icons/icon_arsip_drive.png';
+import iconBotWa from '../assets/icons/icon_bot_wa.png';
+import iconBukuKas from '../assets/icons/icon_buku_kas.png';
 import iconCari from '../assets/icons/icon_cari.png';
 import iconCentang from '../assets/icons/icon_centang.png';
 import iconCetak from '../assets/icons/icon_cetak.png';
@@ -23,8 +26,10 @@ import iconKirimWa from '../assets/icons/icon_kirim_wa.png';
 import iconLaporanBug from '../assets/icons/icon_laporan_bug.png';
 import iconLaporanLpj from '../assets/icons/icon_laporan_lpj.png';
 import iconNotifikasi from '../assets/icons/icon_notifikasi.png';
+import iconPembayaran from '../assets/icons/icon_pembayaran.png';
 import iconPengaturan from '../assets/icons/icon_pengaturan.png';
 import iconPengumuman from '../assets/icons/icon_pengumuman.png';
+import iconPetugasPeta from '../assets/icons/icon_petugas_peta.png';
 import iconPlusKas from '../assets/icons/icon_plus_kas.png';
 import iconProfil from '../assets/icons/icon_profil.png';
 import iconRefresh from '../assets/icons/icon_refresh.png';
@@ -34,6 +39,7 @@ import iconScanNfc from '../assets/icons/icon_scan_nfc.png';
 import iconSetor from '../assets/icons/icon_setor.png';
 import iconSidikJari from '../assets/icons/icon_sidik_jari.png';
 import iconUnduhPdf from '../assets/icons/icon_unduh_pdf.png';
+import iconUpload from '../assets/icons/icon_upload.png';
 import iconVideo from '../assets/icons/icon_video.png';
 import iconWarga from '../assets/icons/icon_warga.png';
 
@@ -74,7 +80,13 @@ export type Icon3DName =
   | 'cetak'
   | 'unduh_pdf'
   | 'excel'
-  | 'centang';
+  | 'centang'
+  | 'pembayaran'
+  | 'bot_wa'
+  | 'arsip_drive'
+  | 'petugas_peta'
+  | 'buku_kas'
+  | 'upload';
 
 export const ICON_3D_PATHS: Record<Icon3DName, string> = {
   dasbor: iconDasbor,
@@ -114,6 +126,12 @@ export const ICON_3D_PATHS: Record<Icon3DName, string> = {
   unduh_pdf: iconUnduhPdf,
   excel: iconExcel,
   centang: iconCentang,
+  pembayaran: iconPembayaran,
+  bot_wa: iconBotWa,
+  arsip_drive: iconArsipDrive,
+  petugas_peta: iconPetugasPeta,
+  buku_kas: iconBukuKas,
+  upload: iconUpload,
 };
 
 interface Icon3DProps {

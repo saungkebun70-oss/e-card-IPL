@@ -27,7 +27,7 @@ async function main() {
   const meta = await sharpModule(iconBuffer).metadata();
   if (meta.width !== 1024 || meta.height !== 1024 || meta.format !== 'png') {
     const normalizedIcon = await sharpModule(iconBuffer)
-      .resize(1024, 1024, { fit: 'cover' })
+      .resize(1024, 1024, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
     fs.writeFileSync(iconPath, normalizedIcon);

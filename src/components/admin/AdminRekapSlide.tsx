@@ -1,12 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Banknote,
   X,
   Check,
   ChevronLeft,
   ChevronRight,
-  TableProperties,
-  BookOpen,
   FileBarChart2,
 } from 'lucide-react';
 import {
@@ -441,7 +438,7 @@ export function AdminRekapSlide({
                 : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <BookOpen className={`w-4 h-4 shrink-0 ${subTab === 'bulanan' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
+            <Icon3D name="buku_kas" className="w-4 h-4 shrink-0" />
             <span>Rekap Bulanan (Buku Kas)</span>
           </button>
           <button
@@ -453,7 +450,7 @@ export function AdminRekapSlide({
                 : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <TableProperties className={`w-4 h-4 shrink-0 ${subTab === 'matriks' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
+            <Icon3D name="excel" className="w-4 h-4 shrink-0" />
             <span>Matriks IPL 12 Bulan</span>
           </button>
           {isKetua && (
@@ -477,7 +474,7 @@ export function AdminRekapSlide({
           onClick={openManualModal}
           className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
         >
-          <Banknote className="w-4 h-4 shrink-0" />
+          <Icon3D name="plus_kas" className="w-4 h-4 shrink-0" />
           <span>Input Tunai Manual</span>
         </button>
       </div>

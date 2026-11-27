@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
-  CreditCard,
-  Bot,
   ShieldCheck,
   Upload,
   RotateCcw,
@@ -18,8 +16,6 @@ import {
   EyeOff,
   Phone,
   AlertTriangle,
-  Radio,
-  HardDrive,
   Calendar,
 } from 'lucide-react';
 import { Icon3D, type Icon3DName } from '../Icon3D';
@@ -499,61 +495,52 @@ export function AdminSettingsDrawer({
                   id: 'terpusat' as const,
                   label: isBendahara ? 'Delegasi & Pusat' : 'Pusat Modul',
                   icon3d: 'delegasi' as Icon3DName,
-                  icon: null,
                   locked: false,
                 },
                 {
                   id: 'profil' as const,
                   label: 'Profil Saya',
                   icon3d: 'profil' as Icon3DName,
-                  icon: null,
                   locked: false,
                 },
                 {
                   id: 'identitas' as const,
                   label: 'Identitas',
                   icon3d: 'identitas' as Icon3DName,
-                  icon: null,
                   locked: !canEditResidentsBlocks,
                 },
                 {
                   id: 'pembayaran' as const,
                   label: 'Pembayaran',
-                  icon3d: null,
-                  icon: CreditCard,
+                  icon3d: 'pembayaran' as Icon3DName,
                   locked: !canEditIplBilling,
                 },
                 {
                   id: 'bot_wa' as const,
                   label: 'Bot WA',
-                  icon3d: null,
-                  icon: Bot,
+                  icon3d: 'bot_wa' as Icon3DName,
                   locked: session.role !== 'admin' || session.is_active_pengurus === false,
                 },
                 {
                   id: 'arsip_drive' as const,
                   label: 'Arsip Drive',
-                  icon3d: null,
-                  icon: HardDrive,
+                  icon3d: 'arsip_drive' as Icon3DName,
                   locked: !canAccessSystemIntegrations,
                 },
                 {
                   id: 'petugas_nfc' as const,
                   label: 'Petugas & Peta',
-                  icon3d: null,
-                  icon: Radio,
+                  icon3d: 'petugas_peta' as Icon3DName,
                   locked: !canAccessSecurityPatrol,
                 },
                 {
                   id: 'keamanan' as const,
                   label: 'PIN & Log',
-                  icon3d: null,
-                  icon: ShieldCheck,
+                  icon3d: 'keamanan' as Icon3DName,
                   locked: false,
                 },
               ] as const
             ).map((tab) => {
-              const Icon = tab.icon;
               const active = activeTab === tab.id;
               return (
                 <button
@@ -570,15 +557,7 @@ export function AdminSettingsDrawer({
                         : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:text-[#243825] hover:border-[#C6D2BF] hover:bg-[#E5EEE3]/50'
                   }`}
                 >
-                  {tab.icon3d ? (
-                    <Icon3D name={tab.icon3d} className="w-4 h-4 rounded-sm shrink-0" />
-                  ) : Icon ? (
-                    <Icon
-                      className={`w-3.5 h-3.5 shrink-0 ${
-                        active ? 'text-[#E5EEE3]' : tab.locked ? 'text-[#6E786D]' : 'text-[#384E35]'
-                      }`}
-                    />
-                  ) : null}
+                  <Icon3D name={tab.icon3d} className="w-4 h-4 rounded-sm shrink-0" />
                   <span>{tab.label}</span>
                   {tab.locked && (
                     <Lock
@@ -1232,7 +1211,7 @@ export function AdminSettingsDrawer({
                           onClick={() => qrisInputRef.current?.click()}
                           className="min-h-[38px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
-                          <Upload className="w-3.5 h-3.5" />
+                          <Icon3D name="upload" className="w-4 h-4 shrink-0" />
                           <span>Ganti QRIS</span>
                         </button>
                         <button
@@ -1242,7 +1221,7 @@ export function AdminSettingsDrawer({
                           }
                           className="min-h-[38px] px-4 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Icon3D name="hapus" className="w-4 h-4 shrink-0" />
                           <span>Hapus</span>
                         </button>
                       </div>
@@ -1297,7 +1276,7 @@ export function AdminSettingsDrawer({
                           }
                           className="min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:border-[#E2A898] hover:bg-[#C87058]/10 text-[#6E786D] hover:text-[#7A311E] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Icon3D name="hapus" className="w-4 h-4 shrink-0" />
                           <span>Hapus</span>
                         </button>
                       )}
