@@ -48,7 +48,10 @@ import {
   formatTanggalWaktu,
   getCurrentBillingMonth,
   getNamaBulan,
+  isBeforeBillingStart,
+  isCountableUnpaidStatus,
   matchesBlockSearch,
+  resolveEffectiveMonthStatus,
 } from '../../lib/format';
 import { LoadingSpinner } from '../LoadingSpinner';
 import {
@@ -62,6 +65,7 @@ import {
 } from '../../lib/dataService';
 import { calculateGlobalCashSummary } from '../../lib/financeUtils';
 import { computeVerificationQueue } from '../../lib/verificationQueue';
+import { useAppBrand } from '../../lib/brandContext';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 import { AdminStorageUsageWidget } from './AdminStorageUsageWidget';
@@ -102,6 +106,7 @@ export function AdminDashboardSlide({
   onToast,
   onOpenDriveSettings,
 }: AdminDashboardSlideProps) {
+  const { brand } = useAppBrand();
   const canManageFull = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
   const isKetua = isKetuaRole(session);
@@ -169,7 +174,13 @@ export function AdminDashboardSlide({
         s.tahun === TAHUN_AKTIF &&
         s.bulan === currentMonth
     );
-    return !st || (st.status !== 'Lunas' && st.status !== 'Menunggu Verifikasi');
+    const effective = resolveEffectiveMonthStatus({
+      dbStatus: st?.status,
+      tahun: TAHUN_AKTIF,
+      bulan: currentMonth,
+      billingStart: brand,
+    });
+    return isCountableUnpaidStatus(effective);
   }).length;
 
   const pemasukanBulanIni = transaksiList
@@ -850,7 +861,11 @@ export function AdminDashboardSlide({
           <p className="text-lg sm:text-2xl font-mono font-bold text-red-700 tabular-nums mt-2">
             {rumahBelumBayarBulanIni}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">Unit aktif belum setor</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            {isBeforeBillingStart(TAHUN_AKTIF, currentMonth, brand)
+              ? 'Periode Pra-Rilis (Belum Berlaku)'
+              : 'Unit aktif belum setor'}
+          </p>
         </div>
 
         <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">

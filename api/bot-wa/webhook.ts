@@ -74,6 +74,13 @@ interface BotConfigRow {
 interface AppSettingsRow {
   wa_pengurus?: string | null;
   pengurus_wa_map?: Record<string, string> | null;
+  billing_start_month?: number | null;
+  billing_start_year?: number | null;
+}
+
+interface BillingStartConfig {
+  billing_start_month: number;
+  billing_start_year: number;
 }
 
 type EffectiveBotRole = 'warga' | 'admin' | 'bendahara';
@@ -81,6 +88,8 @@ type SupabaseAuthMode = 'service_role' | 'anon_fallback' | 'missing';
 
 const APP_PORTAL_URL = 'https://e-card-ipl.vercel.app';
 const TAHUN_AKTIF = 2026;
+const DEFAULT_BILLING_START_MONTH = 11;
+const DEFAULT_BILLING_START_YEAR = 2026;
 const NOMINAL_DEFAULT = 100000;
 const SUPABASE_TIMEOUT_MS = 10000;
 const GATEWAY_TIMEOUT_MS = 12000;
@@ -226,6 +235,41 @@ function getDefaultUnpaidStatus(bulan: number): string {
   if (bulan > current) return 'Belum Tagihan';
   if (bulan < current) return 'Jatuh Tempo';
   return now.getDate() > 7 ? 'Jatuh Tempo' : 'Belum Bayar';
+}
+
+function resolveBillingStartConfig(row?: AppSettingsRow | null): BillingStartConfig {
+  const m = Number(row?.billing_start_month);
+  const y = Number(row?.billing_start_year);
+  return {
+    billing_start_month:
+      Number.isInteger(m) && m >= 1 && m <= 12 ? m : DEFAULT_BILLING_START_MONTH,
+    billing_start_year:
+      Number.isInteger(y) && y >= 2024 && y <= 2100 ? y : DEFAULT_BILLING_START_YEAR,
+  };
+}
+
+function isBeforeBillingStart(tahun: number, bulan: number, start: BillingStartConfig): boolean {
+  return tahun * 100 + bulan < start.billing_start_year * 100 + start.billing_start_month;
+}
+
+function resolveEffectiveStatus(
+  dbStatus: string | undefined,
+  tahun: number,
+  bulan: number,
+  start: BillingStartConfig
+): string {
+  if (dbStatus === 'Lunas' || dbStatus === 'Menunggu Verifikasi') {
+    return dbStatus;
+  }
+  if (isBeforeBillingStart(tahun, bulan, start)) {
+    return 'Pra-Rilis';
+  }
+  return dbStatus || getDefaultUnpaidStatus(bulan);
+}
+
+function formatBillingStartLabel(start: BillingStartConfig): string {
+  const name = BULAN_NAMA[start.billing_start_month - 1] || 'November';
+  return `${name} ${start.billing_start_year}`;
 }
 
 function isAllowedGatewayEndpoint(endpoint: string): boolean {
@@ -766,25 +810,41 @@ function buildPersonalizedMenuReply(auth: AuthenticatedSender): string {
   return lines.join('\n');
 }
 
+async function fetchBillingStartConfig(): Promise<BillingStartConfig> {
+  const rows = await supabaseRestGet<AppSettingsRow>(
+    'app_settings?select=billing_start_month,billing_start_year&id=eq.default-app-brand&limit=1',
+    { retryNonEmptyOnAnon: true }
+  );
+  return resolveBillingStartConfig(rows[0]);
+}
+
 async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
   const currentMonth = getCurrentMonth();
   const bulanNama = `${BULAN_NAMA[currentMonth - 1]} ${TAHUN_AKTIF}`;
   const formattedBlock = normalizeBlockCode(targetUnit.blok_rumah);
   const nominalBulanan = targetUnit.nominal_iuran || NOMINAL_DEFAULT;
 
-  const allYearStatus = await supabaseRestGet<StatusRow>(
-    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}`,
-    { retryNonEmptyOnAnon: true }
-  );
+  const [allYearStatus, billingStart] = await Promise.all([
+    supabaseRestGet<StatusRow>(
+      `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${TAHUN_AKTIF}`,
+      { retryNonEmptyOnAnon: true }
+    ),
+    fetchBillingStartConfig(),
+  ]);
   const unitYearRows = allYearStatus.filter((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
   const matchedStatus = unitYearRows.find((s) => s.bulan === currentMonth);
-  const statusBulan = matchedStatus?.status || getDefaultUnpaidStatus(currentMonth);
+  const statusBulan = resolveEffectiveStatus(
+    matchedStatus?.status,
+    TAHUN_AKTIF,
+    currentMonth,
+    billingStart
+  );
 
   const unpaidUpToNow: string[] = [];
   for (let m = 1; m <= currentMonth; m++) {
     const found = unitYearRows.find((s) => s.bulan === m);
-    const st = found?.status || getDefaultUnpaidStatus(m);
-    if (st !== 'Lunas' && st !== 'Menunggu Verifikasi') {
+    const st = resolveEffectiveStatus(found?.status, TAHUN_AKTIF, m, billingStart);
+    if (st === 'Jatuh Tempo' || st === 'Belum Bayar') {
       unpaidUpToNow.push(BULAN_SINGKAT[m - 1]);
     }
   }
@@ -807,7 +867,7 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
     `*Status e-Card IPL — Unit ${formattedBlock}*`,
     `Nama: ${targetUnit.nama_warga}`,
     `Periode: *${bulanNama}*`,
-    `Status: *${statusBulan.toUpperCase()}*`,
+    `Status: *${statusBulan === 'Pra-Rilis' ? 'PRA-RILIS (BELUM BERLAKU)' : statusBulan.toUpperCase()}*`,
     `Nominal Iuran: ${formatRupiah(nominalBulanan)} / bulan`,
     `Jatuh Tempo: Tanggal 7`,
   ];
@@ -816,7 +876,7 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
     lines.push(`No. Kwitansi: *${latestReceiptNo}*`);
   }
 
-  if (unpaidUpToNow.length > 0 && statusBulan !== 'Lunas') {
+  if (unpaidUpToNow.length > 0 && statusBulan !== 'Lunas' && statusBulan !== 'Pra-Rilis') {
     lines.push(
       `Tunggakan s.d. ${BULAN_SINGKAT[currentMonth - 1]}: *${unpaidUpToNow.length} bulan* (${unpaidUpToNow.join(', ')}) · Total *${formatRupiah(unpaidUpToNow.length * nominalBulanan)}*`
     );
@@ -826,7 +886,9 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
   lines.push(
     statusBulan === 'Lunas'
       ? `Terima kasih, iuran bulan ${bulanNama} sudah *LUNAS*. Kwitansi tersedia di ${APP_PORTAL_URL}`
-      : `Silakan setor via QRIS / Transfer Bank / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk melihat rekening resmi.`
+      : statusBulan === 'Pra-Rilis'
+        ? `Periode ${bulanNama} berada sebelum jadwal mulai penagihan (*${formatBillingStartLabel(billingStart)}*).`
+        : `Silakan setor via QRIS / Transfer Bank / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk melihat rekening resmi.`
   );
 
   return lines.join('\n');
@@ -834,10 +896,13 @@ async function buildUnitStatusCekReply(targetUnit: WargaRow): Promise<string> {
 
 async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise<string> {
   const formattedBlock = normalizeBlockCode(targetUnit.blok_rumah);
-  const allYearStatus = await supabaseRestGet<StatusRow>(
-    `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${tahun}`,
-    { retryNonEmptyOnAnon: true }
-  );
+  const [allYearStatus, billingStart] = await Promise.all([
+    supabaseRestGet<StatusRow>(
+      `status_ecard_bulanan?select=blok_rumah,tahun,bulan,status&tahun=eq.${tahun}`,
+      { retryNonEmptyOnAnon: true }
+    ),
+    fetchBillingStartConfig(),
+  ]);
   const unitRows = allYearStatus.filter((s) => isSameBlockCode(s.blok_rumah, targetUnit.blok_rumah));
 
   const currentMonth = getCurrentMonth();
@@ -847,10 +912,12 @@ async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise
 
   for (let m = 1; m <= 12; m++) {
     const found = unitRows.find((s) => s.bulan === m);
-    const st = found?.status || getDefaultUnpaidStatus(m);
+    const st = resolveEffectiveStatus(found?.status, tahun, m, billingStart);
     if (st === 'Lunas') lunas += 1;
     else if (st === 'Menunggu Verifikasi') pending += 1;
-    else if (m <= currentMonth) unpaid.push(BULAN_SINGKAT[m - 1]);
+    else if (m <= currentMonth && (st === 'Jatuh Tempo' || st === 'Belum Bayar')) {
+      unpaid.push(BULAN_SINGKAT[m - 1]);
+    }
   }
 
   const totalTunggakan = unpaid.length * (targetUnit.nominal_iuran || NOMINAL_DEFAULT);
@@ -858,6 +925,7 @@ async function buildUnitSaldoReply(targetUnit: WargaRow, tahun: number): Promise
   return [
     `*Rekap Saldo IPL ${tahun} — Unit ${formattedBlock}*`,
     `Nama: ${targetUnit.nama_warga}`,
+    `Mulai Penagihan: *${formatBillingStartLabel(billingStart)}*`,
     `• Lunas: *${lunas} bulan*`,
     `• Menunggu Verifikasi: *${pending} bulan*`,
     `• Belum Bayar (s.d. ${BULAN_NAMA[currentMonth - 1]}): *${unpaid.length} bulan*${

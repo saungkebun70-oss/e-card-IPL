@@ -21,6 +21,7 @@ import {
   PETUGAS_PENERIMA,
   resolveOccupancyStatus,
   TAHUN_AKTIF,
+  type EffectiveStatusBulanEcard,
   type SessionUser,
   type StatusBulanEcard,
   type StatusEcardBulanan,
@@ -32,14 +33,17 @@ import {
   canonicalizeBlokKey,
   compareBlokRumah,
   extractBlokPrefix,
+  formatBillingStartLabel,
   formatBlokRumah,
   formatRupiah,
   formatTanggal,
   formatTanggalSingkat,
   getCurrentBillingMonth,
-  getDefaultUnpaidStatusForMonth,
   getNamaBulan,
+  isBeforeBillingStart,
+  isCountableUnpaidStatus,
   matchesBlockSearch,
+  resolveEffectiveMonthStatus,
 } from '../../lib/format';
 import {
   calculateCashAllocation,
@@ -76,7 +80,7 @@ function isUnitKosong(w: Warga): boolean {
   return resolveOccupancyStatus(w) === 'kosong';
 }
 
-function getMatrixCellBadge(status: StatusBulanEcard) {
+function getMatrixCellBadge(status: EffectiveStatusBulanEcard) {
   switch (status) {
     case 'Lunas':
       return { text: 'Lunas', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
@@ -85,6 +89,8 @@ function getMatrixCellBadge(status: StatusBulanEcard) {
     case 'Jatuh Tempo':
     case 'Belum Bayar':
       return { text: 'Tunggak', cls: 'bg-red-50 text-red-700 border-red-200' };
+    case 'Pra-Rilis':
+      return { text: 'Pra-Rilis', cls: 'bg-slate-100/90 text-slate-400 border-slate-200/80' };
     default:
       return { text: '—', cls: 'bg-slate-50 text-slate-400 border-slate-200' };
   }
@@ -178,12 +184,16 @@ export function AdminRekapSlide({
       const wKey = canonicalizeBlokKey(w.blok_rumah);
       const monthMap = statusLookupMap.get(wKey);
 
-      const currentSt: StatusBulanEcard =
-        monthMap?.get(currentMonth) ?? getDefaultUnpaidStatusForMonth(currentMonth);
+      const currentSt = resolveEffectiveMonthStatus({
+        dbStatus: monthMap?.get(currentMonth),
+        tahun: TAHUN_AKTIF,
+        bulan: currentMonth,
+        billingStart: brand,
+      });
 
       if (currentSt === 'Lunas') {
         sudahSetorCount += 1;
-      } else {
+      } else if (currentSt !== 'Pra-Rilis') {
         belumSetorCount += 1;
         if (currentSt === 'Menunggu Verifikasi') {
           menungguCount += 1;
@@ -192,8 +202,13 @@ export function AdminRekapSlide({
 
       let unpaidMonths = 0;
       for (let m = 1; m <= currentMonth; m += 1) {
-        const mStatus: StatusBulanEcard = monthMap?.get(m) ?? getDefaultUnpaidStatusForMonth(m);
-        if (mStatus !== 'Lunas' && mStatus !== 'Menunggu Verifikasi') {
+        const mStatus = resolveEffectiveMonthStatus({
+          dbStatus: monthMap?.get(m),
+          tahun: TAHUN_AKTIF,
+          bulan: m,
+          billingStart: brand,
+        });
+        if (isCountableUnpaidStatus(mStatus)) {
           unpaidMonths += 1;
         }
       }
@@ -219,7 +234,7 @@ export function AdminRekapSlide({
       menunggakTotal,
       unpaidMonthsByWargaId,
     };
-  }, [sortedWargaList, statusLookupMap, currentMonth]);
+  }, [sortedWargaList, statusLookupMap, currentMonth, brand]);
 
   const blokOptions = useMemo(() => {
     const prefixes = new Set<string>(['B03', 'B05', 'B06', 'B07', 'B08']);
@@ -249,14 +264,14 @@ export function AdminRekapSlide({
 
       if (statusFilter !== 'Semua') {
         const wKey = canonicalizeBlokKey(w.blok_rumah);
-        const currentSt =
-          statusLookupMap.get(wKey)?.get(currentMonth) ??
-          getDefaultUnpaidStatusForMonth(currentMonth);
+        const currentSt = resolveEffectiveMonthStatus({
+          dbStatus: statusLookupMap.get(wKey)?.get(currentMonth),
+          tahun: TAHUN_AKTIF,
+          bulan: currentMonth,
+          billingStart: brand,
+        });
         if (statusFilter === 'Lunas' && currentSt !== 'Lunas') return false;
-        if (
-          statusFilter === 'Menunggak' &&
-          (currentSt === 'Lunas' || currentSt === 'Menunggu Verifikasi')
-        ) {
+        if (statusFilter === 'Menunggak' && !isCountableUnpaidStatus(currentSt)) {
           return false;
         }
       }
@@ -271,6 +286,7 @@ export function AdminRekapSlide({
     delinquencyFilter,
     search,
     currentMonth,
+    brand,
   ]);
 
   useEffect(() => {
@@ -388,7 +404,7 @@ export function AdminRekapSlide({
   };
 
   const handleExportExcel = () => {
-    exportLaporanExcel(wargaList, statusList, transaksiList);
+    exportLaporanExcel(wargaList, statusList, transaksiList, brand);
     void recordAuditLog({
       session,
       action: 'EXPORT_EXCEL',
@@ -399,7 +415,7 @@ export function AdminRekapSlide({
   };
 
   const handleExportCsv = () => {
-    exportLaporanCsv(wargaList, statusList, transaksiList);
+    exportLaporanCsv(wargaList, statusList, transaksiList, brand);
     void recordAuditLog({
       session,
       action: 'EXPORT_CSV',
@@ -929,7 +945,11 @@ export function AdminRekapSlide({
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Hijau muda = berpenghuni · Oranye muda = blok kosong · Filter mengacu {getNamaBulan(currentMonth)} {TAHUN_AKTIF}.
+                  Hijau muda = berpenghuni · Oranye muda = blok kosong · Mulai penagihan:{' '}
+                  <span className="font-semibold text-slate-700">
+                    {formatBillingStartLabel(brand)}
+                  </span>{' '}
+                  (sebelumnya Pra-Rilis) · Filter mengacu {getNamaBulan(currentMonth)} {TAHUN_AKTIF}.
                   {delinquencyFilter !== 'all' && (
                     <span className="ml-1 font-semibold text-[#4C1D95]">
                       (Filter tunggakan:{' '}
@@ -996,9 +1016,11 @@ export function AdminRekapSlide({
                     {matrixSummary.belumSetorCount} Unit
                   </p>
                   <p className="text-[11px] text-rose-800/80 mt-0.5 tabular-nums">
-                    {matrixSummary.menungguCount > 0
-                      ? `${matrixSummary.menungguCount} menunggu verifikasi`
-                      : 'Unit berpenghuni belum lunas'}
+                    {isBeforeBillingStart(TAHUN_AKTIF, currentMonth, brand)
+                      ? 'Periode Pra-Rilis (Belum Berlaku)'
+                      : matrixSummary.menungguCount > 0
+                        ? `${matrixSummary.menungguCount} menunggu verifikasi`
+                        : 'Unit berpenghuni belum lunas'}
                   </p>
                 </div>
 
@@ -1127,8 +1149,12 @@ export function AdminRekapSlide({
                             </p>
                           </td>
                           {BULAN_LIST.map((b) => {
-                            const st: StatusBulanEcard =
-                              monthMap?.get(b.angka) || 'Belum Tagihan';
+                            const st = resolveEffectiveMonthStatus({
+                              dbStatus: monthMap?.get(b.angka),
+                              tahun: TAHUN_AKTIF,
+                              bulan: b.angka,
+                              billingStart: brand,
+                            });
                             const badge = getMatrixCellBadge(st);
                             return (
                               <td

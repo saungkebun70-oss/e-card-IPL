@@ -83,9 +83,10 @@ export function ChairmanMonthlyReportPanel({
         wargaList,
         statusList,
         transaksiList,
-        transaksiKasList
+        transaksiKasList,
+        brand
       ),
-    [selectedTahun, selectedBulan, wargaList, statusList, transaksiList, transaksiKasList]
+    [selectedTahun, selectedBulan, wargaList, statusList, transaksiList, transaksiKasList, brand]
   );
 
   // Eksklusif untuk Ketua Lingkungan
@@ -326,7 +327,9 @@ export function ChairmanMonthlyReportPanel({
               {report.compliance.persentaseKepatuhan}%
             </p>
             <p className="text-[10px] text-sky-900/80 mt-0.5 tabular-nums">
-              {report.compliance.unitLunas} / {report.compliance.unitAktif} unit aktif lunas
+              {report.compliance.isPraRilis
+                ? 'Periode Pra-Rilis (Belum Berlaku)'
+                : `${report.compliance.unitLunas} / ${report.compliance.unitAktif} unit aktif lunas`}
             </p>
           </div>
         </div>

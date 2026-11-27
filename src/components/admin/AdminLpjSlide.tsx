@@ -69,9 +69,10 @@ export function AdminLpjSlide({
         wargaList,
         statusList,
         transaksiList,
-        transaksiKasList
+        transaksiKasList,
+        brand
       ),
-    [tahun, triwulanId, wargaList, statusList, transaksiList, transaksiKasList]
+    [tahun, triwulanId, wargaList, statusList, transaksiList, transaksiKasList, brand]
   );
 
   const kopAlamat = getCompactKopAlamat(brand.kop_resmi);
@@ -313,6 +314,11 @@ export function AdminLpjSlide({
                   <tr key={row.bulan}>
                     <td className="px-3 sm:px-4 py-2 print:py-1.5 font-semibold text-[#0F172A] whitespace-nowrap">
                       {row.namaBulan} {lpj.tahun}
+                      {row.isPraRilis && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-500 border border-slate-200">
+                          Pra-Rilis
+                        </span>
+                      )}
                     </td>
                     <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-slate-600">
                       {row.unitAktif}

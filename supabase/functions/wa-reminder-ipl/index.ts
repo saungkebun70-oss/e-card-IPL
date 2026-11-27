@@ -158,6 +158,32 @@ Deno.serve(async (req: Request) => {
     const bulan = now.getMonth() + 1;
     const tanggal = now.getDate();
 
+    const { data: appSetting } = await supabase
+      .from('app_settings')
+      .select('billing_start_month, billing_start_year')
+      .eq('id', 'default-app-brand')
+      .maybeSingle();
+
+    const billingStartMonth =
+      Number(appSetting?.billing_start_month) >= 1 && Number(appSetting?.billing_start_month) <= 12
+        ? Number(appSetting?.billing_start_month)
+        : 11;
+    const billingStartYear =
+      Number(appSetting?.billing_start_year) >= 2024 && Number(appSetting?.billing_start_year) <= 2100
+        ? Number(appSetting?.billing_start_year)
+        : 2026;
+
+    if (tahun * 100 + bulan < billingStartYear * 100 + billingStartMonth) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          sent: 0,
+          message: `Periode ${NAMA_BULAN[bulan - 1]} ${tahun} berstatus Pra-Rilis (penagihan dimulai ${NAMA_BULAN[billingStartMonth - 1]} ${billingStartYear}).`,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     if (!isManual) {
       const shouldRun =
         (tanggal === 1 && config.jadwal_tgl_1) ||

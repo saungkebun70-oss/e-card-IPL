@@ -12,14 +12,17 @@ import {
   type Warga,
 } from '../types';
 import {
+  formatBillingStartLabel,
   formatRupiah,
   getCurrentBillingMonth,
-  getDefaultUnpaidStatusForMonth,
   getNamaBulan,
+  isCountableUnpaidStatus,
   isRealRegisteredPhone,
   isSameBlockCode,
   normalizeBlockCode,
   normalizePhoneNumber,
+  resolveEffectiveMonthStatus,
+  type BillingStartPeriod,
 } from './format';
 
 export type AutoReplyCommandType =
@@ -45,6 +48,7 @@ export interface AutoReplyContext {
   wargaList: Warga[];
   statusList: StatusEcardBulanan[];
   paymentConfig?: PaymentConfig;
+  billingStart?: BillingStartPeriod | null;
   senderName?: string;
   senderPhone?: string;
   simulatedRole?: BotAccessRole | 'unregistered';
@@ -164,7 +168,11 @@ function buildRekeningReply(paymentConfig?: PaymentConfig): string {
   return lines.join('\n');
 }
 
-function buildCekUnitReply(warga: Warga, statusList: StatusEcardBulanan[]): string {
+function buildCekUnitReply(
+  warga: Warga,
+  statusList: StatusEcardBulanan[],
+  billingStart?: BillingStartPeriod | null
+): string {
   const currentMonth = getCurrentBillingMonth();
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
   const formattedBlock = normalizeBlockCode(warga.blok_rumah);
@@ -174,26 +182,66 @@ function buildCekUnitReply(warga: Warga, statusList: StatusEcardBulanan[]): stri
       s.tahun === TAHUN_AKTIF &&
       s.bulan === currentMonth
   );
-  const statusBulanIni = st?.status || getDefaultUnpaidStatusForMonth(currentMonth);
+  const statusBulanIni = resolveEffectiveMonthStatus({
+    dbStatus: st?.status,
+    tahun: TAHUN_AKTIF,
+    bulan: currentMonth,
+    billingStart,
+  });
 
-  return [
+  const unpaidMonths: string[] = [];
+  for (let m = 1; m <= currentMonth; m += 1) {
+    const found = statusList.find(
+      (s) =>
+        isSameBlockCode(s.blok_rumah, warga.blok_rumah) &&
+        s.tahun === TAHUN_AKTIF &&
+        s.bulan === m
+    );
+    const resolved = resolveEffectiveMonthStatus({
+      dbStatus: found?.status,
+      tahun: TAHUN_AKTIF,
+      bulan: m,
+      billingStart,
+    });
+    if (isCountableUnpaidStatus(resolved)) {
+      const mInfo = BULAN_LIST.find((b) => b.angka === m);
+      if (mInfo) unpaidMonths.push(mInfo.singkat);
+    }
+  }
+
+  const nominalBulanan = warga.nominal_iuran || NOMINAL_IPL_STANDAR;
+  const lines = [
     `*Status e-Card IPL — Unit ${formattedBlock}*`,
     `Nama: ${warga.nama_warga}`,
     `Periode: *${bulanNama}*`,
-    `Status: *${statusBulanIni.toUpperCase()}*`,
-    `Iuran Wajib: ${formatRupiah(warga.nominal_iuran || NOMINAL_IPL_STANDAR)} / bulan`,
+    `Status: *${statusBulanIni === 'Pra-Rilis' ? 'PRA-RILIS (BELUM BERLAKU)' : statusBulanIni.toUpperCase()}*`,
+    `Iuran Wajib: ${formatRupiah(nominalBulanan)} / bulan`,
     `Jatuh Tempo: Tanggal ${TANGGAL_JATUH_TEMPO}`,
-    ``,
+  ];
+
+  if (unpaidMonths.length > 0 && statusBulanIni !== 'Lunas' && statusBulanIni !== 'Pra-Rilis') {
+    lines.push(
+      `Tunggakan s.d. ${getNamaBulan(currentMonth)}: *${unpaidMonths.length} bulan* (${unpaidMonths.join(', ')}) · Total *${formatRupiah(unpaidMonths.length * nominalBulanan)}*`
+    );
+  }
+
+  lines.push(``);
+  lines.push(
     statusBulanIni === 'Lunas'
       ? `Terima kasih, IPL bulan ${bulanNama} sudah *LUNAS*. Unduh kwitansi di ${APP_PORTAL_URL}`
-      : `Silakan setor via QRIS / Transfer / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk info pembayaran.`,
-  ].join('\n');
+      : statusBulanIni === 'Pra-Rilis'
+        ? `Periode ${bulanNama} berada sebelum jadwal mulai penagihan (*${formatBillingStartLabel(billingStart)}*).`
+        : `Silakan setor via QRIS / Transfer / Titip Pengurus di ${APP_PORTAL_URL} atau ketik *REKENING* untuk info pembayaran.`
+  );
+
+  return lines.join('\n');
 }
 
 function buildSaldoUnitReply(
   warga: Warga,
   statusList: StatusEcardBulanan[],
-  tahun: number
+  tahun: number,
+  billingStart?: BillingStartPeriod | null
 ): string {
   const formattedBlock = normalizeBlockCode(warga.blok_rumah);
   const currentMonth = getCurrentBillingMonth();
@@ -208,12 +256,17 @@ function buildSaldoUnitReply(
         s.tahun === tahun &&
         s.bulan === b.angka
     );
-    const resolved = st?.status || getDefaultUnpaidStatusForMonth(b.angka);
+    const resolved = resolveEffectiveMonthStatus({
+      dbStatus: st?.status,
+      tahun,
+      bulan: b.angka,
+      billingStart,
+    });
     if (resolved === 'Lunas') {
       lunasCount += 1;
     } else if (resolved === 'Menunggu Verifikasi') {
       pendingCount += 1;
-    } else if (b.angka <= currentMonth) {
+    } else if (b.angka <= currentMonth && isCountableUnpaidStatus(resolved)) {
       belumBayarBulan.push(b.singkat);
     }
   }
@@ -223,6 +276,7 @@ function buildSaldoUnitReply(
   return [
     `*Rekap Saldo IPL ${tahun} — Unit ${formattedBlock}*`,
     `Nama: ${warga.nama_warga}`,
+    `Mulai Penagihan: *${formatBillingStartLabel(billingStart)}*`,
     `• Lunas: *${lunasCount} bulan*`,
     `• Menunggu Verifikasi: *${pendingCount} bulan*`,
     `• Belum Bayar (s.d. ${getNamaBulan(currentMonth)}): *${belumBayarBulan.length} bulan*${
@@ -358,7 +412,7 @@ export function generateBotAutoReply(
       return {
         command: 'CEK',
         blok: ownBlockCode,
-        reply: buildCekUnitReply(senderUnit, context.statusList),
+        reply: buildCekUnitReply(senderUnit, context.statusList, context.billingStart),
       };
     }
 
@@ -374,7 +428,7 @@ export function generateBotAutoReply(
     return {
       command: 'CEK',
       blok: normalizeBlockCode(targetUnit.blok_rumah),
-      reply: buildCekUnitReply(targetUnit, context.statusList),
+      reply: buildCekUnitReply(targetUnit, context.statusList, context.billingStart),
     };
   }
 
@@ -404,7 +458,7 @@ export function generateBotAutoReply(
       return {
         command: 'SALDO',
         blok: ownBlockCode,
-        reply: buildSaldoUnitReply(senderUnit, context.statusList, tahun),
+        reply: buildSaldoUnitReply(senderUnit, context.statusList, tahun, context.billingStart),
       };
     }
 
@@ -420,7 +474,7 @@ export function generateBotAutoReply(
     return {
       command: 'SALDO',
       blok: normalizeBlockCode(targetUnit.blok_rumah),
-      reply: buildSaldoUnitReply(targetUnit, context.statusList, tahun),
+      reply: buildSaldoUnitReply(targetUnit, context.statusList, tahun, context.billingStart),
     };
   }
 

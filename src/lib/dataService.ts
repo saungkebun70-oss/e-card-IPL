@@ -54,6 +54,7 @@ import {
   buildWargaBotActivationMessage,
   canonicalizeBlokKey,
   compareBlokRumah,
+  formatBillingStartLabel,
   formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
@@ -64,12 +65,15 @@ import {
   getCurrentBillingMonth,
   getDefaultUnpaidStatusForMonth,
   getNamaBulan,
+  isBeforeBillingStart,
   isRealRegisteredPhone,
   isSameBlockCode,
   normalizeBlok,
   normalizeBlockCode,
   normalizePhoneNumber,
   normalizeWaNumber,
+  resolveBillingStartPeriod,
+  type BillingStartPeriod,
 } from './format';
 import {
   buildInitialStatusBulanan,
@@ -1844,7 +1848,13 @@ function buildPengurusAccountsList(
     aktif?: boolean | null;
   }>
 ): PengurusAccountInfo[] {
-  const canRevealPin = isBendaharaFullAccess(session);
+  const canRevealPin =
+    isBendaharaFullAccess(session) ||
+    hasSettingModulePermission(
+      session,
+      'settings.system_integrations',
+      session.central_settings_permissions
+    );
   const dbMap = new Map<string, NonNullable<typeof dbAdminRows>[number]>();
   for (const row of dbAdminRows || []) {
     if (row.blok_rumah) {
@@ -4110,6 +4120,8 @@ async function dispatchViaServerWaProxy(
         'Content-Type': 'application/json',
         'x-user-role': session.role,
         'x-admin-permission': session.admin_permission || '',
+        'x-blok-rumah': session.blok_rumah || '',
+        'x-user-jabatan': session.jabatan || '',
       },
       body: JSON.stringify({
         provider: config.provider,
@@ -4271,7 +4283,8 @@ export async function triggerManualWaReminderAdmin(
   session: SessionUser,
   config: BotWaConfig,
   wargaList: Warga[],
-  statusList: StatusEcardBulanan[]
+  statusList: StatusEcardBulanan[],
+  billingStart?: BillingStartPeriod | null
 ): Promise<ServiceResult<{ sentCount: number; message: string }>> {
   if (!isBendaharaOnly(session)) {
     return { error: 'Akses ditolak: pengiriman pengingat Bot WA manual khusus Bendahara.' };
@@ -4285,6 +4298,15 @@ export async function triggerManualWaReminderAdmin(
 
   const currentMonth = getCurrentBillingMonth();
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
+  const resolvedStart = billingStart ?? readLocalAppBrandConfig();
+  if (isBeforeBillingStart(TAHUN_AKTIF, currentMonth, resolvedStart)) {
+    return {
+      data: {
+        sentCount: 0,
+        message: `Periode ${bulanNama} berstatus Pra-Rilis (penagihan aktif mulai ${formatBillingStartLabel(resolvedStart)}), sehingga pengingat tunggakan tidak dikirim.`,
+      },
+    };
+  }
   const appUrl = APP_PORTAL_URL;
 
   const unpaidWarga = wargaList.filter((w) => {
@@ -4529,6 +4551,119 @@ export async function sendWargaAccessCredentialsWaAdmin(
           : `Info akun & PIN (https://e-card-ipl.vercel.app) berhasil dikirim ke ${sentCount} warga aktif via ${config.provider}.`,
     },
   };
+}
+
+export async function sendSingleCredentialWaAdmin(
+  session: SessionUser,
+  config: BotWaConfig,
+  payload: {
+    category: 'warga' | 'pengurus' | 'keamanan';
+    kodeBlokAtauId: string;
+    namaPenerima: string;
+    noWa: string;
+    pesan: string;
+    logLabel: string;
+  }
+): Promise<
+  ServiceResult<{
+    status_kirim: 'Terkirim' | 'Gagal';
+    respon_gateway: string;
+    no_wa: string;
+  }>
+> {
+  if (session.role !== 'admin' || session.is_active_pengurus === false) {
+    return { error: 'Akses ditolak: pengiriman informasi akun & PIN khusus Pengurus aktif.' };
+  }
+
+  const normalizedPhone = normalizePhoneNumber(payload.noWa);
+  if (!isRealRegisteredPhone(normalizedPhone)) {
+    return { error: 'Nomor WhatsApp penerima kosong atau belum valid.' };
+  }
+
+  if (!config.api_token.trim()) {
+    return { error: 'API Token Fonnte / Wablas belum diisi. Simpan API Token terlebih dahulu.' };
+  }
+
+  const proxyRes = await dispatchViaServerWaProxy(session, config, [
+    {
+      blok_rumah: payload.kodeBlokAtauId,
+      nama_warga: payload.namaPenerima,
+      no_wa: normalizedPhone,
+      pesan: payload.pesan,
+    },
+  ]);
+
+  if (!proxyRes.available) {
+    return {
+      error:
+        'Endpoint /api/bot-wa/send belum aktif pada lingkungan ini. Jalankan server atau deploy ke Vercel.',
+    };
+  }
+
+  if (proxyRes.error) {
+    return { error: proxyRes.error };
+  }
+
+  const item = proxyRes.results?.[0];
+  if (!item) {
+    return { error: 'Tidak ada respon dari gateway WhatsApp.' };
+  }
+
+  await persistBotWaLogs(session, [
+    {
+      id: `walog-cred-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      created_at: new Date().toISOString(),
+      blok_rumah: item.blok_rumah,
+      nama_warga: item.nama_warga,
+      no_wa: item.no_wa,
+      jenis_pesan: payload.logLabel,
+      status_kirim: item.status_kirim,
+      respon_gateway: item.respon_gateway,
+      pesan: `Informasi akun & PIN (${payload.category}) dikirim ke ${payload.namaPenerima} (${payload.kodeBlokAtauId}).`,
+    },
+  ]);
+
+  return {
+    data: {
+      status_kirim: item.status_kirim,
+      respon_gateway: item.respon_gateway,
+      no_wa: item.no_wa,
+    },
+  };
+}
+
+export async function recordWaPinBatchAuditAdmin(
+  session: SessionUser,
+  params: {
+    category: 'warga' | 'pengurus' | 'keamanan';
+    provider: string;
+    total: number;
+    sent: number;
+    failed: number;
+    cancelled?: boolean;
+  }
+): Promise<void> {
+  const categoryLabel =
+    params.category === 'warga'
+      ? 'Warga'
+      : params.category === 'pengurus'
+        ? 'Admin / Pengurus'
+        : 'Anggota Keamanan';
+
+  await recordAuditLog({
+    session,
+    action: 'SEND_PIN_DISTRIBUTION_WA',
+    entity: 'bot_wa_logs',
+    summary: `${session.nama_warga} mengirim info akun & PIN kategori ${categoryLabel} via ${params.provider}: ${params.sent}/${params.total} terkirim${params.failed > 0 ? `, ${params.failed} gagal` : ''}${params.cancelled ? ' (dihentikan)' : ''}.`,
+    metadata: {
+      category: params.category,
+      provider: params.provider,
+      total: params.total,
+      sent: params.sent,
+      failed: params.failed,
+      cancelled: Boolean(params.cancelled),
+    },
+  });
 }
 
 export async function sendWargaBotActivationWaAdmin(
@@ -5109,6 +5244,14 @@ function mergeAppBrandConfig(
       incoming.pengurus_wa_map !== undefined
         ? sanitizePengurusWaMap(incoming.pengurus_wa_map)
         : base.pengurus_wa_map,
+    billing_start_month: resolveBillingStartPeriod({
+      billing_start_month: incoming.billing_start_month ?? base.billing_start_month,
+      billing_start_year: incoming.billing_start_year ?? base.billing_start_year,
+    }).startMonth,
+    billing_start_year: resolveBillingStartPeriod({
+      billing_start_month: incoming.billing_start_month ?? base.billing_start_month,
+      billing_start_year: incoming.billing_start_year ?? base.billing_start_year,
+    }).startYear,
   };
 }
 
@@ -5243,6 +5386,8 @@ export async function saveAppBrandConfigAdmin(
     | 'wa_pengurus_label'
     | 'wa_bot'
     | 'pengurus_wa_map'
+    | 'billing_start_month'
+    | 'billing_start_year'
   >
 ): Promise<ServiceResult<AppBrandConfig>> {
   if (
@@ -5260,6 +5405,10 @@ export async function saveAppBrandConfigAdmin(
   const cleanKop = config.kop_resmi.trim();
   const cleanWaPengurus = normalizeWaNumber(config.wa_pengurus || '');
   const cleanWaBot = config.wa_bot?.trim() ? normalizeWaNumber(config.wa_bot) : '';
+  const { startMonth, startYear } = resolveBillingStartPeriod({
+    billing_start_month: config.billing_start_month,
+    billing_start_year: config.billing_start_year,
+  });
 
   if (!cleanName) {
     return { error: 'Nama aplikasi tidak boleh kosong.' };
@@ -5288,6 +5437,8 @@ export async function saveAppBrandConfigAdmin(
     wa_pengurus_label: config.wa_pengurus_label?.trim() || DEFAULT_APP_BRAND_CONFIG.wa_pengurus_label,
     wa_bot: cleanWaBot,
     pengurus_wa_map: sanitizePengurusWaMap(config.pengurus_wa_map),
+    billing_start_month: startMonth,
+    billing_start_year: startYear,
     updated_at: new Date().toISOString(),
     updated_by: session.blok_rumah,
   };
@@ -5303,22 +5454,49 @@ export async function saveAppBrandConfigAdmin(
         .select()
         .single();
 
-      // Jika kolom stempel_url belum ditambahkan di Supabase, coba ulang tanpa kolom tersebut
-      if (error && String((error as { message?: string }).message || '').includes('stempel_url')) {
-        const { stempel_url: _omit, ...legacyPayload } = updated;
-        const retry = await supabase
-          .from('app_settings')
-          .upsert(legacyPayload, { onConflict: 'id' })
-          .select()
-          .single();
-        data = retry.data;
-        error = retry.error;
+      // Fallback bila sebagian kolom opsional (stempel_url / billing_start_month / billing_start_year) belum dijalankan di Supabase
+      if (error) {
+        const errMsg = String((error as { message?: string }).message || '');
+        if (
+          errMsg.includes('stempel_url') ||
+          errMsg.includes('billing_start_month') ||
+          errMsg.includes('billing_start_year')
+        ) {
+          const fallbackPayload: Record<string, unknown> = { ...updated };
+          if (errMsg.includes('stempel_url')) delete fallbackPayload.stempel_url;
+          if (errMsg.includes('billing_start_month')) delete fallbackPayload.billing_start_month;
+          if (errMsg.includes('billing_start_year')) delete fallbackPayload.billing_start_year;
+          const retry = await supabase
+            .from('app_settings')
+            .upsert(fallbackPayload, { onConflict: 'id' })
+            .select()
+            .single();
+          if (
+            retry.error &&
+            String((retry.error as { message?: string }).message || '').includes('billing_start')
+          ) {
+            delete fallbackPayload.billing_start_month;
+            delete fallbackPayload.billing_start_year;
+            const retryLegacy = await supabase
+              .from('app_settings')
+              .upsert(fallbackPayload, { onConflict: 'id' })
+              .select()
+              .single();
+            data = retryLegacy.data;
+            error = retryLegacy.error;
+          } else {
+            data = retry.data;
+            error = retry.error;
+          }
+        }
       }
 
       if (!error && data) {
         const persisted = mergeAppBrandConfig(updated, {
           ...(data as Partial<AppBrandConfig>),
           stempel_url: updated.stempel_url,
+          billing_start_month: updated.billing_start_month,
+          billing_start_year: updated.billing_start_year,
         });
         writeLocalAppBrandConfig(persisted);
         await recordAuditLog({
@@ -5326,15 +5504,15 @@ export async function saveAppBrandConfigAdmin(
           action: 'UPDATE_APP_BRAND',
           entity: 'app_settings',
           entity_id: updated.id,
-          summary: `Bendahara ${session.nama_warga} memperbarui pengaturan identitas "${persisted.app_name}", stempel resmi & No. WA Pengurus (+${persisted.wa_pengurus}).`,
+          summary: `${session.nama_warga} memperbarui identitas "${persisted.app_name}", mulai penagihan ${formatBillingStartLabel(persisted)} & WA Pengurus (+${persisted.wa_pengurus}).`,
         });
         void dispatchActivityNotifications(
           session,
           getBendaharaAndKetuaUserIds().map((uid) => ({
             user_id: uid,
             category: 'system' as const,
-            title: 'Identitas & Logo Aplikasi Diperbarui',
-            message: `${session.nama_warga} memperbarui pengaturan identitas "${persisted.app_name}" dan kontak pengurus.`,
+            title: 'Pengaturan Aplikasi & Periode Penagihan Diperbarui',
+            message: `${session.nama_warga} memperbarui pengaturan "${persisted.app_name}" (mulai penagihan ${formatBillingStartLabel(persisted)}).`,
             target_url: 'settings:identitas',
           }))
         );
@@ -7748,7 +7926,13 @@ export async function fetchRecentLogPatroli(
 
 export async function fetchPetugasListAdmin(session: SessionUser): Promise<PetugasKeamanan[]> {
   if (session.role !== 'admin') return [];
-  const revealPin = isBendaharaFullAccess(session);
+  const revealPin =
+    isBendaharaFullAccess(session) ||
+    hasSettingModulePermission(
+      session,
+      'settings.system_integrations',
+      session.central_settings_permissions
+    );
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {

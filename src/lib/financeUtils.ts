@@ -5,7 +5,16 @@ import {
   type TransaksiKas,
   type Warga,
 } from '../types';
-import { canonicalizeBlokKey, formatBlokRumah, formatDaftarBulan, formatRupiah, getNamaBulan } from './format';
+import {
+  canonicalizeBlokKey,
+  formatBillingStartLabel,
+  formatBlokRumah,
+  formatDaftarBulan,
+  formatRupiah,
+  getNamaBulan,
+  isBeforeBillingStart,
+  type BillingStartPeriod,
+} from './format';
 
 export interface GlobalCashSummary {
   totalIplMasuk: number;
@@ -59,6 +68,7 @@ export interface KepatuhanBulananItem {
   unitLunas: number;
   persentase: number;
   nominalTerkumpul: number;
+  isPraRilis?: boolean;
 }
 
 export interface QuarterlyLpjReport {
@@ -107,6 +117,7 @@ export interface ChairmanMonthlyCompliance {
   unitLunas: number;
   unitBelumBayar: number;
   persentaseKepatuhan: number;
+  isPraRilis?: boolean;
 }
 
 export interface ChairmanMonthlyPipeline {
@@ -358,7 +369,8 @@ export function buildQuarterlyLpjReport(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[],
   transaksiList: TransaksiIPL[],
-  transaksiKasList: TransaksiKas[]
+  transaksiKasList: TransaksiKas[],
+  billingStart?: BillingStartPeriod | null
 ): QuarterlyLpjReport {
   const tw = TRIWULAN_LIST.find((item) => item.id === triwulanId) || TRIWULAN_LIST[0];
   const startMonth = tw.bulan[0];
@@ -457,6 +469,7 @@ export function buildQuarterlyLpjReport(
   const totalUnitAktif = activeUnits.length;
 
   const kepatuhanPerBulan: KepatuhanBulananItem[] = tw.bulan.map((bulan) => {
+    const isPraRilis = isBeforeBillingStart(tahun, bulan, billingStart);
     const lunasSet = new Set(
       statusList
         .filter(
@@ -487,14 +500,16 @@ export function buildQuarterlyLpjReport(
       unitLunas,
       persentase,
       nominalTerkumpul: nominalBulan,
+      isPraRilis,
     };
   });
 
+  const activeBillingMonths = kepatuhanPerBulan.filter((m) => !m.isPraRilis);
   const rataRataKepatuhan =
-    kepatuhanPerBulan.length > 0
+    activeBillingMonths.length > 0
       ? Math.round(
-          (kepatuhanPerBulan.reduce((s, item) => s + item.persentase, 0) /
-            kepatuhanPerBulan.length) *
+          (activeBillingMonths.reduce((s, item) => s + item.persentase, 0) /
+            activeBillingMonths.length) *
             10
         ) / 10
       : 0;
@@ -534,7 +549,8 @@ export function buildChairmanMonthlySummaryReport(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[],
   transaksiList: TransaksiIPL[],
-  transaksiKasList: TransaksiKas[]
+  transaksiKasList: TransaksiKas[],
+  billingStart?: BillingStartPeriod | null
 ): ChairmanMonthlySummaryReport {
   const monthlyCash = buildMonthlyCashReport(tahun, bulan, transaksiList, transaksiKasList);
   const periodKey = tahun * 100 + bulan;
@@ -646,9 +662,10 @@ export function buildChairmanMonthlySummaryReport(
       .map((s) => canonicalizeBlokKey(s.blok_rumah))
   );
 
+  const isPraRilis = isBeforeBillingStart(tahun, bulan, billingStart);
   const unitAktif = activeUnits.length;
   const unitLunas = lunasKeys.size;
-  const unitBelumBayar = Math.max(0, unitAktif - unitLunas);
+  const unitBelumBayar = isPraRilis ? 0 : Math.max(0, unitAktif - unitLunas);
   const persentaseKepatuhan =
     unitAktif > 0 ? Math.round((unitLunas / unitAktif) * 1000) / 10 : 0;
 
@@ -672,7 +689,9 @@ export function buildChairmanMonthlySummaryReport(
   }
 
   executiveHighlights.push(
-    `Total ${totalTransaksiTerverifikasi} transaksi terverifikasi (${monthlyCash.jumlahTransaksiIpl} IPL, ${monthlyCash.jumlahPemasukanLain} kas lain, ${monthlyCash.jumlahPengeluaran} pengeluaran) dengan tingkat kepatuhan IPL ${persentaseKepatuhan}% (${unitLunas}/${unitAktif} unit aktif lunas).`
+    isPraRilis
+      ? `Periode ${monthlyCash.namaBulan} ${tahun} berstatus Pra-Rilis (penagihan aktif dimulai ${formatBillingStartLabel(billingStart)}); unit belum setor tidak dihitung sebagai tunggakan.`
+      : `Total ${totalTransaksiTerverifikasi} transaksi terverifikasi (${monthlyCash.jumlahTransaksiIpl} IPL, ${monthlyCash.jumlahPemasukanLain} kas lain, ${monthlyCash.jumlahPengeluaran} pengeluaran) dengan tingkat kepatuhan IPL ${persentaseKepatuhan}% (${unitLunas}/${unitAktif} unit aktif lunas).`
   );
 
   if (monthlyCash.pengeluaranPerKategori.length > 0) {
@@ -707,6 +726,7 @@ export function buildChairmanMonthlySummaryReport(
       unitLunas,
       unitBelumBayar,
       persentaseKepatuhan,
+      isPraRilis,
     },
     pipeline: {
       iplPendingCount,

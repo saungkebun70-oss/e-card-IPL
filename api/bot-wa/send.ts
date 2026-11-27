@@ -119,6 +119,101 @@ async function parseJsonBody(req: VercelReq): Promise<Record<string, unknown> | 
   return {};
 }
 
+const KNOWN_ACTIVE_PENGURUS = new Set([
+  'andriansyah',
+  'erlangga',
+  'bpiwan',
+  'doni',
+  'wahyu',
+  'deny',
+]);
+
+function canonicalPengurusUsername(raw: string): string {
+  const clean = String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (clean === 'admin' || clean === 'bendahara') return 'andriansyah';
+  if (clean === 'ketua') return 'erlangga';
+  if (clean === 'paiwan' || clean === 'iwan' || clean === 'pembina') return 'bpiwan';
+  if (clean === 'deni') return 'deny';
+  return clean;
+}
+
+async function verifyActivePengurusSender(
+  req: VercelReq
+): Promise<{ allowed: boolean; error?: string }> {
+  const roleHeader = getHeader(req.headers, 'x-user-role').trim().toLowerCase();
+  const permHeader = getHeader(req.headers, 'x-admin-permission').trim().toLowerCase();
+  const blokHeader = getHeader(req.headers, 'x-blok-rumah').trim();
+  const canonicalUser = canonicalPengurusUsername(blokHeader);
+
+  if (roleHeader !== 'admin' && roleHeader !== 'pengurus') {
+    return { allowed: false, error: 'Pengiriman Bot WhatsApp khusus Pengurus aktif.' };
+  }
+
+  const supabaseUrl = sanitizeSecret(
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  ).replace(/\/+$/, '');
+  const supabaseKey = sanitizeSecret(
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  );
+
+  if (supabaseUrl && supabaseKey && canonicalUser) {
+    try {
+      const headers = {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      };
+      const [usersRes, statesRes] = await Promise.all([
+        fetch(
+          `${supabaseUrl}/rest/v1/users_warga?select=blok_rumah,role,admin_permission,aktif&role=eq.admin`,
+          { method: 'GET', headers }
+        ),
+        fetch(
+          `${supabaseUrl}/rest/v1/pengurus_account_states?select=pengurus_username,is_active_pengurus`,
+          { method: 'GET', headers }
+        ),
+      ]);
+
+      if (statesRes.ok) {
+        const states = (await statesRes.json()) as Array<{
+          pengurus_username?: string;
+          is_active_pengurus?: boolean;
+        }>;
+        const matchedState = states.find(
+          (s) => canonicalPengurusUsername(s.pengurus_username || '') === canonicalUser
+        );
+        if (matchedState && matchedState.is_active_pengurus === false) {
+          return { allowed: false, error: 'Akun pengurus Anda berstatus nonaktif.' };
+        }
+      }
+
+      if (usersRes.ok) {
+        const admins = (await usersRes.json()) as Array<{
+          blok_rumah?: string;
+          aktif?: boolean;
+          admin_permission?: string;
+        }>;
+        const matched = admins.find(
+          (a) => canonicalPengurusUsername(a.blok_rumah || '') === canonicalUser
+        );
+        if (matched) {
+          if (matched.aktif === false) {
+            return { allowed: false, error: 'Akun pengurus berstatus nonaktif.' };
+          }
+          return { allowed: true };
+        }
+      }
+    } catch {
+      // Lanjut fallback pengecekan header terverifikasi lokal bila REST timeout
+    }
+  }
+
+  if (permHeader === 'full' || KNOWN_ACTIVE_PENGURUS.has(canonicalUser)) {
+    return { allowed: true };
+  }
+
+  return { allowed: false, error: 'Pengiriman Bot WhatsApp khusus akun Pengurus aktif.' };
+}
+
 export default async function handler(req: VercelReq, res: VercelRes) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -133,10 +228,9 @@ export default async function handler(req: VercelReq, res: VercelRes) {
   }
 
   try {
-    const roleHeader = getHeader(req.headers, 'x-user-role').trim().toLowerCase();
-    const permHeader = getHeader(req.headers, 'x-admin-permission').trim().toLowerCase();
-    if (roleHeader !== 'admin' || permHeader !== 'full') {
-      res.status(403).json({ error: 'Pengiriman Bot WhatsApp khusus akun Bendahara.' });
+    const authCheck = await verifyActivePengurusSender(req);
+    if (!authCheck.allowed) {
+      res.status(403).json({ error: authCheck.error || 'Akses ditolak.' });
       return;
     }
 

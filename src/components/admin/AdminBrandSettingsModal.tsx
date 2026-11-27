@@ -201,6 +201,8 @@ export function AdminBrandSettingsModal({
         wa_pengurus_label: draft.wa_pengurus_label,
         wa_bot: draft.wa_bot,
         pengurus_wa_map: draft.pengurus_wa_map,
+        billing_start_month: draft.billing_start_month,
+        billing_start_year: draft.billing_start_year,
       });
 
       if (res.error || !res.data) {

@@ -2,10 +2,13 @@ import {
   APP_ADMIN_PORTAL_URL,
   APP_PORTAL_URL,
   BULAN_LIST,
+  DEFAULT_BILLING_START_MONTH,
+  DEFAULT_BILLING_START_YEAR,
   NAMA_APLIKASI,
   TAHUN_AKTIF,
   WA_ACCESS_TEMPLATE_DEFAULT,
   WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT,
+  type EffectiveStatusBulanEcard,
   type PengurusAccountInfo,
   type StatusBulanEcard,
   type Warga,
@@ -63,6 +66,42 @@ export function getCurrentBillingMonth(): number {
   return now.getFullYear() > TAHUN_AKTIF ? 12 : 1;
 }
 
+export interface BillingStartPeriod {
+  billing_start_month?: number | null;
+  billing_start_year?: number | null;
+}
+
+export function resolveBillingStartPeriod(period?: BillingStartPeriod | null): {
+  startMonth: number;
+  startYear: number;
+} {
+  const rawMonth = Number(period?.billing_start_month);
+  const rawYear = Number(period?.billing_start_year);
+  const startMonth =
+    Number.isInteger(rawMonth) && rawMonth >= 1 && rawMonth <= 12
+      ? rawMonth
+      : DEFAULT_BILLING_START_MONTH;
+  const startYear =
+    Number.isInteger(rawYear) && rawYear >= 2024 && rawYear <= 2100
+      ? rawYear
+      : DEFAULT_BILLING_START_YEAR;
+  return { startMonth, startYear };
+}
+
+export function isBeforeBillingStart(
+  tahun: number,
+  bulan: number,
+  period?: BillingStartPeriod | null
+): boolean {
+  const { startMonth, startYear } = resolveBillingStartPeriod(period);
+  return tahun * 100 + bulan < startYear * 100 + startMonth;
+}
+
+export function formatBillingStartLabel(period?: BillingStartPeriod | null): string {
+  const { startMonth, startYear } = resolveBillingStartPeriod(period);
+  return `${getNamaBulan(startMonth)} ${startYear}`;
+}
+
 export function getDefaultUnpaidStatusForMonth(bulan: number): StatusBulanEcard {
   const now = new Date();
   const currentMonth = getCurrentBillingMonth();
@@ -74,6 +113,32 @@ export function getDefaultUnpaidStatusForMonth(bulan: number): StatusBulanEcard 
   }
   // Bulan berjalan: jatuh tempo setelah tanggal 7
   return now.getDate() > 7 ? 'Jatuh Tempo' : 'Belum Bayar';
+}
+
+export function resolveEffectiveMonthStatus(params: {
+  dbStatus?: StatusBulanEcard | null;
+  tahun: number;
+  bulan: number;
+  billingStart?: BillingStartPeriod | null;
+}): EffectiveStatusBulanEcard {
+  const { dbStatus, tahun, bulan, billingStart } = params;
+  if (dbStatus === 'Lunas' || dbStatus === 'Menunggu Verifikasi') {
+    return dbStatus;
+  }
+  if (isBeforeBillingStart(tahun, bulan, billingStart)) {
+    return 'Pra-Rilis';
+  }
+  return dbStatus || getDefaultUnpaidStatusForMonth(bulan);
+}
+
+export function isCountableUnpaidStatus(
+  status: EffectiveStatusBulanEcard | string | null | undefined
+): boolean {
+  return (
+    status !== 'Lunas' &&
+    status !== 'Menunggu Verifikasi' &&
+    status !== 'Pra-Rilis'
+  );
 }
 
 export function extractBlokPrefix(blokRumah: string): string {

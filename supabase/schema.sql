@@ -160,16 +160,20 @@ create table if not exists public.app_settings (
   wa_pengurus_label text not null default 'Andriansyah (Bendahara)',
   wa_bot text not null default '',
   pengurus_wa_map jsonb not null default '{}'::jsonb,
+  billing_start_month integer not null default 11 check (billing_start_month between 1 and 12),
+  billing_start_year integer not null default 2026 check (billing_start_year between 2024 and 2100),
   updated_at timestamptz not null default now(),
   updated_by text
 );
 
--- Pastikan kolom WA Pengurus, Bot, Stempel & Nominal IPL tersedia pada database yang sudah ada
+-- Pastikan kolom WA Pengurus, Bot, Stempel, Periode Mulai Penagihan & Nominal IPL tersedia pada database yang sudah ada
 alter table public.app_settings add column if not exists wa_pengurus text not null default '6281234567890';
 alter table public.app_settings add column if not exists wa_pengurus_label text not null default 'Andriansyah (Bendahara)';
 alter table public.app_settings add column if not exists wa_bot text not null default '';
 alter table public.app_settings add column if not exists pengurus_wa_map jsonb not null default '{}'::jsonb;
 alter table public.app_settings add column if not exists stempel_url text;
+alter table public.app_settings add column if not exists billing_start_month integer not null default 11;
+alter table public.app_settings add column if not exists billing_start_year integer not null default 2026;
 alter table public.payment_config add column if not exists nominal_ipl_bulanan integer not null default 100000;
 
 -- 11. Tabel Transaksi Kas (Pengeluaran Anggaran & Pemasukan Lain Non-Iuran)

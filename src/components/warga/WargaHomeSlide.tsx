@@ -16,18 +16,21 @@ import {
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
   TANGGAL_TERBIT_TAGIHAN,
-  type StatusBulanEcard,
+  type EffectiveStatusBulanEcard,
   type StatusEcardBulanan,
   type SystemNotification,
   type TransaksiIPL,
   type Warga,
 } from '../../types';
 import {
+  formatBillingStartLabel,
   formatBlokRumah,
   formatRupiah,
   formatTanggalWaktu,
   getCurrentBillingMonth,
   getNamaBulan,
+  isCountableUnpaidStatus,
+  resolveEffectiveMonthStatus,
 } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo } from '../BrandLogo';
@@ -53,7 +56,7 @@ function loadReadNotificationIds(blokRumah: string): string[] {
   }
 }
 
-function getMonthCellStyles(status: StatusBulanEcard) {
+function getMonthCellStyles(status: EffectiveStatusBulanEcard) {
   switch (status) {
     case 'Lunas':
       return {
@@ -76,6 +79,13 @@ function getMonthCellStyles(status: StatusBulanEcard) {
         label: status === 'Jatuh Tempo' ? 'Jatuh Tempo' : 'Belum Bayar',
         labelColor: 'text-red-700',
         icon: AlertTriangle,
+      };
+    case 'Pra-Rilis':
+      return {
+        box: 'bg-slate-100/80 border-slate-200/80 text-slate-500',
+        label: 'Pra-Rilis',
+        labelColor: 'text-slate-500',
+        icon: Calendar,
       };
     default:
       return {
@@ -125,7 +135,12 @@ export function WargaHomeSlide({
   const currentMonthName = getNamaBulan(currentMonth);
 
   const currentStatusObj = statusBulanan.find((s) => s.bulan === currentMonth);
-  const rawCurrentStatus = currentStatusObj?.status || 'Belum Bayar';
+  const rawCurrentStatus = resolveEffectiveMonthStatus({
+    dbStatus: currentStatusObj?.status,
+    tahun: TAHUN_AKTIF,
+    bulan: currentMonth,
+    billingStart: brand,
+  });
   const currentMonthTrx = riwayat.find(
     (t) =>
       t.tahun === TAHUN_AKTIF &&
@@ -152,17 +167,31 @@ export function WargaHomeSlide({
               bg: 'bg-amber-500 text-slate-950',
               icon: Clock,
             }
-        : {
-            text: 'BELUM BAYAR',
-            bg: 'bg-red-600 text-white',
-            icon: AlertTriangle,
-          };
+        : rawCurrentStatus === 'Pra-Rilis'
+          ? {
+              text: 'PRA-RILIS · BELUM BERLAKU',
+              bg: 'bg-slate-500 text-white',
+              icon: Calendar,
+            }
+          : {
+              text: 'BELUM BAYAR',
+              bg: 'bg-red-600 text-white',
+              icon: AlertTriangle,
+            };
 
   const BadgeIcon = ecardBadge.icon;
   const jumlahLunas = statusBulanan.filter((s) => s.status === 'Lunas').length;
-  const jumlahTunggakan = statusBulanan.filter(
-    (s) => s.status === 'Jatuh Tempo' || s.status === 'Belum Bayar'
-  ).length;
+  const jumlahTunggakan = BULAN_LIST.filter((b) => b.angka <= currentMonth).filter((b) => {
+    const st = statusBulanan.find((s) => s.bulan === b.angka)?.status;
+    return isCountableUnpaidStatus(
+      resolveEffectiveMonthStatus({
+        dbStatus: st,
+        tahun: TAHUN_AKTIF,
+        bulan: b.angka,
+        billingStart: brand,
+      })
+    );
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -360,7 +389,9 @@ export function WargaHomeSlide({
           </div>
 
           <div className="mt-5 space-y-2.5">
-            {rawCurrentStatus !== 'Lunas' && rawCurrentStatus !== 'Menunggu Verifikasi' && (
+            {rawCurrentStatus !== 'Lunas' &&
+              rawCurrentStatus !== 'Menunggu Verifikasi' &&
+              rawCurrentStatus !== 'Pra-Rilis' && (
               <button
                 type="button"
                 onClick={() => onQuickPayMonth(currentMonth)}
@@ -369,6 +400,12 @@ export function WargaHomeSlide({
                 <span>Setor Iuran {currentMonthName} Sekarang</span>
                 <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
+            )}
+            {rawCurrentStatus === 'Pra-Rilis' && (
+              <div className="rounded-2xl bg-slate-100/90 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-600 text-center">
+                Penagihan aktif dimulai{' '}
+                <strong className="text-slate-800">{formatBillingStartLabel(brand)}</strong>.
+              </div>
             )}
 
             <button
@@ -391,7 +428,8 @@ export function WargaHomeSlide({
               Matriks Status 12 Bulan ({TAHUN_AKTIF})
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Ketuk bulan yang belum lunas untuk langsung menyetor iuran.
+              Ketuk bulan yang belum lunas untuk langsung menyetor iuran (mulai penagihan:{' '}
+              <span className="font-semibold text-slate-700">{formatBillingStartLabel(brand)}</span>).
             </p>
           </div>
 
@@ -410,8 +448,8 @@ export function WargaHomeSlide({
               Jatuh Tempo / Belum Bayar
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-slate-300" />
-              Belum Tagihan
+              <span className="w-2.5 h-2.5 rounded-sm bg-slate-400" />
+              Pra-Rilis / Belum Berlaku
             </span>
           </div>
         </div>
@@ -419,10 +457,16 @@ export function WargaHomeSlide({
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {BULAN_LIST.map((b) => {
             const stObj = statusBulanan.find((s) => s.bulan === b.angka);
-            const status: StatusBulanEcard = stObj?.status || 'Belum Tagihan';
+            const status = resolveEffectiveMonthStatus({
+              dbStatus: stObj?.status,
+              tahun: TAHUN_AKTIF,
+              bulan: b.angka,
+              billingStart: brand,
+            });
             const style = getMonthCellStyles(status);
             const CellIcon = style.icon;
-            const canClick = status !== 'Lunas' && status !== 'Menunggu Verifikasi';
+            const canClick =
+              status !== 'Lunas' && status !== 'Menunggu Verifikasi' && status !== 'Pra-Rilis';
             const isCurrent = b.angka === currentMonth;
 
             return (

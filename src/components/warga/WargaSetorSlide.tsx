@@ -24,7 +24,13 @@ import {
   type StatusEcardBulanan,
   type Warga,
 } from '../../types';
-import { copyToClipboard, formatBlokRumah, formatRupiah } from '../../lib/format';
+import {
+  copyToClipboard,
+  formatBlokRumah,
+  formatRupiah,
+  resolveEffectiveMonthStatus,
+} from '../../lib/format';
+import { useAppBrand } from '../../lib/brandContext';
 import { submitSetoranWarga, type SetorSubmitStage } from '../../lib/dataService';
 import { compressProofImage, formatFileSize } from '../../lib/imageCompressor';
 
@@ -67,6 +73,7 @@ export function WargaSetorSlide({
   onSuccessSubmit,
   onToast,
 }: WargaSetorSlideProps) {
+  const { brand } = useAppBrand();
   const nominalUnit = profil.nominal_iuran || NOMINAL_IPL_STANDAR;
 
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
@@ -89,13 +96,19 @@ export function WargaSetorSlide({
   useEffect(() => {
     if (preselectedMonth !== null) {
       const st = statusBulanan.find((s) => s.bulan === preselectedMonth);
-      if (!st || (st.status !== 'Lunas' && st.status !== 'Menunggu Verifikasi')) {
+      const effective = resolveEffectiveMonthStatus({
+        dbStatus: st?.status,
+        tahun: TAHUN_AKTIF,
+        bulan: preselectedMonth,
+        billingStart: brand,
+      });
+      if (effective !== 'Lunas' && effective !== 'Menunggu Verifikasi' && effective !== 'Pra-Rilis') {
         setSelectedMonths([preselectedMonth]);
         setManualNominalEdited(false);
       }
       onClearPreselected();
     }
-  }, [preselectedMonth, statusBulanan, onClearPreselected]);
+  }, [preselectedMonth, statusBulanan, onClearPreselected, brand]);
 
   // Terapkan preselectedPetugas jika warga datang dari Profil Lingkungan
   useEffect(() => {
@@ -304,7 +317,16 @@ export function WargaSetorSlide({
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
             {BULAN_LIST.map((b) => {
               const st = statusBulanan.find((s) => s.bulan === b.angka)?.status;
-              const isLocked = st === 'Lunas' || st === 'Menunggu Verifikasi';
+              const effectiveSt = resolveEffectiveMonthStatus({
+                dbStatus: st,
+                tahun: TAHUN_AKTIF,
+                bulan: b.angka,
+                billingStart: brand,
+              });
+              const isLocked =
+                effectiveSt === 'Lunas' ||
+                effectiveSt === 'Menunggu Verifikasi' ||
+                effectiveSt === 'Pra-Rilis';
               const isChecked = selectedMonths.includes(b.angka);
 
               return (
@@ -312,7 +334,7 @@ export function WargaSetorSlide({
                   key={b.angka}
                   className={`relative flex flex-col justify-between rounded-2xl border p-3 min-h-[64px] transition-all select-none ${
                     isLocked
-                      ? 'bg-indigo-50/35 border-indigo-100/70 text-slate-400 cursor-not-allowed'
+                      ? 'bg-slate-100/80 border-slate-200/80 text-slate-400 cursor-not-allowed'
                       : isChecked
                         ? 'bg-indigo-50 border-[#4C1D95] text-[#3b0764] cursor-pointer ring-1 ring-[#4C1D95]'
                         : 'bg-white/90 border-indigo-100/80 text-slate-700 hover:border-indigo-300 cursor-pointer'
@@ -334,11 +356,13 @@ export function WargaSetorSlide({
                     )}
                   </div>
                   <span className="text-[11px] mt-1 leading-tight">
-                    {st === 'Lunas'
+                    {effectiveSt === 'Lunas'
                       ? 'Lunas'
-                      : st === 'Menunggu Verifikasi'
+                      : effectiveSt === 'Menunggu Verifikasi'
                         ? 'Pending'
-                        : b.nama}
+                        : effectiveSt === 'Pra-Rilis'
+                          ? 'Pra-Rilis'
+                          : b.nama}
                   </span>
                 </label>
               );

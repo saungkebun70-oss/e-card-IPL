@@ -13,6 +13,8 @@ import {
   formatDaftarBulan,
   formatTanggal,
   isSameBlockCode,
+  resolveEffectiveMonthStatus,
+  type BillingStartPeriod,
 } from './format';
 
 export interface CashAllocationSummary {
@@ -49,7 +51,11 @@ export function calculateCashAllocation(transaksiList: TransaksiIPL[]): CashAllo
   };
 }
 
-function buildMatrixRows(wargaList: Warga[], statusList: StatusEcardBulanan[]) {
+function buildMatrixRows(
+  wargaList: Warga[],
+  statusList: StatusEcardBulanan[],
+  billingStart?: BillingStartPeriod | null
+) {
   const sortedWarga = [...wargaList].sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
   return sortedWarga.map((w) => {
     const row: Record<string, string | number> = {
@@ -64,7 +70,12 @@ function buildMatrixRows(wargaList: Warga[], statusList: StatusEcardBulanan[]) {
       const st = statusList.find(
         (s) => isSameBlockCode(s.blok_rumah, w.blok_rumah) && s.tahun === TAHUN_AKTIF && s.bulan === b.angka
       );
-      const label = st?.status || 'Belum Tagihan';
+      const label = resolveEffectiveMonthStatus({
+        dbStatus: st?.status,
+        tahun: TAHUN_AKTIF,
+        bulan: b.angka,
+        billingStart,
+      });
       row[b.singkat] = label;
       if (label === 'Lunas') totalLunas += 1;
     }
@@ -101,12 +112,13 @@ function buildCashLedgerRows(transaksiList: TransaksiIPL[]) {
 export function exportLaporanExcel(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[],
-  transaksiList: TransaksiIPL[]
+  transaksiList: TransaksiIPL[],
+  billingStart?: BillingStartPeriod | null
 ) {
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Rekap Matriks 12 Bulan
-  const matrixRows = buildMatrixRows(wargaList, statusList);
+  const matrixRows = buildMatrixRows(wargaList, statusList, billingStart);
   const wsMatrix = XLSX.utils.json_to_sheet(matrixRows);
   XLSX.utils.book_append_sheet(wb, wsMatrix, `Rekap Matriks ${TAHUN_AKTIF}`);
 
@@ -140,9 +152,10 @@ export function exportLaporanExcel(
 export function exportLaporanCsv(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[],
-  transaksiList: TransaksiIPL[]
+  transaksiList: TransaksiIPL[],
+  billingStart?: BillingStartPeriod | null
 ) {
-  const matrixRows = buildMatrixRows(wargaList, statusList);
+  const matrixRows = buildMatrixRows(wargaList, statusList, billingStart);
   const summary = calculateCashAllocation(transaksiList);
 
   const headers = Object.keys(matrixRows[0] || { 'Blok / No. Rumah': '' });

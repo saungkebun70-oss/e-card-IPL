@@ -20,6 +20,8 @@ export type StatusBulanEcard =
   | 'Belum Bayar'
   | 'Belum Tagihan';
 
+export type EffectiveStatusBulanEcard = StatusBulanEcard | 'Pra-Rilis';
+
 export type MetodeBayar = 'QRIS' | 'Transfer Bank' | 'E-Wallet' | 'Setor Tunai';
 
 export type StatusVerifikasi =
@@ -61,6 +63,8 @@ export interface AppBrandConfig {
   wa_pengurus_label: string;
   wa_bot: string;
   pengurus_wa_map: Record<string, string>;
+  billing_start_month?: number;
+  billing_start_year?: number;
   updated_at: string;
   updated_by?: string | null;
 }
@@ -708,6 +712,9 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   updated_by: 'andriansyah',
 };
 
+export const DEFAULT_BILLING_START_MONTH = 11;
+export const DEFAULT_BILLING_START_YEAR = 2026;
+
 export const DEFAULT_APP_BRAND_CONFIG: AppBrandConfig = {
   id: 'default-app-brand',
   app_name: NAMA_APLIKASI,
@@ -719,6 +726,8 @@ export const DEFAULT_APP_BRAND_CONFIG: AppBrandConfig = {
   wa_pengurus_label: 'Andriansyah (Bendahara)',
   wa_bot: '',
   pengurus_wa_map: {},
+  billing_start_month: DEFAULT_BILLING_START_MONTH,
+  billing_start_year: DEFAULT_BILLING_START_YEAR,
   updated_at: '2026-11-01T07:00:00.000Z',
   updated_by: 'andriansyah',
 };
@@ -819,6 +828,56 @@ export const WA_BOT_PRESET_TEMPLATES: Array<{
     template: WA_PENGURUS_ACCESS_TEMPLATE_DEFAULT,
   },
 ];
+
+export const WA_PIN_WARGA_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama} (Blok {blok}),
+
+Berikut informasi akses akun resmi *Portal e-Card IPL Digital Perumahan Saung Kebun*:
+
+🌐 *Link Portal Warga:* {link}
+🏠 *Username (Blok/No. Rumah):* {blok}
+🔐 *PIN Akses (6 Digit):* {pin}
+
+*Panduan Login Warga:*
+1. Buka aplikasi atau kunjungi {link}
+2. Pilih tab *Warga*, masukkan Blok/No. Rumah *{blok}*
+3. Masukkan PIN *{pin}* untuk cek e-Card bulanan, setor IPL & unduh kwitansi digital.
+
+Mohon simpan PIN ini dengan baik dan jangan dibagikan kepada pihak lain.
+Terima kasih,
+*Pengurus Lingkungan Perumahan Saung Kebun*`;
+
+export const WA_PIN_PENGURUS_TEMPLATE_DEFAULT = `Yth. Bapak/Ibu {nama} ({jabatan}),
+
+Berikut informasi akses resmi *Portal Pengurus / Admin — e-Card IPL Perumahan Saung Kebun*:
+
+🔗 *Link Portal Pengurus:* {link}
+👤 *Username / Nama Login:* {username}
+🛡️ *Jabatan:* {jabatan}
+🔐 *PIN Akses (6 Digit):* {pin}
+
+*Panduan Login Pengurus:*
+1. Buka {link}
+2. Masuk menggunakan Username *{username}* dan PIN *{pin}*
+3. Kelola verifikasi setoran IPL, buku kas, LPJ triwulan, dan koordinasi keamanan.
+
+⚠️ Mohon jaga kerahasiaan akun pengurus dan jangan bagikan PIN ini ke pihak lain.
+*Pengurus Lingkungan Perumahan Saung Kebun*`;
+
+export const WA_PIN_KEAMANAN_TEMPLATE_DEFAULT = `Yth. Bapak {nama} ({jabatan}),
+
+Berikut informasi akses resmi *Portal Anggota Keamanan — Perumahan Saung Kebun*:
+
+🔗 *Link Portal Keamanan:* {link}
+👮 *Username / Nama Petugas:* {username}
+🔐 *PIN Akses (6 Digit):* {pin}
+
+*Panduan Login Anggota Keamanan:*
+1. Buka {link} (atau pilih mode *Keamanan* di aplikasi)
+2. Masukkan Nama/Username *{username}* dan PIN *{pin}*
+3. Gunakan portal untuk absensi shift, scan checkpoint NFC/RFID, dan pelaporan patroli.
+
+Terima kasih atas dedikasi menjaga keamanan lingkungan Saung Kebun.
+*Pengurus Lingkungan Perumahan Saung Kebun*`;
 
 // =========================================================================
 // Modul 1: Pengaturan Sistem Terpusat, Delegasi Bendahara & Eksklusivitas Akun

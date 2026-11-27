@@ -25,12 +25,17 @@ import {
   UserCircle2,
   HardDrive,
   SlidersHorizontal,
+  Calendar,
 } from 'lucide-react';
 import {
+  BULAN_LIST,
   DEFAULT_APP_BRAND_CONFIG,
+  DEFAULT_BILLING_START_MONTH,
+  DEFAULT_BILLING_START_YEAR,
   isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
   SUSUNAN_PENGURUS,
+  TAHUN_AKTIF,
   type AppBrandConfig,
   type AuditLogEntry,
   type BotWaConfig,
@@ -62,7 +67,12 @@ import {
   deleteAuditLogEntry,
   fetchAuditLogs,
 } from '../../lib/auditLogger';
-import { formatRupiah, formatTanggalWaktu, normalizeWaNumber } from '../../lib/format';
+import {
+  formatBillingStartLabel,
+  formatRupiah,
+  formatTanggalWaktu,
+  normalizeWaNumber,
+} from '../../lib/format';
 import { BrandLogo } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { AdminBotWaSlide } from './AdminBotWaSlide';
@@ -337,6 +347,8 @@ export function AdminSettingsDrawer({
         wa_pengurus_label: brandDraft.wa_pengurus_label,
         wa_bot: brandDraft.wa_bot,
         pengurus_wa_map: brandDraft.pengurus_wa_map,
+        billing_start_month: brandDraft.billing_start_month ?? DEFAULT_BILLING_START_MONTH,
+        billing_start_year: brandDraft.billing_start_year ?? DEFAULT_BILLING_START_YEAR,
       });
       if (res.error || !res.data) {
         onToast('error', res.error || 'Gagal menyimpan identitas & stempel.');
@@ -512,7 +524,7 @@ export function AdminSettingsDrawer({
                   id: 'bot_wa' as const,
                   label: 'Bot WA',
                   icon: Bot,
-                  locked: !canAccessSystemIntegrations,
+                  locked: session.role !== 'admin' || session.is_active_pengurus === false,
                 },
                 {
                   id: 'arsip_drive' as const,
@@ -873,6 +885,98 @@ export function AdminSettingsDrawer({
                     onChange={(e) => setBrandDraft((p) => ({ ...p, kop_resmi: e.target.value }))}
                     className="w-full rounded-xl border border-slate-300 p-3 text-sm disabled:bg-slate-100 resize-none"
                   />
+                </div>
+              </div>
+
+              {/* Bulan & Tahun Mulai Penagihan Aktif (Filter Pra-Rilis) */}
+              <div className="glass-card rounded-3xl p-5 space-y-4 border border-emerald-200/80 bg-emerald-50/25">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-[#0F172A]">
+                      Bulan &amp; Tahun Mulai Penagihan (Start Aplikasi)
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Bulan sebelum periode mulai penagihan otomatis dianggap{' '}
+                      <strong>Pra-Rilis (Belum Berlaku)</strong> dan tidak dihitung sebagai
+                      Belum Setor maupun Tunggakan di e-Card Warga, Matriks 12 Bulan, LPJ, dan Bot
+                      WhatsApp.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="billing-start-month"
+                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                    >
+                      Bulan Mulai Penagihan Aktif
+                    </label>
+                    <select
+                      id="billing-start-month"
+                      disabled={!canEditResidentsBlocks}
+                      value={brandDraft.billing_start_month ?? DEFAULT_BILLING_START_MONTH}
+                      onChange={(e) =>
+                        setBrandDraft((p) => ({
+                          ...p,
+                          billing_start_month: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A] disabled:bg-slate-100"
+                    >
+                      {BULAN_LIST.map((b) => (
+                        <option key={b.angka} value={b.angka}>
+                          {b.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="billing-start-year"
+                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                    >
+                      Tahun Mulai Penagihan
+                    </label>
+                    <select
+                      id="billing-start-year"
+                      disabled={!canEditResidentsBlocks}
+                      value={brandDraft.billing_start_year ?? DEFAULT_BILLING_START_YEAR}
+                      onChange={(e) =>
+                        setBrandDraft((p) => ({
+                          ...p,
+                          billing_start_year: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A] disabled:bg-slate-100"
+                    >
+                      {[2026, 2027, 2028]
+                        .concat(
+                          [TAHUN_AKTIF].filter((y) => y < 2026 || y > 2028)
+                        )
+                        .sort((a, b) => a - b)
+                        .map((yr) => (
+                          <option key={yr} value={yr}>
+                            {yr}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white/85 border border-emerald-200/80 px-3.5 py-2.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    Penagihan aktif dimulai:{' '}
+                    <strong className="text-emerald-800">
+                      {formatBillingStartLabel(brandDraft)}
+                    </strong>
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Periode sebelumnya = Pra-Rilis
+                  </span>
                 </div>
               </div>
 
@@ -1257,19 +1361,18 @@ export function AdminSettingsDrawer({
             </form>
           )}
 
-          {/* TAB 3: KONFIGURASI BOT WHATSAPP (settings.system_integrations) */}
-          {activeTab === 'bot_wa' && !canAccessSystemIntegrations && (
+          {/* TAB 3: KONFIGURASI BOT WHATSAPP & KIRIM AKUN/PIN (PENGURUS AKTIF) */}
+          {activeTab === 'bot_wa' &&
+            (session.role !== 'admin' || session.is_active_pengurus === false) && (
             <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
               <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
               <h3 className="text-base font-bold text-[#0F172A]">
-                Terkunci — Atur oleh Bendahara
+                Akses Dibatasi — Khusus Pengurus Aktif
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Modul <span className="font-mono font-semibold">settings.system_integrations</span>{' '}
-                (Bot WhatsApp Gateway &amp; Arsip Drive) hanya dapat diakses Bendahara atau Pengurus
-                yang diberi izin.
+                Modul Bot WhatsApp &amp; Pengiriman Akun/PIN hanya dapat diakses oleh pengurus aktif.
               </p>
               <button
                 type="button"
@@ -1281,15 +1384,19 @@ export function AdminSettingsDrawer({
             </div>
           )}
 
-          {activeTab === 'bot_wa' && canAccessSystemIntegrations && (
+          {activeTab === 'bot_wa' &&
+            session.role === 'admin' &&
+            session.is_active_pengurus !== false && (
             <AdminBotWaSlide
               session={session}
               botConfig={botConfig}
               botLogs={botLogs}
               wargaList={wargaList}
               pengurusAccounts={pengurusAccounts}
+              petugasList={petugasList}
               statusList={statusList}
               paymentConfig={paymentConfig}
+              canManageOverride={canAccessSystemIntegrations}
               onRefresh={onRefresh}
               onToast={onToast}
             />

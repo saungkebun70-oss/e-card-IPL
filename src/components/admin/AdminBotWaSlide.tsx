@@ -32,6 +32,7 @@ import {
   type BotWaLog,
   type PaymentConfig,
   type PengurusAccountInfo,
+  type PetugasKeamanan,
   type SessionUser,
   type StatusEcardBulanan,
   type Warga,
@@ -56,6 +57,7 @@ import {
 import { generateBotAutoReply } from '../../lib/botAutoReply';
 import { useAppBrand } from '../../lib/brandContext';
 import { PanduanBotWaModal } from '../warga/PanduanBotWaModal';
+import { WaPinDistributionPanel } from './WaPinDistributionPanel';
 
 interface AdminBotWaSlideProps {
   session: SessionUser;
@@ -63,6 +65,7 @@ interface AdminBotWaSlideProps {
   botLogs: BotWaLog[];
   wargaList: Warga[];
   pengurusAccounts?: PengurusAccountInfo[];
+  petugasList?: PetugasKeamanan[];
   statusList: StatusEcardBulanan[];
   paymentConfig?: PaymentConfig;
   canManageOverride?: boolean;
@@ -76,6 +79,7 @@ export function AdminBotWaSlide({
   botLogs,
   wargaList,
   pengurusAccounts,
+  petugasList = [],
   statusList,
   paymentConfig,
   canManageOverride,
@@ -83,6 +87,7 @@ export function AdminBotWaSlide({
   onToast,
 }: AdminBotWaSlideProps) {
   const { brand } = useAppBrand();
+  const isActivePengurus = session.role === 'admin' && session.is_active_pengurus !== false;
   const canManageFull =
     canManageOverride !== undefined ? canManageOverride : isBendaharaOnly(session);
   const [config, setConfig] = useState<BotWaConfig>(botConfig);
@@ -105,6 +110,7 @@ export function AdminBotWaSlide({
       wargaList,
       statusList,
       paymentConfig,
+      billingStart: brand,
       senderName: 'Warga Saung Kebun',
       simulatedRole: 'warga',
     });
@@ -142,6 +148,7 @@ export function AdminBotWaSlide({
       wargaList,
       statusList,
       paymentConfig,
+      billingStart: brand,
       senderName: session.nama_warga,
       simulatedRole: roleToUse,
     });
@@ -199,6 +206,7 @@ export function AdminBotWaSlide({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageFull) return;
     setSaving(true);
     try {
       const res = await saveBotWaConfigAdmin(session, config);
@@ -216,7 +224,7 @@ export function AdminBotWaSlide({
   const handleSendNow = async () => {
     setSending(true);
     try {
-      const res = await triggerManualWaReminderAdmin(session, config, wargaList, statusList);
+      const res = await triggerManualWaReminderAdmin(session, config, wargaList, statusList, brand);
       if (res.error) {
         onToast('error', res.error);
       } else if (res.data) {
@@ -287,15 +295,15 @@ export function AdminBotWaSlide({
       'Akses Pengurus (Monitoring Setoran, Tambah Warga & Input Setoran Tunai)'
     );
 
-  if (!canManageFull) {
+  if (!isActivePengurus) {
     return (
       <div className="rounded-3xl bg-[#FEF3C7]/90 border border-amber-200 p-6 text-center space-y-2">
         <p className="text-sm font-bold text-amber-950">
-          Akses Terbatas — Khusus Bendahara
+          Akses Terbatas — Khusus Pengurus Aktif
         </p>
         <p className="text-xs text-amber-800 max-w-md mx-auto leading-relaxed">
-          Pengaturan gateway, jadwal pengingat, template pesan, dan blast Bot WhatsApp hanya dapat
-          diakses dan dikelola oleh akun <strong>Bendahara</strong>.
+          Modul Bot WhatsApp &amp; pengiriman informasi akun/PIN hanya dapat diakses oleh pengurus
+          aktif.
         </p>
       </div>
     );
@@ -323,11 +331,24 @@ export function AdminBotWaSlide({
         </button>
       </div>
 
+      {/* Panel Terpisah: Kirim Informasi Akun & PIN via WhatsApp (Fonnte) */}
+      <WaPinDistributionPanel
+        session={session}
+        botConfig={config}
+        wargaList={wargaList}
+        pengurusAccounts={pengurusAccounts}
+        petugasList={petugasList}
+        onRefresh={onRefresh}
+        onToast={onToast}
+      />
+
       {!canManageFull && (
         <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 px-4 py-3 text-xs text-slate-700">
-          <span className="font-semibold text-[#0F172A]">Mode Baca ({session.jabatan || 'Pengurus'}):</span>{' '}
-          Pengubahan pengaturan Bot WhatsApp dan pengiriman pengingat massal khusus akun{' '}
-          <span className="font-semibold">Bendahara</span>.
+          <span className="font-semibold text-[#0F172A]">Mode Baca Gateway ({session.jabatan || 'Pengurus'}):</span>{' '}
+          Pengubahan API Token Gateway, jadwal pengingat otomatis, dan blast pengingat tagihan
+          dikelola oleh <strong>Bendahara</strong> atau pengurus yang diberi izin{' '}
+          <span className="font-mono font-semibold">settings.system_integrations</span>. Pengiriman
+          informasi Akun &amp; PIN di atas tetap dapat digunakan oleh pengurus aktif.
         </div>
       )}
 
