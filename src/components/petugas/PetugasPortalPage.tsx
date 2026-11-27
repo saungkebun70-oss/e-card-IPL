@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { Icon3D, type Icon3DName } from '../Icon3D';
+import { Navbar3D } from '../Navbar3D';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   SUSUNAN_PENGURUS,
@@ -2291,191 +2292,36 @@ export function PetugasPortalPage({
         onToast={onToast}
       />
 
-      {/* FLOATING BOTTOM NAVIGATION DOCK — MOBILE & TABLET (< lg) */}
-      <nav
-        aria-label="Navigasi Bawah Floating Orb Dock Petugas"
-        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-[#FFFDF8]/92 backdrop-blur-2xl border border-[#E6E2D6] shadow-[0_14px_38px_-8px_rgba(36,56,37,0.22)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
-      >
-        {/* 1. Pos Jaga / Info & Shift */}
-        <button
-          type="button"
-          onClick={() => handleSelectTab('info')}
-          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'info' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
-          }`}
-        >
-          <Icon3D
-            name="keamanan"
-            className={`w-6 h-6 rounded-lg transition-transform duration-150 ${
-              activeTab === 'info' ? 'scale-110 shadow-xs' : 'opacity-85'
-            }`}
-          />
-          <span
-            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'info' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
-            }`}
-          >
-            Pos Jaga
-          </span>
-          <span
-            aria-hidden="true"
-            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-              activeTab === 'info'
-                ? 'bg-[#2B3F29] opacity-100 scale-100'
-                : 'bg-transparent opacity-0 scale-0'
-            }`}
-          />
-        </button>
-
-        {/* 2. Patroli / Riwayat */}
-        <button
-          type="button"
-          onClick={() => handleSelectTab('riwayat')}
-          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'riwayat' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
-          }`}
-        >
-          <Icon3D
-            name="rekap"
-            className={`w-6 h-6 rounded-lg transition-transform duration-150 ${
-              activeTab === 'riwayat' ? 'scale-110 shadow-xs' : 'opacity-85'
-            }`}
-          />
-          <span
-            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'riwayat' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
-            }`}
-          >
-            Patroli
-          </span>
-          <span
-            aria-hidden="true"
-            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-              activeTab === 'riwayat'
-                ? 'bg-[#2B3F29] opacity-100 scale-100'
-                : 'bg-transparent opacity-0 scale-0'
-            }`}
-          />
-        </button>
-
-        {/* 3. CENTER FLOATING ORB: PEMICU SCAN WEB NFC */}
-        <div className="flex flex-col items-center justify-center relative">
-          <button
-            type="button"
-            disabled={submittingPatroli}
-            onClick={handleCenterScanFabClick}
-            aria-label={
-              scanningNfc
-                ? 'Hentikan Mode Scan NFC Patroli'
-                : 'Aktifkan Scan NFC Checkpoint Patroli'
-            }
-            aria-pressed={scanningNfc}
-            className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full text-[#FFFDF8] shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-[#FFFDF8] relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
-              scanningNfc
-                ? 'bg-gradient-to-tr from-[#2B3F29] to-[#384E35] shadow-[#243825]/40 scale-[1.06] before:border-[#384E35]/50 before:bg-[#E5EEE3]/40'
-                : activeTab === 'scan'
-                  ? 'bg-gradient-to-tr from-[#243825] to-[#384E35] shadow-[#243825]/35 scale-[1.04] before:border-[#C6D2BF] before:bg-[#E5EEE3]/30'
-                  : 'bg-gradient-to-tr from-[#243825] to-[#2B3F29] shadow-[#243825]/25 hover:scale-[1.02] before:border-[#C6D2BF]/80 before:bg-[#E5EEE3]/20'
-            }`}
-          >
-            {scanningNfc && (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="absolute -inset-2 rounded-full bg-[#384E35]/40 animate-ping pointer-events-none"
-                />
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-0 rounded-full bg-[#C6D2BF]/40 animate-ping [animation-delay:300ms] pointer-events-none"
-                />
-              </>
-            )}
-            {submittingPatroli ? (
-              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 relative z-10 animate-spin shrink-0" />
-            ) : (
-              <Icon3D
-                name="scan_nfc"
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl relative z-10 shadow-xs ${
-                  scanningNfc ? 'animate-pulse' : ''
-                }`}
-              />
-            )}
-            <span className="text-[9px] font-bold tracking-wide leading-none text-[#E5EEE3] relative z-10">
-              {submittingPatroli ? 'Simpan' : scanningNfc ? 'Aktif' : 'Scan'}
-            </span>
-          </button>
-          <span
-            aria-hidden="true"
-            className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all duration-200 ${
-              activeTab === 'scan' || scanningNfc
-                ? 'bg-[#2B3F29] opacity-100 scale-100'
-                : 'bg-transparent opacity-0 scale-0'
-            }`}
-          />
-        </div>
-
-        {/* 4. Honor & Lembur */}
-        <button
-          type="button"
-          onClick={() => handleSelectTab('honor')}
-          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'honor' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
-          }`}
-        >
-          <Wallet
-            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
-              activeTab === 'honor' ? 'scale-105' : ''
-            }`}
-            strokeWidth={activeTab === 'honor' ? 2.4 : 1.9}
-          />
-          <span
-            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'honor' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
-            }`}
-          >
-            Honor
-          </span>
-          <span
-            aria-hidden="true"
-            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-              activeTab === 'honor'
-                ? 'bg-[#2B3F29] opacity-100 scale-100'
-                : 'bg-transparent opacity-0 scale-0'
-            }`}
-          />
-        </button>
-
-        {/* 5. Peta Patroli */}
-        <button
-          type="button"
-          onClick={() => handleSelectTab('peta')}
-          className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'peta' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
-          }`}
-        >
-          <MapIcon
-            className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
-              activeTab === 'peta' ? 'scale-105' : ''
-            }`}
-            strokeWidth={activeTab === 'peta' ? 2.4 : 1.9}
-          />
-          <span
-            className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'peta' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
-            }`}
-          >
-            Peta
-          </span>
-          <span
-            aria-hidden="true"
-            className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-              activeTab === 'peta'
-                ? 'bg-[#2B3F29] opacity-100 scale-100'
-                : 'bg-transparent opacity-0 scale-0'
-            }`}
-          />
-        </button>
-      </nav>
+      {/* FLOATING BOTTOM NAVIGATION DOCK — NB2 3D SOFT PORCELAIN (MOBILE & TABLET < lg) */}
+      <Navbar3D
+        ariaLabel="Navigasi Bawah Floating Orb Dock Petugas"
+        activeId={scanningNfc ? 'scan' : activeTab}
+        onSelect={(id) => {
+          if (id === 'scan') {
+            handleCenterScanFabClick();
+          } else {
+            handleSelectTab(id as PetugasTab);
+          }
+        }}
+        items={[
+          { id: 'info', label: 'Pos Jaga & Shift', shortLabel: 'Pos Jaga', icon: Shield, icon3d: 'keamanan' },
+          { id: 'riwayat', label: 'Riwayat Patroli', shortLabel: 'Patroli', icon: ClipboardList, icon3d: 'rekap' },
+          {
+            id: 'scan',
+            label: scanningNfc ? 'Hentikan Mode Scan NFC Patroli' : 'Aktifkan Scan NFC Checkpoint Patroli',
+            shortLabel: submittingPatroli ? 'Simpan' : scanningNfc ? 'Aktif' : 'Scan',
+            icon: Radio,
+            icon3d: 'scan_nfc',
+            isCenterFab: true,
+            disabled: submittingPatroli,
+            ariaPressed: scanningNfc,
+            isScanning: scanningNfc,
+            isLoading: submittingPatroli,
+          },
+          { id: 'honor', label: 'Honor & Lembur', shortLabel: 'Honor', icon: Wallet },
+          { id: 'peta', label: 'Peta Patroli', shortLabel: 'Peta', icon: MapIcon },
+        ]}
+      />
 
       {selectedHonorTrx && (
         <KwitansiDigitalModal

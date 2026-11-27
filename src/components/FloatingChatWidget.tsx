@@ -6,6 +6,7 @@ import type { SessionUser } from '../types';
 import type { ChatRoomId } from '../lib/chatService';
 import { CommunityChatSlide } from './CommunityChatSlide';
 import { Icon3D } from './Icon3D';
+import { ChatFab3DEmblem } from './Navbar3D';
 
 interface FloatingChatWidgetProps {
   session: SessionUser;
@@ -55,7 +56,7 @@ function readSafeAreaInsets(): { top: number; bottom: number; left: number; righ
 }
 
 function getButtonSizeForViewport(vw: number): number {
-  return vw >= 640 ? 52 : 48;
+  return vw >= 640 ? 56 : 52;
 }
 
 function getSafeBounds(btnSize: number, vw: number, vh: number) {
@@ -492,18 +493,18 @@ export function FloatingChatWidget({
               }
             : { touchAction: 'none' }
         }
-        className={`fixed z-[42] h-12 w-12 sm:h-13 sm:w-13 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] flex items-center justify-center select-none touch-none no-print ${
-          pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.15rem)] lg:bottom-6'
+        className={`nb2-chat-fab fixed z-[42] h-[52px] w-[52px] sm:h-14 sm:w-14 rounded-full text-[#FFFDF8] flex items-center justify-center select-none touch-none no-print ${
+          pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.35rem)] lg:bottom-6'
         } ${
           isDragging
-            ? 'scale-110 shadow-[0_18px_36px_-6px_rgba(36,56,37,0.55)] ring-4 ring-[#E5EEE3] cursor-grabbing transition-none'
-            : 'shadow-[0_12px_28px_-6px_rgba(36,56,37,0.45)] ring-2 ring-[#FFFDF8] hover:scale-105 active:scale-95 transition-transform duration-150 cursor-grab'
+            ? 'scale-110 ring-4 ring-[#E5EEE3] cursor-grabbing transition-none'
+            : 'hover:scale-105 active:scale-95 transition-transform duration-150 cursor-grab'
         }`}
       >
         {isOpen ? (
           <X className="w-5 h-5 pointer-events-none" />
         ) : (
-          <Icon3D name="chat_cepat" className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-xs" />
+          <ChatFab3DEmblem className="w-8 h-8 sm:w-9 sm:h-9" />
         )}
         {!isOpen && unreadCount > 0 && (
           <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#FFFDF8] shadow-xs">

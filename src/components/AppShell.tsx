@@ -15,6 +15,7 @@ import { formatBlokRumah } from '../lib/format';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { Icon3D, type Icon3DName } from './Icon3D';
+import { Navbar3D } from './Navbar3D';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
 import bgHeaderAsset from '../assets/bg-header.jpg';
@@ -859,93 +860,13 @@ export function AppShell({
         onToast={onToast}
       />
 
-      {/* FLOATING BOTTOM DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
-      <nav
-        aria-label="Navigasi Bawah Floating Dock"
-        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-[#FFFDF8]/95 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_14px_34px_-10px_rgba(36,56,37,0.22)] px-2 sm:px-3.5 py-1.5 grid grid-cols-5 items-center z-40 no-print"
-      >
-        {bottomDockItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.id === activeTab;
-          const dockLabel = item.id === 'dashboard' ? 'Dasbor' : item.shortLabel;
-
-          if (item.isCenterFab) {
-            return (
-              <div key={item.id} className="flex flex-col items-center justify-center relative">
-                <button
-                  type="button"
-                  onClick={() => onTabChange(item.id)}
-                  aria-label={item.label}
-                  title={item.label}
-                  className={`w-14 h-14 sm:w-15 sm:h-15 -mt-6 sm:-mt-7 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] shadow-lg shadow-[#243825]/30 flex flex-col items-center justify-center gap-0.5 ring-4 ring-[#FFFDF8] relative cursor-pointer transition-all duration-200 active:scale-95 ${
-                    isActive ? 'scale-[1.04] ring-[#E5EEE3]' : 'hover:scale-[1.02]'
-                  }`}
-                >
-                  {item.icon3d ? (
-                    <Icon3D name={item.icon3d} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm" />
-                  ) : (
-                    <Icon className="w-5 h-5 shrink-0" strokeWidth={2.4} />
-                  )}
-                  <span className="text-[9px] font-bold tracking-wide leading-none text-[#FFFDF8]">
-                    {dockLabel}
-                  </span>
-                </button>
-                <span
-                  aria-hidden="true"
-                  className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-                    isActive ? 'bg-[#2B3F29] opacity-100 scale-100' : 'bg-transparent opacity-0 scale-0'
-                  }`}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onTabChange(item.id)}
-              className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-                isActive ? 'bg-[#E5EEE3] text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
-              }`}
-            >
-              <div className="relative">
-                {item.icon3d ? (
-                  <Icon3D
-                    name={item.icon3d}
-                    className={`w-[22px] h-[22px] sm:w-[24px] sm:h-[24px] rounded-md transition-transform duration-150 ${
-                      isActive ? 'scale-105' : ''
-                    }`}
-                  />
-                ) : (
-                  <Icon
-                    className="w-[18px] h-[18px] sm:w-[19px] sm:h-[19px]"
-                    strokeWidth={isActive ? 2.4 : 1.9}
-                  />
-                )}
-                {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-[#C87058] text-white text-[9px] font-bold font-mono flex items-center justify-center tabular-nums shadow-xs">
-                    {item.badgeCount > 9 ? '9+' : item.badgeCount}
-                  </span>
-                )}
-              </div>
-              <span
-                className={`text-[10.5px] mt-0.5 leading-none truncate max-w-full ${
-                  isActive ? 'font-bold text-[#243825]' : 'font-medium text-[#5A665A]'
-                }`}
-              >
-                {dockLabel}
-              </span>
-              <span
-                aria-hidden="true"
-                className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-                  isActive ? 'bg-[#2B3F29] opacity-100 scale-100' : 'bg-transparent opacity-0 scale-0'
-                }`}
-              />
-            </button>
-          );
-        })}
-      </nav>
+      {/* FLOATING BOTTOM DOCK — NB2 3D SOFT PORCELAIN (MOBILE & TABLET < lg) */}
+      <Navbar3D
+        items={bottomDockItems}
+        activeId={activeTab}
+        onSelect={onTabChange}
+        ariaLabel="Navigasi Bawah Floating Dock"
+      />
     </div>
   );
 }
