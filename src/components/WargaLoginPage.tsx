@@ -263,17 +263,16 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
     : '';
 
   return (
-    <div className="relative min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto text-[#FFFDF8]">
+    <div className="relative isolate z-0 min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto bg-[#243825] text-[#FFFDF8]">
       {/* Background Foto Penuh Fasad Rumah Saung Kebun + Overlay Hijau Lumut */}
-      <div className="fixed inset-0 -z-10">
+      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none">
         <img
           src={LOGIN_BG_SRC}
-          alt="Fasad Rumah & Taman Perumahan Saung Kebun"
+          alt=""
           className="w-full h-full object-cover object-center"
         />
         <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-[#172618]/80 via-[#243825]/60 to-[#142015]/92"
+          className="absolute inset-0 bg-gradient-to-b from-[#172618]/68 via-[#243825]/45 to-[#142015]/84"
         />
       </div>
 
