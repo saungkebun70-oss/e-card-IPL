@@ -81,6 +81,10 @@ import {
   useCentralSettingsAccess,
   type CentralSettingPermissionMap,
 } from '../../lib/accessControl';
+import {
+  setDriveAutoRefreshSession,
+  startDriveAutoRefreshWatcher,
+} from '../../lib/googleDriveAutoRefresh';
 
 export type SettingsDrawerTab =
   | 'profil'
@@ -239,6 +243,20 @@ export function AdminSettingsDrawer({
       .finally(() => setLoadingLogs(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, activeTab, session.blok_rumah, canAccessReportsAudit]);
+
+  useEffect(() => {
+    setDriveAutoRefreshSession(session);
+  }, [session]);
+
+  useEffect(() => {
+    const canManageDriveOAuth =
+      isBendahara || session.jabatan === 'Ketua' || canAccessSystemIntegrations;
+
+    return startDriveAutoRefreshWatcher({
+      session,
+      enabled: open && canManageDriveOAuth,
+    });
+  }, [open, session, isBendahara, canAccessSystemIntegrations]);
 
   useEffect(() => {
     if (!open) return;

@@ -22,7 +22,6 @@ import type { User } from 'firebase/auth';
 import {
   cancelPendingExternalGoogleOAuth,
   checkFirebaseDomainAuthorization,
-  connectGoogleDriveViaServer,
   DRIVE_TARGET_EMAIL,
   FIREBASE_AUTH_SETTINGS_URL,
   getGoogleDriveAccessToken,
@@ -35,6 +34,11 @@ import {
   type DomainAuthCheckResult,
   type DriveConnectedAccount,
 } from '../../lib/googleDriveAuth';
+import {
+  ensureFreshGoogleDriveToken,
+  refreshGoogleDriveTokenViaEdge,
+  setDriveAutoRefreshSession,
+} from '../../lib/googleDriveAutoRefresh';
 import {
   backupDatabaseSnapshotToDrive,
   deleteHybridDriveFile,
@@ -199,7 +203,11 @@ export function AdminHybridDrivePanel({
   );
 
   const loadDriveWorkspace = useCallback(
-    async (token: string, filter: HybridFolderKey | 'all' = folderFilter) => {
+    async (
+      token: string,
+      filter: HybridFolderKey | 'all' = folderFilter,
+      allowAutoRefreshRetry = true
+    ) => {
       setLoadingDriveInfo(true);
       setLoadingFiles(true);
       try {
@@ -212,6 +220,20 @@ export function AdminHybridDrivePanel({
         setDriveFiles(files);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Gagal memuat status Google Drive.';
+        if (allowAutoRefreshRetry && canManage && msg.includes('Sesi Google Drive telah berakhir')) {
+          const refreshedToken = await ensureFreshGoogleDriveToken(session, {
+            force: true,
+            respectExplicitLogout: true,
+            reason: 'workspace_load_expired',
+          });
+          if (refreshedToken) {
+            setConnectedAccount(getGoogleDriveConnectedAccount());
+            setAccessToken(refreshedToken);
+            setNeedsAuth(false);
+            await loadDriveWorkspace(refreshedToken, filter, false);
+            return;
+          }
+        }
         onToast('error', msg);
         if (msg.includes('Sesi Google Drive telah berakhir')) {
           setAccessToken(null);
@@ -222,8 +244,12 @@ export function AdminHybridDrivePanel({
         setLoadingFiles(false);
       }
     },
-    [folderFilter, onToast]
+    [folderFilter, onToast, canManage, session]
   );
+
+  useEffect(() => {
+    setDriveAutoRefreshSession(session);
+  }, [session]);
 
   useEffect(() => {
     const unsub = initGoogleDriveAuth(
@@ -254,8 +280,14 @@ export function AdminHybridDrivePanel({
         }
       }
 
-      // 2. Cek token yang sudah aktif di memori sesi
-      const existingToken = await getGoogleDriveAccessToken();
+      // 2. Cek token yang sudah aktif di memori sesi; segarkan otomatis jika hampir kedaluwarsa
+      const existingToken = canManage
+        ? await ensureFreshGoogleDriveToken(session, {
+            respectExplicitLogout: true,
+            reason: 'hybrid_panel_bootstrap',
+          })
+        : await getGoogleDriveAccessToken();
+
       if (existingToken) {
         setConnectedAccount(getGoogleDriveConnectedAccount());
         setAccessToken(existingToken);
@@ -264,12 +296,15 @@ export function AdminHybridDrivePanel({
         return;
       }
 
-      // 3. Jalur Utama Otomatis di APK/iOS (dan Web bila diizinkan):
-      //    Hubungkan langsung lewat OAuth2 Server tanpa popup login Google
+      // 3. Jalur Utama Otomatis di APK/iOS:
+      //    Hubungkan langsung lewat Edge Function / OAuth2 Server tanpa popup login Google
       if (canManage && embeddedMode) {
         try {
           setConnectingServer(true);
-          const srv = await connectGoogleDriveViaServer(session);
+          const srv = await refreshGoogleDriveTokenViaEdge(session, {
+            force: true,
+            reason: 'embedded_auto_bootstrap',
+          });
           setConnectedAccount(srv.account);
           setAccessToken(srv.accessToken);
           setNeedsAuth(false);
@@ -331,7 +366,10 @@ export function AdminHybridDrivePanel({
     setConnectingServer(true);
     setSignInErrorMsg(null);
     try {
-      const { account, accessToken: token } = await connectGoogleDriveViaServer(session);
+      const { account, accessToken: token } = await refreshGoogleDriveTokenViaEdge(session, {
+        force: true,
+        reason: 'manual_server_connect',
+      });
       setGoogleUser(null);
       setConnectedAccount(account);
       setAccessToken(token);
@@ -832,11 +870,13 @@ export function AdminHybridDrivePanel({
                       : 'bg-amber-100 text-amber-900 border border-amber-300'
                   }`}
                 >
-                  {connectedAccount?.source === 'server_oauth2'
-                    ? 'Terhubung via OAuth2 Server'
-                    : isTargetEmailMatched
-                      ? 'Sesuai Akun Pusat Saung Kebun'
-                      : `Bukan ${DRIVE_TARGET_EMAIL}`}
+                  {connectedAccount?.source === 'supabase_edge_function'
+                    ? 'Terhubung via Edge Function'
+                    : connectedAccount?.source === 'server_oauth2'
+                      ? 'Terhubung via OAuth2 Server'
+                      : isTargetEmailMatched
+                        ? 'Sesuai Akun Pusat Saung Kebun'
+                        : `Bukan ${DRIVE_TARGET_EMAIL}`}
                 </span>
                 {!isTargetEmailMatched && (
                   <button

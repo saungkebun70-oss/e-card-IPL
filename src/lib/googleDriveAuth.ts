@@ -19,7 +19,11 @@ export const FIREBASE_AUTH_SETTINGS_URL = `https://console.firebase.google.com/p
 
 export const SCOPES = ['https://www.googleapis.com/auth/drive.file'] as const;
 
-export type DriveAuthSource = 'firebase_popup' | 'server_oauth2' | 'external_browser_oauth';
+export type DriveAuthSource =
+  | 'firebase_popup'
+  | 'server_oauth2'
+  | 'supabase_edge_function'
+  | 'external_browser_oauth';
 
 export interface DriveConnectedAccount {
   email: string;
@@ -64,6 +68,7 @@ let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 let cachedConnectedAccount: DriveConnectedAccount | null = null;
 let cachedDomainCheck: DomainAuthCheckResult | null = null;
+let explicitlyLoggedOut = false;
 
 type AuthListener = {
   onSuccess?: (user: User | null, token: string, account?: DriveConnectedAccount | null) => void;
@@ -345,8 +350,28 @@ function setConnectedSession(params: {
 
   cachedAccessToken = params.accessToken;
   cachedConnectedAccount = account;
+  explicitlyLoggedOut = false;
   notifyAuthSuccess(params.firebaseUser ?? null, params.accessToken, account);
   return account;
+}
+
+export function applyRefreshedGoogleDriveSession(params: {
+  accessToken: string;
+  email?: string | null;
+  displayName?: string | null;
+  photoLink?: string | null;
+  source?: DriveAuthSource;
+  expiresIn?: number;
+}): DriveConnectedAccount {
+  return setConnectedSession({
+    accessToken: params.accessToken,
+    email: params.email || DRIVE_TARGET_EMAIL,
+    displayName: params.displayName || 'Google Drive Pusat Saung Kebun',
+    photoLink: params.photoLink ?? null,
+    source: params.source || 'supabase_edge_function',
+    expiresIn: params.expiresIn || 3600,
+    firebaseUser: getGoogleDriveSignedInUser(),
+  });
 }
 
 /**
@@ -851,6 +876,14 @@ export async function getGoogleDriveAccessToken(): Promise<string | null> {
   return cachedAccessToken;
 }
 
+export function getGoogleDriveTokenExpiresAt(): number | null {
+  return cachedConnectedAccount?.expiresAt ?? null;
+}
+
+export function hasExplicitGoogleDriveLogout(): boolean {
+  return explicitlyLoggedOut;
+}
+
 export function getGoogleDriveConnectedAccount(): DriveConnectedAccount | null {
   return cachedConnectedAccount;
 }
@@ -870,6 +903,7 @@ export function clearGoogleDriveAccessToken(): void {
 
 export async function googleDriveLogout(): Promise<void> {
   cancelPendingExternalGoogleOAuth();
+  explicitlyLoggedOut = true;
   cachedAccessToken = null;
   cachedConnectedAccount = null;
   try {

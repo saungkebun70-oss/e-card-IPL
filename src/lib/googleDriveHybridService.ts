@@ -3,6 +3,11 @@ import {
   DRIVE_TARGET_EMAIL,
   getGoogleDriveAccessToken,
 } from './googleDriveAuth';
+import {
+  ensureFreshGoogleDriveToken,
+  refreshGoogleDriveTokenViaEdge,
+  setDriveAutoRefreshSession,
+} from './googleDriveAutoRefresh';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { recordAuditLog } from './auditLogger';
 import type { SessionUser } from '../types';
@@ -234,7 +239,8 @@ export function formatBytesCompact(bytes: number): string {
 async function driveFetchJson<T>(
   url: string,
   accessToken: string,
-  init?: RequestInit
+  init?: RequestInit,
+  allowAutoRefresh = true
 ): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -245,6 +251,19 @@ async function driveFetchJson<T>(
   });
 
   if (res.status === 401) {
+    if (allowAutoRefresh) {
+      try {
+        const refreshed = await refreshGoogleDriveTokenViaEdge(null, {
+          force: true,
+          reason: 'drive_api_401',
+        });
+        if (refreshed.accessToken && refreshed.accessToken !== accessToken) {
+          return await driveFetchJson<T>(url, refreshed.accessToken, init, false);
+        }
+      } catch {
+        // Lanjutkan ke clear token & error bila refresh Edge Function gagal
+      }
+    }
     clearGoogleDriveAccessToken();
     throw new Error('Sesi Google Drive telah berakhir. Silakan masuk kembali dengan Google.');
   }
@@ -402,23 +421,43 @@ export async function uploadBlobToHybridDrive(params: {
       'Diunggah otomatis oleh e-Card Verifikasi Perumahan Saung Kebun (Mode Hybrid)',
   };
 
-  const form = new FormData();
-  form.append(
-    'metadata',
-    new Blob([JSON.stringify(metadata)], { type: 'application/json' })
-  );
-  form.append('file', params.blob, params.fileName);
+  let activeToken = params.accessToken;
+  const performMultipartUpload = async (token: string) => {
+    const form = new FormData();
+    form.append(
+      'metadata',
+      new Blob([JSON.stringify(metadata)], { type: 'application/json' })
+    );
+    form.append('file', params.blob, params.fileName);
 
-  const uploadRes = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,mimeType,webViewLink,thumbnailLink',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.accessToken}`,
-      },
-      body: form,
+    return fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,mimeType,webViewLink,thumbnailLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      }
+    );
+  };
+
+  let uploadRes = await performMultipartUpload(activeToken);
+
+  if (uploadRes.status === 401) {
+    try {
+      const refreshed = await refreshGoogleDriveTokenViaEdge(null, {
+        force: true,
+        reason: 'drive_upload_401',
+      });
+      if (refreshed.accessToken && refreshed.accessToken !== activeToken) {
+        activeToken = refreshed.accessToken;
+        uploadRes = await performMultipartUpload(activeToken);
+      }
+    } catch {
+      // Biarkan jatuh ke penanganan 401 di bawah
     }
-  );
+  }
 
   if (uploadRes.status === 401) {
     clearGoogleDriveAccessToken();
@@ -440,7 +479,7 @@ export async function uploadBlobToHybridDrive(params: {
   };
 
   if (params.makePublicReader !== false) {
-    await setDriveFileAnyoneReadable(params.accessToken, uploaded.id);
+    await setDriveFileAnyoneReadable(activeToken, uploaded.id);
   }
 
   return {
@@ -559,6 +598,7 @@ export async function scanHybridMediaInventory(
   session: SessionUser,
   retentionDays: number
 ): Promise<HybridMediaScanSummary> {
+  setDriveAutoRefreshSession(session);
   const emptySummary: HybridMediaScanSummary = {
     totalMediaCount: 0,
     supabaseCount: 0,
@@ -1371,7 +1411,12 @@ export async function routeNewMediaUploadAuto(params: {
   labelPrefix?: string;
   description?: string;
 }): Promise<{ url: string; routedReason: string } | null> {
-  const accessToken = await getGoogleDriveAccessToken();
+  if (params.session) {
+    setDriveAutoRefreshSession(params.session);
+  }
+  const accessToken =
+    (await ensureFreshGoogleDriveToken(params.session, { respectExplicitLogout: true })) ||
+    (await getGoogleDriveAccessToken());
   if (!accessToken) {
     return null;
   }
