@@ -563,11 +563,19 @@ export function AppShell({
           </button>
         </div>
 
-        {/* Daftar Menu Lengkap di Tengah */}
-        {renderSidebarNavigation()}
+        {/* Daftar Menu Lengkap di Tengah dengan Watermark Logo Saung Kebun */}
+        <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+          <SaungKebunWatermark
+            tone="moss"
+            className="inset-x-0 bottom-6 mx-auto w-44 h-60 opacity-[0.06]"
+          />
+          <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
+            {renderSidebarNavigation()}
+          </div>
+        </div>
 
         {/* Footer Sidebar: Logout Terakota Lembut + Versi */}
-        <div className="mt-auto px-4 pt-3 pb-4 border-t border-[#E6E2D6] bg-[#FFFDF8]/75 space-y-2.5 shrink-0">
+        <div className="relative z-10 mt-auto px-4 pt-3 pb-4 border-t border-[#E6E2D6] bg-[#FFFDF8]/75 space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
@@ -657,11 +665,19 @@ export function AppShell({
                 </button>
               </div>
 
-              {/* Menu Utama & Menu Tambahan */}
-              {renderSidebarNavigation()}
+              {/* Menu Utama & Menu Tambahan dengan Watermark Logo Saung Kebun */}
+              <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                <SaungKebunWatermark
+                  tone="moss"
+                  className="inset-x-0 bottom-6 mx-auto w-44 h-60 opacity-[0.06]"
+                />
+                <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
+                  {renderSidebarNavigation()}
+                </div>
+              </div>
 
               {/* Footer Drawer + Logout Terakota */}
-              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#FFFDF8]/80 space-y-2.5 shrink-0">
+              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#FFFDF8]/80 space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}

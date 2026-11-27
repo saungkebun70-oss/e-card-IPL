@@ -23,7 +23,7 @@ import {
   downloadLpjTriwulanPdf,
   isNativeCapacitorPlatform,
 } from '../../lib/pdfGenerator';
-import { BrandLogo } from '../BrandLogo';
+import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { LoadingSpinner } from '../LoadingSpinner';
 
@@ -214,10 +214,20 @@ export function AdminLpjSlide({
       <article
         ref={reportRef}
         id="printable-report"
-        className="bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
+        className="relative overflow-hidden print:overflow-visible bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none select-none absolute inset-0 flex items-center justify-center z-0 overflow-hidden"
+        >
+          <SaungKebunWatermark
+            tone="moss"
+            className="relative right-auto bottom-auto w-64 h-88 sm:w-80 sm:h-[26rem] opacity-[0.065] print:opacity-[0.08]"
+          />
+        </div>
+
         {/* Kop Resmi Pengurus — Proporsional Tanpa Memanjang ke Bawah */}
-        <header className="flex items-center gap-3 sm:gap-4 border-b-2 border-[#243825] pb-3.5 print:pb-2.5">
+        <header className="relative z-10 flex items-center gap-3 sm:gap-4 border-b-2 border-[#243825] pb-3.5 print:pb-2.5">
           <BrandLogo size="md" variant="light" className="shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#2B3F29] leading-tight">
@@ -233,7 +243,7 @@ export function AdminLpjSlide({
         </header>
 
         {/* 1. Ikhtisar Arus Kas 3 Bulan — Otomatis 5 Kolom Sejajar Saat Cetak A4 */}
-        <section className="space-y-2.5 print:space-y-1.5 avoid-break">
+        <section className="relative z-10 space-y-2.5 print:space-y-1.5 avoid-break">
           <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
             <FileSpreadsheet className="w-4 h-4 text-[#2B3F29] shrink-0 print:w-3.5 print:h-3.5" />
             <span>1. Ikhtisar Arus Kas ({lpj.rentangBulan} {lpj.tahun})</span>
@@ -287,7 +297,7 @@ export function AdminLpjSlide({
         </section>
 
         {/* 2. Tingkat Kepatuhan Pembayaran Warga */}
-        <section className="space-y-2 print:space-y-1.5 avoid-break">
+        <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
               <Users className="w-4 h-4 text-[#2B3F29] shrink-0 print:w-3.5 print:h-3.5" />
@@ -357,7 +367,7 @@ export function AdminLpjSlide({
         </section>
 
         {/* 3. Rekapitulasi Pengeluaran per Pos Anggaran */}
-        <section className="space-y-2 print:space-y-1.5 avoid-break">
+        <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
           <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B]">
             3. Rekapitulasi Realisasi Pengeluaran per Pos Anggaran
           </h3>
@@ -423,7 +433,7 @@ export function AdminLpjSlide({
         </section>
 
         {/* 4. Lembar Pengesahan Resmi + Stempel Digital Pengurus (Rapi, Tidak Menutupi Nama) */}
-        <section className="pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break space-y-4 print:space-y-3">
+        <section className="relative z-10 pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break space-y-4 print:space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs print:text-[10px] text-[#4A554A]">
             <span className="font-bold text-[#1B271B]">4. Lembar Pengesahan Pengurus</span>
             <span>Karawang, {formatTanggal(new Date().toISOString())}</span>

@@ -1231,9 +1231,17 @@ export function PetugasPortalPage({
           </button>
         </div>
 
-        {renderPetugasSidebarNav()}
+        <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+          <SaungKebunWatermark
+            tone="moss"
+            className="inset-x-0 bottom-6 mx-auto w-44 h-60 opacity-[0.06]"
+          />
+          <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
+            {renderPetugasSidebarNav()}
+          </div>
+        </div>
 
-        <div className="mt-auto px-4 pt-3.5 pb-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/75 space-y-2.5 shrink-0">
+        <div className="relative z-10 mt-auto px-4 pt-3.5 pb-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/75 space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleOpenProfileFromSidebar}
@@ -1294,8 +1302,9 @@ export function PetugasPortalPage({
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
               className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-[#FFFDF8] rounded-r-3xl border-r border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden"
             >
-              <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
-                <div className="flex items-center justify-between gap-2.5">
+              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
+                <SaungKebunWatermark className="absolute -right-4 -bottom-4 w-28 h-36" tone="cream" />
+                <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <BrandLogo size="md" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
@@ -1320,7 +1329,7 @@ export function PetugasPortalPage({
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="group mt-4 w-full text-left p-3 rounded-2xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/20 hover:border-[#FFFDF8]/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
+                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/20 hover:border-[#FFFDF8]/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={profil.nama}
@@ -1340,9 +1349,17 @@ export function PetugasPortalPage({
                 </button>
               </div>
 
-              {renderPetugasSidebarNav()}
+              <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                <SaungKebunWatermark
+                  tone="moss"
+                  className="inset-x-0 bottom-6 mx-auto w-44 h-60 opacity-[0.06]"
+                />
+                <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
+                  {renderPetugasSidebarNav()}
+                </div>
+              </div>
 
-              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] space-y-2.5 shrink-0">
+              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}

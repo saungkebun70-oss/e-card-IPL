@@ -307,6 +307,10 @@ html[data-theme="royal"] {
 
 .glass-card {
   background-color: var(--theme-surface);
+  background-image: url('/assets/saung-kebun-bg-card-moss.png');
+  background-repeat: no-repeat;
+  background-position: right 14px bottom 10px;
+  background-size: 74px auto;
   backdrop-filter: blur(20px) saturate(135%);
   -webkit-backdrop-filter: blur(20px) saturate(135%);
   border: 1px solid var(--theme-border);
@@ -479,6 +483,10 @@ html[data-theme="midnight"] .bg-white\/60 {
 
 html[data-theme="midnight"] .glass-canvas {
   background-image: var(--theme-bg-gradient);
+}
+
+html[data-theme="midnight"] .glass-card {
+  background-image: url('/assets/saung-kebun-bg-card-cream.png');
 }
 
 html[data-theme="midnight"] .glass-hero {

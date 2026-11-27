@@ -59,7 +59,7 @@ import {
   isNativeCapacitorPlatform,
 } from '../../lib/pdfGenerator';
 import { useAppBrand } from '../../lib/brandContext';
-import { BrandLogo } from '../BrandLogo';
+import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
@@ -585,10 +585,20 @@ export function AdminRekapSlide({
           {/* Dokumen Resmi Rekapitulasi Bulanan (#printable-report) */}
           <article
             id="printable-report"
-            className="bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
+            className="relative bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
           >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute inset-0 flex items-center justify-center z-0 overflow-hidden"
+            >
+              <SaungKebunWatermark
+                tone="moss"
+                className="relative right-auto bottom-auto w-64 h-88 sm:w-80 sm:h-[26rem] opacity-[0.065] print:opacity-[0.08]"
+              />
+            </div>
+
             {/* Kop Resmi Perumahan */}
-            <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#243825] flex items-center gap-3 sm:gap-4">
+            <header className="relative z-10 pb-3.5 print:pb-2.5 border-b-2 border-[#243825] flex items-center gap-3 sm:gap-4">
               <BrandLogo size="md" variant="light" className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#2B3F29] leading-tight">
@@ -607,7 +617,7 @@ export function AdminRekapSlide({
             </header>
 
             {/* 5 Kartu Posisi Kas Bulanan — Otomatis 5 Kolom Saat Cetak A4 */}
-            <section className="grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-2.5 print:gap-2 avoid-break">
+            <section className="relative z-10 grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-2.5 print:gap-2 avoid-break">
               <div className="rounded-xl border border-[#E6E2D6] bg-[#F6F3EA]/70 p-3 print:p-2">
                 <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#6E786D]">
                   Saldo Awal
@@ -665,7 +675,7 @@ export function AdminRekapSlide({
 
             {/* Rincian Pengeluaran per Kategori */}
             {monthlyReport.pengeluaranPerKategori.length > 0 && (
-              <section className="space-y-2 print:space-y-1.5 avoid-break">
+              <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
                   Realisasi Pengeluaran per Pos Anggaran
                 </h3>
@@ -703,7 +713,7 @@ export function AdminRekapSlide({
             )}
 
             {/* Buku Kas Umum Kronologis */}
-            <section className="space-y-2 print:space-y-1.5">
+            <section className="relative z-10 space-y-2 print:space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
                   Buku Kas Umum — Mutasi Kronologis ({monthlyReport.namaBulan} {monthlyReport.tahun})
@@ -797,7 +807,7 @@ export function AdminRekapSlide({
             </section>
 
             {/* Blok Tanda Tangan & Stempel Pengurus — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
-            <footer className="pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break">
+            <footer className="relative z-10 pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break">
               <p className="text-xs print:text-[10px] text-[#4A554A] text-right mb-3">
                 Karawang, {formatTanggal(new Date().toISOString())}
               </p>

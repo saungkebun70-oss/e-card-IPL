@@ -623,6 +623,28 @@ async function drawSignatureBlock(
   }
 }
 
+async function applyReportLogoWatermark(doc: jsPDF) {
+  const watermarkDataUrl = await loadImageAsDataUrl('/assets/saung-kebun-watermark-moss.png');
+  if (!watermarkDataUrl) return;
+  const totalPages = doc.getNumberOfPages();
+  const imgW = 86;
+  const imgH = 123.9;
+  const x = (PAGE_WIDTH - imgW) / 2;
+  const y = (297 - imgH) / 2;
+
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.saveGraphicsState();
+    applyStampOpacity(doc, 0.065);
+    try {
+      doc.addImage(watermarkDataUrl, 'PNG', x, y, imgW, imgH);
+    } catch {
+      // Abaikan jika gagal menyisipkan gambar watermark
+    }
+    doc.restoreGraphicsState();
+  }
+}
+
 function addPageNumbers(doc: jsPDF) {
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
@@ -931,6 +953,7 @@ export async function downloadRekapBulananPdf(
     tanggalLabel: formatTanggal(new Date().toISOString()),
   });
 
+  await applyReportLogoWatermark(doc);
   addPageNumbers(doc);
   const mode = options?.mode || 'download';
   return exportPdfDocument(
@@ -1112,6 +1135,7 @@ export async function downloadLpjTriwulanPdf(
     includeMengetahui: true,
   });
 
+  await applyReportLogoWatermark(doc);
   addPageNumbers(doc);
   return exportPdfDocument(doc, fileName, exportMeta);
 }
@@ -1455,6 +1479,7 @@ export async function downloadChairmanMonthlySummaryPdf(
     tanggalLabel: formatTanggal(report.generatedAt),
   });
 
+  await applyReportLogoWatermark(doc);
   addPageNumbers(doc);
   const mode = options?.mode || 'download';
   return exportPdfDocument(

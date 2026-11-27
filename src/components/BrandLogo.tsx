@@ -79,22 +79,38 @@ export function SaungKebunEmblem({
   );
 }
 
+export const WATERMARK_MOSS_SRC = '/assets/saung-kebun-watermark-moss.png';
+export const WATERMARK_CREAM_SRC = '/assets/saung-kebun-watermark-cream.png';
+
 /**
- * Watermark transparan (opacity ~8-12%) untuk kartu hero hijau lumut, profil login, dan header drawer.
+ * Watermark transparan (tanpa background) menggunakan logo resmi Saung Kebun
+ * untuk latar kartu, sidebar, header drawer, laporan bulanan, dan LPJ.
  */
 export function SaungKebunWatermark({
-  className = 'w-40 h-32',
+  className = 'right-3 bottom-2 w-28 h-36',
   tone = 'cream',
 }: {
   className?: string;
   tone?: 'cream' | 'moss';
 }) {
+  const hasPosition = /\b(absolute|fixed|relative|static)\b/.test(className);
+  const hasOpacity = /\bopacity-/.test(className);
+  const src = tone === 'moss' ? WATERMARK_MOSS_SRC : WATERMARK_CREAM_SRC;
+
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none select-none opacity-[0.10] ${className}`}
+      className={`pointer-events-none select-none ${hasPosition ? '' : 'absolute'} ${
+        hasOpacity ? '' : tone === 'moss' ? 'opacity-[0.07]' : 'opacity-[0.12]'
+      } ${className}`.trim()}
     >
-      <SaungKebunEmblem className="w-full h-full" tone={tone} />
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="w-full h-full object-contain"
+      />
     </div>
   );
 }
