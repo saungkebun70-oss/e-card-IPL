@@ -33,8 +33,9 @@ import { useAppUpdate } from '../lib/appUpdate';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { LoadingSpinner } from './LoadingSpinner';
 import { formatBlokRumah } from '../lib/format';
+import bgLoginAsset from '../assets/bg-login.jpg';
 
-const LOGIN_BG_SRC = '/assets/aistudio/1795778728405_5f9ccccc.jpg';
+const LOGIN_BG_SRC = bgLoginAsset;
 
 interface AdminLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;

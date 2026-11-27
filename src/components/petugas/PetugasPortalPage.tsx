@@ -89,6 +89,7 @@ import {
   normalizeNfcUid,
 } from '../../lib/webNfc';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
+import bgHeaderAsset from '../../assets/bg-header.jpg';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 import { PetugasAttendanceCard } from './PetugasAttendanceCard';
@@ -1360,7 +1361,7 @@ export function PetugasPortalPage({
       <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#243825] text-[#FFFDF8] border-b border-[#384E35]/60 flex items-center shadow-md">
         <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
           <img
-            src="/assets/aistudio/1795778734359_8dc82f49.jpg"
+            src={bgHeaderAsset}
             alt=""
             className="w-full h-full object-cover object-center opacity-45"
           />

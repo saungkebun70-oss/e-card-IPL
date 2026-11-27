@@ -21,8 +21,9 @@ import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
+import bgHeaderAsset from '../assets/bg-header.jpg';
 
-const HEADER_BG_SRC = '/assets/aistudio/1795778734359_8dc82f49.jpg';
+const HEADER_BG_SRC = bgHeaderAsset;
 import {
   fetchUnreadNotificationCount,
   getCanonicalUserId,

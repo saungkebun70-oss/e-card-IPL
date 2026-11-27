@@ -608,47 +608,47 @@ export function AdminRekapSlide({
 
             {/* 5 Kartu Posisi Kas Bulanan — Otomatis 5 Kolom Saat Cetak A4 */}
             <section className="grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-2.5 print:gap-2 avoid-break">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 print:p-2">
-                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-slate-500">
+              <div className="rounded-xl border border-[#E6E2D6] bg-[#F6F3EA]/70 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#6E786D]">
                   Saldo Awal
                 </p>
-                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#0F172A] tabular-nums mt-1">
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#1B271B] tabular-nums mt-1">
                   {formatRupiah(monthlyReport.saldoAwal)}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 print:p-2">
-                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-emerald-800">
+              <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/65 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#243825]">
                   Pemasukan IPL
                 </p>
-                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-emerald-700 tabular-nums mt-1">
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#243825] tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalIplBulanIni)}
                 </p>
-                <p className="text-[10px] print:text-[8.5px] text-emerald-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-[#384E35] mt-0.5 tabular-nums">
                   {monthlyReport.jumlahTransaksiIpl} transaksi
                 </p>
               </div>
 
-              <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 print:p-2">
-                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-sky-800">
+              <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/35 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#384E35]">
                   Pemasukan Lain
                 </p>
-                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-sky-700 tabular-nums mt-1">
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#2B3F29] tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalPemasukanLainBulanIni)}
                 </p>
-                <p className="text-[10px] print:text-[8.5px] text-sky-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-[#4A554A] mt-0.5 tabular-nums">
                   {monthlyReport.jumlahPemasukanLain} transaksi
                 </p>
               </div>
 
-              <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 print:p-2">
-                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-rose-800">
+              <div className="rounded-xl border border-[#E2A898] bg-[#C87058]/10 p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#7A311E]">
                   Pengeluaran
                 </p>
-                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-rose-700 tabular-nums mt-1">
+                <p className="text-sm sm:text-base print:text-xs font-mono font-bold text-[#A44831] tabular-nums mt-1">
                   {formatRupiah(monthlyReport.totalKeluarBulanIni)}
                 </p>
-                <p className="text-[10px] print:text-[8.5px] text-rose-700/80 mt-0.5 tabular-nums">
+                <p className="text-[10px] print:text-[8.5px] text-[#A44831]/85 mt-0.5 tabular-nums">
                   {monthlyReport.jumlahPengeluaran} transaksi
                 </p>
               </div>
@@ -735,8 +735,8 @@ export function AdminRekapSlide({
                       <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-[#1B271B]">
                         Saldo Kas Awal Bulan {monthlyReport.namaBulan} {monthlyReport.tahun}
                       </td>
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-[#8E948A]">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-[#8E948A]">—</td>
                       <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.saldoAwal)}
                       </td>
@@ -814,7 +814,7 @@ export function AdminRekapSlide({
                   <p className="text-[#6E786D]">Mengetahui,</p>
                   <p className="font-bold text-[#1B271B]">Ketua Lingkungan</p>
                   <div className="h-16 sm:h-20 print:h-14" />
-                  <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
+                  <div className="border-b border-[#6E786D] w-32 sm:w-40 mx-auto" />
                   <p className="font-bold text-[#1B271B] mt-1.5">Erlangga</p>
                   <p className="text-[10px] text-[#6E786D]">Perumahan Saung Kebun</p>
                 </div>
@@ -823,7 +823,7 @@ export function AdminRekapSlide({
                   <p className="text-[#6E786D]">Disusun &amp; Disahkan oleh,</p>
                   <p className="font-bold text-[#1B271B]">Bendahara Lingkungan</p>
                   <div className="h-16 sm:h-20 print:h-14" />
-                  <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
+                  <div className="border-b border-[#6E786D] w-32 sm:w-40 mx-auto" />
                   <p className="font-bold text-[#1B271B] mt-1.5">Andriansyah</p>
                   <p className="text-[10px] text-[#6E786D]">Pengurus Kas &amp; IPL</p>
                 </div>

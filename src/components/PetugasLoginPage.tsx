@@ -32,8 +32,9 @@ import { useAppBrand } from '../lib/brandContext';
 import { useAppUpdate } from '../lib/appUpdate';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { LoadingSpinner } from './LoadingSpinner';
+import bgLoginAsset from '../assets/bg-login.jpg';
 
-const LOGIN_BG_SRC = '/assets/aistudio/1795778728405_5f9ccccc.jpg';
+const LOGIN_BG_SRC = bgLoginAsset;
 
 interface PetugasLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;

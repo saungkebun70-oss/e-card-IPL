@@ -632,14 +632,14 @@ export function AdminDashboardSlide({
             {formatRupiah(globalCash.saldoKas)}
           </p>
 
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E5EEE3]/18 border border-[#E5EEE3]/30 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#E5EEE3] tabular-nums">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#E5EEE3]/18 border border-[#E5EEE3]/30 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-[#E5EEE3] tabular-nums">
               Pemasukan IPL: {formatRupiah(globalCash.totalIplMasuk)}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#FFFDF8] tabular-nums">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/12 border border-white/25 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-[#FFFDF8] tabular-nums">
               Kas Lain: {formatRupiah(globalCash.totalPemasukanLain)}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C87058]/25 border border-[#C87058]/45 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#FDEAE4] tabular-nums">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#C87058]/25 border border-[#C87058]/45 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-[#FDEAE4] tabular-nums">
               Pengeluaran: {formatRupiah(globalCash.totalPengeluaran)}
             </span>
           </div>
@@ -1235,45 +1235,45 @@ export function AdminDashboardSlide({
 
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <span className="font-mono text-sm font-bold text-[#0F172A]">
+                          <span className="font-mono text-sm font-bold text-[#1B271B]">
                             {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah}
                           </span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
-                          <span className="text-sm font-semibold text-[#0F172A]">
+                          <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
+                          <span className="text-sm font-semibold text-[#1B271B]">
                             {trx.nama_warga}
                           </span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
                           {isPending ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8A5F16]">
                               <Clock className="w-3.5 h-3.5" />
                               {getStatusVerifikasiShortLabel('Pending')}
                             </span>
                           ) : isAccBendahara ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#384E35]">
                               <ShieldCheck className="w-3.5 h-3.5" />
                               ACC Bendahara — Menunggu Ketua
                             </span>
                           ) : isVerified ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#243825]">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               {getStatusVerifikasiShortLabel('Terverifikasi')}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#A44831]">
                               <XCircle className="w-3.5 h-3.5" />
                               Ditolak
                             </span>
                           )}
                         </div>
 
-                        <p className="text-sm font-mono font-bold text-emerald-700 tabular-nums">
+                        <p className="text-sm font-mono font-bold text-[#243825] tabular-nums">
                           {formatRupiah(trx.nominal)}{' '}
-                          <span className="font-sans text-xs font-medium text-slate-600">
+                          <span className="font-sans text-xs font-medium text-[#4A554A]">
                             untuk {formatDaftarBulan(trx.bulan_dibayar)} ({trx.tahun})
                           </span>
                         </p>
 
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[#6E786D]">
                           {trx.metode_bayar}
                           {trx.petugas_penerima ? ` (Petugas: ${trx.petugas_penerima})` : ''} ·{' '}
                           {formatTanggalWaktu(trx.tanggal_setor)} ·{' '}
@@ -1281,15 +1281,15 @@ export function AdminDashboardSlide({
                         </p>
 
                         {trx.keterangan && (
-                          <p className="text-xs text-slate-600">Catatan warga: {trx.keterangan}</p>
+                          <p className="text-xs text-[#4A554A]">Catatan warga: {trx.keterangan}</p>
                         )}
                         {trx.ketua_catatan && isPending && (
-                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1 inline-block">
+                          <p className="text-xs text-[#4A3410] bg-[#F2D8A7]/45 border border-[#E2C285] rounded-xl px-2.5 py-1 inline-block">
                             Catatan Ketua: {trx.ketua_catatan}
                           </p>
                         )}
                         {trx.catatan_admin && !isPending && (
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-[#6E786D]">
                             Catatan pengurus: {trx.catatan_admin}
                           </p>
                         )}
@@ -1435,19 +1435,19 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#182419]/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setPreviewTrx(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-3xl max-w-xl w-full overflow-hidden border border-[#E6E2D6] shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-[#0F172A]">
+                <h3 className="text-sm font-bold text-[#1B271B]">
                   Bukti Setoran — {formatBlokRumah(previewTrx.blok_rumah)} ({previewTrx.nama_warga})
                 </h3>
-                <p className="text-xs text-slate-500 font-mono">
+                <p className="text-xs text-[#6E786D] font-mono">
                   {formatRupiah(previewTrx.nominal)} · {formatDaftarBulan(previewTrx.bulan_dibayar)}
                 </p>
               </div>
@@ -1455,21 +1455,21 @@ export function AdminDashboardSlide({
                 type="button"
                 onClick={() => setPreviewTrx(null)}
                 aria-label="Tutup"
-                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-[#6E786D] hover:bg-[#E5EEE3] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 bg-slate-50 flex items-center justify-center">
+            <div className="p-4 bg-[#F6F3EA] flex items-center justify-center">
               {previewTrx.bukti_url ? (
                 <img
                   src={previewTrx.bukti_url}
                   alt={`Bukti ${formatBlokRumah(previewTrx.blok_rumah)}`}
                   referrerPolicy="no-referrer"
-                  className="max-h-[65vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
+                  className="max-h-[65vh] w-auto object-contain rounded-2xl border border-[#E6E2D6] bg-white"
                 />
               ) : (
-                <p className="text-sm text-slate-500 py-8">Foto bukti tidak tersedia.</p>
+                <p className="text-sm text-[#6E786D] py-8">Foto bukti tidak tersedia.</p>
               )}
             </div>
           </div>
@@ -1481,36 +1481,36 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#182419]/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setRejectTarget(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-[#E6E2D6] shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <h3 className="text-base font-bold text-[#0F172A]">Tolak Setoran Warga</h3>
+                <AlertTriangle className="w-5 h-5 text-[#C87058]" />
+                <h3 className="text-base font-bold text-[#1B271B]">Tolak Setoran Warga</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
                 aria-label="Tutup modal"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Anda akan menolak setoran dari{' '}
-                <span className="font-bold text-[#0F172A]">
+                <span className="font-bold text-[#1B271B]">
                   {rejectTarget.nama_warga} ({formatBlokRumah(rejectTarget.blok_rumah)})
                 </span>{' '}
                 sebesar{' '}
-                <span className="font-mono font-bold text-[#0F172A]">
+                <span className="font-mono font-bold text-[#1B271B]">
                   {formatRupiah(rejectTarget.nominal)}
                 </span>
                 . Alasan penolakan akan terlihat di halaman Riwayat warga.
@@ -1519,7 +1519,7 @@ export function AdminDashboardSlide({
               <div>
                 <label
                   htmlFor="reject-reason-input"
-                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                  className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                 >
                   Alasan Penolakan (Wajib)
                 </label>
@@ -1529,7 +1529,7 @@ export function AdminDashboardSlide({
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Contoh: Foto bukti transfer buram / nominal belum masuk rekening kas."
-                  className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3 text-sm text-[#1B271B] placeholder:text-[#8E948A] focus:border-[#C87058] focus:outline-none focus:ring-2 focus:ring-[#C87058]/20"
                 />
               </div>
             </div>
@@ -1562,30 +1562,30 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#182419]/70 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setPreviewProofUrl(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-xl w-full overflow-hidden border border-white/90 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-3xl max-w-xl w-full overflow-hidden border border-[#E6E2D6] shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-[#0F172A] truncate">{previewProofUrl.title}</h3>
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-[#1B271B] truncate">{previewProofUrl.title}</h3>
               <button
                 type="button"
                 onClick={() => setPreviewProofUrl(null)}
                 aria-label="Tutup"
-                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-[#6E786D] hover:bg-[#E5EEE3] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 bg-slate-50 flex items-center justify-center">
+            <div className="p-4 bg-[#F6F3EA] flex items-center justify-center">
               <img
                 src={previewProofUrl.url}
                 alt={previewProofUrl.title}
                 referrerPolicy="no-referrer"
-                className="max-h-[65vh] w-auto object-contain rounded-2xl border border-slate-200 bg-white"
+                className="max-h-[65vh] w-auto object-contain rounded-2xl border border-[#E6E2D6] bg-white"
               />
             </div>
           </div>
@@ -1597,17 +1597,17 @@ export function AdminDashboardSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#182419]/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={() => setKetuaReturnTarget(null)}
         >
           <div
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-[#E6E2D6] shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-200/80 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Undo2 className="w-5 h-5 text-amber-600" />
-                <h3 className="text-base font-bold text-[#0F172A]">
+                <Undo2 className="w-5 h-5 text-[#8A5F16]" />
+                <h3 className="text-base font-bold text-[#1B271B]">
                   Kembalikan ke Bendahara
                 </h3>
               </div>
@@ -1615,29 +1615,29 @@ export function AdminDashboardSlide({
                 type="button"
                 onClick={() => setKetuaReturnTarget(null)}
                 aria-label="Tutup modal"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Transaksi{' '}
-                <span className="font-bold text-[#0F172A]">
+                <span className="font-bold text-[#1B271B]">
                   {ketuaReturnTarget.kind === 'ipl'
                     ? `IPL ${ketuaReturnTarget.trx.nama_warga} (${formatBlokRumah(ketuaReturnTarget.trx.blok_rumah)})`
                     : `${ketuaReturnTarget.kas.no_bukti} (${ketuaReturnTarget.kas.penerima_atau_sumber})`}
                 </span>{' '}
                 akan dikembalikan ke status{' '}
-                <span className="font-semibold text-amber-700">Menunggu Verifikasi Bendahara</span>{' '}
+                <span className="font-semibold text-[#8A5F16]">Menunggu Verifikasi Bendahara</span>{' '}
                 untuk diperiksa ulang.
               </p>
 
               <div>
                 <label
                   htmlFor="ketua-return-note"
-                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                  className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                 >
                   Catatan Ketua untuk Bendahara (Wajib)
                 </label>
@@ -1647,7 +1647,7 @@ export function AdminDashboardSlide({
                   value={ketuaReturnNote}
                   onChange={(e) => setKetuaReturnNote(e.target.value)}
                   placeholder="Contoh: Mohon konfirmasi ulang nominal transfer / lampirkan foto nota yang lebih jelas."
-                  className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  className="w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3 text-sm text-[#1B271B] placeholder:text-[#8E948A] focus:border-[#9C6514] focus:outline-none focus:ring-2 focus:ring-[#F2D8A7]/60"
                 />
               </div>
             </div>
@@ -1909,24 +1909,24 @@ export function AdminDashboardSlide({
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-ipl-pin-title"
-          className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#182419]/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
           onClick={handleCloseDeleteIplModal}
         >
           <form
             onSubmit={(e) => void handleConfirmDeleteIpl(e)}
-            className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-white/90 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-[#E6E2D6] shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-red-100 bg-red-50/70 flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-[#E2A898] bg-[#C87058]/10 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-2xl bg-[#C87058] text-white flex items-center justify-center shrink-0">
                   <Trash2 className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 id="delete-ipl-pin-title" className="text-sm font-bold text-[#0F172A] truncate">
+                  <h3 id="delete-ipl-pin-title" className="text-sm font-bold text-[#1B271B] truncate">
                     Hapus Setoran IPL Warga
                   </h3>
-                  <p className="text-[11px] text-red-700 font-medium">
+                  <p className="text-[11px] text-[#7A311E] font-medium">
                     Verifikasi PIN 6 digit diperlukan untuk lanjut hapus
                   </p>
                 </div>
@@ -1936,7 +1936,7 @@ export function AdminDashboardSlide({
                 disabled={deletingIpl}
                 onClick={handleCloseDeleteIplModal}
                 aria-label="Tutup modal hapus"
-                className="min-h-[36px] min-w-[36px] rounded-xl flex items-center justify-center text-slate-500 hover:bg-red-100 hover:text-slate-800 cursor-pointer disabled:opacity-50"
+                className="min-h-[36px] min-w-[36px] rounded-xl flex items-center justify-center text-[#6E786D] hover:bg-[#C87058]/15 hover:text-[#7A311E] cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1944,26 +1944,26 @@ export function AdminDashboardSlide({
 
             <div className="p-5 space-y-4">
               {/* Ringkasan Transaksi yang Akan Dihapus */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
+              <div className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA] p-3.5 space-y-1 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-[#0F172A]">
+                  <span className="font-mono font-bold text-[#1B271B]">
                     {formatBlokRumah(deleteTarget.blok_rumah)} · {deleteTarget.nama_warga}
                   </span>
-                  <span className="font-mono font-bold text-red-700 tabular-nums">
+                  <span className="font-mono font-bold text-[#A44831] tabular-nums">
                     {formatRupiah(deleteTarget.nominal)}
                   </span>
                 </div>
-                <p className="text-slate-600">
-                  Periode: <span className="font-semibold text-[#0F172A]">{formatDaftarBulan(deleteTarget.bulan_dibayar)} ({deleteTarget.tahun})</span>
+                <p className="text-[#4A554A]">
+                  Periode: <span className="font-semibold text-[#1B271B]">{formatDaftarBulan(deleteTarget.bulan_dibayar)} ({deleteTarget.tahun})</span>
                 </p>
-                <p className="text-[11px] font-mono text-slate-500">
+                <p className="text-[11px] font-mono text-[#6E786D]">
                   {deleteTarget.no_kwitansi} · Status: {deleteTarget.status_verifikasi}
                 </p>
               </div>
 
               {deleteTarget.status_verifikasi === 'Terverifikasi' && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 flex items-start gap-2 text-xs text-amber-900">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/45 px-3.5 py-2.5 flex items-start gap-2 text-xs text-[#4A3410]">
+                  <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                   <p className="leading-snug">
                     Setoran ini sudah berstatus <strong>Sah Lunas</strong>. Menghapusnya akan otomatis
                     mengembalikan status e-Card bulan terkait dan menyesuaikan Saldo Kas Real-Time.
@@ -1975,12 +1975,12 @@ export function AdminDashboardSlide({
               <div>
                 <label
                   htmlFor="delete-ipl-pin-input"
-                  className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                  className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                 >
                   Masukkan PIN 6 Digit ({session.nama_warga} — {session.jabatan || 'Pengurus'})
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-[#6E786D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     id="delete-ipl-pin-input"
                     type={showDeletePin ? 'text' : 'password'}
@@ -1996,20 +1996,20 @@ export function AdminDashboardSlide({
                       if (deletePinError) setDeletePinError(null);
                     }}
                     placeholder="••••••"
-                    className="w-full min-h-[44px] rounded-2xl border border-slate-300 bg-white pl-10 pr-11 text-base font-mono tracking-[0.35em] text-[#0F172A] placeholder:tracking-widest placeholder:text-slate-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 disabled:bg-slate-100"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] pl-10 pr-11 text-base font-mono tracking-[0.35em] text-[#1B271B] placeholder:tracking-widest placeholder:text-[#8E948A] focus:border-[#C87058] focus:outline-none focus:ring-2 focus:ring-[#C87058]/20 disabled:bg-[#F6F3EA]"
                   />
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => setShowDeletePin((v) => !v)}
                     aria-label={showDeletePin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-[#6E786D] hover:text-[#1B271B] cursor-pointer"
                   >
                     {showDeletePin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 {deletePinError && (
-                  <p role="alert" className="text-xs font-semibold text-red-700 mt-2">
+                  <p role="alert" className="text-xs font-semibold text-[#A44831] mt-2">
                     {deletePinError}
                   </p>
                 )}

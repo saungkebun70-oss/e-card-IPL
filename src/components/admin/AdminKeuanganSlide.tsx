@@ -461,14 +461,14 @@ export function AdminKeuanganSlide({
   return (
     <div className="space-y-6">
       {/* KPI Strip Saldo Kas Real-Time */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="col-span-2 lg:col-span-1 glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-xl shadow-[#243825]/15 text-[#FFFDF8] rounded-3xl p-4 sm:p-5 relative overflow-hidden">
+      <section className="grid grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="col-span-3 lg:col-span-1 glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-xl shadow-[#243825]/15 text-[#FFFDF8] rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <SaungKebunWatermark className="absolute -right-6 -bottom-6 w-32 h-28" tone="cream" />
           <div className="relative z-10 flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-[#E5EEE3]/90">Saldo Kas Real-Time</p>
             <Wallet className="w-4 h-4 text-[#E5EEE3] shrink-0" />
           </div>
-          <p className="relative z-10 text-xl sm:text-2xl font-extrabold font-mono text-[#FFFDF8] tabular-nums mt-2">
+          <p className="relative z-10 text-2xl sm:text-3xl lg:text-2xl font-extrabold font-mono text-[#FFFDF8] tabular-nums mt-2">
             {formatRupiah(cashSummary.saldoKas)}
           </p>
           <p className="relative z-10 text-[11px] text-[#E5EEE3]/85 mt-1">
@@ -476,28 +476,34 @@ export function AdminKeuanganSlide({
           </p>
         </div>
 
-        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5">
-          <p className="text-xs font-medium text-[#6E786D]">Total IPL Terverifikasi</p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-[#243825] tabular-nums mt-2">
+        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-3 sm:p-5 min-w-0">
+          <p className="text-[10.5px] sm:text-xs font-medium text-[#6E786D] leading-snug">
+            Total IPL Terverifikasi
+          </p>
+          <p className="text-sm sm:text-xl font-bold font-mono text-[#243825] tabular-nums mt-1.5 sm:mt-2 truncate">
             {formatRupiah(cashSummary.totalIplMasuk)}
           </p>
-          <p className="text-[11px] text-[#6E786D] mt-1">Akumulasi iuran warga lunas</p>
+          <p className="hidden sm:block text-[11px] text-[#6E786D] mt-1">Akumulasi iuran warga lunas</p>
         </div>
 
-        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5">
-          <p className="text-xs font-medium text-[#6E786D]">Total Pemasukan Lain</p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-[#2B3F29] tabular-nums mt-2">
+        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-3 sm:p-5 min-w-0">
+          <p className="text-[10.5px] sm:text-xs font-medium text-[#6E786D] leading-snug">
+            Total Pemasukan Lain
+          </p>
+          <p className="text-sm sm:text-xl font-bold font-mono text-[#2B3F29] tabular-nums mt-1.5 sm:mt-2 truncate">
             {formatRupiah(cashSummary.totalPemasukanLain)}
           </p>
-          <p className="text-[11px] text-[#6E786D] mt-1">Donasi, kas awal &amp; parsial</p>
+          <p className="hidden sm:block text-[11px] text-[#6E786D] mt-1">Donasi, kas awal &amp; parsial</p>
         </div>
 
-        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5">
-          <p className="text-xs font-medium text-[#6E786D]">Total Pengeluaran</p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-[#C87058] tabular-nums mt-2">
+        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-3 sm:p-5 min-w-0">
+          <p className="text-[10.5px] sm:text-xs font-medium text-[#6E786D] leading-snug">
+            Total Pengeluaran
+          </p>
+          <p className="text-sm sm:text-xl font-bold font-mono text-[#C87058] tabular-nums mt-1.5 sm:mt-2 truncate">
             {formatRupiah(cashSummary.totalPengeluaran)}
           </p>
-          <p className="text-[11px] text-[#6E786D] mt-1">Realisasi anggaran lingkungan</p>
+          <p className="hidden sm:block text-[11px] text-[#6E786D] mt-1">Realisasi anggaran lingkungan</p>
         </div>
       </section>
 
