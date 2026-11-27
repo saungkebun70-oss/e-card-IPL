@@ -1215,7 +1215,7 @@ export function PetugasPortalPage({
             onClick={() => handleSelectTabFromSidebar('scan')}
             className="relative z-10 w-full flex items-center gap-3 text-left cursor-pointer group"
           >
-            <BrandLogo size="md" variant="dark" className="shrink-0" />
+            <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
             <div className="min-w-0">
               <p className="font-serif-brand text-sm font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
                 {brand.app_name || 'Perumahan Saung Kebun'}
@@ -1302,7 +1302,7 @@ export function PetugasPortalPage({
                 <SaungKebunWatermark className="absolute -right-4 -bottom-4 w-28 h-36" tone="cream" />
                 <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <BrandLogo size="md" variant="dark" className="shrink-0" />
+                    <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
                     <div className="min-w-0">
                       <p className="font-serif-brand text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                         {brand?.app_name || 'Perumahan Saung Kebun'}
@@ -1393,7 +1393,7 @@ export function PetugasPortalPage({
               <Menu className="w-5 h-5" />
             </button>
 
-            <BrandLogo size="sm" variant="dark" className="shrink-0" />
+            <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                 {profil.nama}

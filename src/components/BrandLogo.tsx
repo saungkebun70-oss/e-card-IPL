@@ -34,8 +34,8 @@ export function SaungKebunEmblem({
   className?: string;
   tone?: 'cream' | 'moss';
 }) {
-  const fill = tone === 'cream' ? '#F6DC6E' : '#243825';
-  const leafHighlight = tone === 'cream' ? '#FFF0A6' : '#384E35';
+  const fill = tone === 'cream' ? '#FFD200' : '#243825';
+  const leafHighlight = tone === 'cream' ? '#FFE44D' : '#384E35';
 
   return (
     <svg
@@ -132,7 +132,7 @@ export function BrandLogo({
   }, [rawCustomSrc]);
 
   const containerGlassClasses = isDarkGlass
-    ? 'bg-white/10 backdrop-blur-md border border-white/25 shadow-lg'
+    ? 'bg-white/15 backdrop-blur-md border border-white/35 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.5)]'
     : 'bg-white/60 backdrop-blur-md border border-[#243825]/15 shadow-sm';
 
   const activeSrc = !failed && rawCustomSrc ? rawCustomSrc : defaultAsset;
@@ -141,6 +141,12 @@ export function BrandLogo({
     <div
       className={`relative flex items-center justify-center shrink-0 overflow-hidden ${SIZE_CLASSES[size]} ${containerGlassClasses} ${className}`}
     >
+      {isDarkGlass && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-white/25"
+        />
+      )}
       <img
         src={activeSrc}
         alt={resolvedAlt}
@@ -149,8 +155,8 @@ export function BrandLogo({
         onError={() => {
           if (!failed) setFailed(true);
         }}
-        className={`w-full h-full object-contain ${
-          isDarkGlass ? 'drop-shadow-[0_2px_6px_rgba(10,22,12,0.4)]' : ''
+        className={`relative z-10 w-full h-full object-contain ${
+          isDarkGlass ? 'drop-shadow-[0_2px_6px_rgba(10,22,12,0.38)]' : ''
         }`}
       />
     </div>

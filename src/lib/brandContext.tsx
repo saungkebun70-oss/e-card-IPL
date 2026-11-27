@@ -24,14 +24,13 @@ function syncDocumentHead(brand: AppBrandConfig) {
       appleTitle.setAttribute('content', brand.app_name);
     }
 
-    const customLogo = brand.logo_url?.trim();
     const iconLink = document.querySelector('link[rel="icon"]');
     if (iconLink) {
-      iconLink.setAttribute('href', customLogo || '/favicon.ico');
+      iconLink.setAttribute('href', '/favicon.ico');
     }
     const appleLink = document.querySelector('link[rel="apple-touch-icon"]');
     if (appleLink) {
-      appleLink.setAttribute('href', customLogo || '/apple-touch-icon.png');
+      appleLink.setAttribute('href', '/apple-touch-icon.png');
     }
   } catch {
     // Abaikan bila lingkungan browser membatasi modifikasi head

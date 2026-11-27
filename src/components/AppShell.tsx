@@ -515,7 +515,7 @@ export function AppShell({
             onClick={() => handleSelectNav(isAdmin ? 'dashboard' : 'beranda')}
             className="relative z-10 w-full flex items-center gap-3 text-left cursor-pointer group"
           >
-            <BrandLogo size="md" variant="dark" className="shrink-0" />
+            <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
             <div className="min-w-0">
               <p className="font-serif-brand text-base font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
                 {brand.app_name || 'e-Card Verifikasi'}
@@ -607,7 +607,7 @@ export function AppShell({
                 <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-36 h-28" tone="cream" />
                 <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <BrandLogo size="md" variant="dark" className="shrink-0" />
+                    <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
                     <div className="min-w-0">
                       <p className="font-serif-brand text-base font-bold text-[#FFFDF8] leading-tight truncate">
                         {brand?.app_name || 'e-Card Verifikasi'}
@@ -717,7 +717,7 @@ export function AppShell({
                 onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
                 className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
               >
-                <BrandLogo size="sm" variant="dark" className="shrink-0" />
+                <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
                 <div className="min-w-0">
                   <p className="font-serif-brand text-[15px] font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
                     {brand.app_name || 'e-Card Verifikasi'}
@@ -789,7 +789,7 @@ export function AppShell({
               className="shrink-0 cursor-pointer"
               aria-label="Beranda e-Card Saung Kebun"
             >
-              <BrandLogo size="sm" variant="dark" className="shrink-0" />
+              <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
             </button>
             <div className="min-w-0">
               <p className="font-serif-brand text-base font-bold text-[#FFFDF8] leading-tight truncate">
