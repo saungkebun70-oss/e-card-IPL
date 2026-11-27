@@ -12,6 +12,7 @@ import {
   Loader2,
   LogOut,
   RefreshCw,
+  Server,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -19,14 +20,20 @@ import {
 } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import {
+  cancelPendingExternalGoogleOAuth,
   checkFirebaseDomainAuthorization,
+  connectGoogleDriveViaServer,
   DRIVE_TARGET_EMAIL,
   FIREBASE_AUTH_SETTINGS_URL,
   getGoogleDriveAccessToken,
+  getGoogleDriveConnectedAccount,
   googleDriveLogout,
   initGoogleDriveAuth,
+  isEmbeddedWebView,
   signInGoogleDrive,
+  tryCompleteOAuthFromUrl,
   type DomainAuthCheckResult,
+  type DriveConnectedAccount,
 } from '../../lib/googleDriveAuth';
 import {
   backupDatabaseSnapshotToDrive,
@@ -94,11 +101,17 @@ export function AdminHybridDrivePanel({
   const [config, setConfig] = useState<HybridDriveConfig>(() => loadHybridDriveConfig());
   const [needsAuth, setNeedsAuth] = useState(true);
   const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [connectedAccount, setConnectedAccount] = useState<DriveConnectedAccount | null>(() =>
+    getGoogleDriveConnectedAccount()
+  );
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [connectingServer, setConnectingServer] = useState(false);
+  const [waitingExternalBrowser, setWaitingExternalBrowser] = useState(false);
   const [signInErrorMsg, setSignInErrorMsg] = useState<string | null>(null);
   const [domainStatus, setDomainStatus] = useState<DomainAuthCheckResult | null>(null);
   const [checkingDomain, setCheckingDomain] = useState(false);
+  const embeddedMode = isEmbeddedWebView();
 
   const [driveAbout, setDriveAbout] = useState<DriveAboutInfo | null>(null);
   const [loadingDriveInfo, setLoadingDriveInfo] = useState(false);
@@ -214,31 +227,71 @@ export function AdminHybridDrivePanel({
 
   useEffect(() => {
     const unsub = initGoogleDriveAuth(
-      (user, token) => {
+      (user, token, account) => {
         setGoogleUser(user);
+        setConnectedAccount(account ?? getGoogleDriveConnectedAccount());
         setAccessToken(token);
         setNeedsAuth(false);
       },
       (user) => {
         setGoogleUser(user);
+        setConnectedAccount(null);
         setAccessToken(null);
         setNeedsAuth(true);
       }
     );
 
-    void getGoogleDriveAccessToken().then((token) => {
-      if (token) {
-        setAccessToken(token);
-        setNeedsAuth(false);
-        void loadDriveWorkspace(token, folderFilter);
+    const bootstrapConnection = async () => {
+      // 1. Cek jika kembali dari callback browser eksternal via URL query
+      if (typeof window !== 'undefined' && window.location.search.includes('drive_oauth_')) {
+        const urlResult = await tryCompleteOAuthFromUrl(window.location.href, session);
+        if (urlResult) {
+          setConnectedAccount(urlResult.account);
+          setAccessToken(urlResult.accessToken);
+          setNeedsAuth(false);
+          await loadDriveWorkspace(urlResult.accessToken, folderFilter);
+          return;
+        }
       }
-    });
+
+      // 2. Cek token yang sudah aktif di memori sesi
+      const existingToken = await getGoogleDriveAccessToken();
+      if (existingToken) {
+        setConnectedAccount(getGoogleDriveConnectedAccount());
+        setAccessToken(existingToken);
+        setNeedsAuth(false);
+        await loadDriveWorkspace(existingToken, folderFilter);
+        return;
+      }
+
+      // 3. Jalur Utama Otomatis di APK/iOS (dan Web bila diizinkan):
+      //    Hubungkan langsung lewat OAuth2 Server tanpa popup login Google
+      if (canManage && embeddedMode) {
+        try {
+          setConnectingServer(true);
+          const srv = await connectGoogleDriveViaServer(session);
+          setConnectedAccount(srv.account);
+          setAccessToken(srv.accessToken);
+          setNeedsAuth(false);
+          await loadDriveWorkspace(srv.accessToken, folderFilter);
+        } catch {
+          // Diamkan pada auto-connect awal; tombol manual tetap tersedia
+        } finally {
+          setConnectingServer(false);
+        }
+      }
+    };
+
+    void bootstrapConnection();
 
     void checkFirebaseDomainAuthorization(false).then((res) => {
       setDomainStatus(res);
     });
 
-    return () => unsub();
+    return () => {
+      cancelPendingExternalGoogleOAuth();
+      unsub();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -273,25 +326,53 @@ export function AdminHybridDrivePanel({
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    if (signingIn) return;
-    setSigningIn(true);
+  const handleConnectViaServer = async () => {
+    if (connectingServer || signingIn || !canManage) return;
+    setConnectingServer(true);
     setSignInErrorMsg(null);
     try {
-      const { user, accessToken: token } = await signInGoogleDrive();
+      const { account, accessToken: token } = await connectGoogleDriveViaServer(session);
+      setGoogleUser(null);
+      setConnectedAccount(account);
+      setAccessToken(token);
+      setNeedsAuth(false);
+      setSignInErrorMsg(null);
+      await loadDriveWorkspace(token, folderFilter);
+      onToast(
+        'success',
+        `Google Drive ${account.email || DRIVE_TARGET_EMAIL} berhasil terhubung langsung via Server OAuth2.`
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Gagal menghubungkan Google Drive via server.';
+      setSignInErrorMsg(msg);
+      onToast('error', msg);
+    } finally {
+      setConnectingServer(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (signingIn || connectingServer) return;
+    setSigningIn(true);
+    setWaitingExternalBrowser(embeddedMode);
+    setSignInErrorMsg(null);
+    try {
+      const { user, account, accessToken: token } = await signInGoogleDrive(session);
       setGoogleUser(user);
+      setConnectedAccount(account);
       setAccessToken(token);
       setNeedsAuth(false);
       setSignInErrorMsg(null);
       await loadDriveWorkspace(token, folderFilter);
 
-      const signedEmail = (user.email || '').toLowerCase();
+      const signedEmail = (account?.email || user?.email || '').toLowerCase();
       if (signedEmail === DRIVE_TARGET_EMAIL.toLowerCase()) {
         onToast('success', `Google Drive ${DRIVE_TARGET_EMAIL} berhasil terhubung.`);
       } else {
         onToast(
           'info',
-          `Terhubung ke ${user.email || 'akun Google'}. Disarankan memakai ${DRIVE_TARGET_EMAIL}.`
+          `Terhubung ke ${account?.email || user?.email || 'akun Google'}. Disarankan memakai ${DRIVE_TARGET_EMAIL}.`
         );
       }
     } catch (err) {
@@ -299,14 +380,22 @@ export function AdminHybridDrivePanel({
       setSignInErrorMsg(msg);
       onToast('error', msg);
     } finally {
+      setWaitingExternalBrowser(false);
       setSigningIn(false);
     }
+  };
+
+  const handleCancelExternalBrowser = () => {
+    cancelPendingExternalGoogleOAuth();
+    setWaitingExternalBrowser(false);
+    setSigningIn(false);
   };
 
   const handleGoogleSignOut = async () => {
     await googleDriveLogout();
     setAccessToken(null);
     setGoogleUser(null);
+    setConnectedAccount(null);
     setDriveAbout(null);
     setDriveFiles([]);
     setNeedsAuth(true);
@@ -428,7 +517,8 @@ export function AdminHybridDrivePanel({
     }
   };
 
-  const activeEmail = driveAbout?.emailAddress || googleUser?.email || '';
+  const activeEmail =
+    driveAbout?.emailAddress || connectedAccount?.email || googleUser?.email || '';
   const isTargetEmailMatched =
     Boolean(activeEmail) && activeEmail.toLowerCase() === DRIVE_TARGET_EMAIL.toLowerCase();
 
@@ -591,6 +681,29 @@ export function AdminHybridDrivePanel({
               </div>
             )}
 
+            {waitingExternalBrowser && signingIn && (
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/90 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-2.5 text-xs text-indigo-950">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold">Menunggu Login Google di Browser Sistem...</p>
+                    <p className="text-[11px] text-indigo-900/85 leading-relaxed">
+                      Selesaikan login akun Google pada jendela browser aman (Chrome / Safari).
+                      Setelah berhasil, Anda akan kembali ke aplikasi dengan status{' '}
+                      <strong>Terhubung</strong> secara otomatis.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelExternalBrowser}
+                  className="min-h-[38px] px-4 rounded-full border border-indigo-200 bg-white hover:bg-indigo-100 text-xs font-semibold text-indigo-900 shrink-0 cursor-pointer self-start sm:self-center"
+                >
+                  Batal
+                </button>
+              </div>
+            )}
+
             {signInErrorMsg && (!domainStatus?.checked || domainStatus.authorized) && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/85 px-4 py-3 text-xs text-amber-950 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -598,61 +711,81 @@ export function AdminHybridDrivePanel({
               </div>
             )}
 
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="space-y-0.5">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4 space-y-3">
+              <div className="space-y-1">
                 <p className="text-xs font-bold text-[#0F172A]">
-                  Penjelajah Folder Manual (Opsional — Khusus Browser)
+                  Penjelajah Folder &amp; Arsip Google Drive (Web, Android APK &amp; iOS)
                 </p>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Untuk menelusuri isi folder atau memicu arsip batch manual dari browser dengan akun{' '}
-                  <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span>, Anda dapat
-                  masuk Google secara opsional.
+                  {embeddedMode
+                    ? `Di Android APK / iOS, gunakan "Hubungkan Langsung via Server" untuk langsung menjelajahi folder ${HYBRID_ROOT_FOLDER_NAME} (${DRIVE_TARGET_EMAIL}), atau pilih "Masuk dengan Akun Google" untuk membuka jendela autentikasi browser aman (Chrome / Safari).`
+                    : `Hubungkan langsung lewat OAuth2 Server atau masuk menggunakan akun Google ${DRIVE_TARGET_EMAIL} untuk menjelajahi isi folder dan menjalankan arsip batch.`}
                 </p>
               </div>
 
-              <button
-                type="button"
-                disabled={!canManage || signingIn}
-                onClick={handleGoogleSignIn}
-                className="gsi-material-button inline-flex items-center justify-center gap-2.5 min-h-[40px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-2xs text-xs font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
-              >
-                <div className="gsi-material-button-state" />
-                <div className="gsi-material-button-content-wrapper flex items-center gap-2">
-                  <div className="gsi-material-button-icon w-4 h-4 shrink-0">
-                    {signingIn ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
-                    ) : (
-                      <svg
-                        version="1.1"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 48 48"
-                        style={{ display: 'block', width: '16px', height: '16px' }}
-                      >
-                        <path
-                          fill="#EA4335"
-                          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                        />
-                        <path
-                          fill="#4285F4"
-                          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                        />
-                        <path fill="none" d="M0 0h48v48H0z" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="gsi-material-button-contents">
-                    {signingIn ? 'Menghubungkan...' : 'Masuk Google (Opsional)'}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={!canManage || connectingServer || signingIn}
+                  onClick={() => void handleConnectViaServer()}
+                  className="min-h-[44px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+                >
+                  {connectingServer ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Server className="w-4 h-4 text-emerald-300" />
+                  )}
+                  <span>
+                    {connectingServer
+                      ? 'Menghubungkan Server...'
+                      : 'Hubungkan Langsung via Server'}
                   </span>
-                </div>
-              </button>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!canManage || signingIn || connectingServer}
+                  onClick={handleGoogleSignIn}
+                  className="gsi-material-button inline-flex items-center justify-center gap-2.5 min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-2xs text-xs font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
+                >
+                  <div className="gsi-material-button-state" />
+                  <div className="gsi-material-button-content-wrapper flex items-center gap-2">
+                    <div className="gsi-material-button-icon w-4 h-4 shrink-0">
+                      {signingIn ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+                      ) : (
+                        <svg
+                          version="1.1"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 48 48"
+                          style={{ display: 'block', width: '16px', height: '16px' }}
+                        >
+                          <path
+                            fill="#EA4335"
+                            d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                          />
+                          <path
+                            fill="#4285F4"
+                            d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                          />
+                          <path fill="none" d="M0 0h48v48H0z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="gsi-material-button-contents">
+                      {signingIn ? 'Menghubungkan...' : 'Masuk dengan Akun Google'}
+                    </span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -680,7 +813,10 @@ export function AdminHybridDrivePanel({
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[#0F172A] truncate">
-                    {driveAbout?.displayName || googleUser?.displayName || 'Akun Google Terhubung'}
+                    {driveAbout?.displayName ||
+                      connectedAccount?.displayName ||
+                      googleUser?.displayName ||
+                      'Akun Google Terhubung'}
                   </p>
                   <p className="text-xs font-mono text-slate-700 truncate">
                     {activeEmail || DRIVE_TARGET_EMAIL}
@@ -696,9 +832,11 @@ export function AdminHybridDrivePanel({
                       : 'bg-amber-100 text-amber-900 border border-amber-300'
                   }`}
                 >
-                  {isTargetEmailMatched
-                    ? 'Sesuai Akun Pusat Saung Kebun'
-                    : `Bukan ${DRIVE_TARGET_EMAIL}`}
+                  {connectedAccount?.source === 'server_oauth2'
+                    ? 'Terhubung via OAuth2 Server'
+                    : isTargetEmailMatched
+                      ? 'Sesuai Akun Pusat Saung Kebun'
+                      : `Bukan ${DRIVE_TARGET_EMAIL}`}
                 </span>
                 {!isTargetEmailMatched && (
                   <button

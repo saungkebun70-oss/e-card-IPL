@@ -99,6 +99,38 @@ if (!xml.includes(DEFAULT_CHANNEL_META_NAME)) {
   );
 }
 
+// Suntikkan <queries> untuk visibilitas browser eksternal (Android 11+ / API 30+)
+if (!xml.includes('android:scheme="https"') && xml.includes('</manifest>')) {
+  const queriesBlock = `\n    <!-- Visibilitas Browser Sistem Eksternal untuk Google OAuth2 (Android 11+) -->\n    <queries>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="https" />\n        </intent>\n        <package android:name="com.android.chrome" />\n    </queries>\n`;
+  xml = xml.replace('</manifest>', `${queriesBlock}</manifest>`);
+  modified = true;
+  console.log('[inject-android-manifest] Berhasil menyuntikkan <queries> browser eksternal.');
+}
+
+// Suntikkan deep-link intent-filter pada MainActivity untuk callback OAuth Google (com.saungkebun.ecardipl://oauth-callback)
+if (!xml.includes('android:scheme="com.saungkebun.ecardipl"')) {
+  const deepLinkFilters = `
+            <!-- Deep Link Callback Google OAuth2 Lintas APK -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.saungkebun.ecardipl" android:host="oauth-callback" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="e-card-ipl.vercel.app" />
+            </intent-filter>
+        `;
+  if (xml.includes('</activity>')) {
+    xml = xml.replace('</activity>', `${deepLinkFilters}</activity>`);
+    modified = true;
+    console.log('[inject-android-manifest] Berhasil menyuntikkan deep-link intent-filter OAuth Google ke MainActivity.');
+  }
+}
+
 if (modified) {
   fs.writeFileSync(manifestPath, xml, 'utf8');
 }

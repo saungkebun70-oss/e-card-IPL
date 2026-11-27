@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import sendBotWaHandler from './api/bot-wa/send';
 import webhookBotWaHandler from './api/bot-wa/webhook';
+import driveOAuthHandler from './api/storage/drive-oauth';
 import {
   inspectSupabaseStorageStatus,
   saveHybridThresholdSettings,
@@ -399,6 +400,13 @@ async function startServer() {
         pathBase: '/api/storage/chat-drive-private-access',
       },
       res as unknown as Parameters<typeof handlePrivateChatDriveAccess>[1]
+    );
+  });
+
+  app.all('/api/storage/drive-oauth', async (req, res) => {
+    await driveOAuthHandler(
+      req as unknown as Parameters<typeof driveOAuthHandler>[0],
+      res as unknown as Parameters<typeof driveOAuthHandler>[1]
     );
   });
 

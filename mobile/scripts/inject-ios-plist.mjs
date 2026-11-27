@@ -76,5 +76,12 @@ if (bgModesRegex.test(plist)) {
   console.log('[inject-ios-plist] Menambahkan UIBackgroundModes (remote-notification) ke Info.plist.');
 }
 
+// Pastikan CFBundleURLTypes mendukung deep link callback OAuth (com.saungkebun.ecardipl://oauth-callback)
+if (!plist.includes('<string>com.saungkebun.ecardipl</string>')) {
+  const urlTypesBlock = `\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>com.saungkebun.ecardipl</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>com.saungkebun.ecardipl</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
+  plist = insertBeforeClosingDict(plist, urlTypesBlock);
+  console.log('[inject-ios-plist] Menambahkan CFBundleURLTypes (com.saungkebun.ecardipl) ke Info.plist.');
+}
+
 fs.writeFileSync(plistPath, plist, 'utf8');
 console.log(`[inject-ios-plist] Berhasil memperbarui ${updatedCount} deskripsi izin & background push mode di Info.plist.`);
