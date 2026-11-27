@@ -34,6 +34,7 @@ import {
   getGoogleDriveAccessToken,
   getGoogleDriveConnectedAccount,
   googleDriveLogout,
+  hasExplicitGoogleDriveLogout,
   initGoogleDriveAuth,
   isEmbeddedWebView,
   signInGoogleDrive,
@@ -109,7 +110,11 @@ export function AdminHybridDrivePanel({
   const canManage =
     canManageOverride !== undefined
       ? canManageOverride
-      : isBendaharaFullAccess(session) || session.jabatan === 'Ketua';
+      : isBendaharaFullAccess(session) ||
+        session.jabatan === 'Bendahara' ||
+        session.jabatan === 'Ketua' ||
+        (session.role as string) === 'pengurus' ||
+        session.central_settings_permissions?.['settings.system_integrations'] === 'granted';
 
   const [config, setConfig] = useState<HybridDriveConfig>(() => loadHybridDriveConfig());
   const [needsAuth, setNeedsAuth] = useState(true);
@@ -121,6 +126,10 @@ export function AdminHybridDrivePanel({
   const [signingIn, setSigningIn] = useState(false);
   const [connectingServer, setConnectingServer] = useState(false);
   const [resyncingOAuth, setResyncingOAuth] = useState(false);
+  const [serverOAuthReady, setServerOAuthReady] = useState<boolean>(() => {
+    const acc = getGoogleDriveConnectedAccount();
+    return acc?.source === 'supabase_edge_function' || acc?.source === 'server_oauth2';
+  });
   const [tokenInvalidReason, setTokenInvalidReason] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [healthTick, setHealthTick] = useState(() => Date.now());
@@ -288,12 +297,19 @@ export function AdminHybridDrivePanel({
   useEffect(() => {
     const unsub = initGoogleDriveAuth(
       (user, token, account) => {
+        const resolvedAcc = account ?? getGoogleDriveConnectedAccount();
         setGoogleUser(user);
-        setConnectedAccount(account ?? getGoogleDriveConnectedAccount());
+        setConnectedAccount(resolvedAcc);
         setAccessToken(token);
         setNeedsAuth(false);
         setTokenInvalidReason(null);
         setSignInErrorMsg(null);
+        if (
+          resolvedAcc?.source === 'supabase_edge_function' ||
+          resolvedAcc?.source === 'server_oauth2'
+        ) {
+          setServerOAuthReady(true);
+        }
         setLastSyncedAt(new Date().toISOString());
       },
       (user) => {
@@ -312,12 +328,13 @@ export function AdminHybridDrivePanel({
           setConnectedAccount(urlResult.account);
           setAccessToken(urlResult.accessToken);
           setNeedsAuth(false);
+          setTokenInvalidReason(null);
           await loadDriveWorkspace(urlResult.accessToken, folderFilter);
           return;
         }
       }
 
-      // 2. Cek token yang sudah aktif di memori sesi; segarkan otomatis jika hampir kedaluwarsa
+      // 2. Cek token yang sudah aktif di memori sesi; segarkan otomatis melalui Edge Function / Server
       const existingToken = canManage
         ? await ensureFreshGoogleDriveToken(session, {
             respectExplicitLogout: true,
@@ -326,28 +343,40 @@ export function AdminHybridDrivePanel({
         : await getGoogleDriveAccessToken();
 
       if (existingToken) {
-        setConnectedAccount(getGoogleDriveConnectedAccount());
+        const activeAcc = getGoogleDriveConnectedAccount();
+        setConnectedAccount(activeAcc);
         setAccessToken(existingToken);
         setNeedsAuth(false);
+        setTokenInvalidReason(null);
+        if (
+          activeAcc?.source === 'supabase_edge_function' ||
+          activeAcc?.source === 'server_oauth2'
+        ) {
+          setServerOAuthReady(true);
+        }
         await loadDriveWorkspace(existingToken, folderFilter);
         return;
       }
 
-      // 3. Jalur Utama Otomatis di APK/iOS:
-      //    Hubungkan langsung lewat Edge Function / OAuth2 Server tanpa popup login Google
-      if (canManage && embeddedMode) {
+      // 3. Jalur Utama Otomatis Lintas Web, APK Android & iOS:
+      //    Hubungkan langsung lewat Edge Function / OAuth2 Server jika belum logout eksplisit
+      if (canManage && !hasExplicitGoogleDriveLogout()) {
         try {
           setConnectingServer(true);
           const srv = await refreshGoogleDriveTokenViaEdge(session, {
             force: true,
-            reason: 'embedded_auto_bootstrap',
+            reason: 'auto_bootstrap_all_platforms',
           });
           setConnectedAccount(srv.account);
           setAccessToken(srv.accessToken);
           setNeedsAuth(false);
+          setServerOAuthReady(true);
+          setTokenInvalidReason(null);
+          setSignInErrorMsg(null);
           await loadDriveWorkspace(srv.accessToken, folderFilter);
         } catch {
-          // Diamkan pada auto-connect awal; tombol manual tetap tersedia
+          // Jangan memunculkan toast/error merah saat auto-connect pasif awal;
+          // tombol Hubungkan Langsung via Server / Masuk Google tetap tersedia
         } finally {
           setConnectingServer(false);
         }
@@ -412,6 +441,7 @@ export function AdminHybridDrivePanel({
       setConnectedAccount(account);
       setAccessToken(token);
       setNeedsAuth(false);
+      setServerOAuthReady(true);
       setSignInErrorMsg(null);
       setTokenInvalidReason(null);
       setLastSyncedAt(new Date().toISOString());
@@ -444,6 +474,9 @@ export function AdminHybridDrivePanel({
       setConnectedAccount(account);
       setAccessToken(token);
       setNeedsAuth(false);
+      setServerOAuthReady(
+        account.source === 'supabase_edge_function' || account.source === 'server_oauth2'
+      );
       setTokenInvalidReason(null);
       setSignInErrorMsg(null);
       setLastSyncedAt(new Date().toISOString());
@@ -512,6 +545,7 @@ export function AdminHybridDrivePanel({
     setAccessToken(null);
     setGoogleUser(null);
     setConnectedAccount(null);
+    setServerOAuthReady(false);
     setDriveAbout(null);
     setDriveFiles([]);
     setTokenInvalidReason(null);
@@ -731,6 +765,7 @@ export function AdminHybridDrivePanel({
     account: connectedAccount,
     tokenInvalidReason,
     isRefreshing: resyncingOAuth || connectingServer,
+    serverOAuthReady,
     now: healthTick,
   });
 

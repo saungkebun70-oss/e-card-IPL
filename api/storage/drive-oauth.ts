@@ -302,6 +302,93 @@ function canonicalAdminUsername(raw?: string | null): string {
   return clean;
 }
 
+const KNOWN_PENGURUS_BLOCKS: Array<{ username: string; linkedBlock: string; jabatan: string }> = [
+  { username: 'andriansyah', linkedBlock: 'B7/16', jabatan: 'bendahara' },
+  { username: 'erlangga', linkedBlock: 'B3/7', jabatan: 'ketua' },
+  { username: 'bpiwan', linkedBlock: 'B8/5', jabatan: 'pembina' },
+  { username: 'doni', linkedBlock: 'B5/21', jabatan: 'humas' },
+  { username: 'wahyu', linkedBlock: 'B5/24', jabatan: 'humas' },
+  { username: 'deny', linkedBlock: 'B8/6', jabatan: 'seksiolahraga' },
+];
+
+function canonicalBlockKey(raw?: string | null): string {
+  const clean = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/^BLOK\s*/i, '')
+    .replace(/\s+/g, '');
+  if (!clean) return '';
+  const m = clean.match(/^([A-Z]+)0*(\d+)[\/-]0*(\d+)$/);
+  return m ? `${m[1]}${Number(m[2])}/${Number(m[3])}` : clean;
+}
+
+function isPengurusRoleToken(raw?: string | null): boolean {
+  const token = normalizeToken(raw);
+  if (!token) return false;
+  return (
+    token === 'admin' ||
+    token === 'pengurus' ||
+    token === 'bendahara' ||
+    token === 'ketua' ||
+    token === 'sekretaris' ||
+    token.includes('bendahara') ||
+    token.includes('ketua') ||
+    token.includes('sekretaris') ||
+    token.includes('pengurus')
+  );
+}
+
+function isFlexibleManagerRow(row: Record<string, unknown>): boolean {
+  const roleVal = String(row.role ?? '');
+  const botRoleVal = String(row.bot_role ?? '');
+  const jabatanVal = String(row.jabatan ?? row.posisi ?? '');
+  const permVal = normalizeToken(String(row.admin_permission ?? ''));
+  return (
+    permVal === 'full' ||
+    /(bendahara|ketua|sekretaris|pengurus|admin|pembina|humas|olahraga)/i.test(
+      `${roleVal} ${botRoleVal} ${jabatanVal}`
+    )
+  );
+}
+
+function isFlexibleRowActive(row: Record<string, unknown>): boolean {
+  if (row.is_active_pengurus === false) return false;
+  if (row.is_active === false) return false;
+  const wargaStatus = normalizeToken(String(row.warga_account_status ?? ''));
+  if (row.aktif === false && wargaStatus !== 'suspended_by_pengurus') {
+    const statusStr = String(row.status ?? '').trim();
+    if (!/^(aktif|active)$/i.test(statusStr)) {
+      return false;
+    }
+  }
+  const statusVal = String(row.status ?? '').trim();
+  if (statusVal && !/^(aktif|active)$/i.test(statusVal)) {
+    return false;
+  }
+  return true;
+}
+
+async function querySupabaseTableSafe(
+  sb: { url: string; serviceKey: string },
+  pathWithQuery: string
+): Promise<Array<Record<string, unknown>>> {
+  try {
+    const res = await fetch(`${sb.url}/rest/v1/${pathWithQuery}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        apikey: sb.serviceKey,
+        Authorization: `Bearer ${sb.serviceKey}`,
+      },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json().catch(() => [])) as unknown;
+    return Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function verifyAuthorizedDriveManager(
   req: VercelReq,
   senderHint?: Record<string, unknown> | null
@@ -318,77 +405,125 @@ async function verifyAuthorizedDriveManager(
       getHeader(req.headers, 'x-pengurus-username') ||
       String(senderHint?.blokRumah || senderHint?.pengurusUsername || '')
   ).trim();
+  const namaHeader = String(senderHint?.namaWarga || '').trim();
 
-  if (roleHeader !== 'admin' || (permHeader !== 'full' && jabatanHeader !== 'ketua')) {
+  const isCallerPengurusSession =
+    isPengurusRoleToken(roleHeader) ||
+    isPengurusRoleToken(jabatanHeader) ||
+    permHeader === 'full';
+
+  if (!isCallerPengurusSession) {
     return {
       ok: false,
       status: 403,
-      error: 'Koneksi Google Drive pusat khusus akun Pengurus Bendahara atau Ketua.',
+      error: 'Koneksi Google Drive pusat khusus akun Pengurus aktif.',
     };
   }
+
+  const blockLookup = KNOWN_PENGURUS_BLOCKS.find(
+    (p) => canonicalBlockKey(p.linkedBlock) === canonicalBlockKey(blokHeader)
+  );
+  const candidateUsername =
+    canonicalAdminUsername(blokHeader) ||
+    blockLookup?.username ||
+    (jabatanHeader.includes('ketua')
+      ? 'erlangga'
+      : jabatanHeader.includes('bendahara') || permHeader === 'full'
+        ? 'andriansyah'
+        : normalizeToken(namaHeader) || 'pengurus');
+
+  const isPrivilegedSession =
+    permHeader === 'full' ||
+    jabatanHeader.includes('bendahara') ||
+    jabatanHeader.includes('ketua') ||
+    jabatanHeader.includes('sekretaris') ||
+    roleHeader === 'pengurus' ||
+    roleHeader === 'bendahara' ||
+    roleHeader === 'ketua' ||
+    (senderHint?.central_settings_permissions as Record<string, unknown> | undefined)?.[
+      'settings.system_integrations'
+    ] === 'granted';
 
   const sb = getSupabaseEnv();
   if (!sb) {
-    // Izinkan jika server berjalan di mode dev minimal tanpa SUPABASE_SERVICE_ROLE_KEY,
-    // namun tetap wajib header Bendahara/Ketua.
+    return { ok: true, username: candidateUsername, role: roleHeader || 'pengurus' };
+  }
+
+  // 1. Cek eksplisit apakah akun pengurus ini dinonaktifkan pada `pengurus_account_states`
+  const accountStates = await querySupabaseTableSafe(sb, 'pengurus_account_states?select=*');
+  const explicitStateRow = accountStates.find((r) => {
+    const u = canonicalAdminUsername(String(r.pengurus_username ?? r.username ?? ''));
+    return u && u === candidateUsername;
+  });
+  if (explicitStateRow && explicitStateRow.is_active_pengurus === false) {
     return {
-      ok: true,
-      username: canonicalAdminUsername(blokHeader) || (jabatanHeader === 'ketua' ? 'erlangga' : 'andriansyah'),
-      role: roleHeader,
+      ok: false,
+      status: 403,
+      error: 'Status akun Pengurus sedang dinonaktifkan oleh Bendahara.',
     };
   }
-
-  const candidateUsername =
-    canonicalAdminUsername(blokHeader) || (jabatanHeader === 'ketua' ? 'erlangga' : 'andriansyah');
-
-  try {
-    const res = await fetch(
-      `${sb.url}/rest/v1/users_warga?select=blok_rumah,role,bot_role,jabatan,admin_permission,aktif`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          apikey: sb.serviceKey,
-          Authorization: `Bearer ${sb.serviceKey}`,
-        },
-      }
-    );
-    if (res.ok) {
-      const rows = (await res.json()) as Array<{
-        blok_rumah?: string | null;
-        role?: string | null;
-        bot_role?: string | null;
-        jabatan?: string | null;
-        admin_permission?: string | null;
-        aktif?: boolean | null;
-      }>;
-      const matched = rows.find((r) => {
-        const isAdminRow =
-          ['admin', 'bendahara', 'pengurus'].includes(normalizeToken(r.role)) ||
-          ['admin', 'bendahara', 'pengurus'].includes(normalizeToken(r.bot_role));
-        if (!isAdminRow || r.aktif === false) return false;
-        const can = canonicalAdminUsername(r.blok_rumah);
-        const jab = normalizeToken(r.jabatan);
-        const perm = normalizeToken(r.admin_permission);
-        return (
-          can === candidateUsername ||
-          (jabatanHeader === 'ketua' && jab === 'ketua') ||
-          (permHeader === 'full' && (perm === 'full' || jab === 'bendahara'))
-        );
-      });
-      if (!matched) {
-        return {
-          ok: false,
-          status: 403,
-          error: 'Akun Pengurus aktif (Bendahara/Ketua) tidak ditemukan pada database.',
-        };
-      }
-    }
-  } catch {
-    // Jika verifikasi jaringan ke Supabase gagal sementara, jangan memblokir Bendahara/Ketua
+  if (explicitStateRow && explicitStateRow.is_active_pengurus === true) {
+    return { ok: true, username: candidateUsername, role: roleHeader || 'pengurus' };
   }
 
-  return { ok: true, username: candidateUsername, role: roleHeader };
+  // 2. Pencarian multi-tabel dengan pencocokan case-insensitive (ilike) & filter status fleksibel
+  const ilikeManagerFilter =
+    'or=(jabatan.ilike.*bendahara*,jabatan.ilike.*ketua*,jabatan.ilike.*sekretaris*,jabatan.ilike.*pengurus*,role.ilike.*pengurus*,role.ilike.*admin*,role.ilike.*bendahara*,role.ilike.*ketua*)';
+
+  const [pengurusRows, adminUsersRows, usersRows, wargaRows] = await Promise.all([
+    querySupabaseTableSafe(sb, `pengurus?select=*&${ilikeManagerFilter}`),
+    querySupabaseTableSafe(sb, `admin_users?select=*&${ilikeManagerFilter}`),
+    querySupabaseTableSafe(sb, `users?select=*&${ilikeManagerFilter}`),
+    querySupabaseTableSafe(sb, 'users_warga?select=*'),
+  ]);
+
+  const combinedRows = [...pengurusRows, ...adminUsersRows, ...usersRows, ...wargaRows];
+  const matchedActiveRow = combinedRows.find((r) => {
+    if (!isFlexibleManagerRow(r) || !isFlexibleRowActive(r)) return false;
+    const rowUser = canonicalAdminUsername(
+      String(r.username ?? r.blok_rumah ?? r.nama ?? r.nama_warga ?? '')
+    );
+    const rowName = normalizeToken(String(r.nama ?? r.nama_warga ?? r.name ?? ''));
+    const rowJab = normalizeToken(String(r.jabatan ?? r.posisi ?? ''));
+    if (candidateUsername && rowUser === candidateUsername) return true;
+    if (namaHeader && rowName && rowName.includes(normalizeToken(namaHeader))) return true;
+    if (jabatanHeader && rowJab && rowJab.includes(jabatanHeader)) return true;
+    if (normalizeToken(String(r.admin_permission ?? '')) === 'full' && permHeader === 'full') return true;
+    return false;
+  });
+
+  if (matchedActiveRow) {
+    return { ok: true, username: candidateUsername, role: roleHeader || 'pengurus' };
+  }
+
+  // 3. Cek delegasi modul `settings.system_integrations` bila belum termasuk Bendahara/Ketua/Sekretaris
+  if (!isPrivilegedSession) {
+    const permTargets = [blokHeader, candidateUsername].filter(Boolean);
+    const permRows = await querySupabaseTableSafe(
+      sb,
+      'central_setting_permissions?select=status,target_blok&module_key=eq.settings.system_integrations&status=eq.granted'
+    );
+    const hasDelegation = permRows.some((p) => {
+      const rawTarget = String(p.target_blok ?? '');
+      const targetUser = canonicalAdminUsername(rawTarget);
+      const targetBlock = canonicalBlockKey(rawTarget);
+      return permTargets.some(
+        (t) =>
+          (targetUser && canonicalAdminUsername(t) === targetUser) ||
+          (targetBlock && canonicalBlockKey(t) === targetBlock)
+      );
+    });
+    if (!hasDelegation) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'Akses Arsip Drive khusus Bendahara, Ketua, Sekretaris, atau Pengurus terdelegasi.',
+      };
+    }
+  }
+
+  // 4. Gunakan identitas sesi aktif Pengurus secara langsung
+  return { ok: true, username: candidateUsername, role: roleHeader || 'pengurus' };
 }
 
 async function saveSessionToSupabase(record: OAuthSessionRecord): Promise<void> {
@@ -837,11 +972,12 @@ export default async function handler(req: VercelReq, res: VercelRes) {
   const action = String(body.action || '').trim().toLowerCase();
   const cfg = getOAuthServerConfig();
 
-  // 2. Jalur Utama: Hubungkan Langsung via Server OAuth2 (GOOGLE_OAUTH_REFRESH_TOKEN)
-  if (action === 'server_token') {
+  // 2. Jalur Utama & Health Check: Hubungkan Langsung via Server OAuth2 (GOOGLE_OAUTH_REFRESH_TOKEN)
+  if (action === 'server_token' || action === 'health_check') {
     if (!cfg.clientId || !cfg.clientSecret || !cfg.refreshToken) {
       res.status(503).json({
         ok: false,
+        serverConfigured: false,
         code: 'oauth_server_unconfigured',
         error:
           'Kredensial OAuth2 server Google Drive belum lengkap. Gunakan tombol Masuk dengan Akun Google atau lengkapi environment server.',

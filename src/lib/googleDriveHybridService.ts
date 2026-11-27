@@ -13,6 +13,7 @@ import { recordAuditLog } from './auditLogger';
 import type { SessionUser } from '../types';
 
 export const HYBRID_ROOT_FOLDER_NAME = 'eCard-Saung-Kebun-Hybrid';
+export const LEGACY_OR_MAIN_KAS_FOLDER_NAME = 'DATA KAS SAUNG KEBUN';
 
 export type HybridFolderKey =
   | 'bukti_ipl'
@@ -585,9 +586,18 @@ export async function listHybridDriveFiles(
   });
 
   const baseTargets: Array<{ id: string; folderKey: HybridFolderKey | 'root' }> = [];
+  let kasMainFolderId: string | null = null;
   if (filterKey === 'all') {
     if (rootFolderId) {
       baseTargets.push({ id: rootFolderId, folderKey: 'root' });
+    }
+    kasMainFolderId = await findFolderByName(
+      accessToken,
+      LEGACY_OR_MAIN_KAS_FOLDER_NAME,
+      null
+    ).catch(() => null);
+    if (kasMainFolderId && kasMainFolderId !== rootFolderId) {
+      baseTargets.push({ id: kasMainFolderId, folderKey: 'root' });
     }
     (Object.keys(subFolderIds) as HybridFolderKey[]).forEach((key) => {
       if (subFolderIds[key]) {
@@ -604,9 +614,11 @@ export async function listHybridDriveFiles(
 
   const yearFolderMap = await discoverYearSubfolders(accessToken, baseTargets);
 
-  // Kumpulkan seluruh folder ID yang perlu dipindai (folder kategori + subfolder tahunan)
+  // Kumpulkan seluruh folder ID yang perlu dipindai (folder kategori + DATA KAS SAUNG KEBUN + subfolder tahunan)
   const searchFolderIds = [
-    ...baseTargets.filter((b) => filterKey !== 'all' || b.folderKey !== 'root').map((b) => b.id),
+    ...baseTargets
+      .filter((b) => filterKey !== 'all' || b.folderKey !== 'root' || b.id === kasMainFolderId)
+      .map((b) => b.id),
     ...Array.from(yearFolderMap.keys()),
   ];
 

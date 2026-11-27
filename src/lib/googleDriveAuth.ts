@@ -196,6 +196,7 @@ function buildManagerHeaders(session?: SessionUser | null): Record<string, strin
     'Content-Type': 'application/json',
     'x-user-role': session?.role || 'admin',
     'x-blok-rumah': session?.blok_rumah || '',
+    'x-pengurus-username': session?.blok_rumah || '',
     'x-admin-permission': session?.admin_permission || 'full',
     'x-admin-jabatan': session?.jabatan || '',
   };
@@ -206,9 +207,12 @@ function buildSenderPayload(session?: SessionUser | null) {
   return {
     role: session.role,
     blokRumah: session.blok_rumah,
+    pengurusUsername: session.blok_rumah,
     namaWarga: session.nama_warga,
     jabatan: session.jabatan,
     adminPermission: session.admin_permission,
+    is_active_pengurus: session.is_active_pengurus,
+    central_settings_permissions: session.central_settings_permissions,
   };
 }
 

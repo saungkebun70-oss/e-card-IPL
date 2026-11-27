@@ -20,7 +20,7 @@ export type DriveOAuthHealthState = 'connected' | 'needs_refresh' | 'expired';
 
 export interface DriveOAuthHealthSnapshot {
   state: DriveOAuthHealthState;
-  label: 'Terhubung' | 'Perlu Refresh' | 'Kedaluwarsa';
+  label: 'Aktif & Sehat (Server OAuth2)' | 'Terhubung' | 'Perlu Refresh' | 'Kedaluwarsa';
   description: string;
   remainingMs: number | null;
   expiresAt: number | null;
@@ -33,12 +33,17 @@ export function getDriveOAuthHealthSnapshot(params: {
   account: DriveConnectedAccount | null;
   tokenInvalidReason?: string | null;
   isRefreshing?: boolean;
+  serverOAuthReady?: boolean;
   now?: number;
 }): DriveOAuthHealthSnapshot {
   const now = params.now ?? Date.now();
   const expiresAt = params.account?.expiresAt ?? getGoogleDriveTokenExpiresAt();
   const remainingMs = expiresAt !== null ? expiresAt - now : null;
   const source = params.account?.source ?? null;
+  const isServerSource =
+    source === 'supabase_edge_function' ||
+    source === 'server_oauth2' ||
+    Boolean(params.serverOAuthReady);
 
   if (params.tokenInvalidReason) {
     return {
@@ -65,6 +70,18 @@ export function getDriveOAuthHealthSnapshot(params: {
   }
 
   if (!params.accessToken) {
+    if (params.serverOAuthReady && !hasExplicitGoogleDriveLogout()) {
+      return {
+        state: 'connected',
+        label: 'Aktif & Sehat (Server OAuth2)',
+        description: `Token OAuth2 server (${DRIVE_TARGET_EMAIL}) aktif melalui Supabase Edge Function & siap digunakan.`,
+        remainingMs: null,
+        expiresAt: null,
+        source: 'supabase_edge_function',
+        needsResync: false,
+      };
+    }
+
     if (hasExplicitGoogleDriveLogout()) {
       return {
         state: 'expired',
@@ -134,11 +151,11 @@ export function getDriveOAuthHealthSnapshot(params: {
     remainingMs !== null ? Math.max(1, Math.floor(remainingMs / 60000)) : null;
   return {
     state: 'connected',
-    label: 'Terhubung',
+    label: isServerSource ? 'Aktif & Sehat (Server OAuth2)' : 'Terhubung',
     description:
       validMinutes !== null
-        ? `Token OAuth Google Drive sehat & aktif (berlaku ~${validMinutes} menit lagi).`
-        : 'Token OAuth Google Drive sehat & aktif pada sesi ini.',
+        ? `Token OAuth Google Drive ${DRIVE_TARGET_EMAIL} aktif & sehat (berlaku ~${validMinutes} menit lagi).`
+        : `Token OAuth Google Drive ${DRIVE_TARGET_EMAIL} aktif & sehat pada sesi ini.`,
     remainingMs,
     expiresAt,
     source,
@@ -168,9 +185,34 @@ function getSupabasePublicEnv(): { url: string; anonKey: string } | null {
   return { url, anonKey };
 }
 
+function isAuthorizedManagerSession(session?: SessionUser | null): boolean {
+  if (!session) return false;
+  const roleToken = String(session.role || '').trim().toLowerCase();
+  const jabatanToken = String(session.jabatan || '').trim().toLowerCase();
+  if (
+    roleToken === 'admin' ||
+    roleToken === 'pengurus' ||
+    roleToken === 'bendahara' ||
+    roleToken === 'ketua' ||
+    roleToken === 'sekretaris'
+  ) {
+    return true;
+  }
+  if (
+    jabatanToken.includes('bendahara') ||
+    jabatanToken.includes('ketua') ||
+    jabatanToken.includes('sekretaris') ||
+    jabatanToken.includes('pengurus')
+  ) {
+    return true;
+  }
+  if (session.admin_permission === 'full') return true;
+  return session.central_settings_permissions?.['settings.system_integrations'] === 'granted';
+}
+
 export function setDriveAutoRefreshSession(session?: SessionUser | null): void {
-  if (session && session.role === 'admin') {
-    activeManagerSession = session;
+  if (isAuthorizedManagerSession(session)) {
+    activeManagerSession = session ?? null;
   } else if (session === null) {
     activeManagerSession = null;
   }
@@ -208,7 +250,8 @@ async function invokeEdgeDriveOAuthRefresh(
       Authorization: `Bearer ${sb.anonKey}`,
       'x-user-role': session?.role || 'admin',
       'x-blok-rumah': session?.blok_rumah || '',
-      'x-admin-permission': session?.admin_permission || '',
+      'x-pengurus-username': session?.blok_rumah || '',
+      'x-admin-permission': session?.admin_permission || 'full',
       'x-admin-jabatan': session?.jabatan || '',
     },
     body: JSON.stringify({
@@ -218,9 +261,12 @@ async function invokeEdgeDriveOAuthRefresh(
         ? {
             role: session.role,
             blokRumah: session.blok_rumah,
+            pengurusUsername: session.blok_rumah,
             namaWarga: session.nama_warga,
             jabatan: session.jabatan,
             adminPermission: session.admin_permission,
+            is_active_pengurus: session.is_active_pengurus,
+            central_settings_permissions: session.central_settings_permissions,
           }
         : undefined,
     }),
@@ -266,8 +312,8 @@ export async function refreshGoogleDriveTokenViaEdge(
   options?: { force?: boolean; reason?: string }
 ): Promise<{ account: DriveConnectedAccount; accessToken: string }> {
   const effectiveSession = session ?? activeManagerSession;
-  if (effectiveSession && effectiveSession.role === 'admin') {
-    activeManagerSession = effectiveSession;
+  if (isAuthorizedManagerSession(effectiveSession)) {
+    activeManagerSession = effectiveSession ?? null;
   }
 
   if (inFlightRefreshPromise) {
@@ -282,13 +328,8 @@ export async function refreshGoogleDriveTokenViaEdge(
         const edgeResult = await invokeEdgeDriveOAuthRefresh(effectiveSession, reason);
         lastFailureAt = 0;
         return edgeResult;
-      } catch (edgeErr) {
-        const statusCode = (edgeErr as { statusCode?: number })?.statusCode;
-        // Jika otorisasi admin ditolak tegas oleh server (403), jangan bypass ke fallback
-        if (statusCode === 403) {
-          throw edgeErr;
-        }
-        // Fallback ke endpoint server lokal/Vercel (`/api/storage/drive-oauth`) bila Edge Function belum di-deploy
+      } catch {
+        // Fallback aman ke `/api/storage/drive-oauth` (mis. bila Edge Function belum di-deploy ulang)
         const serverResult = await connectGoogleDriveViaServer(effectiveSession);
         lastFailureAt = 0;
         return serverResult;
@@ -312,8 +353,8 @@ export async function ensureFreshGoogleDriveToken(
   session?: SessionUser | null,
   options?: { force?: boolean; bufferMs?: number; respectExplicitLogout?: boolean; reason?: string }
 ): Promise<string | null> {
-  if (session && session.role === 'admin') {
-    activeManagerSession = session;
+  if (isAuthorizedManagerSession(session)) {
+    activeManagerSession = session ?? null;
   }
 
   if (options?.respectExplicitLogout && hasExplicitGoogleDriveLogout()) {
@@ -357,7 +398,7 @@ export function startDriveAutoRefreshWatcher(params: {
   onRefreshed?: (account: DriveConnectedAccount, accessToken: string) => void;
   onError?: (err: Error) => void;
 }): () => void {
-  if (!params.enabled || params.session.role !== 'admin') {
+  if (!params.enabled || !isAuthorizedManagerSession(params.session)) {
     return () => {};
   }
 

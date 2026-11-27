@@ -250,7 +250,10 @@ export function AdminSettingsDrawer({
 
   useEffect(() => {
     const canManageDriveOAuth =
-      isBendahara || session.jabatan === 'Ketua' || canAccessSystemIntegrations;
+      isBendahara ||
+      session.jabatan === 'Ketua' ||
+      (session.role as string) === 'pengurus' ||
+      canAccessSystemIntegrations;
 
     return startDriveAutoRefreshWatcher({
       session,
@@ -1626,6 +1629,7 @@ export function AdminSettingsDrawer({
           {activeTab === 'arsip_drive' && canAccessSystemIntegrations && (
             <AdminHybridDrivePanel
               session={session}
+              canManageOverride={canAccessSystemIntegrations}
               onRefresh={onRefresh}
               onToast={onToast}
             />
