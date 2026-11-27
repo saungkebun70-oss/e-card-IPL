@@ -441,7 +441,7 @@ export function WargaHomeSlide({
               Lunas
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#D9A754]" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#E8CE9B] border border-[#B5924C]" />
               Menunggu Verifikasi
             </span>
             <span className="inline-flex items-center gap-1.5">

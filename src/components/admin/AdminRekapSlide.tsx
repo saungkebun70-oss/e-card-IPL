@@ -60,6 +60,7 @@ import {
 } from '../../lib/pdfGenerator';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
+import { Icon3D } from '../Icon3D';
 import { OfficialStamp } from '../OfficialStamp';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
@@ -515,6 +516,7 @@ export function AdminRekapSlide({
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
           <div className="no-print glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
+              <Icon3D name="dokumen" className="w-8 h-8 shadow-xs shrink-0" />
               <select
                 aria-label="Pilih Bulan Rekapitulasi"
                 value={selectedBulan}

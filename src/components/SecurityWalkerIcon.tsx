@@ -113,10 +113,10 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
               strokeWidth="3.6"
               strokeLinecap="round"
             />
-            {/* Manset navy */}
+            {/* Manset hijau lumut gelap */}
             <path
               d="M18.9 27.5 L18.2 29.2"
-              stroke="#1E3A5F"
+              stroke="#2B3F29"
               strokeWidth="3.6"
               strokeLinecap="round"
             />
@@ -150,17 +150,17 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
             className="sec-walker-leg-right"
             style={{ transformOrigin: '25px 31.2px' }}
           >
-            {/* Celana panjang biru dongker */}
+            {/* Celana panjang hijau lumut gelap */}
             <path
               d="M25 31.2 L26.6 41.2"
-              stroke="#0F294A"
+              stroke="#243825"
               strokeWidth="4.5"
               strokeLinecap="round"
             />
             {/* Garis lipatan halus celana */}
             <path
               d="M25.4 32.6 L26.5 39.8"
-              stroke="#274C77"
+              stroke="#384E35"
               strokeWidth="1"
               strokeLinecap="round"
               opacity="0.7"
@@ -191,11 +191,11 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
               d="M19.8 20.2 C20.3 18.7 21.5 18 22.8 18 L22.2 30.8 H19.4 L19.8 20.2 Z"
               fill="#C7AE84"
             />
-            {/* Kerah & dasi navy */}
-            <path d="M23.1 18.1 L25.6 20.7 L26.8 18.3 Z" fill="#0F294A" />
-            <path d="M25.1 20.3 L25.8 25.8 L24.8 26.6 L24.3 20.3 Z" fill="#1E3A5F" />
-            {/* Epaulet (pangkat bahu) navy */}
-            <rect x="20.4" y="18.2" width="3.6" height="1.6" rx="0.7" fill="#0F294A" />
+            {/* Kerah & dasi hijau lumut */}
+            <path d="M23.1 18.1 L25.6 20.7 L26.8 18.3 Z" fill="#243825" />
+            <path d="M25.1 20.3 L25.8 25.8 L24.8 26.6 L24.3 20.3 Z" fill="#2B3F29" />
+            {/* Epaulet (pangkat bahu) hijau lumut */}
+            <rect x="20.4" y="18.2" width="3.6" height="1.6" rx="0.7" fill="#243825" />
             {/* Saku dada & emblem kecil keamanan */}
             <rect
               x="25.6"
@@ -207,10 +207,10 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
               stroke="#9C845D"
               strokeWidth="0.5"
             />
-            <circle cx="27" cy="21.4" r="0.95" fill="#F59E0B" />
-            {/* Kopel / ikat pinggang hitam + gesper emas */}
-            <rect x="19.1" y="29.3" width="10.1" height="2.4" rx="0.8" fill="#0F172A" />
-            <rect x="25.2" y="29.6" width="2.3" height="1.8" rx="0.4" fill="#F59E0B" />
+            <circle cx="27" cy="21.4" r="0.95" fill="#F4E4C4" />
+            {/* Kopel / ikat pinggang gelap + gesper krem hangat */}
+            <rect x="19.1" y="29.3" width="10.1" height="2.4" rx="0.8" fill="#1B271B" />
+            <rect x="25.2" y="29.6" width="2.3" height="1.8" rx="0.4" fill="#F4E4C4" />
           </g>
 
           {/* 5. KEPALA & TOPI PET SATPAM (head) */}
@@ -240,20 +240,20 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
               strokeWidth="0.7"
               strokeLinecap="round"
             />
-            {/* Topi Pet Keamanan (Navy Gelap) */}
+            {/* Topi Pet Keamanan (Hijau Lumut Gelap) */}
             <path
               d="M19.4 9.7 C19.9 6.9 22.6 5.9 25.5 6.3 C27.8 6.6 29.2 7.8 29.1 9.6 L20 10.3 Z"
-              fill="#0F294A"
+              fill="#243825"
             />
-            {/* Pita emas topi pet */}
+            {/* Pita krem hangat topi pet */}
             <path
               d="M20.1 9.8 L28.9 9.2"
-              stroke="#F59E0B"
+              stroke="#F4E4C4"
               strokeWidth="1.2"
               strokeLinecap="round"
             />
             {/* Emblem kecil di depan topi */}
-            <circle cx="26.4" cy="7.9" r="1.05" fill="#FBBF24" />
+            <circle cx="26.4" cy="7.9" r="1.05" fill="#F4E4C4" />
             {/* Pet / visor hitam mengilap mengarah ke depan */}
             <path
               d="M24.2 9.8 L31.2 10.4 C31.4 11.2 30.2 11.8 28.4 11.6 L23.5 10.8 Z"
@@ -274,10 +274,10 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
               strokeWidth="3.8"
               strokeLinecap="round"
             />
-            {/* Manset navy */}
+            {/* Manset hijau lumut */}
             <path
               d="M26.1 26.2 L26.9 28.1"
-              stroke="#0F294A"
+              stroke="#243825"
               strokeWidth="3.8"
               strokeLinecap="round"
             />
@@ -285,13 +285,13 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
             <circle cx="27.5" cy="29.1" r="1.75" fill="#F2C49D" />
             {/* Handy Talky (HT) hitam + antena + LED status */}
             <g transform="translate(27.2, 25.4) rotate(12)">
-              <rect x="0" y="1.4" width="2.9" height="4.8" rx="0.7" fill="#0F172A" />
+              <rect x="0" y="1.4" width="2.9" height="4.8" rx="0.7" fill="#1B271B" />
               <line
                 x1="2.2"
                 y1="1.5"
                 x2="2.6"
                 y2="-2.2"
-                stroke="#0F172A"
+                stroke="#1B271B"
                 strokeWidth="0.9"
                 strokeLinecap="round"
               />
@@ -299,7 +299,7 @@ export const SecurityWalkerIcon: React.FC<SecurityWalkerIconProps> = ({
                 cx="1.2"
                 cy="2.7"
                 r="0.55"
-                fill={isLive ? '#10B981' : '#38BDF8'}
+                fill={isLive ? '#10B981' : '#E5EEE3'}
               />
             </g>
           </g>

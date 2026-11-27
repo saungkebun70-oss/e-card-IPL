@@ -50,15 +50,15 @@ export const APP_THEMES: AppThemeOption[] = [
   },
   {
     id: 'ocean',
-    name: 'Ocean Breeze',
-    tagline: 'Biru Profesional',
-    description: 'Nuansa biru laut tenang dengan aksen navy dan latar biru lembut.',
+    name: 'Embun Sage',
+    tagline: 'Sage Segar & Daun Hutan',
+    description: 'Nuansa hijau sage sejuk berpadu krem lembut yang bersih dan menenangkan.',
     isDark: false,
-    metaThemeColor: '#f0f9ff',
+    metaThemeColor: '#EEF3EB',
     previewColors: {
-      primary: '#0284c7',
-      background: '#f0f9ff',
-      accent: '#0c4a6e',
+      primary: '#384E35',
+      background: '#EEF3EB',
+      accent: '#243825',
     },
   },
   {

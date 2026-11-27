@@ -1009,7 +1009,7 @@ export default function App() {
             isCenterFab: true,
           },
           { id: 'keamanan', label: 'Keamanan & Patroli', shortLabel: 'Keamanan', icon: Shield, icon3d: 'keamanan' },
-          { id: 'lingkungan', label: 'Info Lingkungan & Kas RT', shortLabel: 'Info', icon: Building2, icon3d: 'warga' },
+          { id: 'lingkungan', label: 'Info Lingkungan & Kas RT', shortLabel: 'Info', icon: Building2, icon3d: 'info' },
         ]
       : [
           {

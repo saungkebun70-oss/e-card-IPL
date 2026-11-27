@@ -292,20 +292,20 @@ export function AppShell({
               onClick={() => handleSelectNav(item.id)}
               className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  ? 'bg-[#243825] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
               {item.icon3d ? (
                 <Icon3D
                   name={item.icon3d}
-                  className={`w-8 h-8 shadow-xs transition-transform duration-200 ${
-                    isActive ? 'scale-[1.03]' : ''
+                  className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
+                    isActive ? 'scale-[1.04]' : ''
                   }`}
                 />
               ) : (
                 <span
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                     isActive
                       ? 'bg-white/15 text-[#FFFDF8]'
                       : 'bg-[#E5EEE3] text-[#243825]'
@@ -317,11 +317,7 @@ export function AppShell({
               <span className="truncate flex-1">{labelText}</span>
               {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                 <span
-                  className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${
-                    isActive
-                      ? 'bg-[#F2D8A7] text-[#3F2C0D]'
-                      : 'bg-[#F2D8A7] text-[#4A3410]'
-                  }`}
+                  className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0 bg-[#F4E4C4] text-[#243825]"
                 >
                   {item.badgeCount > 9 ? '9+' : item.badgeCount}
                 </span>
@@ -346,11 +342,11 @@ export function AppShell({
           }}
           className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
             isChatModalOpen
-              ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+              ? 'bg-[#243825] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
               : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
           }`}
         >
-          <Icon3D name="chat_cepat" className="w-8 h-8 shadow-xs" />
+          <Icon3D name="chat_cepat" className="w-7 h-7 shadow-xs" />
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p
@@ -375,11 +371,11 @@ export function AppShell({
               onClick={() => handleSelectNav('lpj')}
               className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isLpjActive
-                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  ? 'bg-[#243825] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <Icon3D name="laporan_lpj" className="w-8 h-8 shadow-xs" />
+              <Icon3D name="laporan_lpj" className="w-7 h-7 shadow-xs" />
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Laporan LPJ (PDF)</p>
                 <p
@@ -397,7 +393,7 @@ export function AppShell({
               onClick={() => handleSelectNav('laporan_bug')}
               className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isBugReportsActive
-                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  ? 'bg-[#243825] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
@@ -454,7 +450,7 @@ export function AppShell({
               onClick={() => handleSelectNav('profil')}
               className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isProfilActive
-                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  ? 'bg-[#243825] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
@@ -506,10 +502,10 @@ export function AppShell({
 
   return (
     <div className="min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
-      {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
+      {/* SIDEBAR TETAP — DESKTOP (lg+, lebar w-72 / 288px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-72 z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
       >
         {/* Brand Header Sidebar Velvety Moss Green + Foto Lingkungan + Watermark */}
         <div className="relative overflow-hidden px-4 pt-5 pb-4 bg-[#243825] text-[#FFFDF8] shrink-0">
@@ -614,7 +610,7 @@ export function AppShell({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[80vw] max-w-[330px] h-full bg-[#F6F3EA] rounded-r-3xl border-r border-[#E6E2D6] shadow-[0_25px_50px_-12px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
+              className="relative z-10 w-[82vw] max-w-xs h-full bg-[#F6F3EA] rounded-r-[28px] border-r border-[#E6E2D6] shadow-[0_25px_50px_-12px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
             >
               {/* Header Drawer Velvety Moss Green dengan Watermark Saung Kebun */}
               <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
@@ -792,8 +788,8 @@ export function AppShell({
         </div>
       </div>
 
-      {/* HEADER DESKTOP BERSIH (lg+, sejajar konten di kanan sidebar 260px) */}
-      <div className="hidden lg:block fixed top-0 left-[260px] right-0 z-30 px-8 pt-3 pointer-events-none no-print">
+      {/* HEADER DESKTOP BERSIH (lg+, sejajar konten di kanan sidebar w-72) */}
+      <div className="hidden lg:block fixed top-0 left-72 right-0 z-30 px-8 pt-3 pointer-events-none no-print">
         <header className="max-w-7xl mx-auto rounded-2xl bg-[#FFFDF8]/92 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_8px_24px_-10px_rgba(36,56,37,0.12)] px-5 py-2.5 flex items-center justify-between gap-4 pointer-events-auto">
           <div className="min-w-0">
             <p className="font-serif-brand text-base font-bold text-[#1B271B] leading-tight truncate">
@@ -847,7 +843,7 @@ export function AppShell({
       </div>
 
       {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-[260px] px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[5.5rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[5.5rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

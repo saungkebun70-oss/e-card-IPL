@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import watermarkMossAsset from '../assets/saung-kebun-watermark-moss.png';
 import {
   type AppBrandConfig,
   type TransaksiIPL,
@@ -624,7 +625,7 @@ async function drawSignatureBlock(
 }
 
 async function applyReportLogoWatermark(doc: jsPDF) {
-  const watermarkDataUrl = await loadImageAsDataUrl('/assets/saung-kebun-watermark-moss.png');
+  const watermarkDataUrl = await loadImageAsDataUrl(watermarkMossAsset);
   if (!watermarkDataUrl) return;
   const totalPages = doc.getNumberOfPages();
   const imgW = 86;

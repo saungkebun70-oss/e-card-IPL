@@ -746,8 +746,8 @@ export function KeamananSlide({
                   Scan Checkpoint Patroli RFID / NFC
                 </h2>
                 <p className="text-[11px] text-[#6E786D] mt-0.5">
-                  Aktifkan mode scan foreground Chrome Android agar tag langsung terbaca tanpa
-                  pop-up e-Wallet, atau gunakan input manual.
+                  Tempelkan kartu atau tag NFC checkpoint patroli pada perangkat untuk mencatat
+                  kunjungan, atau gunakan input manual.
                 </p>
               </div>
             </div>
@@ -850,7 +850,7 @@ export function KeamananSlide({
                 onClick={() => void handleToggleNfcPatrolScan()}
                 className={`w-full min-h-[52px] px-5 rounded-full text-sm sm:text-base font-bold inline-flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-60 ${
                   scanningNfc
-                    ? 'bg-[#D9A754] hover:bg-[#C4913E] text-[#1B271B] ring-4 ring-[#F2D8A7]'
+                    ? 'bg-[#F4E4C4] hover:bg-[#EAD4AA] text-[#243825] border border-[#C87058]/45 ring-4 ring-[#F4E4C4]/70'
                     : 'bg-[#2B3F29] hover:bg-[#243825] active:scale-[0.99] text-[#FFFDF8] shadow-sm'
                 }`}
               >

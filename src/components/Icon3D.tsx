@@ -1,4 +1,27 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import iconChatCepat from '../assets/icons/icon_chat_cepat.png';
+import iconDasbor from '../assets/icons/icon_dasbor.png';
+import iconDokumen from '../assets/icons/icon_dokumen.png';
+import iconEcard from '../assets/icons/icon_ecard.png';
+import iconGaleri from '../assets/icons/icon_galeri.png';
+import iconHapus from '../assets/icons/icon_hapus.png';
+import iconInbox from '../assets/icons/icon_inbox.png';
+import iconKamera from '../assets/icons/icon_kamera.png';
+import iconKeamanan from '../assets/icons/icon_keamanan.png';
+import iconKeluar from '../assets/icons/icon_keluar.png';
+import iconKirim from '../assets/icons/icon_kirim.png';
+import iconLaporanLpj from '../assets/icons/icon_laporan_lpj.png';
+import iconNotifikasi from '../assets/icons/icon_notifikasi.png';
+import iconPengaturan from '../assets/icons/icon_pengaturan.png';
+import iconPengumuman from '../assets/icons/icon_pengumuman.png';
+import iconPlusKas from '../assets/icons/icon_plus_kas.png';
+import iconRekap from '../assets/icons/icon_rekap.png';
+import iconRiwayat from '../assets/icons/icon_riwayat.png';
+import iconScanNfc from '../assets/icons/icon_scan_nfc.png';
+import iconSetor from '../assets/icons/icon_setor.png';
+import iconSidikJari from '../assets/icons/icon_sidik_jari.png';
+import iconVideo from '../assets/icons/icon_video.png';
+import iconWarga from '../assets/icons/icon_warga.png';
 
 export type Icon3DName =
   | 'dasbor'
@@ -23,33 +46,62 @@ export type Icon3DName =
   | 'kamera'
   | 'riwayat'
   | 'setor'
-  | 'video';
+  | 'video'
+  | 'info';
 
-export const ICON_3D_PATHS: Record<Icon3DName, string> = {
-  dasbor: '/assets/aistudio/icon_dasbor_f171fdfc.png',
-  laporan_lpj: '/assets/aistudio/icon_laporan_lpj_d2da1140.png',
-  chat_cepat: '/assets/aistudio/icon_chat_cepat_bfc94b13.png',
-  notifikasi: '/assets/aistudio/icon_notifikasi_3010fa29.png',
-  keamanan: '/assets/aistudio/icon_keamanan_2e9e08a2.png',
-  pengaturan: '/assets/aistudio/icon_pengaturan_ed982fed.png',
-  keluar: '/assets/aistudio/icon_keluar_50413a21.png',
-  sidik_jari: '/assets/aistudio/icon_sidik_jari_a4a50052.png',
-  rekap: '/assets/aistudio/icon_rekap_8a2fce4b.png',
-  plus_kas: '/assets/aistudio/icon_plus_kas_daf95d60.png',
-  scan_nfc: '/assets/aistudio/icon_scan_nfc_619337ad.png',
-  warga: '/assets/aistudio/icon_warga_db2c9d36.png',
-  hapus: '/assets/aistudio/icon_hapus_7238d9b4.png',
-  inbox: '/assets/aistudio/icon_inbox_f952402f.png',
-  pengumuman: '/assets/aistudio/icon_pengumuman_e3e05d5e.png',
-  kirim: '/assets/aistudio/icon_kirim_8d66a277.png',
-  ecard: '/assets/aistudio/icon_ecard_ec05cabc.png',
-  dokumen: '/assets/aistudio/icon_dokumen_fdbdf6e8.png',
-  galeri: '/assets/aistudio/icon_galeri_33f2f23a.png',
-  kamera: '/assets/aistudio/icon_kamera_adca9c4f.png',
-  riwayat: '/assets/aistudio/icon_riwayat_bbce9fa8.png',
-  setor: '/assets/aistudio/icon_setor_55959636.png',
-  video: '/assets/aistudio/icon_video_011a0c30.png',
+export const ICON_3D_PATHS: Partial<Record<Icon3DName, string>> = {
+  dasbor: iconDasbor,
+  laporan_lpj: iconLaporanLpj,
+  chat_cepat: iconChatCepat,
+  notifikasi: iconNotifikasi,
+  keamanan: iconKeamanan,
+  pengaturan: iconPengaturan,
+  keluar: iconKeluar,
+  sidik_jari: iconSidikJari,
+  rekap: iconRekap,
+  plus_kas: iconPlusKas,
+  scan_nfc: iconScanNfc,
+  warga: iconWarga,
+  hapus: iconHapus,
+  inbox: iconInbox,
+  pengumuman: iconPengumuman,
+  kirim: iconKirim,
+  ecard: iconEcard,
+  dokumen: iconDokumen,
+  galeri: iconGaleri,
+  kamera: iconKamera,
+  riwayat: iconRiwayat,
+  setor: iconSetor,
+  video: iconVideo,
 };
+
+function FallbackInfo3D({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      aria-hidden="true"
+      className={`select-none pointer-events-none shrink-0 ${className || 'w-6 h-6'}`.trim()}
+    >
+      <defs>
+        <linearGradient id="sk-info3d-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#384E35" />
+          <stop offset="100%" stopColor="#243825" />
+        </linearGradient>
+        <linearGradient id="sk-info3d-cream" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#FFFDF8" />
+          <stop offset="100%" stopColor="#E5EEE3" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="36" height="36" rx="9" fill="url(#sk-info3d-bg)" />
+      <rect x="8" y="27.5" width="24" height="3.2" rx="1.6" fill="#A6BC9F" />
+      <rect x="11" y="18.5" width="3.8" height="9" rx="1.5" fill="url(#sk-info3d-cream)" opacity="0.9" />
+      <rect x="18.1" y="18.5" width="3.8" height="9" rx="1.5" fill="url(#sk-info3d-cream)" opacity="0.9" />
+      <rect x="25.2" y="18.5" width="3.8" height="9" rx="1.5" fill="url(#sk-info3d-cream)" opacity="0.9" />
+      <path d="M9 17.5L20 10L31 17.5Z" fill="url(#sk-info3d-cream)" />
+      <circle cx="20" cy="14.2" r="1.4" fill="#243825" />
+    </svg>
+  );
+}
 
 interface Icon3DProps {
   name: Icon3DName;
@@ -62,14 +114,37 @@ export const Icon3D: React.FC<Icon3DProps> = ({
   alt = '',
   className = 'w-6 h-6',
 }) => {
+  const src = ICON_3D_PATHS[name];
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src, name]);
+
+  if (!src || failed) {
+    if (name === 'info') {
+      return <FallbackInfo3D className={className} />;
+    }
+    return (
+      <span
+        aria-hidden={alt ? undefined : true}
+        aria-label={alt || undefined}
+        className={`inline-flex items-center justify-center rounded-[22%] bg-gradient-to-br from-[#384E35] to-[#243825] text-[#FFFDF8] font-bold text-[10px] select-none pointer-events-none shrink-0 ${className}`.trim()}
+      >
+        {name.slice(0, 2).toUpperCase()}
+      </span>
+    );
+  }
+
   return (
     <img
-      src={ICON_3D_PATHS[name]}
+      src={src}
       alt={alt}
       aria-hidden={alt ? undefined : true}
       draggable={false}
       loading="eager"
       decoding="async"
+      onError={() => setFailed(true)}
       className={`object-contain select-none pointer-events-none shrink-0 rounded-[22%] ${className}`.trim()}
     />
   );

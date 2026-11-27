@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import type { Icon3DName } from './Icon3D';
+import { Icon3D, type Icon3DName } from './Icon3D';
 
 export interface Navbar3DItem {
   id: string;
@@ -65,6 +65,8 @@ function resolveEmblemName(item: Navbar3DItem): NB2EmblemName {
       return 'setor';
     case 'scan_nfc':
       return 'scan_nfc';
+    case 'info':
+      return 'info';
     default:
       return 'dasbor';
   }
@@ -519,12 +521,26 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
                     </>
                   )}
                   <span className="relative z-10 flex items-center justify-center">
-                    <Navbar3DEmblem
-                      name={emblemName}
-                      active={isActive || isScanning}
-                      isCenter
-                      isLoading={item.isLoading}
-                    />
+                    {item.isLoading ? (
+                      <Navbar3DEmblem
+                        name={emblemName}
+                        active={isActive || isScanning}
+                        isCenter
+                        isLoading={item.isLoading}
+                      />
+                    ) : item.icon3d ? (
+                      <Icon3D
+                        name={item.icon3d}
+                        className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-[0_2px_3px_rgba(12,24,12,0.42)]"
+                      />
+                    ) : (
+                      <Navbar3DEmblem
+                        name={emblemName}
+                        active={isActive || isScanning}
+                        isCenter
+                        isLoading={item.isLoading}
+                      />
+                    )}
                   </span>
                   <span className="relative z-10 text-[10.5px] font-bold tracking-tight leading-none text-[#F7F3E8] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)] whitespace-nowrap">
                     {dockLabel}
@@ -550,7 +566,18 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
                 }`}
               >
                 <div className="relative flex items-center justify-center">
-                  <Navbar3DEmblem name={emblemName} active={isActive} />
+                  {item.icon3d ? (
+                    <Icon3D
+                      name={item.icon3d}
+                      className={`w-6 h-6 sm:w-[26px] sm:h-[26px] transition-transform duration-200 ${
+                        isActive
+                          ? 'scale-105 drop-shadow-[0_2px_3px_rgba(28,45,27,0.26)]'
+                          : 'drop-shadow-[0_1.5px_2px_rgba(28,45,27,0.18)]'
+                      }`}
+                    />
+                  ) : (
+                    <Navbar3DEmblem name={emblemName} active={isActive} />
+                  )}
                   {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                     <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[9.5px] font-bold font-mono flex items-center justify-center tabular-nums ring-1 ring-[#FFFDF8] shadow-xs">
                       {item.badgeCount > 9 ? '9+' : item.badgeCount}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import defaultLogoAsset from '../assets/images/saung_kebun_logo_1795360829159.jpg';
+import watermarkMossAsset from '../assets/saung-kebun-watermark-moss.png';
+import watermarkCreamAsset from '../assets/saung-kebun-watermark-cream.png';
 import { useAppBrand } from '../lib/brandContext';
 
 export const LOGO_SAUNG_KEBUN_SRC = defaultLogoAsset;
@@ -79,8 +81,8 @@ export function SaungKebunEmblem({
   );
 }
 
-export const WATERMARK_MOSS_SRC = '/assets/saung-kebun-watermark-moss.png';
-export const WATERMARK_CREAM_SRC = '/assets/saung-kebun-watermark-cream.png';
+export const WATERMARK_MOSS_SRC = watermarkMossAsset;
+export const WATERMARK_CREAM_SRC = watermarkCreamAsset;
 
 /**
  * Watermark transparan (tanpa background) menggunakan logo resmi Saung Kebun

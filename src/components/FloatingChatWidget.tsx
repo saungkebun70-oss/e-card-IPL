@@ -6,7 +6,7 @@ import type { SessionUser } from '../types';
 import type { ChatRoomId } from '../lib/chatService';
 import { CommunityChatSlide } from './CommunityChatSlide';
 import { Icon3D } from './Icon3D';
-import { ChatFab3DEmblem } from './Navbar3D';
+import bgHeaderAsset from '../assets/bg-header.jpg';
 
 interface FloatingChatWidgetProps {
   session: SessionUser;
@@ -399,11 +399,11 @@ export function FloatingChatWidget({
 
   return (
     <>
-      {/* Panel Chat Cepat Melayang (Popup / Sheet Responsif) */}
+      {/* Panel Chat Cepat Melayang (Popup Centered Gaya M5 Scenic Mini-Banner) */}
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-[55] pointer-events-none no-print">
-            {/* Backdrop ringan agar sentuhan di luar menutup panel */}
+          <div className="fixed inset-0 z-[55] flex items-center justify-center p-3 sm:p-4 pointer-events-none no-print">
+            {/* Backdrop gelap kabur agar fokus ke modal */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -414,7 +414,7 @@ export function FloatingChatWidget({
                   setOpen(false);
                 }
               }}
-              className="fixed inset-0 bg-[#1B271B]/35 backdrop-blur-[2px] sm:bg-[#1B271B]/15 sm:backdrop-blur-[1px] pointer-events-auto"
+              className="fixed inset-0 bg-[#142015]/50 backdrop-blur-sm pointer-events-auto"
             />
 
             <motion.section
@@ -426,31 +426,39 @@ export function FloatingChatWidget({
               exit={{ opacity: 0, y: 16, scale: 0.96 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               onClick={(e) => e.stopPropagation()}
-              className="pointer-events-auto fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+4.5rem)] bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.1rem)] sm:inset-x-auto sm:top-auto sm:right-6 sm:bottom-24 sm:w-[440px] md:w-[480px] sm:h-[min(80dvh,640px)] max-w-[calc(100vw-1.5rem)] rounded-3xl bg-[#FFFDF8]/98 backdrop-blur-2xl border border-[#E6E2D6] shadow-[0_24px_60px_-14px_rgba(27,39,27,0.34)] flex flex-col overflow-hidden"
+              className="pointer-events-auto relative z-10 w-full max-w-md sm:max-w-lg h-[min(82dvh,640px)] rounded-[26px] bg-[#FFFDF8] border border-[#E6E2D6] shadow-[0_24px_60px_-14px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
             >
-              {/* Header Bar Floating Chat */}
-              <div
-                className="px-4 py-2.5 text-[#FFFDF8] flex items-center justify-between gap-2 shrink-0"
-                style={{ backgroundImage: 'var(--theme-hero-gradient)' }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Icon3D name="chat_cepat" className="w-7 h-7 rounded-lg shadow-xs" />
+              {/* Header Mini-Banner Scenic Hijau Lumut */}
+              <div className="relative overflow-hidden min-h-[76px] px-4 py-3 text-[#FFFDF8] flex items-center justify-between gap-2.5 shrink-0 bg-[#243825]">
+                <img
+                  src={bgHeaderAsset}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover object-center opacity-45"
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-gradient-to-br from-[#172618]/90 via-[#243825]/85 to-[#384E35]/88"
+                />
+
+                <div className="relative z-10 flex items-center gap-2.5 min-w-0">
+                  <Icon3D name="chat_cepat" className="w-9 h-9 shrink-0 shadow-sm" />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold leading-tight truncate">
+                    <p className="font-serif-brand text-sm font-bold leading-tight truncate text-[#FFFDF8]">
                       Chat Cepat Saung Kebun
                     </p>
-                    <p className="text-[10px] text-[#E5EEE3]/85 truncate">
+                    <p className="text-[10.5px] text-[#E5EEE3]/90 truncate mt-0.5">
                       DM Personal · Group Pengurus · Warga · Keamanan
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="relative z-10 flex items-center gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
                     aria-label="Tutup jendela chat"
-                    className="h-8 w-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    className="h-8 w-8 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[#FFFDF8] flex items-center justify-center transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -504,7 +512,10 @@ export function FloatingChatWidget({
         {isOpen ? (
           <X className="w-5 h-5 pointer-events-none" />
         ) : (
-          <ChatFab3DEmblem className="w-8 h-8 sm:w-9 sm:h-9" />
+          <Icon3D
+            name="chat_cepat"
+            className="w-8 h-8 sm:w-9 sm:h-9 drop-shadow-[0_2px_3px_rgba(12,22,12,0.45)]"
+          />
         )}
         {!isOpen && unreadCount > 0 && (
           <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#FFFDF8] shadow-xs">
