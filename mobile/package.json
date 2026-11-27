@@ -5,8 +5,8 @@
   "description": "Aplikasi Mobile Android & iOS (Capacitor) terisolasi untuk e-Card IPL Perumahan Saung Kebun",
   "scripts": {
     "assets:prepare": "node scripts/prepare-assets.mjs",
-    "assets:android": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --android --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'",
-    "assets:ios": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --ios --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'",
+    "assets:android": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --android --iconBackgroundColor '#1E331F' --splashBackgroundColor '#1E331F'",
+    "assets:ios": "node scripts/prepare-assets.mjs && npx @capacitor/assets generate --ios --iconBackgroundColor '#1E331F' --splashBackgroundColor '#1E331F'",
     "android:manifest": "node scripts/inject-android-manifest.mjs",
     "android:gradle": "node scripts/patch-android-gradle.mjs",
     "ios:plist": "node scripts/inject-ios-plist.mjs",

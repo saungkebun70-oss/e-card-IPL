@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import defaultLogoAsset from '../assets/images/saung_kebun_logo_1795360829159.jpg';
+import transparentLogoAsset from '../assets/saung-kebun-logo-transparent.png';
+import goldLogoAsset from '../assets/saung-kebun-logo-gold.png';
 import watermarkMossAsset from '../assets/saung-kebun-watermark-moss.png';
 import watermarkCreamAsset from '../assets/saung-kebun-watermark-cream.png';
 import { useAppBrand } from '../lib/brandContext';
 
-export const LOGO_SAUNG_KEBUN_SRC = defaultLogoAsset;
+export const LOGO_SAUNG_KEBUN_SRC = transparentLogoAsset;
 
 interface BrandLogoProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -16,17 +17,15 @@ interface BrandLogoProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
-  xs: 'w-8 h-8',
-  sm: 'w-10 h-10',
-  md: 'w-12 h-12',
-  lg: 'w-16 h-16 sm:w-20 sm:h-20',
-  xl: 'w-20 h-20 sm:w-24 sm:h-24',
+  xs: 'w-12 h-12 p-1 rounded-xl',
+  sm: 'w-14 h-14 p-1 rounded-xl',
+  md: 'w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] p-1 rounded-2xl',
+  lg: 'w-20 h-20 sm:w-24 sm:h-24 p-1.5 rounded-2xl',
+  xl: 'w-24 h-24 sm:w-32 sm:h-32 p-2 rounded-2xl',
 };
 
 /**
- * Emblem vektor resmi Saung Kebun (atap pendopo saung tradisional + daun melengkung)
- * Dirender sepenuhnya transparan TANPA kotak latar kuning, berwarna krem hangat di atas
- * permukaan gelap/foto, atau hijau lumut beludru (#243825) di atas latar terang.
+ * Emblem vektor cadangan Saung Kebun apabila aset gambar kustom gagal dimuat.
  */
 export function SaungKebunEmblem({
   className = 'w-10 h-10',
@@ -35,8 +34,8 @@ export function SaungKebunEmblem({
   className?: string;
   tone?: 'cream' | 'moss';
 }) {
-  const fill = tone === 'cream' ? '#FFFDF8' : '#243825';
-  const leafHighlight = tone === 'cream' ? '#E5EEE3' : '#384E35';
+  const fill = tone === 'cream' ? '#F6DC6E' : '#243825';
+  const leafHighlight = tone === 'cream' ? '#FFF0A6' : '#384E35';
 
   return (
     <svg
@@ -46,28 +45,23 @@ export function SaungKebunEmblem({
       aria-hidden="true"
       className={className}
     >
-      {/* Atap pendopo saung bagian atas */}
       <path
         d="M60 10C47 22 31 32 14 37C24 41 37 40 48 34C53 31 57 27 60 23C63 27 67 31 72 34C83 40 96 41 106 37C89 32 73 22 60 10Z"
         fill={fill}
       />
-      {/* Lapisan atap kedua */}
       <path
         d="M60 28C48 37 33 44 18 47C29 51 42 50 53 45L60 41L67 45C78 50 91 51 102 47C87 44 72 37 60 28Z"
         fill={fill}
         opacity="0.92"
       />
-      {/* Tiang kiri & kanan saung */}
       <path
         d="M36 49H43V76H36V49ZM77 49H84V76H77V49Z"
         fill={fill}
       />
-      {/* Garis lantai / teras saung */}
       <path
         d="M24 76C48 73 72 73 96 76C82 81 38 81 24 76Z"
         fill={fill}
       />
-      {/* Daun melengkung khas Saung Kebun di tengah bawah */}
       <path
         d="M60 48C52 54 49 64 56 72C62 67 66 60 66 52C64 50 62 49 60 48Z"
         fill={leafHighlight}
@@ -126,49 +120,38 @@ export function BrandLogo({
 }: BrandLogoProps) {
   const { brand } = useAppBrand();
   const hasCustomOverride = srcOverride !== undefined;
-  const resolvedSrc = hasCustomOverride
-    ? srcOverride || LOGO_SAUNG_KEBUN_SRC
-    : brand.logo_url || LOGO_SAUNG_KEBUN_SRC;
-  const isDefaultAsset = resolvedSrc === LOGO_SAUNG_KEBUN_SRC;
+  const rawCustomSrc = hasCustomOverride ? srcOverride : brand.logo_url;
+  const isDarkGlass = variant === 'dark' || variant === 'transparent';
+  const defaultAsset = isDarkGlass ? goldLogoAsset : transparentLogoAsset;
   const resolvedAlt = altOverride || `Logo ${brand.app_name || 'Saung Kebun'}`;
 
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
-  }, [resolvedSrc]);
+  }, [rawCustomSrc]);
 
-  const tone: 'cream' | 'moss' = variant === 'dark' ? 'cream' : 'moss';
+  const containerGlassClasses = isDarkGlass
+    ? 'bg-white/10 backdrop-blur-md border border-white/25 shadow-lg'
+    : 'bg-white/60 backdrop-blur-md border border-[#243825]/15 shadow-sm';
 
-  // Gunakan emblem transparan tanpa kotak latar kuning untuk logo resmi default
-  if (isDefaultAsset || failed) {
-    return (
-      <div
-        role="img"
-        aria-label={resolvedAlt}
-        className={`flex items-center justify-center shrink-0 bg-transparent ${SIZE_CLASSES[size]} ${className}`}
-      >
-        <SaungKebunEmblem className="w-full h-full drop-shadow-xs" tone={tone} />
-      </div>
-    );
-  }
+  const activeSrc = !failed && rawCustomSrc ? rawCustomSrc : defaultAsset;
 
-  // Jika pengurus mengunggah logo kustom di pengaturan, tampilkan rapi tanpa bingkai kuning
   return (
     <div
-      className={`flex items-center justify-center shrink-0 overflow-hidden rounded-2xl ${SIZE_CLASSES[size]} ${
-        variant === 'dark'
-          ? 'bg-white/15 backdrop-blur-sm p-1 border border-white/25'
-          : 'bg-[#FFFDF8] p-1 border border-[#E6E2D6] shadow-xs'
-      } ${className}`}
+      className={`relative flex items-center justify-center shrink-0 overflow-hidden ${SIZE_CLASSES[size]} ${containerGlassClasses} ${className}`}
     >
       <img
-        src={resolvedSrc}
+        src={activeSrc}
         alt={resolvedAlt}
         referrerPolicy="no-referrer"
         decoding="async"
-        onError={() => setFailed(true)}
-        className="w-full h-full object-contain rounded-[inherit]"
+        onError={() => {
+          if (!failed) setFailed(true);
+        }}
+        className={`w-full h-full object-contain ${
+          isDarkGlass ? 'drop-shadow-[0_2px_6px_rgba(10,22,12,0.4)]' : ''
+        }`}
       />
     </div>
   );

@@ -73,7 +73,7 @@ jobs:
         run: |
           if [ -f "resources/icon.png" ]; then
             node scripts/prepare-assets.mjs
-            npx @capacitor/assets generate --android --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'
+            npx @capacitor/assets generate --android --iconBackgroundColor '#1E331F' --splashBackgroundColor '#1E331F'
           else
             echo "resources/icon.png tidak ditemukan, lewati generate aset."
           fi
@@ -241,7 +241,7 @@ jobs:
         run: |
           if [ -f "resources/icon.png" ]; then
             node scripts/prepare-assets.mjs
-            npx @capacitor/assets generate --ios --iconBackgroundColor '#0F172A' --splashBackgroundColor '#0F172A'
+            npx @capacitor/assets generate --ios --iconBackgroundColor '#1E331F' --splashBackgroundColor '#1E331F'
           else
             echo "resources/icon.png tidak ditemukan, lewati generate aset."
           fi

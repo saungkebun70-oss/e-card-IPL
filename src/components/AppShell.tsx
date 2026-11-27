@@ -495,19 +495,19 @@ export function AppShell({
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar w-72 / 288px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-72 z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-72 z-30 glass-sidebar-panel border-r border-white/25 shadow-[8px_0_32px_-12px_rgba(20,32,21,0.18)] no-print"
       >
-        {/* Brand Header Sidebar Velvety Moss Green + Foto Lingkungan + Watermark */}
-        <div className="relative overflow-hidden px-4 pt-5 pb-4 bg-[#243825] text-[#FFFDF8] shrink-0">
+        {/* Brand Header Sidebar Velvety Moss Green Frosted Glass + Watermark */}
+        <div className="relative overflow-hidden px-4 pt-5 pb-4 glass-header-green border-b border-white/15 text-[#FFFDF8] shrink-0">
           <img
             src={HEADER_BG_SRC}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 w-full h-full object-cover object-center opacity-35"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-25"
           />
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-br from-[#243825]/90 via-[#2B3F29]/82 to-[#384E35]/90"
+            className="absolute inset-0 bg-gradient-to-br from-[#243825]/82 via-[#2B3F29]/75 to-[#384E35]/82"
           />
           <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-32 h-24" tone="cream" />
           <button
@@ -515,7 +515,7 @@ export function AppShell({
             onClick={() => handleSelectNav(isAdmin ? 'dashboard' : 'beranda')}
             className="relative z-10 w-full flex items-center gap-3 text-left cursor-pointer group"
           >
-            <BrandLogo size="sm" variant="dark" className="shrink-0" />
+            <BrandLogo size="md" variant="dark" className="shrink-0" />
             <div className="min-w-0">
               <p className="font-serif-brand text-base font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
                 {brand.app_name || 'e-Card Verifikasi'}
@@ -529,7 +529,7 @@ export function AppShell({
           <button
             type="button"
             onClick={handleOpenProfileFromSidebar}
-            className="relative z-10 group mt-3.5 w-full text-left p-2.5 rounded-2xl bg-white/10 hover:bg-white/16 border border-white/15 flex items-center gap-2.5 transition-all duration-200 cursor-pointer"
+            className="relative z-10 group mt-3.5 w-full text-left p-2.5 rounded-2xl glass-profile-card bg-white/15 hover:bg-white/22 backdrop-blur-md border border-white/25 shadow-md flex items-center gap-2.5 transition-all duration-200 cursor-pointer"
           >
             <UserAvatar
               name={session.nama_warga}
@@ -561,7 +561,7 @@ export function AppShell({
         </div>
 
         {/* Footer Sidebar: Logout Terakota Lembut + Versi */}
-        <div className="relative z-10 mt-auto px-4 pt-3 pb-4 border-t border-[#E6E2D6] bg-[#FFFDF8]/75 space-y-2.5 shrink-0">
+        <div className="relative z-10 mt-auto px-4 pt-3 pb-4 border-t border-white/25 glass-sidebar-footer space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
@@ -594,20 +594,20 @@ export function AppShell({
               className="fixed inset-0 bg-[#142015]/55 backdrop-blur-sm"
             />
 
-            {/* Panel Drawer Kiri (~80% lebar viewport, sudut kanan membulat) */}
+            {/* Panel Drawer Kiri (~82% lebar viewport, efek kaca frosted & sudut kanan membulat) */}
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[82vw] max-w-xs h-full bg-[#F6F3EA] rounded-r-[28px] border-r border-[#E6E2D6] shadow-[0_25px_50px_-12px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
+              className="relative z-10 w-[82vw] max-w-xs h-full glass-sidebar-panel rounded-r-[28px] border-r border-white/25 shadow-[0_25px_50px_-12px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
             >
-              {/* Header Drawer Velvety Moss Green dengan Watermark Saung Kebun */}
-              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
+              {/* Header Drawer Velvety Moss Green Frosted Glass dengan Watermark Saung Kebun */}
+              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 glass-header-green border-b border-white/15 text-[#FFFDF8] shrink-0">
                 <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-36 h-28" tone="cream" />
                 <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <BrandLogo size="sm" variant="dark" className="shrink-0" />
+                    <BrandLogo size="md" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
                       <p className="font-serif-brand text-base font-bold text-[#FFFDF8] leading-tight truncate">
                         {brand?.app_name || 'e-Card Verifikasi'}
@@ -627,11 +627,11 @@ export function AppShell({
                   </button>
                 </div>
 
-                {/* Kartu Profil Pengguna Bulat */}
+                {/* Kartu Profil Pengguna Glassmorphism */}
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl bg-white/12 hover:bg-white/20 border border-white/20 flex items-center gap-3 transition-all duration-200 cursor-pointer"
+                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl glass-profile-card bg-white/15 hover:bg-white/22 backdrop-blur-md border border-white/25 shadow-md flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={session?.nama_warga || 'Pengguna'}
@@ -663,7 +663,7 @@ export function AppShell({
               </div>
 
               {/* Footer Drawer + Logout Terakota */}
-              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#FFFDF8]/80 space-y-2.5 shrink-0">
+              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/25 glass-sidebar-footer space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
@@ -679,54 +679,55 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      {/* HEADER COMPACT MOBILE/TABLET DENGAN FOTO LINGKUNGAN + PIL KACA MENGAMBANG */}
+      {/* HEADER COMPACT MOBILE/TABLET DENGAN FROSTED GLASS HIJAU TUA + LOGO GLASS SQUARE */}
       <div className="lg:hidden relative z-30 no-print">
-        <header className="relative overflow-hidden rounded-b-[28px] shadow-[0_10px_26px_-12px_rgba(27,39,27,0.35)] pt-[calc(max(env(safe-area-inset-top,0px),14px)+0.55rem)] pb-9 px-3.5 sm:px-5">
-          {/* Foto Latar Jalan Rindang Saung Kebun */}
+        <header className="relative overflow-hidden rounded-b-[28px] glass-header-green border-b border-white/15 shadow-[0_12px_28px_-12px_rgba(20,32,21,0.42)] pt-[calc(max(env(safe-area-inset-top,0px),14px)+0.55rem)] pb-9 px-3.5 sm:px-5">
+          {/* Foto Latar Jalan Rindang Saung Kebun dengan Overlay Kaca Hijau Tua */}
           <img
             src={HEADER_BG_SRC}
             alt="Suasana Perumahan Saung Kebun"
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-55"
           />
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/66 to-[#243825]/86"
+            className="absolute inset-0 bg-[#243825]/78 backdrop-blur-md"
           />
 
           {/* Bar Atas Header */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            {/* Tombol Hamburger Kaca Bulat (Kiri) */}
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Buka Menu Sidebar"
-              title="Menu Profil, Layanan & Keluar"
-              className="relative h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
-            >
-              <Menu className="w-4.5 h-4.5" />
-              {isAdmin && pendingBugCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#243825]">
-                  {pendingBugCount > 9 ? '9+' : pendingBugCount}
-                </span>
-              )}
-            </button>
+          <div className="relative z-10 flex items-center justify-between gap-2.5">
+            {/* Tombol Hamburger Kaca Bulat + Logo Glass Square (Pojok Kiri Atas) */}
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Buka Menu Sidebar"
+                title="Menu Profil, Layanan & Keluar"
+                className="relative h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+              >
+                <Menu className="w-4.5 h-4.5" />
+                {isAdmin && pendingBugCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#243825]">
+                    {pendingBugCount > 9 ? '9+' : pendingBugCount}
+                  </span>
+                )}
+              </button>
 
-            {/* Logo Transparan + Judul Tengah */}
-            <button
-              type="button"
-              onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
-              className="flex items-center gap-2 min-w-0 text-left cursor-pointer"
-            >
-              <BrandLogo size="xs" variant="dark" className="shrink-0" />
-              <div className="min-w-0">
-                <p className="font-serif-brand text-[15px] font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
-                  {brand.app_name || 'e-Card Verifikasi'}
-                </p>
-                <p className="text-[10.5px] font-medium text-[#E5EEE3]/90 leading-tight truncate">
-                  {brand.app_subtitle || 'Perumahan Saung Kebun'}
-                </p>
-              </div>
-            </button>
+              <button
+                type="button"
+                onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
+                className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
+              >
+                <BrandLogo size="sm" variant="dark" className="shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-serif-brand text-[15px] font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
+                    {brand.app_name || 'e-Card Verifikasi'}
+                  </p>
+                  <p className="text-[10.5px] font-medium text-[#E5EEE3]/90 leading-tight truncate">
+                    {brand.app_subtitle || 'Perumahan Saung Kebun'}
+                  </p>
+                </div>
+              </button>
+            </div>
 
             {/* Lonceng Notifikasi + Aksi Kanan */}
             <div className="flex items-center gap-1.5 shrink-0">
@@ -755,7 +756,7 @@ export function AppShell({
 
         {/* Pil Kaca Mengambang di Bawah Header Compact */}
         <div className="relative z-20 -mt-5 px-3.5 sm:px-5">
-          <div className="max-w-3xl mx-auto rounded-full bg-[#FFFDF8]/95 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_10px_24px_-10px_rgba(36,56,37,0.20)] px-2.5 py-1.5 flex items-center justify-between gap-2">
+          <div className="max-w-3xl mx-auto rounded-full bg-[#FFFDF8]/90 backdrop-blur-xl border border-white/50 shadow-[0_10px_24px_-10px_rgba(36,56,37,0.22)] px-2.5 py-1.5 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -778,28 +779,38 @@ export function AppShell({
         </div>
       </div>
 
-      {/* HEADER DESKTOP BERSIH (lg+, sejajar konten di kanan sidebar w-72) */}
+      {/* HEADER DESKTOP FROSTED GLASS HIJAU TUA + LOGO GLASS SQUARE (lg+, sejajar konten di kanan sidebar w-72) */}
       <div className="hidden lg:block fixed top-0 left-72 right-0 z-30 px-8 pt-3 pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto rounded-2xl bg-[#FFFDF8]/92 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_8px_24px_-10px_rgba(36,56,37,0.12)] px-5 py-2.5 flex items-center justify-between gap-4 pointer-events-auto">
-          <div className="min-w-0">
-            <p className="font-serif-brand text-base font-bold text-[#1B271B] leading-tight truncate">
-              {activePageTitle}
-            </p>
-            <p className="text-[11px] font-medium text-[#6E786D] truncate">
-              {isAdmin ? adminIdentityLabel : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
-            </p>
+        <header className="max-w-7xl mx-auto rounded-2xl glass-header-green border border-white/15 shadow-[0_12px_30px_-10px_rgba(20,32,21,0.34)] px-4 py-2 flex items-center justify-between gap-4 pointer-events-auto text-[#FFFDF8]">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => handleSelectNav(isAdmin ? 'dashboard' : 'beranda')}
+              className="shrink-0 cursor-pointer"
+              aria-label="Beranda e-Card Saung Kebun"
+            >
+              <BrandLogo size="sm" variant="dark" className="shrink-0" />
+            </button>
+            <div className="min-w-0">
+              <p className="font-serif-brand text-base font-bold text-[#FFFDF8] leading-tight truncate">
+                {activePageTitle}
+              </p>
+              <p className="text-[11px] font-medium text-[#E5EEE3]/85 truncate">
+                {isAdmin ? adminIdentityLabel : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
             {headerAction && <div className="shrink-0">{headerAction}</div>}
 
-            <span className="px-3 py-1.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-bold whitespace-nowrap">
+            <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-[#FFFDF8] text-xs font-bold whitespace-nowrap">
               {currentMonthBadge}
             </span>
 
             <NotificationBell
               session={session}
-              variant="light"
+              variant="dark"
               externalUnreadCount={unreadNotificationCount}
               onUnreadCountChange={setUnreadNotificationCount}
               onNavigateTarget={onNavigateTarget}
@@ -811,7 +822,7 @@ export function AppShell({
                 onClick={onOpenSettings}
                 aria-label="Pengaturan Sistem"
                 title="Pengaturan Sistem Terpusat"
-                className="h-10 w-10 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="h-10 w-10 rounded-full border border-white/25 bg-white/15 hover:bg-white/25 text-[#FFFDF8] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
                 <Icon3D name="pengaturan" className="w-6 h-6 rounded-lg" />
               </button>
@@ -821,10 +832,10 @@ export function AppShell({
               type="button"
               onClick={handleOpenProfileFromSidebar}
               aria-label={`Profil ${session.nama_warga}`}
-              className="flex items-center gap-2 p-1 pr-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 p-1 pr-3 rounded-full border border-white/25 bg-white/15 hover:bg-white/25 text-[#FFFDF8] transition-colors cursor-pointer shrink-0"
             >
               <UserAvatar name={session.nama_warga} src={effectiveAvatarUrl} size="sm" />
-              <span className="text-xs font-bold text-[#1B271B] max-w-[120px] truncate">
+              <span className="text-xs font-bold text-[#FFFDF8] max-w-[120px] truncate">
                 {session.nama_warga}
               </span>
             </button>
@@ -833,7 +844,7 @@ export function AppShell({
       </div>
 
       {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[5.5rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[6.25rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
