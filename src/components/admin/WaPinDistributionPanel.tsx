@@ -517,19 +517,19 @@ export function WaPinDistributionPanel({
   return (
     <section
       aria-label="Kirim Informasi Akun dan PIN via WhatsApp Fonnte"
-      className="glass-card bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+      className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden"
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/45 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/75 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-[#4C1D95] text-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0 shadow-xs">
             <KeyRound className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-[#0F172A]">
+            <h2 className="text-base font-bold text-[#1B271B]">
               Kirim Informasi Akun &amp; PIN via WhatsApp ({botConfig.provider})
             </h2>
-            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+            <p className="text-xs text-[#4A554A] mt-0.5 leading-relaxed">
               Pilih kategori penerima (Warga, Pengurus, atau Keamanan), sesuaikan template pesan,
               lalu kirim satuan atau massal dengan jeda aman anti-spam 2,5 detik per pesan.
             </p>
@@ -539,7 +539,7 @@ export function WaPinDistributionPanel({
         <button
           type="button"
           onClick={() => setShowPins((v) => !v)}
-          className="min-h-[38px] px-3.5 rounded-full border border-indigo-200/80 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+          className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center transition-colors"
         >
           {showPins ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           <span>{showPins ? 'Sembunyikan PIN' : 'Tampilkan PIN'}</span>
@@ -551,7 +551,7 @@ export function WaPinDistributionPanel({
         <div
           role="tablist"
           aria-label="Kategori Penerima Info Akun dan PIN"
-          className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-[#F6F3EA] border border-[#E6E2D6] rounded-2xl"
         >
           {(
             [
@@ -590,20 +590,20 @@ export function WaPinDistributionPanel({
                 }}
                 className={`min-h-[48px] px-3 py-2 rounded-xl text-left flex items-center gap-2.5 transition-all cursor-pointer disabled:opacity-60 ${
                   active
-                    ? 'bg-[#4C1D95] text-white shadow-sm'
-                    : 'bg-white/75 text-slate-700 hover:bg-white hover:text-[#4C1D95]'
+                    ? 'bg-[#2B3F29] text-white shadow-sm'
+                    : 'bg-[#FFFDF8] text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
                 }`}
               >
                 <Icon
                   className={`w-4 h-4 shrink-0 ${
-                    active ? 'text-emerald-300' : 'text-[#4C1D95]'
+                    active ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'
                   }`}
                 />
                 <div className="min-w-0">
                   <p className="text-xs font-bold leading-tight truncate">{tab.label}</p>
                   <p
                     className={`text-[11px] leading-tight mt-0.5 tabular-nums ${
-                      active ? 'text-indigo-100/90' : 'text-slate-500'
+                      active ? 'text-[#E5EEE3]/90' : 'text-[#6E786D]'
                     }`}
                   >
                     {tab.sub}
@@ -618,7 +618,7 @@ export function WaPinDistributionPanel({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           <div className="lg:col-span-7 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-xs font-bold text-[#0F172A]">
+              <label className="text-xs font-bold text-[#1B271B]">
                 Template Pesan Kategori{' '}
                 {category === 'warga'
                   ? 'Warga'
@@ -634,7 +634,7 @@ export function WaPinDistributionPanel({
                     [category]: DEFAULT_TEMPLATES[category],
                   }))
                 }
-                className="min-h-[30px] px-2.5 rounded-lg border border-indigo-100 bg-white hover:bg-indigo-50 text-[11px] font-semibold text-slate-600 inline-flex items-center gap-1 cursor-pointer"
+                className="min-h-[30px] px-2.5 rounded-lg border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-[11px] font-semibold text-[#4A554A] inline-flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset Template</span>
@@ -647,7 +647,7 @@ export function WaPinDistributionPanel({
                   key={chip}
                   type="button"
                   onClick={() => handleInsertChip(chip)}
-                  className="min-h-[30px] px-2.5 rounded-lg border border-indigo-100 bg-indigo-50/70 hover:bg-[#EDE9FE] text-[11px] font-mono text-slate-700 hover:text-[#4C1D95] cursor-pointer"
+                  className="min-h-[30px] px-2.5 rounded-lg border border-[#C6D2BF] bg-[#E5EEE3]/60 hover:bg-[#E5EEE3] text-[11px] font-mono text-[#243825] cursor-pointer transition-colors"
                 >
                   {chip}
                 </button>
@@ -663,33 +663,33 @@ export function WaPinDistributionPanel({
                   [category]: e.target.value,
                 }))
               }
-              className="w-full rounded-2xl border border-indigo-200/80 bg-white/95 p-3 text-xs sm:text-sm text-[#0F172A] leading-relaxed focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-2xl border border-[#D9D4C5] bg-[#FFFDF8] p-3 text-xs sm:text-sm text-[#1B271B] leading-relaxed focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
             />
           </div>
 
-          <div className="lg:col-span-5 rounded-2xl border border-indigo-100/80 bg-indigo-50/45 p-4 space-y-2">
+          <div className="lg:col-span-5 rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/70 p-4 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-[#4C1D95]" />
+              <p className="text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-[#2B3F29]" />
                 <span>Pratinjau Pesan Langsung</span>
               </p>
               {sampleRecipient && (
-                <span className="text-[11px] font-mono text-slate-500 truncate max-w-[160px]">
+                <span className="text-[11px] font-mono text-[#6E786D] truncate max-w-[160px]">
                   {sampleRecipient.nama}
                 </span>
               )}
             </div>
-            <div className="rounded-xl border border-white/80 bg-white/90 p-3 text-xs text-slate-800 whitespace-pre-line leading-relaxed max-h-[220px] overflow-y-auto">
+            <div className="rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] p-3 text-xs text-[#1B271B] whitespace-pre-line leading-relaxed max-h-[220px] overflow-y-auto">
               {livePreviewText}
             </div>
           </div>
         </div>
 
         {/* Toolbar Pencarian, Ringkasan & Kirim Massal */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 border-t border-indigo-100/70">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 border-t border-[#E6E2D6]">
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             <div className="relative flex-1 min-w-[210px] max-w-sm">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={search}
@@ -701,7 +701,7 @@ export function WaPinDistributionPanel({
                       ? 'Cari nama atau jabatan pengurus...'
                       : 'Cari nama petugas keamanan...'
                 }
-                className="w-full min-h-[40px] rounded-full border border-indigo-200/80 bg-white pl-9 pr-3.5 text-xs text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full min-h-[40px] rounded-full border border-[#D9D4C5] bg-[#FFFDF8] pl-9 pr-3.5 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
               />
             </div>
 
@@ -709,7 +709,7 @@ export function WaPinDistributionPanel({
               type="button"
               disabled={isBusy || validFilteredRows.length === 0}
               onClick={handleToggleSelectAllValid}
-              className="min-h-[40px] px-3.5 rounded-full border border-indigo-200/80 bg-white hover:bg-indigo-50 disabled:opacity-50 text-xs font-semibold text-[#0F172A] cursor-pointer whitespace-nowrap"
+              className="min-h-[40px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 disabled:opacity-50 text-xs font-semibold text-[#1B271B] cursor-pointer whitespace-nowrap transition-colors"
             >
               {validFilteredRows.length > 0 &&
               validFilteredRows.every((r) => selectedIds.includes(r.id))
@@ -719,7 +719,7 @@ export function WaPinDistributionPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <span className="text-[11px] text-slate-500 tabular-nums">
+            <span className="text-[11px] text-[#6E786D] tabular-nums">
               {totalValidInCategory} siap kirim
               {missingWaCount > 0 ? ` · ${missingWaCount} WA kosong` : ''}
             </span>
@@ -730,7 +730,7 @@ export function WaPinDistributionPanel({
                 onClick={() => {
                   cancelBulkRef.current = true;
                 }}
-                className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
               >
                 <Square className="w-3.5 h-3.5" />
                 <span>Hentikan Pengiriman</span>
@@ -740,9 +740,9 @@ export function WaPinDistributionPanel({
                 type="button"
                 disabled={selectedValidRows.length === 0 || isBusy}
                 onClick={() => void handleBulkSend()}
-                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shadow-xs"
+                className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shadow-xs transition-colors"
               >
-                <Send className="w-3.5 h-3.5 text-emerald-300" />
+                <Send className="w-3.5 h-3.5 text-[#E5EEE3]" />
                 <span>
                   Kirim Massal Kategori Terpilih ({selectedValidRows.length})
                 </span>
@@ -753,10 +753,10 @@ export function WaPinDistributionPanel({
 
         {/* Indikator Progres Pengiriman Massal */}
         {bulkProgress.running && (
-          <div className="rounded-2xl border border-indigo-200 bg-indigo-50/75 p-3.5 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[#0F172A] tabular-nums">
+          <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/65 p-3.5 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[#1B271B] tabular-nums">
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
                 <span>
                   Mengirim {bulkProgress.current} / {bulkProgress.total} pesan (jeda anti-spam 2,5 detik)...
                 </span>
@@ -765,9 +765,9 @@ export function WaPinDistributionPanel({
                 Terkirim: {bulkProgress.sent} · Gagal: {bulkProgress.failed}
               </span>
             </div>
-            <div className="w-full h-2 rounded-full bg-white overflow-hidden border border-indigo-100">
+            <div className="w-full h-2 rounded-full bg-[#FFFDF8] overflow-hidden border border-[#C6D2BF]">
               <div
-                className="h-full bg-[#4C1D95] transition-all duration-300"
+                className="h-full bg-[#2B3F29] transition-all duration-300"
                 style={{
                   width: `${
                     bulkProgress.total > 0
@@ -781,10 +781,10 @@ export function WaPinDistributionPanel({
         )}
 
         {/* Tabel Daftar Penerima Per Kategori */}
-        <div className="overflow-x-auto rounded-2xl border border-indigo-100/80 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8]">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-indigo-50/70 border-b border-indigo-100/80 text-[11px] font-semibold text-[#4C1D95]">
+              <tr className="bg-[#F6F3EA] border-b border-[#E6E2D6] text-[11px] font-semibold text-[#243825]">
                 <th className="py-2.5 px-3 w-10 text-center">Pilih</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">
                   {category === 'warga'
@@ -806,10 +806,10 @@ export function WaPinDistributionPanel({
                 <th className="py-2.5 px-3 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-[#E6E2D6] text-xs">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-[#6E786D]">
                     Tidak ada penerima aktif pada kategori ini yang cocok dengan pencarian.
                   </td>
                 </tr>
@@ -820,7 +820,7 @@ export function WaPinDistributionPanel({
                   const rowDisabled = !row.hasValidWa || !row.pin;
 
                   return (
-                    <tr key={row.id} className="hover:bg-indigo-50/35 transition-colors">
+                    <tr key={row.id} className="hover:bg-[#F6F3EA]/60 transition-colors">
                       <td className="py-2.5 px-3 text-center">
                         <input
                           type="checkbox"
@@ -828,25 +828,25 @@ export function WaPinDistributionPanel({
                           checked={checked}
                           onChange={() => toggleSelectRow(row.id)}
                           aria-label={`Pilih ${row.nama}`}
-                          className="w-4 h-4 rounded accent-[#4C1D95] cursor-pointer disabled:cursor-not-allowed"
+                          className="w-4 h-4 rounded accent-[#2B3F29] cursor-pointer disabled:cursor-not-allowed"
                         />
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-[#0F172A] whitespace-nowrap tabular-nums">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[#1B271B] whitespace-nowrap tabular-nums">
                         {row.category === 'warga' ? row.blok : row.jabatan}
                       </td>
                       <td className="py-2.5 px-3">
-                        <p className="font-semibold text-[#0F172A]">{row.nama}</p>
+                        <p className="font-semibold text-[#1B271B]">{row.nama}</p>
                         {row.category !== 'warga' && (
-                          <p className="text-[11px] font-mono text-slate-500">
+                          <p className="text-[11px] font-mono text-[#6E786D]">
                             User: {row.username}
                           </p>
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-mono tabular-nums whitespace-nowrap">
                         {row.hasValidWa ? (
-                          <span className="text-slate-700">+{row.noWaNormalized}</span>
+                          <span className="text-[#4A554A]">+{row.noWaNormalized}</span>
                         ) : (
-                          <span className="text-amber-700 font-sans font-medium">
+                          <span className="text-[#8A5F16] font-sans font-medium">
                             No. WA Kosong
                           </span>
                         )}
@@ -854,39 +854,39 @@ export function WaPinDistributionPanel({
                       <td className="py-2.5 px-3 font-mono font-bold tabular-nums whitespace-nowrap">
                         {row.pin ? (
                           showPins ? (
-                            <span className="text-[#047857]">{row.pin}</span>
+                            <span className="text-[#243825]">{row.pin}</span>
                           ) : (
-                            <span className="text-slate-400">••••••</span>
+                            <span className="text-[#6E786D]">••••••</span>
                           )
                         ) : (
-                          <span className="text-slate-400 font-sans font-normal">—</span>
+                          <span className="text-[#6E786D] font-sans font-normal">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         {!row.hasValidWa ? (
-                          <span className="text-[11px] font-semibold text-amber-700">
+                          <span className="text-[11px] font-semibold text-[#8A5F16]">
                             No. WA Kosong
                           </span>
                         ) : deliv.status === 'sending' ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C1D95]">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2B3F29]">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             <span>Mengirim...</span>
                           </span>
                         ) : deliv.status === 'sent' ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#047857]">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#243825]">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Terkirim</span>
                           </span>
                         ) : deliv.status === 'failed' ? (
                           <span
                             title={deliv.detail}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#7A311E]"
                           >
                             <XCircle className="w-3.5 h-3.5 shrink-0" />
                             <span>Gagal</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-500">Siap Kirim</span>
+                          <span className="text-[11px] text-[#6E786D]">Siap Kirim</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
@@ -894,7 +894,7 @@ export function WaPinDistributionPanel({
                           type="button"
                           disabled={rowDisabled || isBusy}
                           onClick={() => void handleSingleSend(row)}
-                          className="min-h-[34px] px-3 rounded-full border border-emerald-200 bg-[#D1FAE5] hover:bg-[#A7F3D0] disabled:opacity-45 disabled:cursor-not-allowed text-[#064E3B] text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          className="min-h-[34px] px-3 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] disabled:opacity-45 disabled:cursor-not-allowed text-[#243825] text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           {singleSendingId === row.id ? (
                             <Loader2 className="w-3 h-3 animate-spin" />

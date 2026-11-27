@@ -232,34 +232,34 @@ export function AdminBrandSettingsModal({
         onClick={() => {
           if (!saving && !uploadingLogo) onClose();
         }}
-        className="fixed inset-0 bg-slate-950/55 backdrop-blur-md animate-modal-backdrop"
+        className="fixed inset-0 bg-[#243825]/55 backdrop-blur-md animate-modal-backdrop"
         aria-hidden="true"
       />
 
       {/* Dialog */}
       <form
         onSubmit={handleSave}
-        className="relative z-10 w-full max-w-2xl max-h-[90dvh] bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl flex flex-col overflow-hidden animate-modal-pop"
+        className="relative z-10 w-full max-w-2xl max-h-[90dvh] bg-[#FFFDF8] rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]"
       >
         {/* Drag Handle Mobile */}
         <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
-          <div className="w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
+          <div className="w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
         </div>
 
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 border-b border-indigo-100/70 flex items-start justify-between gap-4 shrink-0">
+        <div className="px-5 sm:px-6 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-start justify-between gap-4 shrink-0">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-[#EDE9FE] border border-[#DDD6FE] flex items-center justify-center shrink-0 mt-0.5">
-              <Sparkles className="w-5 h-5 text-[#4C1D95]" />
+            <div className="w-10 h-10 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5 text-[#243825]" />
             </div>
             <div className="min-w-0">
               <h2
                 id="brand-settings-title"
-                className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight"
+                className="text-base sm:text-lg font-bold text-[#1B271B] tracking-tight"
               >
                 Pengaturan Nama, Logo &amp; WA Pengurus
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#6E786D] mt-0.5">
                 Atur identitas aplikasi dan pisahkan nomor WhatsApp Pengurus dari nomor Bot WA.
               </p>
             </div>
@@ -270,15 +270,15 @@ export function AdminBrandSettingsModal({
             disabled={saving || uploadingLogo}
             onClick={onClose}
             aria-label="Tutup Pengaturan Aplikasi"
-            className="min-h-[40px] min-w-[40px] rounded-full text-slate-500 hover:text-slate-900 hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-40"
+            className="min-h-[40px] min-w-[40px] rounded-full text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-40"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-5 sm:px-6 pt-3 pb-3 border-b border-indigo-100/70 bg-indigo-50/40 shrink-0">
-          <div role="tablist" className="grid grid-cols-2 gap-1 p-1 bg-indigo-100/60 rounded-2xl">
+        <div className="px-5 sm:px-6 pt-3 pb-3 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 shrink-0">
+          <div role="tablist" className="grid grid-cols-2 gap-1 p-1 bg-[#F6F3EA] border border-[#E6E2D6] rounded-2xl">
             <button
               type="button"
               role="tab"
@@ -286,12 +286,12 @@ export function AdminBrandSettingsModal({
               onClick={() => setActiveTab('brand')}
               className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'brand'
-                  ? 'bg-[#4C1D95] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-white shadow-sm'
+                  : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/50'
               }`}
             >
               <Sparkles
-                className={`w-3.5 h-3.5 ${activeTab === 'brand' ? 'text-emerald-300' : 'text-slate-500'}`}
+                className={`w-3.5 h-3.5 ${activeTab === 'brand' ? 'text-[#E5EEE3]' : 'text-[#6E786D]'}`}
               />
               <span>Nama &amp; Logo</span>
             </button>
@@ -302,12 +302,12 @@ export function AdminBrandSettingsModal({
               onClick={() => setActiveTab('wa')}
               className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'wa'
-                  ? 'bg-[#4C1D95] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-white shadow-sm'
+                  : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/50'
               }`}
             >
               <Phone
-                className={`w-3.5 h-3.5 ${activeTab === 'wa' ? 'text-emerald-300' : 'text-slate-500'}`}
+                className={`w-3.5 h-3.5 ${activeTab === 'wa' ? 'text-[#E5EEE3]' : 'text-[#6E786D]'}`}
               />
               <span>No. WA Pengurus &amp; Bot</span>
             </button>
@@ -317,8 +317,8 @@ export function AdminBrandSettingsModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
           {!canEdit && (
-            <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 text-xs text-amber-900">
-              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 rounded-xl bg-[#F2D8A7]/45 border border-[#E2C285] px-3.5 py-3 text-xs text-[#4A3410]">
+              <ShieldAlert className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
               <span>
                 Mode lihat saja. Pengubahan nama aplikasi, logo, dan nomor WhatsApp pengurus khusus
                 untuk akun <strong>Bendahara</strong> (akses penuh).
@@ -330,7 +330,7 @@ export function AdminBrandSettingsModal({
             <>
               {/* Pratinjau Langsung Header Gelap & Kartu Terang */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-600">Pratinjau Tampilan Langsung</p>
+                <p className="text-xs font-semibold text-[#4A554A]">Pratinjau Tampilan Langsung</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="rounded-2xl glass-hero p-4 flex items-center gap-3">
                     <BrandLogo
@@ -343,23 +343,23 @@ export function AdminBrandSettingsModal({
                       <p className="text-sm font-bold text-white truncate">
                         {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
                       </p>
-                      <p className="text-xs text-emerald-300 truncate mt-0.5">
+                      <p className="text-xs text-[#E5EEE3] truncate mt-0.5">
                         {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
                       </p>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-indigo-50/50 p-4 border border-indigo-100/80 flex items-center gap-3">
+                  <div className="rounded-2xl bg-[#F7F4EC] p-4 border border-[#E6E2D6] flex items-center gap-3">
                     <BrandLogo
                       size="md"
                       srcOverride={draft.logo_url}
                       altOverride={`Pratinjau Logo ${draft.app_name}`}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#0F172A] truncate">
+                      <p className="text-sm font-bold text-[#1B271B] truncate">
                         {draft.app_name.trim() || DEFAULT_APP_BRAND_CONFIG.app_name}
                       </p>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-[#6E786D] truncate mt-0.5">
                         {draft.app_subtitle.trim() || DEFAULT_APP_BRAND_CONFIG.app_subtitle}
                       </p>
                     </div>
@@ -368,7 +368,7 @@ export function AdminBrandSettingsModal({
               </div>
 
               {/* Unggah Logo */}
-              <div className="p-4 rounded-2xl border border-indigo-100/80 bg-indigo-50/45 space-y-3">
+              <div className="p-4 rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/40 space-y-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <BrandLogo
                     size="lg"
@@ -376,15 +376,15 @@ export function AdminBrandSettingsModal({
                     altOverride={`Logo ${draft.app_name}`}
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                    <p className="text-sm font-bold text-[#1B271B] flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-[#2B3F29] shrink-0" />
                       <span>Logo Aplikasi</span>
                     </p>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-[#4A554A] mt-0.5 leading-relaxed">
                       Format PNG (disarankan transparan), JPG, WebP, atau SVG. Otomatis dioptimalkan
                       agar tajam dan cepat dimuat di iOS, Android, dan browser desktop.
                     </p>
-                    <p className="text-[11px] font-medium text-emerald-700 mt-1 inline-flex items-center gap-1">
+                    <p className="text-[11px] font-medium text-[#243825] mt-1 inline-flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {draft.logo_url ? 'Menggunakan logo kustom' : 'Menggunakan logo bawaan'}
@@ -406,7 +406,7 @@ export function AdminBrandSettingsModal({
                       type="button"
                       disabled={uploadingLogo || saving}
                       onClick={() => fileInputRef.current?.click()}
-                      className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                      className="min-h-[42px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       {uploadingLogo ? (
                         <>
@@ -426,7 +426,7 @@ export function AdminBrandSettingsModal({
                         type="button"
                         disabled={uploadingLogo || saving}
                         onClick={handleResetLogoOnly}
-                        className="min-h-[42px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="min-h-[42px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F7F4EC] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Gunakan Logo Bawaan</span>
@@ -441,7 +441,7 @@ export function AdminBrandSettingsModal({
                 <div>
                   <label
                     htmlFor="brand-app-name"
-                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                    className="block text-sm font-semibold text-[#1B271B] mb-1.5"
                   >
                     Nama Aplikasi
                   </label>
@@ -454,14 +454,14 @@ export function AdminBrandSettingsModal({
                     value={draft.app_name}
                     onChange={(e) => setDraft((prev) => ({ ...prev, app_name: e.target.value }))}
                     placeholder="Contoh: e-Card Verifikasi"
-                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full min-h-[46px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-4 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="brand-app-subtitle"
-                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                    className="block text-sm font-semibold text-[#1B271B] mb-1.5"
                   >
                     Sub-Nama / Nama Perumahan
                   </label>
@@ -474,14 +474,14 @@ export function AdminBrandSettingsModal({
                     value={draft.app_subtitle}
                     onChange={(e) => setDraft((prev) => ({ ...prev, app_subtitle: e.target.value }))}
                     placeholder="Contoh: IPL Digital — Perumahan Saung Kebun"
-                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-4 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full min-h-[46px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-4 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="brand-kop-resmi"
-                    className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                    className="block text-sm font-semibold text-[#1B271B] mb-1.5"
                   >
                     Kop Resmi / Alamat Sekretariat
                   </label>
@@ -493,7 +493,7 @@ export function AdminBrandSettingsModal({
                     value={draft.kop_resmi}
                     onChange={(e) => setDraft((prev) => ({ ...prev, kop_resmi: e.target.value }))}
                     placeholder="Pengurus Lingkungan Perumahan Saung Kebun — Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500 resize-none"
+                    className="w-full rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-4 py-3 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D] resize-none"
                   />
                 </div>
               </div>
@@ -503,9 +503,9 @@ export function AdminBrandSettingsModal({
               {isSameAsBot && (
                 <div
                   role="alert"
-                  className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3 text-xs text-red-800"
+                  className="flex items-start gap-2.5 rounded-xl bg-[#C87058]/10 border border-[#E2A898] px-3.5 py-3 text-xs text-[#7A311E]"
                 >
-                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
                   <span>
                     <strong>Nomor WA Pengurus sama dengan Nomor WA Bot.</strong> Gunakan nomor WA
                     pribadi/resmi pengurus agar saat warga klik tombol{' '}
@@ -515,13 +515,13 @@ export function AdminBrandSettingsModal({
               )}
 
               {/* Bagian 1: Nomor WA Utama Pengurus (Bukan Bot) */}
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-4">
+              <div className="p-4 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/40 space-y-4">
                 <div>
-                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-[#059669]" />
+                  <p className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-[#2B3F29]" />
                     <span>Nomor WhatsApp Pengurus (Bukan Nomor Bot)</span>
                   </p>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
                     Nomor ini dituju langsung ketika warga menekan tombol{' '}
                     <strong>Hubungi Pengurus via WhatsApp</strong> di halaman Profil &amp; Akun.
                   </p>
@@ -531,7 +531,7 @@ export function AdminBrandSettingsModal({
                   <div>
                     <label
                       htmlFor="wa-pengurus-utama"
-                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                      className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                     >
                       Nomor WA Utama Pengurus
                     </label>
@@ -546,10 +546,10 @@ export function AdminBrandSettingsModal({
                         setDraft((prev) => ({ ...prev, wa_pengurus: e.target.value }))
                       }
                       placeholder="Contoh: 081234567890"
-                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                      className="w-full min-h-[46px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-3.5 text-sm font-mono text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                     />
                     {normWaPengurus && (
-                      <p className="text-[11px] font-mono text-emerald-700 mt-1">
+                      <p className="text-[11px] font-mono text-[#243825] mt-1">
                         Tujuan WA: +{normWaPengurus}
                       </p>
                     )}
@@ -558,7 +558,7 @@ export function AdminBrandSettingsModal({
                   <div>
                     <label
                       htmlFor="wa-pengurus-label"
-                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                      className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                     >
                       Nama / Jabatan Penerima
                     </label>
@@ -572,24 +572,24 @@ export function AdminBrandSettingsModal({
                         setDraft((prev) => ({ ...prev, wa_pengurus_label: e.target.value }))
                       }
                       placeholder="Contoh: Andriansyah (Bendahara)"
-                      className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                      className="w-full min-h-[46px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-3.5 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Bagian 2: Nomor WA per Pengurus + Template WA Link Portal Pengurus (/admin) */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-4">
+              <div className="p-4 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
                   <div>
-                    <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                      <Users className="w-4 h-4 text-[#059669]" />
+                    <p className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#2B3F29]" />
                       <span>Nomor WA &amp; Template Link Pengurus (/admin)</span>
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
                       Atur nomor WA masing-masing pengurus sekaligus bagikan template tautan login
                       khusus Portal Pengurus (
-                      <span className="font-mono text-slate-700">{APP_ADMIN_PORTAL_URL}</span>).
+                      <span className="font-mono text-[#1B271B]">{APP_ADMIN_PORTAL_URL}</span>).
                     </p>
                   </div>
                   <button
@@ -606,16 +606,16 @@ export function AdminBrandSettingsModal({
                         onToast('error', 'Gagal menyalin template.');
                       }
                     }}
-                    className="min-h-[36px] px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                    className="min-h-[36px] px-3 rounded-lg border border-[#E6E2D6] bg-[#F7F4EC] hover:bg-[#E5EEE3] hover:border-[#C6D2BF] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
                   >
                     {copiedKey === 'general-admin' ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-[#059669]" />
-                        <span className="text-emerald-700">Tersalin</span>
+                        <Check className="w-3.5 h-3.5 text-[#2B3F29]" />
+                        <span className="text-[#243825]">Tersalin</span>
                       </>
                     ) : (
                       <>
-                        <Link2 className="w-3.5 h-3.5 text-[#059669]" />
+                        <Link2 className="w-3.5 h-3.5 text-[#2B3F29]" />
                         <span>Salin Template Umum</span>
                       </>
                     )}
@@ -644,14 +644,14 @@ export function AdminBrandSettingsModal({
                     return (
                       <div
                         key={p.username}
-                        className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2"
+                        className="rounded-xl border border-[#E6E2D6] bg-[#F7F4EC]/70 p-3 space-y-2"
                       >
                         <label
                           htmlFor={`wa-pengurus-${p.username}`}
-                          className="block text-xs font-semibold text-slate-800"
+                          className="block text-xs font-semibold text-[#1B271B]"
                         >
                           {p.nama}{' '}
-                          <span className="font-normal text-slate-500">
+                          <span className="font-normal text-[#6E786D]">
                             ({p.jabatan} · {p.blokRumah})
                           </span>
                         </label>
@@ -663,14 +663,14 @@ export function AdminBrandSettingsModal({
                           value={draft.pengurus_wa_map?.[p.username] || ''}
                           onChange={(e) => handlePengurusWaChange(p.username, e.target.value)}
                           placeholder={`Default: +${normWaPengurus || '628...'}`}
-                          className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:bg-slate-100 disabled:text-slate-500"
+                          className="w-full min-h-[40px] rounded-lg border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-sm font-mono text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                         />
                         <div className="flex items-center gap-1.5 pt-0.5">
                           <a
                             href={buildWhatsAppLink(targetPhone, waMsg)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 min-h-[34px] px-3 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-[11px] font-semibold inline-flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
+                            className="flex-1 min-h-[34px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-[11px] font-semibold inline-flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
                           >
                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                             <span>Kirim Link WA</span>
@@ -690,12 +690,12 @@ export function AdminBrandSettingsModal({
                                 onToast('error', 'Gagal menyalin template.');
                               }
                             }}
-                            className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[11px] font-semibold text-slate-700 inline-flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="min-h-[34px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F7F4EC] text-[11px] font-semibold text-[#1B271B] inline-flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap transition-colors"
                           >
                             {copiedKey === p.username ? (
                               <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span className="text-emerald-700">Tersalin</span>
+                                <Check className="w-3.5 h-3.5 text-[#2B3F29]" />
+                                <span className="text-[#243825]">Tersalin</span>
                               </>
                             ) : (
                               <>
@@ -712,13 +712,13 @@ export function AdminBrandSettingsModal({
               </div>
 
               {/* Bagian 3: Nomor WA Khusus Bot Otomatis (Terpisah) */}
-              <div className="p-4 rounded-2xl border border-indigo-100/80 bg-indigo-50/45 space-y-3">
+              <div className="p-4 rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] space-y-3">
                 <div>
-                  <p className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-[#4C1D95]" />
+                  <p className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-[#2B3F29]" />
                     <span>Nomor WhatsApp Khusus Bot Otomatis (Terpisah)</span>
                   </p>
-                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-[#4A554A] mt-0.5 leading-relaxed">
                     Nomor WA perangkat yang terhubung di Fonnte/Wablas. Hanya digunakan di modal{' '}
                     <strong>Panduan Bot WA Warga</strong> untuk perintah otomatis{' '}
                     <span className="font-mono">CEK#</span>,{' '}
@@ -730,7 +730,7 @@ export function AdminBrandSettingsModal({
                 <div>
                   <label
                     htmlFor="wa-bot-khusus"
-                    className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                    className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                   >
                     Nomor WA Bot Otomatis (Opsional)
                   </label>
@@ -742,10 +742,10 @@ export function AdminBrandSettingsModal({
                     value={draft.wa_bot}
                     onChange={(e) => setDraft((prev) => ({ ...prev, wa_bot: e.target.value }))}
                     placeholder="Masukkan nomor HP yang dipakai Bot Fonnte (contoh: 0851xxxx)"
-                    className="w-full min-h-[46px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-mono text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full min-h-[46px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-3.5 text-sm font-mono text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15 disabled:bg-[#F6F3EA] disabled:text-[#6E786D]"
                   />
                   {normWaBot && (
-                    <p className="text-[11px] font-mono text-slate-600 mt-1">
+                    <p className="text-[11px] font-mono text-[#4A554A] mt-1">
                       Tujuan Bot Otomatis: +{normWaBot}
                     </p>
                   )}
@@ -756,13 +756,13 @@ export function AdminBrandSettingsModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 sm:px-6 py-4 bg-indigo-50/40 border-t border-indigo-100/70 pb-safe flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="px-5 sm:px-6 py-4 bg-[#F7F4EC] border-t border-[#E6E2D6] pb-safe flex flex-wrap items-center justify-between gap-2 shrink-0">
           {canEdit ? (
             <button
               type="button"
               disabled={saving || uploadingLogo}
               onClick={handleResetAllDefault}
-              className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="min-h-[42px] px-4 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Default</span>
@@ -776,7 +776,7 @@ export function AdminBrandSettingsModal({
               type="button"
               disabled={saving || uploadingLogo}
               onClick={onClose}
-              className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 text-sm font-semibold text-slate-700 hover:bg-indigo-50 cursor-pointer disabled:opacity-50"
+              className="min-h-[42px] px-4 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] text-sm font-semibold text-[#4A554A] hover:bg-[#F6F3EA] cursor-pointer disabled:opacity-50 transition-colors"
             >
               Tutup
             </button>
@@ -784,7 +784,7 @@ export function AdminBrandSettingsModal({
               <button
                 type="submit"
                 disabled={saving || uploadingLogo || isSameAsBot}
-                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap transition-colors"
               >
                 {saving ? (
                   <>

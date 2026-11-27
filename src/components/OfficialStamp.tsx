@@ -39,7 +39,7 @@ export function OfficialStamp({
     <svg
       viewBox="0 0 140 140"
       aria-label="Stempel Resmi Pengurus Lingkungan Perumahan Saung Kebun"
-      className={`${SIZE_MAP[size]} ${defaultVisualClass} select-none pointer-events-none text-[#059669] ${className}`}
+      className={`${SIZE_MAP[size]} ${defaultVisualClass} select-none pointer-events-none text-[#243825] ${className}`}
     >
       <defs>
         <path id="stampTopArc" d="M 22,70 A 48,48 0 1,1 118,70" />

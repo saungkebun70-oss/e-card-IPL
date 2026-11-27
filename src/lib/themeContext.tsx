@@ -25,27 +25,27 @@ export const APP_THEMES: AppThemeOption[] = [
   {
     id: 'emerald',
     name: 'Saung Kebun',
-    tagline: 'Lavender Frosted · Default',
-    description: 'Gradien lavender biru pastel dengan kartu frosted glass dan hero ungu indigo modern.',
+    tagline: 'Velvety Moss & Cream · Default',
+    description: 'Tema resmi Perumahan Saung Kebun: hijau lumut beludru berpadu krem hangat alabaster & sage lembut.',
     isDark: false,
-    metaThemeColor: '#ede9fe',
+    metaThemeColor: '#F6F3EA',
     previewColors: {
-      primary: '#4c1d95',
-      background: '#eef2ff',
-      accent: '#a7f3d0',
+      primary: '#2B3F29',
+      background: '#F6F3EA',
+      accent: '#E5EEE3',
     },
   },
   {
     id: 'midnight',
-    name: 'Midnight Emerald',
+    name: 'Midnight Moss',
     tagline: 'Dark Mode Estetik',
-    description: 'Latar gelap elegan dengan aksen hijau neon lembut, nyaman untuk patroli malam.',
+    description: 'Latar hutan malam gelap elegan dengan aksen hijau lumut lembut, nyaman untuk patroli malam.',
     isDark: true,
-    metaThemeColor: '#0b1120',
+    metaThemeColor: '#0b1410',
     previewColors: {
-      primary: '#10b981',
-      background: '#0b1120',
-      accent: '#111827',
+      primary: '#34d399',
+      background: '#0b1410',
+      accent: '#243825',
     },
   },
   {
@@ -76,15 +76,15 @@ export const APP_THEMES: AppThemeOption[] = [
   },
   {
     id: 'royal',
-    name: 'Royal Slate',
-    tagline: 'Ungu Indigo Minimalis',
-    description: 'Nuansa indigo modern dengan aksen slate gelap dan latar abu-abu dingin.',
+    name: 'Sage Slate',
+    tagline: 'Slate Minimalis',
+    description: 'Nuansa abu-abu batu modern yang tenang dan profesional.',
     isDark: false,
-    metaThemeColor: '#f8fafc',
+    metaThemeColor: '#f4f5f2',
     previewColors: {
-      primary: '#4f46e5',
-      background: '#f8fafc',
-      accent: '#1e1b4b',
+      primary: '#334155',
+      background: '#f4f5f2',
+      accent: '#1e293b',
     },
   },
 ];
@@ -134,7 +134,7 @@ export function applyThemeToDocument(themeId: AppThemeId): void {
         style: option.isDark ? Style.Dark : Style.Light,
       }).catch(() => {});
       void StatusBar.setBackgroundColor({
-        color: option.isDark ? '#0B1120' : '#FFFFFF',
+        color: option.isDark ? '#0B1410' : '#F6F3EA',
       }).catch(() => {});
     }
   } catch {

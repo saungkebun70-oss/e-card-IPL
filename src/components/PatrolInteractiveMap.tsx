@@ -762,41 +762,41 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
     officerMarker?.forcedFacing ?? officerFacing;
 
   return (
-    <div className="glass-card rounded-3xl overflow-hidden">
+    <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs">
       {/* Header Progres Patroli & Mode */}
-      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 bg-indigo-50/40">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/75">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#4C1D95] shrink-0" />
+              <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#2B3F29] shrink-0" />
                 {mode === 'editor'
                   ? 'Editor Koordinat Pin Peta Patroli'
                   : 'Peta Mapping Rute Patroli Real-Time'}
               </h3>
               {mode !== 'editor' &&
                 (returnJourney.phase === 'returning' && completionTrigger ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-2 py-0.5">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] rounded-md px-2 py-0.5">
                     <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-85" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#384E35] opacity-85" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2B3F29]" />
                     </span>
                     <span>
                       LIVE: {completionTrigger.officerName} Kembali ke Pos Security...
                     </span>
                   </span>
                 ) : returnJourney.phase === 'arrived_standby' ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 tabular-nums">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] rounded-md px-2 py-0.5 tabular-nums">
+                    <span className="w-2 h-2 rounded-full bg-[#2B3F29] shrink-0" />
                     <span>
                       Standby di Pos Security • Patroli Selesai ({scannedCount}/{totalCount})
                     </span>
                   </span>
                 ) : isLiveActive && liveSession ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 tabular-nums">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] rounded-md px-2 py-0.5 tabular-nums">
                     <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#384E35] opacity-80" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2B3F29]" />
                     </span>
                     <span>
                       LIVE: {liveSession.officer_name} Sedang Patroli • Update{' '}
@@ -804,38 +804,38 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                     </span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white/80 border border-indigo-100 rounded-md px-2 py-0.5">
-                    <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#4A554A] bg-[#FFFDF8] border border-[#E6E2D6] rounded-md px-2 py-0.5">
+                    <span className="w-2 h-2 rounded-full bg-[#9AA598] shrink-0" />
                     <span>{scannedCount === 0 ? 'Standby di Pos Security' : 'Standby'}</span>
                   </span>
                 ))}
               {mode === 'warga' && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C1D95] bg-white/90 border border-indigo-100 rounded-md px-2 py-0.5">
-                  <Eye className="w-3 h-3 text-[#4C1D95]" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#243825] bg-[#FFFDF8] border border-[#C6D2BF] rounded-md px-2 py-0.5">
+                  <Eye className="w-3 h-3 text-[#2B3F29]" />
                   Read-Only (Pantauan Warga)
                 </span>
               )}
             </div>
             {mode !== 'editor' ? (
-              <p className="text-xs font-semibold text-slate-700 mt-1 tabular-nums">
+              <p className="text-xs font-semibold text-[#4A554A] mt-1 tabular-nums">
                 Progres Patroli:{' '}
                 <span
                   className={
                     scannedCount === totalCount && totalCount > 0
-                      ? 'text-emerald-700'
-                      : 'text-[#0F172A]'
+                      ? 'text-[#243825]'
+                      : 'text-[#1B271B]'
                   }
                 >
                   {scannedCount} / {totalCount} Titik Terverifikasi
                 </span>
                 {patrolMapConfig?.cycle_reset_at && (
-                  <span className="text-[11px] font-normal text-slate-500 ml-1.5">
+                  <span className="text-[11px] font-normal text-[#6E786D] ml-1.5">
                     · Siklus mulai {formatJamWib(patrolMapConfig.cycle_reset_at)}
                   </span>
                 )}
               </p>
             ) : (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#6E786D] mt-0.5">
                 Klik langsung di jalur jalan peta atau seret (drag) pin untuk menempatkan ujung pin
                 secara presisi.
               </p>
@@ -845,15 +845,15 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
           {canResetCycle && mode !== 'warga' && mode !== 'editor' && onResetCycle && (
             <div className="shrink-0">
               {confirmReset ? (
-                <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-2xl px-2.5 py-1.5">
-                  <span className="text-[11px] font-semibold text-amber-800">
+                <div className="flex items-center gap-1.5 bg-[#F2D8A7]/45 border border-[#E2C285] rounded-2xl px-2.5 py-1.5">
+                  <span className="text-[11px] font-semibold text-[#4A3410]">
                     Reset siklus shift?
                   </span>
                   <button
                     type="button"
                     onClick={handleConfirmReset}
                     disabled={resettingCycle}
-                    className="px-3 py-1 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition disabled:opacity-50 cursor-pointer"
+                    className="px-3 py-1 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-[#FFFDF8] text-[11px] font-bold transition disabled:opacity-50 cursor-pointer"
                   >
                     {resettingCycle ? 'Mereset...' : 'Ya, Reset'}
                   </button>
@@ -861,7 +861,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                     type="button"
                     onClick={() => setConfirmReset(false)}
                     disabled={resettingCycle}
-                    className="px-2.5 py-1 rounded-full bg-white border border-indigo-100 text-slate-600 text-[11px] font-semibold hover:bg-indigo-50 cursor-pointer"
+                    className="px-2.5 py-1 rounded-full bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A] text-[11px] font-semibold hover:bg-[#F7F4EC] cursor-pointer"
                   >
                     Batal
                   </button>
@@ -870,10 +870,10 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmReset(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-indigo-50 border border-indigo-100 text-[#0F172A] text-xs font-semibold transition min-h-[36px] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FFFDF8] hover:bg-[#E5EEE3] border border-[#E6E2D6] text-[#1B271B] text-xs font-semibold transition min-h-[36px] cursor-pointer"
                   title="Reset status pin peta untuk shift baru tanpa menghapus riwayat patroli"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-[#4C1D95]" />
+                  <RotateCcw className="w-3.5 h-3.5 text-[#2B3F29]" />
                   Reset Siklus Patroli
                 </button>
               )}
@@ -884,9 +884,9 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
         {/* Progress Bar */}
         {mode !== 'editor' && totalCount > 0 && (
           <div className="mt-2.5">
-            <div className="h-2 w-full rounded-full bg-indigo-100/80 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-[#E6E2D6] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#4C1D95] transition-all duration-500"
+                className="h-full rounded-full bg-[#2B3F29] transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -895,11 +895,11 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
       </div>
 
       {/* Area Kanvas Peta + Overlay Pin */}
-      <div className="p-3 sm:p-4 bg-indigo-50/30">
+      <div className="p-3 sm:p-4 bg-[#F6F3EA]">
         {mode === 'editor' && selectedEditorTitikId && (
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 bg-indigo-50/80 border border-indigo-200 rounded-2xl px-3 py-2 text-xs text-[#4C1D95]">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 bg-[#E5EEE3] border border-[#C6D2BF] rounded-2xl px-3 py-2 text-xs text-[#243825]">
             <span className="flex items-center gap-1.5 font-medium">
-              <Crosshair className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
+              <Crosshair className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
               <span>
                 Klik peta / seret pin untuk menempatkan:{' '}
                 <strong>
@@ -910,12 +910,12 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             </span>
             <div className="flex items-center gap-2 shrink-0">
               {activeGuide && (
-                <span className="font-mono text-[11px] font-bold bg-white border border-indigo-200 text-[#4C1D95] px-2 py-0.5 rounded-md tabular-nums">
+                <span className="font-mono text-[11px] font-bold bg-[#FFFDF8] border border-[#C6D2BF] text-[#243825] px-2 py-0.5 rounded-md tabular-nums">
                   X: {activeGuide.x.toFixed(2)}% · Y: {activeGuide.y.toFixed(2)}%
                 </span>
               )}
               {savingPin && (
-                <span className="text-[11px] font-bold text-[#4C1D95]">Menyimpan...</span>
+                <span className="text-[11px] font-bold text-[#243825]">Menyimpan...</span>
               )}
             </div>
           </div>
@@ -929,9 +929,9 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
           onPointerUp={handleContainerPointerUp}
           onPointerCancel={handleContainerPointerUp}
           onPointerLeave={handleContainerPointerLeave}
-          className={`relative w-full overflow-hidden rounded-2xl border border-indigo-100/80 bg-white/80 select-none ${
+          className={`relative w-full overflow-hidden rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] select-none ${
             mode === 'editor' && selectedEditorTitikId
-              ? 'cursor-crosshair ring-2 ring-[#4C1D95]/35 touch-none'
+              ? 'cursor-crosshair ring-2 ring-[#2B3F29]/35 touch-none'
               : ''
           }`}
         >
@@ -946,30 +946,30 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             /* Fallback Denah 16:9 Perumahan Saung Kebun jika gambar kustom belum diunggah */
             <svg
               viewBox="0 0 800 450"
-              className="block w-full h-auto bg-[#F8FAFC] pointer-events-none"
+              className="block w-full h-auto bg-[#F7F4EC] pointer-events-none"
               role="img"
               aria-label="Denah Perumahan Saung Kebun"
             >
               <defs>
                 <pattern id="grid-patrol-169" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E2E8F0" strokeWidth="1" />
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E6E2D6" strokeWidth="1" />
                 </pattern>
               </defs>
               <rect width="800" height="450" fill="url(#grid-patrol-169)" />
-              {/* Jalan Utama & Rute Patroli Biru 16:9 */}
+              {/* Jalan Utama & Rute Patroli 16:9 */}
               <path
                 d="M 80 342 L 512 342 L 500 205 L 496 130 L 672 130"
                 fill="none"
-                stroke="#3B82F6"
+                stroke="#384E35"
                 strokeWidth="12"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity="0.22"
+                opacity="0.2"
               />
               <path
                 d="M 80 342 L 512 342 L 500 205 L 496 130 L 672 130"
                 fill="none"
-                stroke="#2563EB"
+                stroke="#2B3F29"
                 strokeWidth="3"
                 strokeDasharray="8 6"
                 strokeLinecap="round"
@@ -982,14 +982,14 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 width="270"
                 height="110"
                 rx="12"
-                fill="#FFFFFF"
-                stroke="#CBD5E1"
+                fill="#FFFDF8"
+                stroke="#C6D2BF"
                 strokeWidth="1.5"
               />
-              <text x="305" y="236" textAnchor="middle" fill="#334155" fontSize="14" fontWeight="700">
+              <text x="305" y="236" textAnchor="middle" fill="#1B271B" fontSize="14" fontWeight="700">
                 BLOK A &amp; BLOK B
               </text>
-              <text x="305" y="256" textAnchor="middle" fill="#64748B" fontSize="10">
+              <text x="305" y="256" textAnchor="middle" fill="#6E786D" fontSize="10">
                 Sekretariat Blok B3/7
               </text>
 
@@ -999,14 +999,14 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 width="195"
                 height="110"
                 rx="12"
-                fill="#ECFDF5"
-                stroke="#A7F3D0"
+                fill="#E5EEE3"
+                stroke="#C6D2BF"
                 strokeWidth="1.5"
               />
-              <text x="652" y="236" textAnchor="middle" fill="#065F46" fontSize="13" fontWeight="700">
+              <text x="652" y="236" textAnchor="middle" fill="#243825" fontSize="13" fontWeight="700">
                 TAMAN &amp; FASUM
               </text>
-              <text x="652" y="255" textAnchor="middle" fill="#047857" fontSize="10">
+              <text x="652" y="255" textAnchor="middle" fill="#384E35" fontSize="10">
                 Area Terbuka Warga
               </text>
 
@@ -1016,26 +1016,26 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 width="270"
                 height="82"
                 rx="12"
-                fill="#FFFFFF"
-                stroke="#CBD5E1"
+                fill="#FFFDF8"
+                stroke="#C6D2BF"
                 strokeWidth="1.5"
               />
-              <text x="305" y="112" textAnchor="middle" fill="#334155" fontSize="13" fontWeight="700">
+              <text x="305" y="112" textAnchor="middle" fill="#1B271B" fontSize="13" fontWeight="700">
                 BLOK C &amp; BLOK BELAKANG
               </text>
-              <text x="305" y="130" textAnchor="middle" fill="#64748B" fontSize="10">
+              <text x="305" y="130" textAnchor="middle" fill="#6E786D" fontSize="10">
                 Sektor Utara Perumahan
               </text>
 
-              <rect x="34" y="366" width="136" height="36" rx="8" fill="#0F172A" />
-              <text x="102" y="388" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="700">
+              <rect x="34" y="366" width="136" height="36" rx="8" fill="#243825" />
+              <text x="102" y="388" textAnchor="middle" fill="#FFFDF8" fontSize="11" fontWeight="700">
                 GERBANG / POS 1
               </text>
 
-              <text x="24" y="34" fill="#0F172A" fontSize="13" fontWeight="700">
+              <text x="24" y="34" fill="#1B271B" fontSize="13" fontWeight="700">
                 DENAH PERUMAHAN SAUNG KEBUN
               </text>
-              <text x="24" y="50" fill="#64748B" fontSize="10">
+              <text x="24" y="50" fill="#6E786D" fontSize="10">
                 Unggah gambar peta 3D perumahan di Pengaturan &gt; Petugas &gt; Peta Mapping
               </text>
             </svg>
@@ -1045,15 +1045,15 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
           {mode === 'editor' && activeGuide && (
             <div className="pointer-events-none absolute inset-0 z-10">
               <div
-                className="absolute top-0 bottom-0 border-l border-dashed border-sky-500/80"
+                className="absolute top-0 bottom-0 border-l border-dashed border-[#2B3F29]/80"
                 style={{ left: `${activeGuide.x}%` }}
               />
               <div
-                className="absolute left-0 right-0 border-t border-dashed border-sky-500/80"
+                className="absolute left-0 right-0 border-t border-dashed border-[#2B3F29]/80"
                 style={{ top: `${activeGuide.y}%` }}
               />
               <span
-                className="absolute w-2.5 h-2.5 rounded-full border-2 border-sky-600 bg-white/90 shadow-xs"
+                className="absolute w-2.5 h-2.5 rounded-full border-2 border-[#2B3F29] bg-[#FFFDF8] shadow-xs"
                 style={{
                   left: `${activeGuide.x}%`,
                   top: `${activeGuide.y}%`,
@@ -1083,7 +1083,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               <polyline
                 points={trailPolylinePoints}
                 fill="none"
-                stroke="#06B6D4"
+                stroke="#384E35"
                 strokeWidth="1.35"
                 strokeOpacity="0.45"
                 strokeLinecap="round"
@@ -1093,7 +1093,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
               <polyline
                 points={trailPolylinePoints}
                 fill="none"
-                stroke="#0EA5E9"
+                stroke="#2B3F29"
                 strokeWidth="0.7"
                 strokeDasharray="1.8 1.2"
                 strokeLinecap="round"
@@ -1116,13 +1116,13 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
             const pinBgClass =
               mode === 'editor'
                 ? isSelected
-                  ? 'bg-[#059669]'
-                  : 'bg-slate-800'
+                  ? 'bg-[#2B3F29]'
+                  : 'bg-[#1B271B]'
                 : item.scanned
                   ? isWarningNote
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                  : 'bg-red-500';
+                    ? 'bg-[#D9A74A]'
+                    : 'bg-[#2B3F29]'
+                  : 'bg-[#C87058]';
 
             // Penempatan popover agar tidak terpotong tepi peta
             const popoverVerticalClass = item.y < 34 ? 'top-full mt-4' : 'bottom-full mb-2';
@@ -1147,13 +1147,13 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 {mode !== 'editor' && !item.scanned && (
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 w-6 h-6 rounded-full bg-red-500/35 animate-ping"
+                    className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 w-6 h-6 rounded-full bg-[#C87058]/35 animate-ping"
                   />
                 )}
                 {mode !== 'editor' && item.scanned && isJustScanned && (
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 w-8 h-8 rounded-full bg-emerald-400/55 animate-ping"
+                    className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 w-8 h-8 rounded-full bg-[#384E35]/55 animate-ping"
                   />
                 )}
 
@@ -1188,27 +1188,27 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 >
                   {/* Bentuk Teardrop / Location Marker (w-6 h-6 sm:w-7 sm:h-7) */}
                   <span
-                    className={`relative flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-t-full rounded-r-full rounded-bl-none -rotate-45 ring-2 ring-white shadow-md transition-transform duration-150 ${pinBgClass} ${
+                    className={`relative flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-t-full rounded-r-full rounded-bl-none -rotate-45 ring-2 ring-[#FFFDF8] shadow-md transition-transform duration-150 ${pinBgClass} ${
                       isDraggingThis
-                        ? 'scale-125 ring-emerald-200'
+                        ? 'scale-125 ring-[#E5EEE3]'
                         : isSelected
                           ? 'scale-115'
                           : 'group-hover:scale-110'
                     }`}
                   >
-                    <span className="rotate-45 text-[10px] sm:text-[11px] font-extrabold text-white leading-none tabular-nums">
+                    <span className="rotate-45 text-[10px] sm:text-[11px] font-extrabold text-[#FFFDF8] leading-none tabular-nums">
                       {item.index}
                     </span>
                   </span>
 
-                  {/* Badge Status Sudut Pin (✓ Hijau / ! Amber saat Terverifikasi NFC) */}
+                  {/* Badge Status Sudut Pin */}
                   {mode !== 'editor' && item.scanned && (
                     <span
                       aria-hidden="true"
-                      className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white shadow-xs flex items-center justify-center ring-1 ${
+                      className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#FFFDF8] shadow-xs flex items-center justify-center ring-1 ${
                         isWarningNote
-                          ? 'text-amber-600 ring-amber-400'
-                          : 'text-emerald-600 ring-emerald-400'
+                          ? 'text-[#6E4D12] ring-[#E2C285]'
+                          : 'text-[#2B3F29] ring-[#C6D2BF]'
                       }`}
                     >
                       {isWarningNote ? (
@@ -1223,7 +1223,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   {mode === 'editor' && isSelected && (
                     <span
                       aria-hidden="true"
-                      className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-white text-[#059669] ring-1 ring-emerald-500 shadow-xs flex items-center justify-center"
+                      className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-[#FFFDF8] text-[#2B3F29] ring-1 ring-[#384E35] shadow-xs flex items-center justify-center"
                     >
                       <Move className="w-2 h-2" />
                     </span>
@@ -1232,15 +1232,15 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                     <span
                       aria-hidden="true"
                       title="GPS Terkalibrasi"
-                      className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-white ring-1 ring-white shadow-xs flex items-center justify-center"
+                      className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#2B3F29] text-[#FFFDF8] ring-1 ring-[#FFFDF8] shadow-xs flex items-center justify-center"
                     >
                       <Check className="w-2 h-2 stroke-[3.5]" />
                     </span>
                   )}
                 </button>
 
-                {/* Label Mini Transparan Gelap (Digantung di bawah ujung pin tanpa menggeser koordinat) */}
-                <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full bg-slate-900/80 text-white backdrop-blur-sm whitespace-nowrap shadow-xs">
+                {/* Label Mini Transparan Gelap */}
+                <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full bg-[#1B271B]/85 text-[#FFFDF8] backdrop-blur-sm whitespace-nowrap shadow-xs">
                   {item.shortLabel}
                 </span>
 
@@ -1248,17 +1248,17 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 {mode !== 'editor' && isSelected && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute ${popoverVerticalClass} ${popoverHorizontalClass} z-40 w-52 sm:w-56 rounded-xl bg-slate-900/95 text-white backdrop-blur-md border border-white/15 shadow-xl p-2.5 text-left`}
+                    className={`absolute ${popoverVerticalClass} ${popoverHorizontalClass} z-40 w-52 sm:w-56 rounded-xl bg-[#1B271B]/95 text-[#FFFDF8] backdrop-blur-md border border-[#FFFDF8]/15 shadow-xl p-2.5 text-left`}
                   >
                     <div className="flex items-start justify-between gap-1.5">
-                      <p className="text-[11px] font-bold leading-snug text-white">
+                      <p className="text-[11px] font-bold leading-snug text-[#FFFDF8]">
                         {item.index}. {item.titik.nama_lokasi}
                       </p>
                       <button
                         type="button"
                         onClick={() => setSelectedPinId(null)}
                         aria-label="Tutup detail pin"
-                        className="p-0.5 rounded text-slate-400 hover:text-white cursor-pointer shrink-0"
+                        className="p-0.5 rounded text-[#E5EEE3]/70 hover:text-[#FFFDF8] cursor-pointer shrink-0"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1268,7 +1268,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       <div className="mt-1.5 space-y-1">
                         <p
                           className={`text-[10px] font-bold inline-flex items-center gap-1 ${
-                            isWarningNote ? 'text-amber-300' : 'text-emerald-300'
+                            isWarningNote ? 'text-[#F2D8A7]' : 'text-[#E5EEE3]'
                           }`}
                         >
                           {isWarningNote ? (
@@ -1283,13 +1283,13 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                           </span>
                         </p>
                         {item.latestLog.catatan && (
-                          <p className="text-[10px] text-amber-100 bg-amber-500/20 border border-amber-400/30 rounded-lg px-2 py-1 leading-snug">
+                          <p className="text-[10px] text-[#F2D8A7] bg-[#F2D8A7]/15 border border-[#F2D8A7]/30 rounded-lg px-2 py-1 leading-snug">
                             {item.latestLog.catatan}
                           </p>
                         )}
                       </div>
                     ) : (
-                      <p className="mt-1 text-[10px] font-semibold text-red-300">
+                      <p className="mt-1 text-[10px] font-semibold text-[#E2A898]">
                         Belum Scan pada siklus patroli aktif
                       </p>
                     )}
@@ -1315,26 +1315,26 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 officerPopoverOpen ? 'z-[35]' : 'z-[28]'
               }`}
             >
-              {/* Label Nama Petugas di Atas Kepala (TIDAK ikut terbalik saat karakter menghadap kiri) */}
+              {/* Label Nama Petugas di Atas Kepala */}
               <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap">
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold shadow-md backdrop-blur-sm ${
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#1B271B]/90 text-[#FFFDF8] text-[10px] font-bold shadow-md backdrop-blur-sm ${
                     officerMarker.isReturning
-                      ? 'ring-1 ring-sky-400/80'
+                      ? 'ring-1 ring-[#F2D8A7]/80'
                       : officerMarker.isLive
-                        ? 'ring-1 ring-cyan-400/75'
-                        : 'ring-1 ring-emerald-400/55'
+                        ? 'ring-1 ring-[#E5EEE3]/85'
+                        : 'ring-1 ring-[#C6D2BF]/65'
                   }`}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                       officerMarker.isReturning
-                        ? 'bg-sky-400 animate-pulse'
+                        ? 'bg-[#F2D8A7] animate-pulse'
                         : officerMarker.isLive
-                          ? 'bg-emerald-400 animate-pulse'
+                          ? 'bg-[#E5EEE3] animate-pulse'
                           : officerMarker.isArrivedStandby
-                            ? 'bg-emerald-400'
-                            : 'bg-sky-400'
+                            ? 'bg-[#C6D2BF]'
+                            : 'bg-[#E5EEE3]'
                     }`}
                   />
                   <span>
@@ -1345,41 +1345,37 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                 </span>
               </div>
 
-              {/* Radar Pulse Perspektif 3D tepat di Dasar / Bawah Kaki (Anchor Point X%, Y%) */}
+              {/* Radar Pulse Perspektif 3D tepat di Dasar / Bawah Kaki */}
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 flex items-center justify-center"
               >
-                {/* Kerucut arah gerak radar (berputar mulus mengikuti vektor rute) */}
                 {officerMarker.isLive && officerMarker.headingDeg !== null && (
                   <span
                     style={{ transform: `rotate(${officerMarker.headingDeg}deg)` }}
                     className="absolute w-14 h-14 transition-transform duration-700 ease-out"
                   >
-                    <span className="block mx-auto w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-b-[18px] border-b-cyan-400/45 blur-[1px]" />
+                    <span className="block mx-auto w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-b-[18px] border-b-[#384E35]/55 blur-[1px]" />
                   </span>
                 )}
-                {/* Gelombang radar 1 (luar, animate-ping) */}
                 <span
                   className={`absolute w-9 h-5 rounded-full animate-ping ${
-                    officerMarker.isLive ? 'bg-cyan-400/60' : 'bg-emerald-400/50'
+                    officerMarker.isLive ? 'bg-[#384E35]/60' : 'bg-[#C6D2BF]/60'
                   }`}
                 />
-                {/* Gelombang radar 2 (dalam, staggered animate-ping) */}
                 <span
                   className={`absolute w-6 h-3.5 rounded-full animate-ping [animation-delay:450ms] ${
-                    officerMarker.isLive ? 'bg-emerald-400/55' : 'bg-sky-400/45'
+                    officerMarker.isLive ? 'bg-[#2B3F29]/55' : 'bg-[#E5EEE3]/55'
                   }`}
                 />
-                {/* Cincin pijak dasar di permukaan jalan peta */}
                 <span
-                  className={`relative block w-5 h-2.5 rounded-full border-2 border-white/90 shadow-xs ${
-                    officerMarker.isLive ? 'bg-cyan-500/75' : 'bg-emerald-500/70'
+                  className={`relative block w-5 h-2.5 rounded-full border-2 border-[#FFFDF8]/90 shadow-xs ${
+                    officerMarker.isLive ? 'bg-[#2B3F29]/85' : 'bg-[#384E35]/80'
                   }`}
                 />
               </div>
 
-              {/* Tombol Interaktif Karakter Satpam Berseragam + Animasi Berjalan */}
+              {/* Tombol Interaktif Karakter Satpam */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -1417,20 +1413,18 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       : officerMarker.x > 76
                         ? 'right-0 translate-x-0'
                         : 'left-1/2 -translate-x-1/2'
-                  } z-40 w-52 sm:w-56 rounded-xl bg-slate-900/95 text-white backdrop-blur-md border border-cyan-400/30 shadow-xl p-2.5 text-left`}
+                  } z-40 w-52 sm:w-56 rounded-xl bg-[#1B271B]/95 text-[#FFFDF8] backdrop-blur-md border border-[#C6D2BF]/35 shadow-xl p-2.5 text-left`}
                 >
                   <div className="flex items-start justify-between gap-1.5">
                     <div>
-                      <p className="text-[11px] font-bold leading-snug text-white">
+                      <p className="text-[11px] font-bold leading-snug text-[#FFFDF8]">
                         {officerMarker.name}
                       </p>
                       <p
                         className={`text-[10px] font-semibold mt-0.5 ${
                           officerMarker.isReturning
-                            ? 'text-sky-300'
-                            : officerMarker.isLive || officerMarker.isArrivedStandby
-                              ? 'text-emerald-300'
-                              : 'text-sky-300'
+                            ? 'text-[#F2D8A7]'
+                            : 'text-[#E5EEE3]'
                         }`}
                       >
                         {officerMarker.isReturning
@@ -1448,21 +1442,21 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       type="button"
                       onClick={() => setOfficerPopoverOpen(false)}
                       aria-label="Tutup detail petugas"
-                      className="p-0.5 rounded text-slate-400 hover:text-white cursor-pointer shrink-0"
+                      className="p-0.5 rounded text-[#E5EEE3]/70 hover:text-[#FFFDF8] cursor-pointer shrink-0"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-                  <div className="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-1 text-[10px] font-mono text-slate-300 tabular-nums">
+                  <div className="mt-2 pt-1.5 border-t border-[#FFFDF8]/15 flex flex-wrap items-center justify-between gap-1 text-[10px] font-mono text-[#E5EEE3]/85 tabular-nums">
                     <span>
                       Peta: X {officerMarker.x.toFixed(1)}% · Y {officerMarker.y.toFixed(1)}%
                     </span>
                     {officerMarker.accuracy !== null && (
-                      <span className="text-cyan-300">GPS ±{Math.round(officerMarker.accuracy)}m</span>
+                      <span className="text-[#F2D8A7]">GPS ±{Math.round(officerMarker.accuracy)}m</span>
                     )}
                   </div>
                   {officerMarker.lokasiLabel && (
-                    <p className="mt-1 text-[10px] text-slate-300">
+                    <p className="mt-1 text-[10px] text-[#E5EEE3]/80">
                       Titik: {officerMarker.lokasiLabel}
                     </p>
                   )}
@@ -1473,57 +1467,57 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
         </div>
 
         {/* Legenda Status Kompak */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#4A554A]">
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C87058] inline-block" />
               Belum Scan
             </span>
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2B3F29] inline-block" />
               Aman (✓)
             </span>
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D9A74A] inline-block" />
               Ada Catatan (!)
             </span>
             {mode !== 'editor' && (
-              <span className="inline-flex items-center gap-1.5 font-medium text-sky-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 ring-1 ring-cyan-300 inline-block" />
+              <span className="inline-flex items-center gap-1.5 font-medium text-[#243825]">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#384E35] ring-1 ring-[#C6D2BF] inline-block" />
                 Petugas Live &amp; Jejak Rute
               </span>
             )}
           </div>
           {mode !== 'editor' && (
-            <span className="text-slate-400">Ketuk pin untuk melihat detail scan</span>
+            <span className="text-[#6E786D]">Ketuk pin untuk melihat detail scan</span>
           )}
         </div>
       </div>
 
       {/* Panel Detail Pin Terpilih (Opsional di Bawah Peta saat Pin Aktif) */}
       {mode !== 'editor' && selectedPin && (
-        <div className="px-4 py-3.5 border-t border-indigo-100/70 bg-white/80">
+        <div className="px-4 py-3.5 border-t border-[#E6E2D6] bg-[#FFFDF8]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold text-[#4C1D95] tabular-nums">
+                <span className="text-[11px] font-bold text-[#2B3F29] tabular-nums">
                   TITIK #{selectedPin.index}
                 </span>
-                <h4 className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                <h4 className="text-xs sm:text-sm font-bold text-[#1B271B]">
                   {selectedPin.titik.nama_lokasi}
                 </h4>
               </div>
               {selectedPin.titik.keterangan && (
-                <p className="text-[11px] text-slate-500 mt-0.5">{selectedPin.titik.keterangan}</p>
+                <p className="text-[11px] text-[#6E786D] mt-0.5">{selectedPin.titik.keterangan}</p>
               )}
             </div>
             <span
-              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
                 selectedPin.scanned
                   ? selectedPin.latestLog?.status_kondisi === 'Ada Catatan'
-                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]'
+                    : 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                  : 'bg-[#C87058]/12 text-[#7A311E] border-[#E2A898]'
               }`}
             >
               {selectedPin.scanned ? (
@@ -1541,28 +1535,28 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
 
           {selectedPin.latestLog ? (
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-2 bg-indigo-50/50 rounded-2xl px-3 py-2 border border-indigo-100/80">
-                <Clock className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
-                <span className="text-slate-700 font-medium tabular-nums">
+              <div className="flex items-center gap-2 bg-[#F7F4EC] rounded-2xl px-3 py-2 border border-[#E6E2D6]">
+                <Clock className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
+                <span className="text-[#4A554A] font-medium tabular-nums">
                   {formatTanggalRingkas(selectedPin.latestLog.waktu_scan)} (
                   {selectedPin.latestLog.metode_scan})
                 </span>
               </div>
-              <div className="flex items-center gap-2 bg-indigo-50/50 rounded-2xl px-3 py-2 border border-indigo-100/80">
-                <UserCheck className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
-                <span className="text-slate-700 font-medium truncate">
+              <div className="flex items-center gap-2 bg-[#F7F4EC] rounded-2xl px-3 py-2 border border-[#E6E2D6]">
+                <UserCheck className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
+                <span className="text-[#4A554A] font-medium truncate">
                   Petugas: {selectedPin.latestLog.nama_petugas}
                 </span>
               </div>
               {selectedPin.latestLog.catatan && (
-                <div className="sm:col-span-2 bg-amber-50/75 border border-amber-200/70 rounded-2xl px-3 py-2 text-amber-900">
+                <div className="sm:col-span-2 bg-[#F2D8A7]/45 border border-[#E2C285] rounded-2xl px-3 py-2 text-[#4A3410]">
                   <span className="font-semibold">Catatan Lapangan:</span>{' '}
                   {selectedPin.latestLog.catatan}
                 </div>
               )}
             </div>
           ) : (
-            <p className="mt-2 text-xs text-red-600 bg-red-50/70 border border-red-100 rounded-2xl px-3 py-2">
+            <p className="mt-2 text-xs text-[#7A311E] bg-[#C87058]/10 border border-[#E2A898] rounded-2xl px-3 py-2">
               Titik checkpoint ini belum di-tap oleh petugas pada siklus patroli aktif.
             </p>
           )}
@@ -1571,7 +1565,7 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
 
       {/* Ringkasan Daftar Checkpoint Kompak */}
       {mode !== 'editor' && pinItems.length > 0 && (
-        <div className="px-4 py-3.5 border-t border-indigo-100/70 bg-indigo-50/30">
+        <div className="px-4 py-3.5 border-t border-[#E6E2D6] bg-[#F7F4EC]/70">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {pinItems.map((item) => {
               const isSelected = selectedPinId === item.titik.id;
@@ -1585,8 +1579,8 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                   }
                   className={`text-left rounded-2xl border px-3 py-2.5 transition flex items-center justify-between gap-2 cursor-pointer ${
                     isSelected
-                      ? 'border-[#4C1D95] bg-indigo-50/80 shadow-xs'
-                      : 'border-indigo-100/80 bg-white/90 hover:border-indigo-200'
+                      ? 'border-[#2B3F29] bg-[#E5EEE3] shadow-xs'
+                      : 'border-[#E6E2D6] bg-[#FFFDF8] hover:border-[#C6D2BF]'
                   }`}
                 >
                   <div className="min-w-0 flex items-center gap-2">
@@ -1594,9 +1588,9 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
                         item.scanned
                           ? isWarning
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-emerald-500 text-white'
-                          : 'bg-red-100 text-red-700 border border-red-200'
+                            ? 'bg-[#F2D8A7] text-[#4A3410] border border-[#E2C285]'
+                            : 'bg-[#2B3F29] text-[#FFFDF8]'
+                          : 'bg-[#C87058]/15 text-[#7A311E] border border-[#E2A898]'
                       }`}
                     >
                       {item.scanned ? (
@@ -1610,10 +1604,10 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                       )}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#0F172A] truncate">
+                      <p className="text-xs font-bold text-[#1B271B] truncate">
                         {item.titik.nama_lokasi}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate tabular-nums">
+                      <p className="text-[11px] text-[#6E786D] truncate tabular-nums">
                         {item.latestLog
                           ? `${formatJamWib(item.latestLog.waktu_scan)} · ${item.latestLog.nama_petugas}`
                           : 'Belum Scan'}
@@ -1624,9 +1618,9 @@ export const PatrolMapViewer: React.FC<PatrolMapViewerProps> = ({
                     className={`w-2 h-2 rounded-full shrink-0 ${
                       item.scanned
                         ? isWarning
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                        : 'bg-red-500'
+                          ? 'bg-[#D9A74A]'
+                          : 'bg-[#2B3F29]'
+                        : 'bg-[#C87058]'
                     }`}
                   />
                 </button>

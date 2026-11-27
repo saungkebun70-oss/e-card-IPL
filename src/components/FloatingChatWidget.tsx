@@ -412,7 +412,7 @@ export function FloatingChatWidget({
                   setOpen(false);
                 }
               }}
-              className="fixed inset-0 bg-slate-950/35 backdrop-blur-[2px] sm:bg-slate-950/15 sm:backdrop-blur-[1px] pointer-events-auto"
+              className="fixed inset-0 bg-[#1B271B]/35 backdrop-blur-[2px] sm:bg-[#1B271B]/15 sm:backdrop-blur-[1px] pointer-events-auto"
             />
 
             <motion.section
@@ -424,20 +424,20 @@ export function FloatingChatWidget({
               exit={{ opacity: 0, y: 16, scale: 0.96 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               onClick={(e) => e.stopPropagation()}
-              className="pointer-events-auto fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+4.5rem)] bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.1rem)] sm:inset-x-auto sm:top-auto sm:right-6 sm:bottom-24 sm:w-[440px] md:w-[480px] sm:h-[min(80dvh,640px)] max-w-[calc(100vw-1.5rem)] rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/95 shadow-[0_24px_60px_-14px_rgba(15,23,42,0.34),0_8px_24px_-6px_rgba(49,46,129,0.2)] flex flex-col overflow-hidden"
+              className="pointer-events-auto fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+4.5rem)] bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.1rem)] sm:inset-x-auto sm:top-auto sm:right-6 sm:bottom-24 sm:w-[440px] md:w-[480px] sm:h-[min(80dvh,640px)] max-w-[calc(100vw-1.5rem)] rounded-3xl bg-[#FFFDF8]/98 backdrop-blur-2xl border border-[#E6E2D6] shadow-[0_24px_60px_-14px_rgba(27,39,27,0.34)] flex flex-col overflow-hidden"
             >
               {/* Header Bar Floating Chat */}
               <div
-                className="px-4 py-2.5 text-white flex items-center justify-between gap-2 shrink-0"
+                className="px-4 py-2.5 text-[#FFFDF8] flex items-center justify-between gap-2 shrink-0"
                 style={{ backgroundImage: 'var(--theme-hero-gradient)' }}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <MessageCircle className="w-4 h-4 shrink-0 text-sky-200" />
+                  <MessageCircle className="w-4 h-4 shrink-0 text-[#E5EEE3]" />
                   <div className="min-w-0">
                     <p className="text-xs font-bold leading-tight truncate">
                       Chat Cepat Saung Kebun
                     </p>
-                    <p className="text-[10px] text-purple-100/85 truncate">
+                    <p className="text-[10px] text-[#E5EEE3]/85 truncate">
                       DM Personal · Group Pengurus · Warga · Keamanan
                     </p>
                   </div>
@@ -448,7 +448,7 @@ export function FloatingChatWidget({
                     type="button"
                     onClick={() => setOpen(false)}
                     aria-label="Tutup jendela chat"
-                    className="h-8 w-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    className="h-8 w-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -491,12 +491,12 @@ export function FloatingChatWidget({
               }
             : { touchAction: 'none' }
         }
-        className={`fixed z-[42] h-12 w-12 sm:h-13 sm:w-13 rounded-full bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white flex items-center justify-center select-none touch-none no-print ${
+        className={`fixed z-[42] h-12 w-12 sm:h-13 sm:w-13 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] flex items-center justify-center select-none touch-none no-print ${
           pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.15rem)] lg:bottom-6'
         } ${
           isDragging
-            ? 'scale-110 shadow-[0_18px_36px_-6px_rgba(49,46,129,0.55)] ring-4 ring-sky-200/90 cursor-grabbing transition-none'
-            : 'shadow-[0_12px_28px_-6px_rgba(49,46,129,0.45)] ring-2 ring-white/90 hover:scale-105 active:scale-95 transition-transform duration-150 cursor-grab'
+            ? 'scale-110 shadow-[0_18px_36px_-6px_rgba(36,56,37,0.55)] ring-4 ring-[#E5EEE3] cursor-grabbing transition-none'
+            : 'shadow-[0_12px_28px_-6px_rgba(36,56,37,0.45)] ring-2 ring-[#FFFDF8] hover:scale-105 active:scale-95 transition-transform duration-150 cursor-grab'
         }`}
       >
         {isOpen ? (
@@ -505,7 +505,7 @@ export function FloatingChatWidget({
           <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 pointer-events-none" />
         )}
         {!isOpen && unreadCount > 0 && (
-          <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white shadow-xs">
+          <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#FFFDF8] shadow-xs">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

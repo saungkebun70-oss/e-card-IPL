@@ -265,52 +265,54 @@ export function WargaSetorSlide({
       {/* Kolom Kiri: Identitas Terkunci, Bulan & Metode */}
       <div className={`lg:col-span-7 space-y-6 transition-opacity ${submitting ? 'opacity-70 pointer-events-none' : ''}`}>
         {/* Identitas Terkunci (Read-only) */}
-        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
+        <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-4">
-            <h2 className="text-base font-bold text-[#0F172A]">Identitas Penyetor</h2>
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Lock className="w-3.5 h-3.5 text-[#4C1D95]" />
+            <h2 className="text-base font-serif-brand font-bold text-[#1B271B]">
+              Identitas Penyetor
+            </h2>
+            <span className="inline-flex items-center gap-1 text-xs text-[#6E786D]">
+              <Lock className="w-3.5 h-3.5 text-[#2B3F29]" />
               Terkunci per Rumah
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
+              <label className="block text-xs font-medium text-[#6E786D] mb-1">
                 Blok / No. Rumah
               </label>
               <input
                 type="text"
                 readOnly
                 value={formatBlokRumah(profil.blok_rumah)}
-                className="w-full min-h-[44px] rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 text-sm font-mono font-bold text-slate-700 cursor-not-allowed"
+                className="w-full min-h-[44px] rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] px-3.5 text-sm font-mono font-bold text-[#1B271B] cursor-not-allowed"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
+              <label className="block text-xs font-medium text-[#6E786D] mb-1">
                 Nama Kepala Keluarga
               </label>
               <input
                 type="text"
                 readOnly
                 value={profil.nama_warga}
-                className="w-full min-h-[44px] rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3.5 text-sm font-semibold text-slate-700 cursor-not-allowed"
+                className="w-full min-h-[44px] rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] px-3.5 text-sm font-semibold text-[#1B271B] cursor-not-allowed"
               />
             </div>
           </div>
         </section>
 
         {/* Pilihan Multi-Bulan */}
-        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6">
+        <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <h2 className="text-base font-bold text-[#0F172A]">
+            <h2 className="text-base font-serif-brand font-bold text-[#1B271B]">
               Pilih Bulan yang Dibayar ({TAHUN_AKTIF})
             </h2>
-            <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
+            <span className="text-xs font-mono font-semibold text-[#2B3F29] tabular-nums">
               {selectedMonths.length} bulan dipilih
             </span>
           </div>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-xs text-[#6E786D] mb-4">
             Anda dapat mencentang 1 bulan atau beberapa bulan sekaligus.
           </p>
 
@@ -334,10 +336,10 @@ export function WargaSetorSlide({
                   key={b.angka}
                   className={`relative flex flex-col justify-between rounded-2xl border p-3 min-h-[64px] transition-all select-none ${
                     isLocked
-                      ? 'bg-slate-100/80 border-slate-200/80 text-slate-400 cursor-not-allowed'
+                      ? 'bg-[#EFECE2] border-[#E0DCCE] text-[#6E786D] cursor-not-allowed'
                       : isChecked
-                        ? 'bg-indigo-50 border-[#4C1D95] text-[#3b0764] cursor-pointer ring-1 ring-[#4C1D95]'
-                        : 'bg-white/90 border-indigo-100/80 text-slate-700 hover:border-indigo-300 cursor-pointer'
+                        ? 'bg-[#E5EEE3] border-[#2B3F29] text-[#243825] cursor-pointer ring-1 ring-[#2B3F29]'
+                        : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:border-[#C6D2BF] cursor-pointer'
                   }`}
                 >
                   <input
@@ -350,7 +352,7 @@ export function WargaSetorSlide({
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-sm font-semibold">{b.singkat}</span>
                     {isChecked && !isLocked && (
-                      <span className="w-4 h-4 rounded-full bg-[#4C1D95] text-white flex items-center justify-center">
+                      <span className="w-4 h-4 rounded-full bg-[#2B3F29] text-[#FFFDF8] flex items-center justify-center">
                         <Check className="w-3 h-3" />
                       </span>
                     )}
@@ -371,8 +373,10 @@ export function WargaSetorSlide({
         </section>
 
         {/* Metode Pembayaran */}
-        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
-          <h2 className="text-base font-bold text-[#0F172A]">Metode Pembayaran</h2>
+        <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6 space-y-5">
+          <h2 className="text-base font-serif-brand font-bold text-[#1B271B]">
+            Metode Pembayaran
+          </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {(
@@ -392,8 +396,8 @@ export function WargaSetorSlide({
                   onClick={() => setMetodeBayar(opt.value)}
                   className={`min-h-[46px] flex items-center justify-center gap-1.5 rounded-full border px-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     active
-                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-xs'
-                      : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
+                      ? 'bg-[#2B3F29] border-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                      : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]/50'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -404,18 +408,18 @@ export function WargaSetorSlide({
           </div>
 
           {metodeBayar === 'QRIS' ? (
-            <div className="rounded-2xl border border-indigo-100/80 bg-indigo-50/50 p-4 space-y-3">
+            <div className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-4 space-y-3">
               {paymentConfig.qris_aktif && paymentConfig.qris_image_url ? (
                 <>
                   <div className="text-center">
-                    <p className="text-sm font-bold text-[#0F172A]">
+                    <p className="text-sm font-bold text-[#1B271B]">
                       {paymentConfig.qris_label || 'QRIS Kas Lingkungan Perumahan Saung Kebun'}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-[#6E786D] mt-0.5">
                       {paymentConfig.qris_catatan}
                     </p>
                   </div>
-                  <div className="flex justify-center bg-white rounded-2xl border border-indigo-100 p-4">
+                  <div className="flex justify-center bg-[#FFFDF8] rounded-2xl border border-[#E6E2D6] p-4">
                     <img
                       src={paymentConfig.qris_image_url}
                       alt="QRIS Kas Lingkungan Perumahan Saung Kebun"
@@ -426,11 +430,11 @@ export function WargaSetorSlide({
                 </>
               ) : (
                 <div className="py-6 text-center space-y-1.5">
-                  <QrCode className="w-8 h-8 text-indigo-300 mx-auto" />
-                  <p className="text-sm font-semibold text-[#0F172A]">
+                  <QrCode className="w-8 h-8 text-[#C6D2BF] mx-auto" />
+                  <p className="text-sm font-semibold text-[#1B271B]">
                     Kode QRIS Belum Diaktifkan oleh Bendahara
                   </p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  <p className="text-xs text-[#6E786D] max-w-sm mx-auto">
                     Silakan pilih metode Transfer Bank, E-Wallet, atau Titip Pengurus, atau hubungi
                     Bendahara (Andriansyah) untuk aktivasi QRIS.
                   </p>
@@ -439,7 +443,7 @@ export function WargaSetorSlide({
             </div>
           ) : metodeBayar === 'Transfer Bank' || metodeBayar === 'E-Wallet' ? (
             <div className="space-y-3 pt-1">
-              <p className="text-xs font-medium text-slate-600">
+              <p className="text-xs font-medium text-[#4A554A]">
                 Rekening Resmi Kas Lingkungan Perumahan Saung Kebun (dikelola Bendahara):
               </p>
               {(() => {
@@ -448,38 +452,38 @@ export function WargaSetorSlide({
                 );
                 if (filteredRek.length === 0) {
                   return (
-                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs text-slate-500 text-center">
+                    <div className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-4 text-xs text-[#6E786D] text-center">
                       Belum ada nomor rekening {metodeBayar} yang terdaftar oleh Bendahara.
                     </div>
                   );
                 }
                 return (
-                  <div className="divide-y divide-indigo-100/80 border border-indigo-100/80 rounded-2xl overflow-hidden bg-indigo-50/40">
+                  <div className="divide-y divide-[#E6E2D6] border border-[#E6E2D6] rounded-2xl overflow-hidden bg-[#F7F4EC]">
                     {filteredRek.map((rek) => (
                       <div
                         key={rek.id}
                         className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div>
-                          <p className="text-xs font-semibold text-slate-500">{rek.bank}</p>
-                          <p className="text-base font-mono font-bold text-[#0F172A] tracking-wide tabular-nums mt-0.5">
+                          <p className="text-xs font-semibold text-[#6E786D]">{rek.bank}</p>
+                          <p className="text-base font-mono font-bold text-[#1B271B] tracking-wide tabular-nums mt-0.5">
                             {rek.nomor}
                           </p>
-                          <p className="text-xs text-slate-600">a.n. {rek.atasNama}</p>
+                          <p className="text-xs text-[#4A554A]">a.n. {rek.atasNama}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleCopyRek(rek.nomor, rek.bank)}
-                          className="min-h-[40px] px-4 rounded-full bg-white/95 border border-indigo-200 hover:border-[#4C1D95] text-xs font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                          className="min-h-[40px] px-4 rounded-full bg-[#FFFDF8] border border-[#C6D2BF] hover:bg-[#E5EEE3] text-xs font-semibold text-[#243825] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                         >
                           {copiedRek === rek.nomor ? (
                             <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-700">Tersalin</span>
+                              <Check className="w-3.5 h-3.5 text-[#243825]" />
+                              <span className="text-[#243825]">Tersalin</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3.5 h-3.5 text-[#4C1D95]" />
+                              <Copy className="w-3.5 h-3.5 text-[#2B3F29]" />
                               <span>Salin Nomor</span>
                             </>
                           )}
@@ -494,7 +498,7 @@ export function WargaSetorSlide({
             <div>
               <label
                 htmlFor="petugas-penerima"
-                className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+                className="block text-sm font-semibold text-[#1B271B] mb-1.5"
               >
                 Pilih Pengurus Penerima (Via Titip Pengurus)
               </label>
@@ -502,7 +506,7 @@ export function WargaSetorSlide({
                 id="petugas-penerima"
                 value={petugasPenerima}
                 onChange={(e) => setPetugasPenerima(e.target.value)}
-                className="w-full min-h-[46px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-medium text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                className="w-full min-h-[46px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
               >
                 {PETUGAS_PENERIMA.map((nama) => (
                   <option key={nama} value={nama}>
@@ -510,7 +514,7 @@ export function WargaSetorSlide({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1.5">
+              <p className="text-xs text-[#6E786D] mt-1.5">
                 Lampirkan foto kwitansi tunai / bukti serah terima dengan pengurus di kolom kanan.
               </p>
             </div>
@@ -520,16 +524,16 @@ export function WargaSetorSlide({
 
       {/* Kolom Kanan: Nominal, Upload Bukti WAJIB & Submit */}
       <div className="lg:col-span-5 space-y-6">
-        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6 space-y-5">
+        <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6 space-y-5">
           <div>
             <label
               htmlFor="nominal-setoran"
-              className="block text-sm font-bold text-[#0F172A] mb-1.5"
+              className="block text-sm font-bold text-[#1B271B] mb-1.5"
             >
               Nominal Setoran (Rp)
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-mono font-semibold text-slate-500">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-mono font-semibold text-[#6E786D]">
                 Rp
               </span>
               <input
@@ -543,19 +547,19 @@ export function WargaSetorSlide({
                   setNominalInput(e.target.value.replace(/\D/g, ''));
                 }}
                 placeholder="0"
-                className="w-full min-h-[48px] rounded-2xl border border-indigo-200/80 bg-white/90 disabled:bg-indigo-50/50 disabled:text-slate-500 pl-11 pr-4 text-lg font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                className="w-full min-h-[48px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] disabled:bg-[#F7F4EC] disabled:text-[#6E786D] pl-11 pr-4 text-lg font-mono font-bold text-[#1B271B] tabular-nums focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-1.5 tabular-nums">
+            <p className="text-xs text-[#6E786D] mt-1.5 tabular-nums">
               Kalkulasi otomatis: {selectedMonths.length} bulan × {formatRupiah(nominalUnit)} ={' '}
-              <span className="font-semibold text-slate-700">
+              <span className="font-semibold text-[#1B271B]">
                 {formatRupiah(selectedMonths.length * nominalUnit)}
               </span>
               . Dapat diedit manual untuk setoran khusus/dana darurat.
             </p>
             {isBelowStandard && (
-              <div className="mt-2.5 flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="mt-2.5 flex items-start gap-2 rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] px-3 py-2 text-xs text-[#4A3410]">
+                <AlertCircle className="w-4 h-4 text-[#8C621A] shrink-0 mt-0.5" />
                 <span>
                   Nominal di bawah Rp 100.000/bulan akan dicatat pengurus pada pos alokasi dana
                   darurat/setoran khusus.
@@ -567,7 +571,7 @@ export function WargaSetorSlide({
           <div>
             <label
               htmlFor="keterangan-setor"
-              className="block text-sm font-semibold text-[#0F172A] mb-1.5"
+              className="block text-sm font-semibold text-[#1B271B] mb-1.5"
             >
               Catatan Tambahan (Opsional)
             </label>
@@ -578,17 +582,17 @@ export function WargaSetorSlide({
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
               placeholder="Contoh: Transfer dari rekening a.n. pasangan"
-              className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 disabled:bg-indigo-50/50 disabled:text-slate-500 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+              className="w-full min-h-[44px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] disabled:bg-[#F7F4EC] disabled:text-[#6E786D] px-3.5 text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
             />
           </div>
 
           {/* Upload Bukti Transaksi (WAJIB) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-bold text-[#0F172A]">
-                Bukti Transaksi / Kwitansi <span className="text-red-600">*</span>
+              <label className="text-sm font-bold text-[#1B271B]">
+                Bukti Transaksi / Kwitansi <span className="text-[#C87058]">*</span>
               </label>
-              <span className="text-xs font-semibold text-red-700">Wajib Diunggah</span>
+              <span className="text-xs font-semibold text-[#A44831]">Wajib Diunggah</span>
             </div>
 
             <input
@@ -605,60 +609,60 @@ export function WargaSetorSlide({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-2xl border border-indigo-200 bg-indigo-50/50 overflow-hidden"
+                className="rounded-2xl border border-[#C6D2BF] bg-[#F7F4EC] overflow-hidden"
               >
-                <div className="h-44 flex flex-col items-center justify-center gap-2.5 bg-indigo-50/70 motion-safe:animate-pulse px-4 text-center">
-                  <Loader2 className="w-6 h-6 text-[#4C1D95] animate-spin" />
-                  <p className="text-sm font-semibold text-[#0F172A]">
+                <div className="h-44 flex flex-col items-center justify-center gap-2.5 bg-[#E5EEE3]/50 motion-safe:animate-pulse px-4 text-center">
+                  <Loader2 className="w-6 h-6 text-[#2B3F29] animate-spin" />
+                  <p className="text-sm font-semibold text-[#1B271B]">
                     Mengoptimalkan foto bukti transfer...
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#6E786D]">
                     Menyesuaikan resolusi agar unggahan cepat &amp; ringan
                   </p>
                 </div>
-                <div className="p-3 bg-white/90 border-t border-indigo-100 space-y-2">
-                  <div className="h-3 w-2/3 rounded bg-indigo-100 motion-safe:animate-pulse" />
-                  <div className="h-2.5 w-1/3 rounded bg-indigo-50 motion-safe:animate-pulse" />
+                <div className="p-3 bg-[#FFFDF8] border-t border-[#E6E2D6] space-y-2">
+                  <div className="h-3 w-2/3 rounded bg-[#E5EEE3] motion-safe:animate-pulse" />
+                  <div className="h-2.5 w-1/3 rounded bg-[#F7F4EC] motion-safe:animate-pulse" />
                 </div>
               </div>
             ) : !previewUrl ? (
               <label
                 htmlFor="upload-bukti-input"
-                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-200 hover:border-[#4C1D95] bg-indigo-50/40 hover:bg-indigo-50/80 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
+                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#C6D2BF] hover:border-[#2B3F29] bg-[#F7F4EC] hover:bg-[#E5EEE3]/40 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
               >
-                <div className="w-11 h-11 rounded-full bg-white border border-indigo-100 flex items-center justify-center mb-3 shadow-2xs">
-                  <Upload className="w-5 h-5 text-[#4C1D95]" />
+                <div className="w-11 h-11 rounded-full bg-[#FFFDF8] border border-[#E6E2D6] flex items-center justify-center mb-3 shadow-2xs">
+                  <Upload className="w-5 h-5 text-[#2B3F29]" />
                 </div>
-                <p className="text-sm font-semibold text-[#0F172A]">
+                <p className="text-sm font-semibold text-[#1B271B]">
                   Pilih Foto Bukti Transfer / Kwitansi
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#6E786D] mt-1">
                   Foto otomatis dikompresi agar unggahan cepat &amp; hemat kuota
                 </p>
               </label>
             ) : (
-              <div className="relative rounded-2xl border border-indigo-100 overflow-hidden bg-indigo-50/30">
+              <div className="relative rounded-2xl border border-[#E6E2D6] overflow-hidden bg-[#F7F4EC]">
                 <div className="relative">
                   <img
                     src={previewUrl}
                     alt="Preview bukti transaksi IPL"
                     referrerPolicy="no-referrer"
-                    className={`w-full max-h-64 object-contain bg-slate-900/5 transition-opacity ${
+                    className={`w-full max-h-64 object-contain bg-[#243825]/5 transition-opacity ${
                       submitting ? 'opacity-50' : 'opacity-100'
                     }`}
                   />
                   {submitting && submitStage === 'uploading_proof' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/35 backdrop-blur-[1px] text-white px-4 text-center">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#243825]/55 backdrop-blur-[1px] text-[#FFFDF8] px-4 text-center">
                       <Loader2 className="w-7 h-7 animate-spin mb-2" />
                       <p className="text-xs font-semibold">Mengirim foto ke server...</p>
                     </div>
                   )}
                 </div>
-                <div className="p-3 bg-white/95 border-t border-indigo-100 flex items-center justify-between gap-2">
+                <div className="p-3 bg-[#FFFDF8] border-t border-[#E6E2D6] flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs text-slate-700 font-medium truncate">{buktiFile?.name}</p>
+                    <p className="text-xs text-[#1B271B] font-medium truncate">{buktiFile?.name}</p>
                     {sizeInfo && (
-                      <p className="text-[11px] font-mono text-emerald-700 tabular-nums mt-0.5">
+                      <p className="text-[11px] font-mono text-[#243825] tabular-nums mt-0.5">
                         Ukuran teroptimasi: {sizeInfo}
                       </p>
                     )}
@@ -667,7 +671,7 @@ export function WargaSetorSlide({
                     <div className="flex items-center gap-2 shrink-0">
                       <label
                         htmlFor="upload-bukti-input"
-                        className="text-xs font-semibold text-[#4C1D95] hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[#2B3F29] hover:underline cursor-pointer"
                       >
                         Ganti
                       </label>
@@ -675,7 +679,7 @@ export function WargaSetorSlide({
                         type="button"
                         onClick={clearFile}
                         aria-label="Hapus foto bukti"
-                        className="p-1 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        className="p-1 rounded-xl text-[#6E786D] hover:text-[#C87058] hover:bg-[#C87058]/10 transition-colors cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -694,10 +698,10 @@ export function WargaSetorSlide({
               aria-busy={submitting || compressing}
               className={`w-full min-h-[48px] px-4 rounded-full font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap shadow-sm ${
                 submitting
-                  ? 'bg-[#312E81] text-white cursor-wait'
+                  ? 'bg-[#243825] text-[#FFFDF8] cursor-wait'
                   : compressing
-                    ? 'bg-indigo-100 text-slate-600 cursor-wait'
-                    : 'bg-[#3730A3] hover:bg-[#312E81] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white cursor-pointer'
+                    ? 'bg-[#E5EEE3] text-[#243825] cursor-wait'
+                    : 'bg-[#2B3F29] hover:bg-[#243825] disabled:bg-[#E6E2D6] disabled:text-[#6E786D] disabled:cursor-not-allowed text-[#FFFDF8] cursor-pointer'
               }`}
             >
               {submitting ? (
@@ -726,13 +730,13 @@ export function WargaSetorSlide({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3.5 space-y-2.5"
+                className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/60 p-3.5 space-y-2.5"
               >
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold text-[#3b0764]">
+                  <span className="font-semibold text-[#243825]">
                     Sedang memproses setoran Anda
                   </span>
-                  <span className="font-mono font-semibold text-[#4C1D95] tabular-nums">
+                  <span className="font-mono font-semibold text-[#2B3F29] tabular-nums">
                     {Math.max(1, activeStepIndex + 1)}/{SUBMIT_STEPS.length}
                   </span>
                 </div>
@@ -744,29 +748,29 @@ export function WargaSetorSlide({
                     return (
                       <div key={step.key} className="flex items-center gap-2.5 text-xs">
                         {isDone ? (
-                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <span className="w-4 h-4 rounded-full bg-[#2B3F29] text-[#FFFDF8] flex items-center justify-center shrink-0">
                             <Check className="w-2.5 h-2.5" />
                           </span>
                         ) : isActive ? (
-                          <Loader2 className="w-4 h-4 text-[#4C1D95] animate-spin shrink-0" />
+                          <Loader2 className="w-4 h-4 text-[#2B3F29] animate-spin shrink-0" />
                         ) : (
-                          <span className="w-4 h-4 rounded-full border border-indigo-200 bg-white shrink-0" />
+                          <span className="w-4 h-4 rounded-full border border-[#C6D2BF] bg-[#FFFDF8] shrink-0" />
                         )}
 
                         {isDone || isActive ? (
                           <span
                             className={
                               isActive
-                                ? 'font-semibold text-[#0F172A]'
-                                : 'text-emerald-800 line-through decoration-emerald-400/70'
+                                ? 'font-semibold text-[#1B271B]'
+                                : 'text-[#243825] line-through decoration-[#2B3F29]/50'
                             }
                           >
                             {step.label}
                           </span>
                         ) : (
-                          <span className="flex-1 flex items-center gap-2 text-slate-400">
+                          <span className="flex-1 flex items-center gap-2 text-[#6E786D]">
                             <span>{step.label}</span>
-                            <span className="h-2 w-12 rounded bg-indigo-100/80 motion-safe:animate-pulse" />
+                            <span className="h-2 w-12 rounded bg-[#C6D2BF]/60 motion-safe:animate-pulse" />
                           </span>
                         )}
                       </div>
@@ -774,14 +778,14 @@ export function WargaSetorSlide({
                   })}
                 </div>
 
-                <p className="text-[11px] text-slate-600 pt-1 border-t border-indigo-200/70">
+                <p className="text-[11px] text-[#4A554A] pt-1 border-t border-[#C6D2BF]">
                   Mohon tunggu sebentar dan jangan menutup halaman sampai proses selesai.
                 </p>
               </div>
             )}
 
             {!buktiFile && !compressing && !submitting && (
-              <p className="text-xs text-slate-500 text-center">
+              <p className="text-xs text-[#6E786D] text-center">
                 Tombol kirim aktif setelah bulan dipilih dan foto bukti transaksi diunggah.
               </p>
             )}

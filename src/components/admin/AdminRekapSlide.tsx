@@ -83,16 +83,16 @@ function isUnitKosong(w: Warga): boolean {
 function getMatrixCellBadge(status: EffectiveStatusBulanEcard) {
   switch (status) {
     case 'Lunas':
-      return { text: 'Lunas', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+      return { text: 'Lunas', cls: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]' };
     case 'Menunggu Verifikasi':
-      return { text: 'Pending', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
+      return { text: 'Pending', cls: 'bg-[#F2D8A7]/70 text-[#4A3410] border-[#E2C285]' };
     case 'Jatuh Tempo':
     case 'Belum Bayar':
-      return { text: 'Tunggak', cls: 'bg-red-50 text-red-700 border-red-200' };
+      return { text: 'Tunggak', cls: 'bg-[#C87058]/15 text-[#A44831] border-[#C87058]/40' };
     case 'Pra-Rilis':
-      return { text: 'Pra-Rilis', cls: 'bg-slate-100/90 text-slate-400 border-slate-200/80' };
+      return { text: 'Pra-Rilis', cls: 'bg-[#F1ECE0] text-[#6E786D] border-[#E6E2D6]' };
     default:
-      return { text: '—', cls: 'bg-slate-50 text-slate-400 border-slate-200' };
+      return { text: '—', cls: 'bg-[#F6F3EA] text-[#6E786D] border-[#E6E2D6]' };
   }
 }
 
@@ -434,18 +434,18 @@ export function AdminRekapSlide({
         <div
           className={`grid ${
             isKetua ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'
-          } gap-1.5 w-full sm:flex-1 sm:max-w-2xl p-1.5 bg-slate-100 border border-slate-200/80 rounded-2xl`}
+          } gap-1.5 w-full sm:flex-1 sm:max-w-2xl p-1.5 bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl shadow-xs`}
         >
           <button
             type="button"
             onClick={() => setSubTab('bulanan')}
             className={`w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
               subTab === 'bulanan'
-                ? 'bg-[#4C1D95] text-white shadow-sm'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <BookOpen className={`w-4 h-4 shrink-0 ${subTab === 'bulanan' ? 'text-emerald-300' : 'text-[#4C1D95]'}`} />
+            <BookOpen className={`w-4 h-4 shrink-0 ${subTab === 'bulanan' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Rekap Bulanan (Buku Kas)</span>
           </button>
           <button
@@ -453,11 +453,11 @@ export function AdminRekapSlide({
             onClick={() => setSubTab('matriks')}
             className={`w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
               subTab === 'matriks'
-                ? 'bg-[#4C1D95] text-white shadow-sm'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <TableProperties className={`w-4 h-4 shrink-0 ${subTab === 'matriks' ? 'text-indigo-200' : 'text-slate-500'}`} />
+            <TableProperties className={`w-4 h-4 shrink-0 ${subTab === 'matriks' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Matriks IPL 12 Bulan</span>
           </button>
           {isKetua && (
@@ -466,11 +466,11 @@ export function AdminRekapSlide({
               onClick={() => setSubTab('ketua')}
               className={`col-span-2 sm:col-span-1 w-full min-w-0 px-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-center leading-tight transition-colors cursor-pointer ${
                 subTab === 'ketua'
-                  ? 'bg-[#4C1D95] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                  : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
               }`}
             >
-              <FileBarChart2 className={`w-4 h-4 shrink-0 ${subTab === 'ketua' ? 'text-emerald-300' : 'text-[#4C1D95]'}`} />
+              <FileBarChart2 className={`w-4 h-4 shrink-0 ${subTab === 'ketua' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
               <span>Laporan Ketua (PDF)</span>
             </button>
           )}
@@ -479,7 +479,7 @@ export function AdminRekapSlide({
         <button
           type="button"
           onClick={openManualModal}
-          className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
+          className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
         >
           <Banknote className="w-4 h-4 shrink-0" />
           <span>Input Tunai Manual</span>
@@ -513,13 +513,13 @@ export function AdminRekapSlide({
       {subTab === 'bulanan' && (
         <div className="space-y-5 min-w-0">
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
-          <div className="no-print glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="no-print glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <select
                 aria-label="Pilih Bulan Rekapitulasi"
                 value={selectedBulan}
                 onChange={(e) => setSelectedBulan(Number(e.target.value))}
-                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
+                className="min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
               >
                 {BULAN_LIST.map((b) => (
                   <option key={b.angka} value={b.angka}>
@@ -532,7 +532,7 @@ export function AdminRekapSlide({
                 aria-label="Pilih Tahun Rekapitulasi"
                 value={selectedTahun}
                 onChange={(e) => setSelectedTahun(Number(e.target.value))}
-                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-mono font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
+                className="min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm font-mono font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>
@@ -547,12 +547,12 @@ export function AdminRekapSlide({
                 type="button"
                 disabled={printingPdf || downloadingPdf}
                 onClick={() => void handlePrintReport()}
-                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+                className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 disabled:opacity-60 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
               >
                 {printingPdf ? (
                   <LoadingSpinner size="xs" tone="current" />
                 ) : (
-                  <Printer className="w-4 h-4 text-slate-600" />
+                  <Printer className="w-4 h-4 text-[#4A554A]" />
                 )}
                 <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
               </button>
@@ -561,12 +561,12 @@ export function AdminRekapSlide({
                 type="button"
                 disabled={downloadingPdf || printingPdf}
                 onClick={() => void handleDownloadMonthlyPdf()}
-                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
+                className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
               >
                 {downloadingPdf ? (
                   <LoadingSpinner size="xs" tone="white" />
                 ) : (
-                  <FileText className="w-4 h-4 text-emerald-300" />
+                  <FileText className="w-4 h-4 text-[#E5EEE3]" />
                 )}
                 <span>{downloadingPdf ? 'Menyiapkan PDF...' : 'Unduh PDF A4'}</span>
               </button>
@@ -574,9 +574,9 @@ export function AdminRekapSlide({
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="min-h-[42px] px-4 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-xs font-semibold text-[#064E3B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
+                className="min-h-[42px] px-4 rounded-full bg-[#E5EEE3] hover:bg-[#D3E3D0] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
               >
-                <FileSpreadsheet className="w-4 h-4 text-[#064E3B]" />
+                <FileSpreadsheet className="w-4 h-4 text-[#243825]" />
                 <span>Excel</span>
               </button>
             </div>
@@ -585,19 +585,19 @@ export function AdminRekapSlide({
           {/* Dokumen Resmi Rekapitulasi Bulanan (#printable-report) */}
           <article
             id="printable-report"
-            className="bg-white border border-indigo-100/90 rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
+            className="bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5 min-w-0 overflow-hidden print:overflow-visible"
           >
             {/* Kop Resmi Perumahan */}
-            <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#0F172A] flex items-center gap-3 sm:gap-4">
+            <header className="pb-3.5 print:pb-2.5 border-b-2 border-[#243825] flex items-center gap-3 sm:gap-4">
               <BrandLogo size="md" variant="light" className="shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#059669] leading-tight">
+                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#2B3F29] leading-tight">
                   Pengurus Lingkungan Perumahan Saung Kebun
                 </p>
-                <h2 className="text-sm sm:text-lg print:text-base font-extrabold text-[#0F172A] leading-snug mt-0.5">
+                <h2 className="font-serif-brand text-sm sm:text-lg print:text-base font-extrabold text-[#1B271B] leading-snug mt-0.5">
                   Rekapitulasi Keuangan Bulanan — {monthlyReport.namaBulan} {monthlyReport.tahun}
                 </h2>
-                <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug">
+                <p className="text-[11px] sm:text-xs text-[#4A554A] mt-0.5 leading-snug">
                   {(brand.kop_resmi || '')
                     .replace(/^pengurus\s+lingkungan\s+perumahan\s+saung\s+kebun\s*[—–\-:|·]*\s*/i, '')
                     .trim() ||
@@ -653,8 +653,8 @@ export function AdminRekapSlide({
                 </p>
               </div>
 
-              <div className="col-span-2 lg:col-span-1 print:col-span-1 rounded-xl border border-[#0F172A] bg-[#0F172A] text-white p-3 print:p-2">
-                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-emerald-300">
+              <div className="col-span-2 lg:col-span-1 print:col-span-1 rounded-xl border border-[#243825] bg-[#243825] text-[#FFFDF8] p-3 print:p-2">
+                <p className="text-[10px] sm:text-[11px] print:text-[9px] font-medium text-[#E5EEE3]">
                   Saldo Akhir
                 </p>
                 <p className="text-sm sm:text-base print:text-xs font-mono font-bold tabular-nums mt-1">
@@ -666,32 +666,32 @@ export function AdminRekapSlide({
             {/* Rincian Pengeluaran per Kategori */}
             {monthlyReport.pengeluaranPerKategori.length > 0 && (
               <section className="space-y-2 print:space-y-1.5 avoid-break">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
                   Realisasi Pengeluaran per Pos Anggaran
                 </h3>
-                <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
+                <div className="overflow-x-auto w-full border border-[#E6E2D6] rounded-xl">
                   <table className="w-full text-left border-collapse text-xs print:text-[10px]">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                      <tr className="bg-[#F6F3EA] border-b border-[#E6E2D6] text-[#4A554A] font-semibold">
                         <th className="py-2 print:py-1.5 px-3.5">Pos Anggaran</th>
                         <th className="py-2 print:py-1.5 px-3 text-center">Trx</th>
                         <th className="py-2 print:py-1.5 px-3 text-right">Porsi</th>
                         <th className="py-2 print:py-1.5 px-3.5 text-right">Total Nominal</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-[#E6E2D6]/70">
                       {monthlyReport.pengeluaranPerKategori.map((item) => (
                         <tr key={item.kategori}>
-                          <td className="py-2 print:py-1.5 px-3.5 font-semibold text-[#0F172A]">
+                          <td className="py-2 print:py-1.5 px-3.5 font-semibold text-[#1B271B]">
                             {item.kategori}
                           </td>
-                          <td className="py-2 print:py-1.5 px-3 text-center font-mono tabular-nums text-slate-600">
+                          <td className="py-2 print:py-1.5 px-3 text-center font-mono tabular-nums text-[#4A554A]">
                             {item.jumlahTransaksi}
                           </td>
-                          <td className="py-2 print:py-1.5 px-3 text-right font-mono tabular-nums text-slate-600">
+                          <td className="py-2 print:py-1.5 px-3 text-right font-mono tabular-nums text-[#4A554A]">
                             {item.persentase}%
                           </td>
-                          <td className="py-2 print:py-1.5 px-3.5 text-right font-mono font-bold text-rose-700 tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-3.5 text-right font-mono font-bold text-[#C87058] tabular-nums whitespace-nowrap">
                             {formatRupiah(item.totalNominal)}
                           </td>
                         </tr>
@@ -705,18 +705,18 @@ export function AdminRekapSlide({
             {/* Buku Kas Umum Kronologis */}
             <section className="space-y-2 print:space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
                   Buku Kas Umum — Mutasi Kronologis ({monthlyReport.namaBulan} {monthlyReport.tahun})
                 </h3>
-                <span className="text-xs print:text-[10px] font-mono text-slate-500 tabular-nums">
+                <span className="text-xs print:text-[10px] font-mono text-[#6E786D] tabular-nums">
                   {monthlyReport.mutasiKronologis.length} entri
                 </span>
               </div>
 
-              <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
+              <div className="overflow-x-auto w-full border border-[#E6E2D6] rounded-xl">
                 <table className="w-full text-left border-collapse text-xs print:text-[9.5px]">
                   <thead>
-                    <tr className="bg-[#0F172A] text-white font-semibold">
+                    <tr className="bg-[#243825] text-[#FFFDF8] font-semibold">
                       <th className="py-2 print:py-1.5 px-2.5 sm:px-3 whitespace-nowrap">Tanggal</th>
                       <th className="py-2 print:py-1.5 px-2.5 sm:px-3 whitespace-nowrap">No. Bukti</th>
                       <th className="py-2 print:py-1.5 px-2.5 sm:px-3">Uraian &amp; Kategori</th>
@@ -725,50 +725,50 @@ export function AdminRekapSlide({
                       <th className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right whitespace-nowrap">Saldo</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[#E6E2D6]/70">
                     {/* Baris Saldo Awal */}
-                    <tr className="bg-slate-50 font-semibold">
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-500 whitespace-nowrap">—</td>
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-500 whitespace-nowrap">
+                    <tr className="bg-[#F6F3EA] font-semibold">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[#6E786D] whitespace-nowrap">—</td>
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[#6E786D] whitespace-nowrap">
                         SALDO-AWAL
                       </td>
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-[#0F172A]">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-[#1B271B]">
                         Saldo Kas Awal Bulan {monthlyReport.namaBulan} {monthlyReport.tahun}
                       </td>
                       <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
                       <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono text-slate-400">—</td>
-                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
+                      <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.saldoAwal)}
                       </td>
                     </tr>
 
                     {monthlyReport.mutasiKronologis.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-6 text-center text-slate-500">
+                        <td colSpan={6} className="py-6 text-center text-[#6E786D]">
                           Belum ada mutasi kas masuk maupun pengeluaran pada {monthlyReport.namaBulan}{' '}
                           {monthlyReport.tahun}.
                         </td>
                       </tr>
                     ) : (
                       monthlyReport.mutasiKronologis.map((row) => (
-                        <tr key={row.id} className="hover:bg-slate-50/70">
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-slate-600 whitespace-nowrap tabular-nums">
+                        <tr key={row.id} className="hover:bg-[#F6F3EA]/70">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[#4A554A] whitespace-nowrap tabular-nums">
                             {formatTanggalSingkat(row.tanggal)}
                           </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[10px] text-slate-600 whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[10px] text-[#4A554A] whitespace-nowrap">
                             {row.noBukti}
                           </td>
                           <td className="py-2 print:py-1.5 px-2.5 sm:px-3 min-w-[180px]">
-                            <p className="font-medium text-[#0F172A] leading-snug">{row.uraian}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">{row.kategori}</p>
+                            <p className="font-medium text-[#1B271B] leading-snug">{row.uraian}</p>
+                            <p className="text-[10px] text-[#6E786D] mt-0.5">{row.kategori}</p>
                           </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-[#243825] tabular-nums whitespace-nowrap">
                             {row.masuk > 0 ? formatRupiah(row.masuk) : '—'}
                           </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-rose-700 tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-[#C87058] tabular-nums whitespace-nowrap">
                             {row.keluar > 0 ? formatRupiah(row.keluar) : '—'}
                           </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
+                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap">
                             {formatRupiah(row.saldoBerjalan)}
                           </td>
                         </tr>
@@ -776,18 +776,18 @@ export function AdminRekapSlide({
                     )}
 
                     {/* Baris Total & Saldo Akhir */}
-                    <tr className="bg-emerald-50/70 border-t-2 border-emerald-200 font-bold">
-                      <td colSpan={3} className="py-2.5 print:py-2 px-2.5 sm:px-3 text-[#0F172A]">
+                    <tr className="bg-[#E5EEE3]/70 border-t-2 border-[#C6D2BF] font-bold">
+                      <td colSpan={3} className="py-2.5 print:py-2 px-2.5 sm:px-3 text-[#1B271B]">
                         TOTAL MUTASI &amp; SALDO AKHIR ({monthlyReport.namaBulan.toUpperCase()}{' '}
                         {monthlyReport.tahun})
                       </td>
-                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-emerald-800 tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-[#243825] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.totalMasukBulanIni)}
                       </td>
-                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-rose-800 tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-[#C87058] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.totalKeluarBulanIni)}
                       </td>
-                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-[#059669] tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 print:py-2 px-2.5 sm:px-3 text-right font-mono text-[#243825] tabular-nums whitespace-nowrap">
                         {formatRupiah(monthlyReport.saldoAkhir)}
                       </td>
                     </tr>
@@ -797,8 +797,8 @@ export function AdminRekapSlide({
             </section>
 
             {/* Blok Tanda Tangan & Stempel Pengurus — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
-            <footer className="pt-3 print:pt-2.5 border-t border-slate-200 avoid-break">
-              <p className="text-xs print:text-[10px] text-slate-600 text-right mb-3">
+            <footer className="pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break">
+              <p className="text-xs print:text-[10px] text-[#4A554A] text-right mb-3">
                 Karawang, {formatTanggal(new Date().toISOString())}
               </p>
               <div className="relative grid grid-cols-2 gap-4 sm:gap-6 text-center text-xs print:text-[10px] items-end">
@@ -811,21 +811,21 @@ export function AdminRekapSlide({
                 </div>
 
                 <div>
-                  <p className="text-slate-500">Mengetahui,</p>
-                  <p className="font-bold text-[#0F172A]">Ketua Lingkungan</p>
+                  <p className="text-[#6E786D]">Mengetahui,</p>
+                  <p className="font-bold text-[#1B271B]">Ketua Lingkungan</p>
                   <div className="h-16 sm:h-20 print:h-14" />
                   <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
-                  <p className="font-bold text-[#0F172A] mt-1.5">Erlangga</p>
-                  <p className="text-[10px] text-slate-500">Perumahan Saung Kebun</p>
+                  <p className="font-bold text-[#1B271B] mt-1.5">Erlangga</p>
+                  <p className="text-[10px] text-[#6E786D]">Perumahan Saung Kebun</p>
                 </div>
 
                 <div>
-                  <p className="text-slate-500">Disusun &amp; Disahkan oleh,</p>
-                  <p className="font-bold text-[#0F172A]">Bendahara Lingkungan</p>
+                  <p className="text-[#6E786D]">Disusun &amp; Disahkan oleh,</p>
+                  <p className="font-bold text-[#1B271B]">Bendahara Lingkungan</p>
                   <div className="h-16 sm:h-20 print:h-14" />
                   <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
-                  <p className="font-bold text-[#0F172A] mt-1.5">Andriansyah</p>
-                  <p className="text-[10px] text-slate-500">Pengurus Kas &amp; IPL</p>
+                  <p className="font-bold text-[#1B271B] mt-1.5">Andriansyah</p>
+                  <p className="text-[10px] text-[#6E786D]">Pengurus Kas &amp; IPL</p>
                 </div>
               </div>
             </footer>
@@ -840,48 +840,48 @@ export function AdminRekapSlide({
         <div className="space-y-5">
           {/* Ringkasan Alokasi Kas & Dana Darurat */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
-              <p className="text-xs font-medium text-slate-500">
+            <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5">
+              <p className="text-xs font-medium text-[#6E786D]">
                 Total Kas Terverifikasi ({TAHUN_AKTIF})
               </p>
-              <p className="text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-1.5">
+              <p className="text-2xl font-mono font-bold text-[#1B271B] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.totalTerverifikasi)}
               </p>
-              <p className="text-xs text-slate-500 mt-1">Akumulasi seluruh setoran lunas</p>
+              <p className="text-xs text-[#6E786D] mt-1">Akumulasi seluruh setoran lunas</p>
             </div>
 
-            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
-              <p className="text-xs font-medium text-slate-500">Kas IPL Reguler (≥ Rp 100.000/bln)</p>
-              <p className="text-2xl font-mono font-bold text-[#047857] tabular-nums mt-1.5">
+            <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5">
+              <p className="text-xs font-medium text-[#6E786D]">Kas IPL Reguler (≥ Rp 100.000/bln)</p>
+              <p className="text-2xl font-mono font-bold text-[#243825] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiIplReguler)}
               </p>
-              <p className="text-xs text-slate-500 mt-1">Operasional &amp; pemeliharaan lingkungan</p>
+              <p className="text-xs text-[#6E786D] mt-1">Operasional &amp; pemeliharaan lingkungan</p>
             </div>
 
-            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5">
-              <p className="text-xs font-medium text-slate-500">
+            <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5">
+              <p className="text-xs font-medium text-[#6E786D]">
                 Alokasi Dana Darurat (&lt; Rp 100.000/bln)
               </p>
-              <p className="text-2xl font-mono font-bold text-[#B45309] tabular-nums mt-1.5">
+              <p className="text-2xl font-mono font-bold text-[#6E4D12] tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiDanaDarurat)}
               </p>
-              <p className="text-xs text-slate-500 mt-1 tabular-nums">
+              <p className="text-xs text-[#6E786D] mt-1 tabular-nums">
                 {cashSummary.jumlahTransaksiDarurat} transaksi setoran khusus/parsial
               </p>
             </div>
           </section>
 
           {/* Toolbar Filter & Export */}
-          <div className="relative z-10 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                <Search className="w-4 h-4 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari blok / nama..."
-                  className="w-full min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 pl-9 pr-3 text-sm focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
+                  className="w-full min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] pl-9 pr-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
                 />
               </div>
 
@@ -889,7 +889,7 @@ export function AdminRekapSlide({
                 aria-label="Filter Blok"
                 value={blokFilter}
                 onChange={(e) => setBlokFilter(e.target.value)}
-                className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3 text-xs font-semibold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                className="min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-xs font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               >
                 {blokOptions.map((b) => (
                   <option key={b} value={b}>
@@ -898,7 +898,7 @@ export function AdminRekapSlide({
                 ))}
               </select>
 
-              <div className="flex items-center gap-1 p-1 bg-indigo-50/80 rounded-2xl">
+              <div className="flex items-center gap-1 p-1 bg-[#F1ECE0] rounded-2xl">
                 {(['Semua', 'Lunas', 'Menunggak'] as const).map((st) => (
                   <button
                     key={st}
@@ -906,8 +906,8 @@ export function AdminRekapSlide({
                     onClick={() => setStatusFilter(st)}
                     className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                       statusFilter === st
-                        ? 'bg-[#4C1D95] text-white shadow-sm'
-                        : 'text-slate-600 hover:text-[#4C1D95]'
+                        ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                        : 'text-[#4A554A] hover:text-[#243825]'
                     }`}
                   >
                     {st}
@@ -920,38 +920,38 @@ export function AdminRekapSlide({
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <Download className="w-4 h-4 text-slate-500" />
+                <Download className="w-4 h-4 text-[#4A554A]" />
                 <span>Export CSV</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+                className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
               >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                <FileSpreadsheet className="w-4 h-4 text-[#E5EEE3]" />
                 <span>Export Excel (.xlsx)</span>
               </button>
             </div>
           </div>
 
           {/* Matriks Pembayaran 12 Bulan (Jan – Des 2026) */}
-          <section className="relative z-10 glass-card bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-            <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
+          <section className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
+            <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-[#0F172A]">
+                <h2 className="font-serif-brand text-base font-bold text-[#1B271B]">
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
                 </h2>
-                <p className="text-xs text-slate-500">
-                  Hijau muda = berpenghuni · Oranye muda = blok kosong · Mulai penagihan:{' '}
-                  <span className="font-semibold text-slate-700">
+                <p className="text-xs text-[#6E786D]">
+                  Sage lembut = berpenghuni · Krem hangat = blok kosong · Mulai penagihan:{' '}
+                  <span className="font-semibold text-[#1B271B]">
                     {formatBillingStartLabel(brand)}
                   </span>{' '}
                   (sebelumnya Pra-Rilis) · Filter mengacu {getNamaBulan(currentMonth)} {TAHUN_AKTIF}.
                   {delinquencyFilter !== 'all' && (
-                    <span className="ml-1 font-semibold text-[#4C1D95]">
+                    <span className="ml-1 font-semibold text-[#243825]">
                       (Filter tunggakan:{' '}
                       {delinquencyFilter === 'gt1'
                         ? '> 1 bulan'
@@ -963,7 +963,7 @@ export function AdminRekapSlide({
                   )}
                 </p>
               </div>
-              <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
+              <span className="text-xs font-mono font-semibold text-[#243825] tabular-nums">
                 {filteredWarga.length} unit tampil
               </span>
             </div>
@@ -975,32 +975,32 @@ export function AdminRekapSlide({
                 className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4"
               >
                 {/* 1. Blok Berpenghuni */}
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5">
-                  <p className="text-[11px] font-semibold text-emerald-900">Blok Berpenghuni</p>
-                  <p className="text-lg sm:text-xl font-mono font-bold text-emerald-800 tabular-nums mt-1">
+                <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/75 p-3.5">
+                  <p className="text-[11px] font-semibold text-[#243825]">Blok Berpenghuni</p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-[#243825] tabular-nums mt-1">
                     {matrixSummary.berpenghuniCount} Unit
                   </p>
-                  <p className="text-[11px] text-emerald-800/80 mt-0.5">Unit terisi aktif</p>
+                  <p className="text-[11px] text-[#384E35] mt-0.5">Unit terisi aktif</p>
                 </div>
 
                 {/* 2. Blok Kosong */}
-                <div className="rounded-2xl border border-orange-200 bg-orange-50/90 p-3.5">
-                  <p className="text-[11px] font-semibold text-orange-900">Blok Kosong</p>
-                  <p className="text-lg sm:text-xl font-mono font-bold text-orange-800 tabular-nums mt-1">
+                <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/45 p-3.5">
+                  <p className="text-[11px] font-semibold text-[#4A3410]">Blok Kosong</p>
+                  <p className="text-lg sm:text-xl font-mono font-bold text-[#4A3410] tabular-nums mt-1">
                     {matrixSummary.kosongCount} Unit
                   </p>
-                  <p className="text-[11px] text-orange-800/80 mt-0.5">Unit kosong / belum dihuni</p>
+                  <p className="text-[11px] text-[#6E4D12] mt-0.5">Unit kosong / belum dihuni</p>
                 </div>
 
                 {/* 3. Sudah Setor (Bulan Berjalan) */}
-                <div className="rounded-2xl border border-emerald-200 bg-white p-3.5">
-                  <p className="text-[11px] font-semibold text-slate-600">
+                <div className="rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] p-3.5">
+                  <p className="text-[11px] font-semibold text-[#4A554A]">
                     Sudah Setor ({getNamaBulan(currentMonth)})
                   </p>
-                  <p className="text-lg sm:text-xl font-mono font-bold text-[#047857] tabular-nums mt-1">
+                  <p className="text-lg sm:text-xl font-mono font-bold text-[#243825] tabular-nums mt-1">
                     {matrixSummary.sudahSetorCount} Unit
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                  <p className="text-[11px] text-[#6E786D] mt-0.5 tabular-nums">
                     Lunas · {matrixSummary.berpenghuniCount > 0
                       ? `${Math.round((matrixSummary.sudahSetorCount / matrixSummary.berpenghuniCount) * 100)}%`
                       : '0%'} berpenghuni
@@ -1008,14 +1008,14 @@ export function AdminRekapSlide({
                 </div>
 
                 {/* 4. Belum Setor (Bulan Berjalan) */}
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3.5">
-                  <p className="text-[11px] font-semibold text-rose-900">
+                <div className="rounded-2xl border border-[#C87058]/40 bg-[#C87058]/10 p-3.5">
+                  <p className="text-[11px] font-semibold text-[#A44831]">
                     Belum Setor ({getNamaBulan(currentMonth)})
                   </p>
-                  <p className="text-lg sm:text-xl font-mono font-bold text-rose-700 tabular-nums mt-1">
+                  <p className="text-lg sm:text-xl font-mono font-bold text-[#A44831] tabular-nums mt-1">
                     {matrixSummary.belumSetorCount} Unit
                   </p>
-                  <p className="text-[11px] text-rose-800/80 mt-0.5 tabular-nums">
+                  <p className="text-[11px] text-[#A44831]/85 mt-0.5 tabular-nums">
                     {isBeforeBillingStart(TAHUN_AKTIF, currentMonth, brand)
                       ? 'Periode Pra-Rilis (Belum Berlaku)'
                       : matrixSummary.menungguCount > 0
@@ -1025,10 +1025,10 @@ export function AdminRekapSlide({
                 </div>
 
                 {/* 5. Menunggak (> 1 Bulan) + Filter Rincian */}
-                <div className="col-span-2 sm:col-span-1 rounded-2xl border border-amber-300/90 bg-amber-50/85 p-3.5 flex flex-col justify-between gap-2">
+                <div className="col-span-2 sm:col-span-1 rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/55 p-3.5 flex flex-col justify-between gap-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-[11px] font-semibold text-amber-950">
+                      <p className="text-[11px] font-semibold text-[#4A3410]">
                         Menunggak (&gt; 1 Bulan)
                       </p>
                       <button
@@ -1038,7 +1038,7 @@ export function AdminRekapSlide({
                         }
                         title="Filter unit menunggak lebih dari 1 bulan"
                         className={`mt-1 text-left font-mono text-lg sm:text-xl font-bold tabular-nums cursor-pointer underline-offset-4 hover:underline ${
-                          delinquencyFilter === 'gt1' ? 'text-[#4C1D95] underline' : 'text-amber-900'
+                          delinquencyFilter === 'gt1' ? 'text-[#243825] underline' : 'text-[#4A3410]'
                         }`}
                       >
                         {matrixSummary.menunggakTotal} Unit
@@ -1048,7 +1048,7 @@ export function AdminRekapSlide({
                       <button
                         type="button"
                         onClick={() => setDelinquencyFilter('all')}
-                        className="px-2 py-1 rounded-lg bg-white border border-amber-300 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer shrink-0"
+                        className="px-2 py-1 rounded-lg bg-[#FFFDF8] border border-[#E2C285] text-[10px] font-semibold text-[#4A3410] hover:bg-[#F2D8A7]/40 cursor-pointer shrink-0"
                       >
                         Reset
                       </button>
@@ -1073,8 +1073,8 @@ export function AdminRekapSlide({
                           }
                           className={`px-2 py-1 rounded-lg border text-[10.5px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
                             active
-                              ? 'bg-[#4C1D95] text-white border-[#4C1D95] shadow-2xs'
-                              : 'bg-white/90 text-amber-950 border-amber-300/80 hover:bg-amber-100'
+                              ? 'bg-[#2B3F29] text-[#FFFDF8] border-[#2B3F29] shadow-2xs'
+                              : 'bg-[#FFFDF8] text-[#4A3410] border-[#E2C285] hover:bg-[#F2D8A7]/50'
                           }`}
                         >
                           {item.label}: {item.count}
@@ -1086,18 +1086,18 @@ export function AdminRekapSlide({
               </section>
             </div>
 
-            <div className="relative z-0 overflow-x-auto w-full border-t border-indigo-100/80">
+            <div className="relative z-0 overflow-x-auto w-full border-t border-[#E6E2D6]">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-indigo-100/80 bg-indigo-50/70 text-[11px] font-semibold text-[#4C1D95]">
-                    <th className="py-3 px-4 sticky left-0 bg-indigo-50 z-10 whitespace-nowrap border-r border-indigo-100">
+                  <tr className="border-b border-[#E6E2D6] bg-[#E5EEE3]/65 text-[11px] font-semibold text-[#243825]">
+                    <th className="py-3 px-4 sticky left-0 bg-[#E5EEE3] z-10 whitespace-nowrap border-r border-[#C6D2BF]">
                       Blok / Warga
                     </th>
                     {BULAN_LIST.map((b) => (
                       <th
                         key={b.angka}
                         className={`py-3 px-2 text-center whitespace-nowrap ${
-                          b.angka === currentMonth ? 'bg-emerald-50/80 text-emerald-900' : ''
+                          b.angka === currentMonth ? 'bg-[#D3E3D0] text-[#243825]' : ''
                         }`}
                       >
                         {b.singkat}
@@ -1105,10 +1105,10 @@ export function AdminRekapSlide({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/70 text-xs">
+                <tbody className="divide-y divide-[#E6E2D6]/70 text-xs">
                   {pagedWarga.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-10 text-center text-sm text-slate-500">
+                      <td colSpan={13} className="py-10 text-center text-sm text-[#6E786D]">
                         Tidak ada unit rumah yang cocok dengan filter yang dipilih.
                       </td>
                     </tr>
@@ -1122,27 +1122,27 @@ export function AdminRekapSlide({
                           key={w.id}
                           className={`group transition-colors ${
                             kosong
-                              ? 'bg-orange-50/90 hover:bg-orange-100/80'
-                              : 'bg-emerald-50/80 hover:bg-emerald-100/75'
+                              ? 'bg-[#F2D8A7]/30 hover:bg-[#F2D8A7]/45'
+                              : 'bg-[#E5EEE3]/40 hover:bg-[#E5EEE3]/70'
                           }`}
                         >
                           <td
                             className={`py-3 px-4 sticky left-0 z-10 whitespace-nowrap border-r transition-colors ${
                               kosong
-                                ? 'bg-orange-50 group-hover:bg-orange-100 border-orange-200/90'
-                                : 'bg-emerald-50 group-hover:bg-emerald-100 border-emerald-200/90'
+                                ? 'bg-[#F7E8C9] group-hover:bg-[#F2D8A7] border-[#E2C285]'
+                                : 'bg-[#ECF3EA] group-hover:bg-[#E5EEE3] border-[#C6D2BF]'
                             }`}
                           >
                             <p
                               className={`font-mono font-bold tabular-nums ${
-                                kosong ? 'text-orange-950' : 'text-emerald-950'
+                                kosong ? 'text-[#4A3410]' : 'text-[#243825]'
                               }`}
                             >
                               {formatBlokRumah(w.blok_rumah) || w.blok_rumah}
                             </p>
                             <p
                               className={`text-[11px] truncate max-w-[155px] ${
-                                kosong ? 'text-orange-800/90 font-medium' : 'text-emerald-900/80'
+                                kosong ? 'text-[#6E4D12] font-medium' : 'text-[#384E35]'
                               }`}
                             >
                               {w.nama_warga}
@@ -1162,8 +1162,8 @@ export function AdminRekapSlide({
                                 className={`py-2.5 px-1.5 text-center ${
                                   b.angka === currentMonth
                                     ? kosong
-                                      ? 'bg-orange-100/45'
-                                      : 'bg-emerald-100/50'
+                                      ? 'bg-[#F2D8A7]/40'
+                                      : 'bg-[#E5EEE3]/70'
                                     : ''
                                 }`}
                               >
@@ -1184,7 +1184,7 @@ export function AdminRekapSlide({
             </div>
 
             {filteredWarga.length > PAGE_SIZE && (
-              <div className="px-4 py-3 border-t border-indigo-100/80 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-600">
+              <div className="px-4 py-3 border-t border-[#E6E2D6] bg-[#F6F3EA]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-[#4A554A]">
                 <span className="tabular-nums text-center sm:text-left">
                   Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
                   {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
@@ -1194,19 +1194,19 @@ export function AdminRekapSlide({
                     type="button"
                     disabled={safePage <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
+                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
                   >
                     <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
                     <span>Sebelumnya</span>
                   </button>
-                  <span className="px-2 font-mono font-semibold text-[#4C1D95] tabular-nums whitespace-nowrap shrink-0">
+                  <span className="px-2 font-mono font-semibold text-[#243825] tabular-nums whitespace-nowrap shrink-0">
                     {safePage} / {totalPages}
                   </span>
                   <button
                     type="button"
                     disabled={safePage >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
+                    className="flex-1 sm:flex-none min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] disabled:opacity-40 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer whitespace-nowrap"
                   >
                     <span>Berikutnya</span>
                     <ChevronRight className="w-3.5 h-3.5 shrink-0" />
@@ -1223,20 +1223,20 @@ export function AdminRekapSlide({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[70] bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-[70] bg-[#142015]/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           onClick={() => !submitting && setManualModalOpen(false)}
         >
           <form
             onSubmit={handleManualSubmit}
-            className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+            className="bg-[#FFFDF8] rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-2">
+            <div className="shrink-0 px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA] flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="text-sm sm:text-base font-bold text-[#0F172A] truncate">
+                <h3 className="font-serif-brand text-sm sm:text-base font-bold text-[#1B271B] truncate">
                   Input Setoran Tunai Manual (Admin)
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#6E786D]">
                   Otomatis berstatus Terverifikasi &amp; menyinkronkan e-Card menjadi Lunas.
                 </p>
               </div>
@@ -1244,7 +1244,7 @@ export function AdminRekapSlide({
                 type="button"
                 onClick={() => setManualModalOpen(false)}
                 aria-label="Tutup modal"
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 cursor-pointer shrink-0"
+                className="p-1.5 rounded-full text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1252,7 +1252,7 @@ export function AdminRekapSlide({
 
             <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                   Pilih Unit Warga
                 </label>
                 <select
@@ -1266,7 +1266,7 @@ export function AdminRekapSlide({
                       setNominalInput(String(found.nominal_iuran * selectedMonths.length));
                     }
                   }}
-                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 >
                   {sortedWargaList.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -1277,7 +1277,7 @@ export function AdminRekapSlide({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
                   Pilih Bulan Pembayaran ({TAHUN_AKTIF})
                 </label>
                 <div className="grid grid-cols-4 gap-2">
@@ -1290,11 +1290,11 @@ export function AdminRekapSlide({
                         onClick={() => toggleManualMonth(b.angka)}
                         className={`min-h-[38px] rounded-xl border text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                           checked
-                            ? 'bg-indigo-50 border-[#4C1D95] text-[#4C1D95]'
-                            : 'bg-white border-indigo-100 text-slate-600 hover:bg-indigo-50/50'
+                            ? 'bg-[#E5EEE3] border-[#2B3F29] text-[#243825]'
+                            : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]/50'
                         }`}
                       >
-                        {checked && <Check className="w-3 h-3 text-[#4C1D95]" />}
+                        {checked && <Check className="w-3 h-3 text-[#243825]" />}
                         <span>{b.singkat}</span>
                       </button>
                     );
@@ -1304,13 +1304,13 @@ export function AdminRekapSlide({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                     Petugas Penerima
                   </label>
                   <select
                     value={petugas}
                     onChange={(e) => setPetugas(e.target.value)}
-                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                   >
                     {PETUGAS_PENERIMA.map((p) => (
                       <option key={p} value={p}>
@@ -1321,7 +1321,7 @@ export function AdminRekapSlide({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                     Nominal Diterima (Rp)
                   </label>
                   <input
@@ -1330,13 +1330,13 @@ export function AdminRekapSlide({
                     required
                     value={nominalInput}
                     onChange={(e) => setNominalInput(e.target.value)}
-                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono font-bold tabular-nums text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm font-mono font-bold tabular-nums text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                   Keterangan (Opsional)
                 </label>
                 <input
@@ -1344,16 +1344,16 @@ export function AdminRekapSlide({
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                   placeholder="Contoh: Setoran tunai saat rapat lingkungan"
-                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 />
               </div>
             </div>
 
-            <div className="shrink-0 px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-indigo-50/40 border-t border-indigo-100 flex items-center justify-end gap-2">
+            <div className="shrink-0 px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#F6F3EA] border-t border-[#E6E2D6] flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setManualModalOpen(false)}
-                className="min-h-[42px] px-4 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 cursor-pointer"
+                className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-sm font-semibold text-[#4A554A] cursor-pointer"
               >
                 Batal
               </button>
@@ -1361,7 +1361,7 @@ export function AdminRekapSlide({
                 type="submit"
                 disabled={submitting || selectedMonths.length === 0}
                 aria-busy={submitting}
-                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-[#FFFDF8] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submitting && <LoadingSpinner size="xs" tone="white" />}
                 <span>{submitting ? 'Menyimpan...' : 'Simpan & Verifikasi'}</span>

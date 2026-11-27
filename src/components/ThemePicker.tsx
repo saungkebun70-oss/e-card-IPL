@@ -105,7 +105,7 @@ export function ThemePicker({ compact = false, onToast }: ThemePickerProps) {
                         {item.name}
                       </span>
                       {item.isDark ? (
-                        <Moon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <Moon className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
                       ) : (
                         <Sun className="w-3.5 h-3.5 text-[var(--theme-text-muted)] shrink-0 opacity-75" />
                       )}

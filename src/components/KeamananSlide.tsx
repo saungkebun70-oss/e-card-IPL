@@ -68,6 +68,7 @@ import {
   isSundayOvertimeShift,
   subscribeShiftOverrides,
 } from '../lib/securityShiftOvertimeService';
+import { SaungKebunWatermark } from './BrandLogo';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -546,7 +547,7 @@ export function KeamananSlide({
       {/* Header Aksi Halaman Keamanan */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[#4A554A]">
             Pusat informasi keamanan, kontak darurat 24 jam, dan log patroli NFC Perumahan Saung
             Kebun.
           </p>
@@ -557,7 +558,7 @@ export function KeamananSlide({
             <button
               type="button"
               onClick={onOpenPetugasSettings}
-              className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+              className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
             >
               <Settings className="w-4 h-4 shrink-0" />
               <span>Kelola Petugas &amp; NFC</span>
@@ -567,10 +568,10 @@ export function KeamananSlide({
             type="button"
             disabled={isRefreshing}
             onClick={() => void onRefresh()}
-            className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <RefreshCw
-              className={`w-4 h-4 text-[#4C1D95] shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
+              className={`w-4 h-4 text-[#2B3F29] shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
             />
             <span>{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>
@@ -582,7 +583,7 @@ export function KeamananSlide({
         <div
           role="tablist"
           aria-label="Menu Keamanan Admin"
-          className="flex flex-wrap items-center gap-1.5 p-1.5 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl w-full sm:w-fit"
+          className="flex flex-wrap items-center gap-1.5 p-1.5 bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl w-full sm:w-fit"
         >
           <button
             type="button"
@@ -591,11 +592,11 @@ export function KeamananSlide({
             onClick={() => setAdminSubTab('patroli')}
             className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'patroli'
-                ? 'bg-[#4C1D95] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/40'
             }`}
           >
-            <Radio className={`w-4 h-4 shrink-0 ${adminSubTab === 'patroli' ? 'text-[#A7F3D0]' : 'text-[#4C1D95]'}`} />
+            <Radio className={`w-4 h-4 shrink-0 ${adminSubTab === 'patroli' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Patroli &amp; Peta Live</span>
           </button>
           <button
@@ -605,16 +606,16 @@ export function KeamananSlide({
             onClick={() => setAdminSubTab('absensi')}
             className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'absensi'
-                ? 'bg-[#4C1D95] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/40'
             }`}
           >
-            <ShieldCheck className={`w-4 h-4 shrink-0 ${adminSubTab === 'absensi' ? 'text-[#A7F3D0]' : 'text-[#4C1D95]'}`} />
+            <ShieldCheck className={`w-4 h-4 shrink-0 ${adminSubTab === 'absensi' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Monitoring Absensi Keamanan</span>
             {adminOnDutyCount > 0 && (
               <span
                 className={`text-[11px] font-mono font-bold tabular-nums ${
-                  adminSubTab === 'absensi' ? 'text-[#A7F3D0]' : 'text-emerald-700'
+                  adminSubTab === 'absensi' ? 'text-[#E5EEE3]' : 'text-[#243825]'
                 }`}
               >
                 ({adminOnDutyCount} aktif)
@@ -628,16 +629,16 @@ export function KeamananSlide({
             onClick={() => setAdminSubTab('shift_lembur')}
             className={`flex-1 sm:flex-initial min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap ${
               adminSubTab === 'shift_lembur'
-                ? 'bg-[#4C1D95] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/40'
             }`}
           >
-            <Moon className={`w-4 h-4 shrink-0 ${adminSubTab === 'shift_lembur' ? 'text-[#A7F3D0]' : 'text-[#4C1D95]'}`} />
+            <Moon className={`w-4 h-4 shrink-0 ${adminSubTab === 'shift_lembur' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Kelola Shift &amp; Lembur</span>
             {unpaidOvertimeCount > 0 && (
               <span
                 className={`text-[11px] font-mono font-bold tabular-nums ${
-                  adminSubTab === 'shift_lembur' ? 'text-amber-200' : 'text-amber-700'
+                  adminSubTab === 'shift_lembur' ? 'text-[#F2D8A7]' : 'text-[#6E4D12]'
                 }`}
               >
                 ({unpaidOvertimeCount} blm bayar)
@@ -672,58 +673,59 @@ export function KeamananSlide({
 
           {/* Ringkasan KPI Keamanan & Status Petugas Bertugas */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-        <div className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white rounded-3xl p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-indigo-100/80">Petugas Siaga Aktif</p>
-            <ShieldCheck className="w-4 h-4 text-[#A7F3D0] shrink-0" />
+        <div className="relative overflow-hidden glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-xl shadow-[#243825]/15 text-[#FFFDF8] rounded-3xl p-4 sm:p-5">
+          <SaungKebunWatermark className="right-2 bottom-1 w-24 h-24 opacity-[0.10]" />
+          <div className="relative flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-[#E5EEE3]/85">Petugas Siaga Aktif</p>
+            <ShieldCheck className="w-4 h-4 text-[#E5EEE3] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-[#A7F3D0] tabular-nums mt-2">
+          <p className="relative text-xl sm:text-2xl font-mono font-bold text-[#FFFDF8] tabular-nums mt-2">
             {petugasKontak.length}{' '}
-            <span className="text-xs font-sans font-normal text-indigo-100/75">personel</span>
+            <span className="text-xs font-sans font-normal text-[#E5EEE3]/80">personel</span>
           </p>
-          <p className="text-[11px] text-indigo-100/75 mt-1 truncate">
+          <p className="relative text-[11px] text-[#E5EEE3]/80 mt-1 truncate">
             {petugasKontak.length > 0
               ? petugasKontak.map((p) => p.nama).join(', ')
               : 'Siaga panggilan darurat 24 jam'}
           </p>
         </div>
 
-        <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
+        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-slate-500">Progres Titik Hari Ini</p>
-            <Radio className="w-4 h-4 text-[#4C1D95] shrink-0" />
+            <p className="text-xs font-medium text-[#6E786D]">Progres Titik Hari Ini</p>
+            <Radio className="w-4 h-4 text-[#2B3F29] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-bold text-[#0F172A] tabular-nums mt-2">
+          <p className="text-xl sm:text-2xl font-mono font-bold text-[#1B271B] tabular-nums mt-2">
             {checkpointSummary.total > 0
               ? `${checkpointSummary.terpantauHariIni}/${checkpointSummary.total}`
               : scanHariIni}{' '}
-            <span className="text-xs font-sans font-normal text-slate-500">titik</span>
+            <span className="text-xs font-sans font-normal text-[#6E786D]">titik</span>
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-[#6E786D] mt-1">
             {catatanKhususCount > 0
               ? `${catatanKhususCount} log ada catatan`
               : `${scanHariIni} total scan hari ini`}
           </p>
         </div>
 
-        <div className="col-span-2 lg:col-span-1 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5">
+        <div className="col-span-2 lg:col-span-1 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-slate-500">Patroli Terakhir</p>
-            <Clock className="w-4 h-4 text-[#4C1D95] shrink-0" />
+            <p className="text-xs font-medium text-[#6E786D]">Patroli Terakhir</p>
+            <Clock className="w-4 h-4 text-[#2B3F29] shrink-0" />
           </div>
           {latestLog ? (
             <>
-              <p className="text-sm sm:text-base font-bold text-[#0F172A] truncate mt-2">
+              <p className="text-sm sm:text-base font-bold text-[#1B271B] truncate mt-2">
                 {latestLog.nama_lokasi}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1 truncate font-mono tabular-nums">
+              <p className="text-[11px] text-[#6E786D] mt-1 truncate font-mono tabular-nums">
                 {latestLog.nama_petugas} · {formatTanggalWaktu(latestLog.waktu_scan)}
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm font-bold text-slate-600 mt-2">Belum ada scan terbaru</p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-sm font-bold text-[#4A554A] mt-2">Belum ada scan terbaru</p>
+              <p className="text-[11px] text-[#6E786D] mt-1">
                 Otomatis terisi saat petugas tap NFC
               </p>
             </>
@@ -735,18 +737,18 @@ export function KeamananSlide({
       {role === 'admin' && session && (
         <section
           aria-label="Scan Checkpoint Patroli NFC"
-          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+          className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden"
         >
-          <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0 mt-0.5">
                 <Radio className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-[#0F172A] leading-tight">
+                <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
                   Scan Checkpoint Patroli RFID / NFC
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-[#6E786D] mt-0.5">
                   Aktifkan mode scan foreground Chrome Android agar tag langsung terbaca tanpa
                   pop-up e-Wallet, atau gunakan input manual.
                 </p>
@@ -756,7 +758,7 @@ export function KeamananSlide({
             <button
               type="button"
               onClick={() => void handleCopyPetugasLink()}
-              className="min-h-[38px] px-3.5 rounded-full bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap transition-colors"
+              className="min-h-[38px] px-3.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] hover:bg-[#D6E4D3] text-[#243825] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap transition-colors"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>Salin Link /petugas</span>
@@ -765,11 +767,11 @@ export function KeamananSlide({
 
           <div className="p-4 sm:p-5 space-y-4">
             {/* Pengaturan Petugas, Kondisi & Catatan Sebelum Tap */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-3.5">
               <div>
                 <label
                   htmlFor="admin-patrol-guard"
-                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                  className="block text-[11px] font-semibold text-[#4A554A] mb-1"
                 >
                   Petugas Bertugas
                 </label>
@@ -778,7 +780,7 @@ export function KeamananSlide({
                     id="admin-patrol-guard"
                     value={selectedPetugasId}
                     onChange={(e) => setSelectedPetugasId(e.target.value)}
-                    className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs sm:text-sm font-medium text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                    className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-xs sm:text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                   >
                     {petugasKontak.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -787,14 +789,14 @@ export function KeamananSlide({
                     ))}
                   </select>
                 ) : (
-                  <div className="min-h-[42px] rounded-2xl border border-indigo-100/80 bg-white/90 px-3 flex items-center text-xs text-slate-600">
+                  <div className="min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 flex items-center text-xs text-[#4A554A]">
                     {session.nama_warga} ({session.jabatan || 'Pengurus'})
                   </div>
                 )}
               </div>
 
               <div>
-                <p className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <p className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Kondisi Lokasi
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -803,8 +805,8 @@ export function KeamananSlide({
                     onClick={() => setPatrolKondisi('Aman')}
                     className={`min-h-[42px] rounded-full text-xs font-bold inline-flex items-center justify-center gap-1 border transition-colors cursor-pointer ${
                       patrolKondisi === 'Aman'
-                        ? 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
+                        ? 'bg-[#2B3F29] border-[#2B3F29] text-[#FFFDF8]'
+                        : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]/50'
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -815,8 +817,8 @@ export function KeamananSlide({
                     onClick={() => setPatrolKondisi('Ada Catatan')}
                     className={`min-h-[42px] rounded-full text-xs font-bold inline-flex items-center justify-center gap-1 border transition-colors cursor-pointer ${
                       patrolKondisi === 'Ada Catatan'
-                        ? 'bg-red-600 border-red-600 text-white'
-                        : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
+                        ? 'bg-[#C87058] border-[#C87058] text-[#FFFDF8]'
+                        : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#F7F4EC]'
                     }`}
                   >
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -828,7 +830,7 @@ export function KeamananSlide({
               <div>
                 <label
                   htmlFor="admin-patrol-note"
-                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                  className="block text-[11px] font-semibold text-[#4A554A] mb-1"
                 >
                   Catatan Lapangan (Opsional)
                 </label>
@@ -838,7 +840,7 @@ export function KeamananSlide({
                   value={patrolCatatan}
                   onChange={(e) => setPatrolCatatan(e.target.value)}
                   placeholder="Misal: Lampu jalan mati / gerbang aman..."
-                  className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-xs sm:text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 />
               </div>
             </div>
@@ -851,16 +853,16 @@ export function KeamananSlide({
                 onClick={() => void handleToggleNfcPatrolScan()}
                 className={`w-full min-h-[52px] px-5 rounded-full text-sm sm:text-base font-bold inline-flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-60 ${
                   scanningNfc
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white ring-4 ring-amber-200'
-                    : 'bg-[#3730A3] hover:bg-[#312E81] active:scale-[0.99] text-white shadow-sm'
+                    ? 'bg-[#D9A754] hover:bg-[#C4913E] text-[#1B271B] ring-4 ring-[#F2D8A7]'
+                    : 'bg-[#2B3F29] hover:bg-[#243825] active:scale-[0.99] text-[#FFFDF8] shadow-sm'
                 }`}
               >
                 {submittingPatrol ? (
                   <Loader2 className="w-5 h-5 animate-spin shrink-0" />
                 ) : scanningNfc ? (
                   <span className="relative flex h-4 w-4 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                    <Radio className="relative w-4 h-4 text-white" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1B271B] opacity-40" />
+                    <Radio className="relative w-4 h-4 text-[#1B271B]" />
                   </span>
                 ) : (
                   <Smartphone className="w-5 h-5 shrink-0" />
@@ -880,23 +882,23 @@ export function KeamananSlide({
                   role="status"
                   className={`rounded-2xl px-3.5 py-3 text-xs flex items-start justify-between gap-2.5 border ${
                     nfcFeedback.type === 'scanning'
-                      ? 'bg-[#3b0764] border-purple-800 text-[#A7F3D0]'
+                      ? 'bg-[#243825] border-[#384E35] text-[#E5EEE3]'
                       : nfcFeedback.type === 'success'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                        ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
+                        : 'bg-[#F2D8A7]/40 border-[#E2C285] text-[#4A3410]'
                   }`}
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     {nfcFeedback.type === 'scanning' ? (
                       <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-300 opacity-60 [animation-delay:250ms]" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5EEE3] opacity-75" />
+                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-[#C6D2BF] opacity-60 [animation-delay:250ms]" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E5EEE3]" />
                       </span>
                     ) : nfcFeedback.type === 'error' ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-4 h-4 text-[#8C621A] shrink-0 mt-0.5" />
                     ) : (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-4 h-4 text-[#243825] shrink-0 mt-0.5" />
                     )}
                     <span className="leading-relaxed font-medium">{nfcFeedback.text}</span>
                   </div>
@@ -915,7 +917,7 @@ export function KeamananSlide({
               )}
 
               {/* Info Web NFC & Toggle Fallback Input Manual */}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6E786D]">
                 <span>
                   {nfcSupported
                     ? 'Web NFC siap (Chrome Android HTTPS). Tekan tombol di atas sebelum menempelkan stiker.'
@@ -924,7 +926,7 @@ export function KeamananSlide({
                 <button
                   type="button"
                   onClick={() => setShowManualFallback((v) => !v)}
-                  className="font-semibold text-[#4C1D95] hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
+                  className="font-semibold text-[#2B3F29] hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
                 >
                   <Keyboard className="w-3.5 h-3.5" />
                   <span>{showManualFallback ? 'Sembunyikan Manual' : 'Input Manual / UID'}</span>
@@ -933,8 +935,8 @@ export function KeamananSlide({
 
               {/* Fallback Input Manual Checkpoint / UID */}
               {showManualFallback && (
-                <div className="rounded-2xl border border-indigo-100/80 bg-indigo-50/50 p-3.5 space-y-2.5">
-                  <p className="text-xs font-bold text-[#0F172A]">
+                <div className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3.5 space-y-2.5">
+                  <p className="text-xs font-bold text-[#1B271B]">
                     Catat Patroli Manual (Fallback Non-NFC / Input Kode UID)
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
@@ -945,7 +947,7 @@ export function KeamananSlide({
                         setManualUidInput('');
                       }}
                       disabled={titikPatroliList.length === 0}
-                      className="sm:col-span-5 min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs sm:text-sm text-[#0F172A] disabled:opacity-60 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                      className="sm:col-span-5 min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-xs sm:text-sm text-[#1B271B] disabled:opacity-60 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                     >
                       {titikPatroliList.length === 0 ? (
                         <option value="">Belum ada titik checkpoint terdaftar</option>
@@ -962,14 +964,14 @@ export function KeamananSlide({
                       value={manualUidInput}
                       onChange={(e) => setManualUidInput(normalizeNfcUid(e.target.value))}
                       placeholder="Atau ketik UID manual (misal: 04A1B2C3)"
-                      className="sm:col-span-4 min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs sm:text-sm font-mono uppercase text-[#0F172A] placeholder:font-sans placeholder:normal-case placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                      className="sm:col-span-4 min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-xs sm:text-sm font-mono uppercase text-[#1B271B] placeholder:font-sans placeholder:normal-case placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                     />
                     <button
                       type="button"
                       disabled={submittingPatrol || (!manualTitikId && !manualUidInput.trim())}
                       aria-busy={submittingPatrol}
                       onClick={() => void handleManualPatrolSubmit()}
-                      className="sm:col-span-3 min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                      className="sm:col-span-3 min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                     >
                       {submittingPatrol ? (
                         <LoadingSpinner size="xs" tone="white" />
@@ -1002,19 +1004,19 @@ export function KeamananSlide({
       {role === 'admin' && (
         <section
           aria-label="Status Kondisi Terkini Titik Checkpoint Patroli"
-          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+          className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden"
         >
           {/* Header & Ringkasan Kondisi Titik */}
-          <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0 mt-0.5">
                 <MapPin className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-[#0F172A] leading-tight">
+                <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
                   Daftar Titik Checkpoint &amp; Status Patroli Hari Ini
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-[#6E786D] mt-0.5">
                   Pantau titik yang sudah discan hari ini, belum discan, maupun yang membutuhkan
                   perhatian segera.
                 </p>
@@ -1023,7 +1025,7 @@ export function KeamananSlide({
 
             {/* Filter Cepat Status Titik */}
             {checkpointSummary.total > 0 && (
-              <div className="flex flex-wrap items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl shrink-0">
+              <div className="flex flex-wrap items-center gap-1 p-1 bg-[#F7F4EC] border border-[#E6E2D6] rounded-2xl shrink-0">
                 {(
                   [
                     { id: 'semua', label: `Semua (${checkpointSummary.total})` },
@@ -1044,8 +1046,8 @@ export function KeamananSlide({
                     onClick={() => setCheckpointFilter(tab.id)}
                     className={`min-h-[32px] px-2.5 rounded-xl text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                       checkpointFilter === tab.id
-                        ? 'bg-[#4C1D95] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-[#4C1D95]'
+                        ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                        : 'text-[#4A554A] hover:text-[#243825]'
                     }`}
                   >
                     {tab.label}
@@ -1057,47 +1059,47 @@ export function KeamananSlide({
 
           {/* Bar Proporsi Status Titik Checkpoint */}
           {checkpointSummary.total > 0 && (
-            <div className="px-4 sm:px-5 py-3 bg-indigo-50/40 border-b border-indigo-100/70 space-y-2">
+            <div className="px-4 sm:px-5 py-3 bg-[#F7F4EC]/70 border-b border-[#E6E2D6] space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
-                    <span className="w-2 h-2 rounded-full bg-[#059669]" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[#243825]">
+                    <span className="w-2 h-2 rounded-full bg-[#2B3F29]" aria-hidden="true" />
                     Aman: <span className="font-mono tabular-nums">{checkpointSummary.aman}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-red-700">
-                    <span className="w-2 h-2 rounded-full bg-[#DC2626]" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[#A44831]">
+                    <span className="w-2 h-2 rounded-full bg-[#C87058]" aria-hidden="true" />
                     Perlu Perhatian:{' '}
                     <span className="font-mono tabular-nums">
                       {checkpointSummary.perluPerhatian}
                     </span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-slate-600">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[#6E786D]">
+                    <span className="w-2 h-2 rounded-full bg-[#9CA396]" aria-hidden="true" />
                     Belum Discan Hari Ini:{' '}
                     <span className="font-mono tabular-nums">
                       {checkpointSummary.belumHariIni}
                     </span>
                   </span>
                 </div>
-                <span className="text-[11px] font-mono font-semibold text-slate-600 tabular-nums">
+                <span className="text-[11px] font-mono font-semibold text-[#4A554A] tabular-nums">
                   Cakupan hari ini: {checkpointSummary.terpantauHariIni}/{checkpointSummary.total}{' '}
                   titik
                 </span>
               </div>
 
               <div
-                className="h-2 w-full rounded-full bg-slate-200 overflow-hidden flex"
+                className="h-2 w-full rounded-full bg-[#E6E2D6] overflow-hidden flex"
                 aria-hidden="true"
               >
                 {checkpointSummary.aman > 0 && (
                   <div
-                    className="bg-[#059669] h-full transition-all"
+                    className="bg-[#2B3F29] h-full transition-all"
                     style={{ width: `${(checkpointSummary.aman / checkpointSummary.total) * 100}%` }}
                   />
                 )}
                 {checkpointSummary.perluPerhatian > 0 && (
                   <div
-                    className="bg-[#DC2626] h-full transition-all"
+                    className="bg-[#C87058] h-full transition-all"
                     style={{
                       width: `${
                         (checkpointSummary.perluPerhatian / checkpointSummary.total) * 100
@@ -1107,7 +1109,7 @@ export function KeamananSlide({
                 )}
                 {checkpointSummary.belumDipatroli > 0 && (
                   <div
-                    className="bg-slate-300 h-full transition-all"
+                    className="bg-[#C6C2B5] h-full transition-all"
                     style={{
                       width: `${
                         (checkpointSummary.belumDipatroli / checkpointSummary.total) * 100
@@ -1122,17 +1124,17 @@ export function KeamananSlide({
           {/* Grid Kartu Setiap Titik Checkpoint */}
           {checkpointSummary.total === 0 ? (
             <div className="px-5 py-6 text-center space-y-2">
-              <MapPin className="w-7 h-7 text-slate-300 mx-auto" />
-              <p className="text-xs font-semibold text-slate-700">
+              <MapPin className="w-7 h-7 text-[#C6D2BF] mx-auto" />
+              <p className="text-xs font-semibold text-[#1B271B]">
                 Belum Ada Titik Checkpoint Patroli Terdaftar
               </p>
-              <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+              <p className="text-[11px] text-[#6E786D] max-w-sm mx-auto">
                 Tambahkan lokasi pos atau sudut blok beserta UID stiker RFID/NFC melalui tombol
                 Kelola Petugas &amp; NFC agar status patroli setiap titik dapat dipantau di sini.
               </p>
             </div>
           ) : filteredCheckpoints.length === 0 ? (
-            <div className="px-5 py-6 text-center text-xs text-slate-500">
+            <div className="px-5 py-6 text-center text-xs text-[#6E786D]">
               Tidak ada titik checkpoint pada filter status ini.
             </div>
           ) : (
@@ -1146,28 +1148,28 @@ export function KeamananSlide({
                     key={titik.id}
                     className={`rounded-2xl border p-3.5 sm:p-4 flex flex-col justify-between gap-2.5 transition-colors ${
                       isAttention
-                        ? 'border-red-300 bg-red-50/50'
+                        ? 'border-[#E2A898] bg-[#C87058]/10'
                         : isAman
-                          ? 'border-emerald-200/80 bg-emerald-50/30'
-                          : 'border-indigo-100/80 bg-indigo-50/40'
+                          ? 'border-[#C6D2BF] bg-[#E5EEE3]/45'
+                          : 'border-[#E6E2D6] bg-[#F7F4EC]'
                     }`}
                   >
                     {/* Baris Judul Lokasi & Status Kondisi */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-[#0F172A] leading-snug flex items-center gap-1.5">
+                        <h3 className="text-sm font-bold text-[#1B271B] leading-snug flex items-center gap-1.5">
                           <MapPin
                             className={`w-3.5 h-3.5 shrink-0 ${
                               isAttention
-                                ? 'text-red-600'
+                                ? 'text-[#C87058]'
                                 : isAman
-                                  ? 'text-emerald-600'
-                                  : 'text-[#4C1D95]'
+                                  ? 'text-[#243825]'
+                                  : 'text-[#6E786D]'
                             }`}
                           />
                           <span className="truncate">{titik.nama_lokasi}</span>
                         </h3>
-                        <p className="text-[11px] font-mono text-slate-500 mt-0.5 truncate">
+                        <p className="text-[11px] font-mono text-[#6E786D] mt-0.5 truncate">
                           UID: {titik.rfid_uid}
                           {titik.keterangan ? ` · ${titik.keterangan}` : ''}
                         </p>
@@ -1177,10 +1179,10 @@ export function KeamananSlide({
                         <span
                           className={`text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap ${
                             isAttention
-                              ? 'text-red-700'
+                              ? 'text-[#A44831]'
                               : isAman
-                                ? 'text-emerald-700'
-                                : 'text-slate-500'
+                                ? 'text-[#243825]'
+                                : 'text-[#6E786D]'
                           }`}
                         >
                           {isAttention ? (
@@ -1200,7 +1202,7 @@ export function KeamananSlide({
                         </span>
                         <p
                           className={`text-[10px] font-semibold mt-0.5 ${
-                            scannedToday ? 'text-emerald-700' : 'text-amber-700'
+                            scannedToday ? 'text-[#243825]' : 'text-[#8C621A]'
                           }`}
                         >
                           {scannedToday ? 'Sudah discan hari ini' : 'Belum discan hari ini'}
@@ -1210,14 +1212,14 @@ export function KeamananSlide({
 
                     {/* Info Scan Terakhir / Catatan Perhatian */}
                     {lastScan ? (
-                      <div className="pt-2 border-t border-indigo-100/70 space-y-1.5">
-                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-slate-600">
+                      <div className="pt-2 border-t border-[#E6E2D6] space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-[#4A554A]">
                           <span>
                             Petugas:{' '}
-                            <strong className="text-[#0F172A]">{lastScan.nama_petugas}</strong>
+                            <strong className="text-[#1B271B]">{lastScan.nama_petugas}</strong>
                           </span>
-                          <span className="font-mono tabular-nums text-slate-500 inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="font-mono tabular-nums text-[#6E786D] inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-[#6E786D] shrink-0" />
                             {formatTanggalWaktu(lastScan.waktu_scan)}
                           </span>
                         </div>
@@ -1226,14 +1228,14 @@ export function KeamananSlide({
                           <p
                             className={`text-xs rounded-xl px-2.5 py-1.5 leading-relaxed ${
                               isAttention
-                                ? 'bg-white border border-red-200 text-red-950 font-medium'
-                                : 'bg-white/90 border border-indigo-100/80 text-slate-700'
+                                ? 'bg-[#FFFDF8] border border-[#E2A898] text-[#7A311E] font-medium'
+                                : 'bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A]'
                             }`}
                           >
                             {lastScan.catatan}
                           </p>
                         ) : (
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-[11px] text-[#6E786D]">
                             {scannedToday
                               ? 'Sudah dipatroli hari ini tanpa catatan kendala.'
                               : 'Scan terakhir sebelum hari ini — jadwalkan pengecekan ulang pada shift berjalan.'}
@@ -1241,8 +1243,8 @@ export function KeamananSlide({
                         )}
                       </div>
                     ) : (
-                      <div className="pt-2 border-t border-indigo-100/70">
-                        <p className="text-[11px] text-slate-500">
+                      <div className="pt-2 border-t border-[#E6E2D6]">
+                        <p className="text-[11px] text-[#6E786D]">
                           Belum ada laporan scan NFC/manual pada titik ini. Prioritaskan pada rute
                           patroli berikutnya.
                         </p>
@@ -1269,26 +1271,26 @@ export function KeamananSlide({
 
       {/* Info & Instruksi Keamanan dari Pengurus (Jika Ada) */}
       {securityAnnouncements.length > 0 && (
-        <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center gap-2">
-            <Megaphone className="w-4 h-4 text-amber-600 shrink-0" />
-            <h2 className="text-sm font-bold text-[#0F172A]">
+        <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] flex items-center gap-2">
+            <Megaphone className="w-4 h-4 text-[#8C621A] shrink-0" />
+            <h2 className="text-sm font-bold text-[#1B271B]">
               Imbauan &amp; Info Keamanan Lingkungan
             </h2>
           </div>
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]">
             {securityAnnouncements.slice(0, 4).map((notif) => (
               <article key={notif.id} className="px-4 sm:px-5 py-3.5 space-y-1">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                  <span className="font-semibold text-amber-700">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6E786D]">
+                  <span className="font-semibold text-[#6E4D12]">
                     {notif.sender_name} ({notif.sender_jabatan})
                   </span>
                   <span className="font-mono tabular-nums">
                     {formatTanggalWaktu(notif.created_at)}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-[#0F172A]">{notif.title}</h3>
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                <h3 className="text-sm font-bold text-[#1B271B]">{notif.title}</h3>
+                <p className="text-xs text-[#4A554A] leading-relaxed whitespace-pre-line">
                   {notif.message}
                 </p>
               </article>
@@ -1300,10 +1302,10 @@ export function KeamananSlide({
       {/* Filter & Daftar Lengkap Log Patroli Lingkungan Real-Time */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
             Filter Riwayat Patroli
           </p>
-          <div className="flex items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl">
+          <div className="flex items-center gap-1 p-1 bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl">
             {(
               [
                 { id: 'semua', label: `Semua (${safePatroliFeed.length})` },
@@ -1323,8 +1325,8 @@ export function KeamananSlide({
                 onClick={() => setKondisiFilter(opt.id)}
                 className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                   kondisiFilter === opt.id
-                    ? 'bg-[#4C1D95] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-[#4C1D95]'
+                    ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                    : 'text-[#4A554A] hover:text-[#243825]'
                 }`}
               >
                 {opt.label}

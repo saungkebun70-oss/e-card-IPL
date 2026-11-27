@@ -1033,14 +1033,14 @@ export default function App() {
   const renderContent = () => {
     if (dataError && !wargaData && !adminData) {
       return (
-        <section className="glass-card border-red-200/80 rounded-3xl p-4 sm:p-8 text-center max-w-lg mx-auto">
-          <AlertCircle className="w-10 h-10 text-red-600 mx-auto" />
-          <h2 className="text-base font-bold text-[#0F172A] mt-3">Gagal Memuat Data</h2>
-          <p className="text-sm text-slate-600 mt-1">{dataError}</p>
+        <section className="glass-card border-[#E2A898] bg-[#FFFDF8] rounded-3xl p-4 sm:p-8 text-center max-w-lg mx-auto">
+          <AlertCircle className="w-10 h-10 text-[#C87058] mx-auto" />
+          <h2 className="text-base font-bold text-[#1B271B] mt-3">Gagal Memuat Data</h2>
+          <p className="text-sm text-[#4A554A] mt-1">{dataError}</p>
           <button
             type="button"
             onClick={() => void loadPortalData(session)}
-            className="mt-5 min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer shadow-sm"
+            className="mt-5 min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-sm font-semibold inline-flex items-center gap-2 cursor-pointer shadow-sm"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Coba Muat Ulang</span>

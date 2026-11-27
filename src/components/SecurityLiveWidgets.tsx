@@ -45,34 +45,34 @@ export function EmergencySecurityContactCard({
   return (
     <section
       aria-label="Kontak Darurat Keamanan 24 Jam"
-      className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+      className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs"
     >
-      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2 bg-red-50/55">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] flex items-center justify-between gap-2 bg-[#C87058]/10">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-2xl bg-[#C87058] text-[#FFFDF8] flex items-center justify-center shrink-0">
             <ShieldAlert className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-[#0F172A] leading-tight">
+            <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
               Kontak Darurat Keamanan (24 Jam)
             </h2>
-            <p className="text-[11px] text-slate-600 truncate">
+            <p className="text-[11px] text-[#4A554A] truncate">
               Hubungi langsung petugas keamanan jaga Perumahan Saung Kebun
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-mono font-semibold text-red-700 shrink-0 tabular-nums">
+        <span className="text-[11px] font-mono font-semibold text-[#7A311E] shrink-0 tabular-nums">
           {validContacts.length} siaga
         </span>
       </div>
 
       {validContacts.length === 0 ? (
-        <div className="px-5 py-4 text-xs text-slate-500">
+        <div className="px-5 py-4 text-xs text-[#6E786D]">
           Nomor petugas keamanan belum ditambahkan oleh Pengurus melalui menu Pengaturan (⚙️) →
           Petugas &amp; NFC.
         </div>
       ) : (
-        <div className="divide-y divide-indigo-100/60">
+        <div className="divide-y divide-[#E6E2D6]">
           {validContacts.map((petugas, idx) => {
             const cleanWa = normalizePhoneNumber(petugas?.no_hp || '');
             const namaPetugas = petugas?.nama || 'Petugas Keamanan';
@@ -98,11 +98,11 @@ export function EmergencySecurityContactCard({
                     size="md"
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#0F172A] truncate">{namaPetugas}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
+                    <p className="text-sm font-bold text-[#1B271B] truncate">{namaPetugas}</p>
+                    <p className="text-xs text-[#6E786D] mt-0.5 flex flex-wrap items-center gap-x-2">
                       <span>{petugas?.shift || 'Shift Jaga'}</span>
-                      <span aria-hidden="true" className="text-slate-300">·</span>
-                      <span className="font-mono tabular-nums text-slate-600">+{cleanWa}</span>
+                      <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
+                      <span className="font-mono tabular-nums text-[#4A554A]">+{cleanWa}</span>
                     </p>
                   </div>
                 </div>
@@ -112,14 +112,14 @@ export function EmergencySecurityContactCard({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-h-[42px] px-4 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
+                    className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
                   >
                     <MessageCircle className="w-4 h-4 shrink-0" />
                     <span>Chat WA Darurat</span>
                   </a>
                   <a
                     href={`tel:+${cleanWa}`}
-                    className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
+                    className="min-h-[42px] px-4 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
                   >
                     <PhoneCall className="w-4 h-4 shrink-0" />
                     <span>Telepon</span>
@@ -190,24 +190,24 @@ export function SecurityPatrolFeedCard({
   return (
     <section
       aria-label="Info Keamanan dan Patroli Lingkungan"
-      className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+      className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs"
     >
-      <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex flex-wrap items-center justify-between gap-2">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-2xl bg-[#3b0764] text-[#A7F3D0] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0">
             <Radio className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-[#0F172A] leading-tight">
+            <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
               Info Keamanan &amp; Patroli Lingkungan
             </h2>
-            <p className="text-[11px] text-slate-500 truncate">
+            <p className="text-[11px] text-[#6E786D] truncate">
               Laporan scan titik checkpoint patroli petugas secara real-time
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] font-mono font-semibold text-[#4C1D95] tabular-nums">
+          <span className="text-[11px] font-mono font-semibold text-[#243825] tabular-nums">
             {safeFeed.length} log
           </span>
           {canDelete && onDeleteAllLogs && safeFeed.length > 0 && !confirmClearAll && (
@@ -218,7 +218,7 @@ export function SecurityPatrolFeedCard({
                 setConfirmDeleteId(null);
                 setConfirmClearAll(true);
               }}
-              className="px-2.5 py-1 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-2.5 py-1 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="w-3 h-3" />
               <span>Hapus Semua</span>
@@ -228,8 +228,8 @@ export function SecurityPatrolFeedCard({
       </div>
 
       {canDelete && onDeleteAllLogs && confirmClearAll && (
-        <div className="px-4 sm:px-5 py-3 bg-rose-50/90 border-b border-rose-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <p className="font-semibold text-rose-900">
+        <div className="px-4 sm:px-5 py-3 bg-[#C87058]/10 border-b border-[#E2A898] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <p className="font-semibold text-[#7A311E]">
             Hapus seluruh {safeFeed.length} log patroli keamanan ini secara permanen?
           </p>
           <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export function SecurityPatrolFeedCard({
               type="button"
               disabled={deletingAllLogs}
               onClick={() => setConfirmClearAll(false)}
-              className="px-3 py-1 rounded-full border border-rose-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+              className="px-3 py-1 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-[#4A554A] font-semibold hover:bg-[#F7F4EC] cursor-pointer"
             >
               Batal
             </button>
@@ -248,7 +248,7 @@ export function SecurityPatrolFeedCard({
                 setConfirmClearAll(false);
                 onDeleteAllLogs();
               }}
-              className="px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+              className="px-3 py-1 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-[#FFFDF8] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
             >
               {deletingAllLogs ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -263,16 +263,16 @@ export function SecurityPatrolFeedCard({
 
       {displayed.length === 0 ? (
         <div className="px-5 py-6 text-center space-y-1.5">
-          <Shield className="w-8 h-8 text-indigo-300 mx-auto" />
-          <p className="text-xs font-semibold text-slate-700">Belum Ada Laporan Patroli Tercatat</p>
-          <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+          <Shield className="w-8 h-8 text-[#C6D2BF] mx-auto" />
+          <p className="text-xs font-semibold text-[#1B271B]">Belum Ada Laporan Patroli Tercatat</p>
+          <p className="text-[11px] text-[#6E786D] max-w-sm mx-auto">
             Setiap kali petugas melakukan tap NFC di titik pos/blok perumahan, laporan waktu dan
             kondisi keamanan akan muncul otomatis di sini.
           </p>
         </div>
       ) : (
         <>
-          <div className="max-h-[360px] overflow-y-auto pr-1 divide-y divide-indigo-100/60">
+          <div className="max-h-[360px] overflow-y-auto pr-1 divide-y divide-[#E6E2D6]">
             {displayed.map((log, idx) => {
               const isAman = (log?.status_kondisi || 'Aman') === 'Aman';
               const rawMethod = (log?.metode_scan || 'NFC').trim();
@@ -283,20 +283,20 @@ export function SecurityPatrolFeedCard({
               return (
                 <article
                   key={log?.id || `log-${idx}`}
-                  className="px-3.5 sm:px-4 py-2.5 hover:bg-indigo-50/40 transition-colors"
+                  className="px-3.5 sm:px-4 py-2.5 hover:bg-[#E5EEE3]/35 transition-colors"
                 >
                   {/* Baris 1: Nama Pos + Badge Status di kiri, Jam/Tanggal ringkas + tombol hapus di kanan */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <MapPin className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
-                      <span className="text-xs sm:text-[13px] font-bold text-[#0F172A] truncate">
+                      <MapPin className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
+                      <span className="text-xs sm:text-[13px] font-bold text-[#1B271B] truncate">
                         {log?.nama_lokasi || 'Titik Patroli'}
                       </span>
                       <span
-                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-none shrink-0 ${
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-none shrink-0 border ${
                           isAman
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200/70'
+                            ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                            : 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]'
                         }`}
                       >
                         {isAman ? (
@@ -309,7 +309,7 @@ export function SecurityPatrolFeedCard({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[11px] font-mono text-slate-500 tabular-nums whitespace-nowrap">
+                      <span className="text-[11px] font-mono text-[#6E786D] tabular-nums whitespace-nowrap">
                         {formatCompactLogTime(log?.waktu_scan)}
                       </span>
                       {canDelete && onDeleteLog && log?.id && (
@@ -322,7 +322,7 @@ export function SecurityPatrolFeedCard({
                                 setConfirmDeleteId(null);
                                 onDeleteLog(log);
                               }}
-                              className="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                              className="px-2 py-0.5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-[#FFFDF8] text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
                             >
                               {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                               <span>Hapus</span>
@@ -331,7 +331,7 @@ export function SecurityPatrolFeedCard({
                               type="button"
                               disabled={isDeletingThis}
                               onClick={() => setConfirmDeleteId(null)}
-                              className="px-1.5 py-0.5 rounded-full border border-slate-200 bg-white text-slate-600 text-[10px] font-semibold hover:bg-slate-50 cursor-pointer"
+                              className="px-1.5 py-0.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-[#4A554A] text-[10px] font-semibold hover:bg-[#F7F4EC] cursor-pointer"
                             >
                               Batal
                             </button>
@@ -346,10 +346,10 @@ export function SecurityPatrolFeedCard({
                             }}
                             aria-label="Hapus log patroli"
                             title="Hapus log patroli ini"
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
+                            className="p-1 rounded-lg text-[#6E786D] hover:text-[#9A422B] hover:bg-[#C87058]/10 transition-colors cursor-pointer disabled:opacity-40"
                           >
                             {isDeletingThis ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C87058]" />
                             ) : (
                               <Trash2 className="w-3.5 h-3.5" />
                             )}
@@ -367,13 +367,13 @@ export function SecurityPatrolFeedCard({
                       size="xs"
                       className="w-4 h-4 text-[8px]"
                     />
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-[#6E786D] truncate">
                       {log?.nama_petugas || 'Petugas'} · {methodLabel}
                     </p>
                   </div>
 
                   {log?.catatan && (
-                    <p className="text-[11px] text-slate-600 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1 mt-1.5 ml-5 leading-snug">
+                    <p className="text-[11px] text-[#4A554A] bg-[#F7F4EC] border border-[#E6E2D6] rounded-xl px-2.5 py-1 mt-1.5 ml-5 leading-snug">
                       {log.catatan}
                     </p>
                   )}
@@ -383,11 +383,11 @@ export function SecurityPatrolFeedCard({
           </div>
 
           {hasMore && (
-            <div className="border-t border-indigo-100/70 bg-indigo-50/40 px-3.5 py-2 flex justify-center">
+            <div className="border-t border-[#E6E2D6] bg-[#F7F4EC]/70 px-3.5 py-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => setExpanded((prev) => !prev)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-[#4C1D95] hover:bg-indigo-100/70 transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-[#243825] hover:bg-[#E5EEE3] transition-colors cursor-pointer"
               >
                 {expanded ? (
                   <>

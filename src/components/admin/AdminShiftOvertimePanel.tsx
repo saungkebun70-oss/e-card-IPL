@@ -623,26 +623,26 @@ export function AdminShiftOvertimePanel({
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="glass-hero text-white rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-purple-100/90">Lembur Dibayar (LUNAS)</p>
-            <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+            <p className="text-xs font-medium text-[#F6F3EA]/90">Lembur Dibayar (LUNAS)</p>
+            <CheckCircle2 className="w-4 h-4 text-[#E5EEE3] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-300 tabular-nums mt-2">
+          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#E5EEE3] tabular-nums mt-2">
             {formatRupiah(monthOvertimeSummary.paidTotal)}
           </p>
-          <p className="text-[11px] text-purple-100/75 mt-1 tabular-nums">
+          <p className="text-[11px] text-[#F6F3EA]/80 mt-1 tabular-nums">
             {monthOvertimeSummary.paidCount} jadwal tercatat otomatis di Buku Kas
           </p>
         </div>
 
         <div className="glass-card rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-slate-500">Menunggu Pembayaran</p>
-            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs font-medium text-[#6E786D]">Menunggu Pembayaran</p>
+            <Clock className="w-4 h-4 text-[#8A5F16] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#B45309] tabular-nums mt-2">
+          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#8A5F16] tabular-nums mt-2">
             {formatRupiah(monthOvertimeSummary.unpaidTotal)}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
+          <p className="text-[11px] text-[#6E786D] mt-1 tabular-nums">
             {monthOvertimeSummary.unpaidCount} jadwal Lembur Minggu belum dibayar
           </p>
         </div>
@@ -650,8 +650,8 @@ export function AdminShiftOvertimePanel({
         {/* Pengaturan Cepat Tarif Default Lembur Minggu */}
         <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-2.5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-[#0F172A]">Default Tarif Lembur Minggu</p>
-            <Banknote className="w-4 h-4 text-[#4C1D95] shrink-0" />
+            <p className="text-xs font-semibold text-[#1B271B]">Default Tarif Lembur Minggu</p>
+            <Banknote className="w-4 h-4 text-[#243825] shrink-0" />
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -662,18 +662,18 @@ export function AdminShiftOvertimePanel({
               value={defaultNominalInput}
               onChange={(e) => setDefaultNominalInput(e.target.value)}
               aria-label="Tarif default lembur minggu dalam rupiah"
-              className="w-full min-h-[40px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-sm font-mono font-bold text-[#0F172A] tabular-nums focus:bg-white focus:border-[#4C1D95] focus:outline-none"
+              className="w-full min-h-[40px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono font-bold text-[#1B271B] tabular-nums focus:bg-white focus:border-[#2B3F29] focus:outline-none"
             />
             <button
               type="button"
               onClick={handleSaveDefaultNominal}
-              className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+              className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Simpan</span>
             </button>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-[#6E786D]">
             Nilai otomatis terisi saat membuat jadwal Lembur Minggu (19:00–07:00 WIB).
           </p>
         </div>
@@ -681,16 +681,16 @@ export function AdminShiftOvertimePanel({
 
       {/* FORM TAMBAH JADWAL SHIFT & PEMBAYARAN LEMBUR MINGGU */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-start gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#4C1D95] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+            <div className="w-9 h-9 rounded-2xl bg-[#2B3F29] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
               <Moon className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#0F172A] leading-tight">
+              <h2 className="text-sm sm:text-base font-bold text-[#1B271B] leading-tight">
                 Kelola Shift &amp; Lembur Keamanan
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#6E786D] mt-0.5">
                 Jadwalkan shift atau Lembur Minggu (19:00–07:00 WIB) dan integrasikan pencairan
                 langsung ke Kas Pengeluaran &amp; Tab Honor Petugas.
               </p>
@@ -700,7 +700,7 @@ export function AdminShiftOvertimePanel({
             type="button"
             disabled={refreshing}
             onClick={() => void loadAll(true)}
-            className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Sinkronkan</span>
@@ -712,7 +712,7 @@ export function AdminShiftOvertimePanel({
             <div>
               <label
                 htmlFor="shift-ov-officer"
-                className="block text-xs font-bold text-slate-700 mb-1.5"
+                className="block text-xs font-bold text-[#4A554A] mb-1.5"
               >
                 Petugas Keamanan
               </label>
@@ -727,7 +727,7 @@ export function AdminShiftOvertimePanel({
                     setFormOfficer(e.target.value);
                   }
                 }}
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               >
                 {officerOptions.map((opt) => (
                   <option key={opt.nama} value={opt.nama}>
@@ -742,7 +742,7 @@ export function AdminShiftOvertimePanel({
                   value={customOfficerName}
                   onChange={(e) => setCustomOfficerName(e.target.value)}
                   placeholder="Ketik nama petugas baru..."
-                  className="mt-2 w-full min-h-[40px] rounded-xl border border-emerald-400 bg-emerald-50/40 px-3 text-xs sm:text-sm text-[#0F172A] focus:bg-white focus:border-[#059669] focus:outline-none"
+                  className="mt-2 w-full min-h-[40px] rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/40 px-3 text-xs sm:text-sm text-[#1B271B] focus:bg-[#FFFDF8] focus:border-[#2B3F29] focus:outline-none"
                 />
               )}
             </div>
@@ -750,7 +750,7 @@ export function AdminShiftOvertimePanel({
             <div>
               <label
                 htmlFor="shift-ov-type"
-                className="block text-xs font-bold text-slate-700 mb-1.5"
+                className="block text-xs font-bold text-[#4A554A] mb-1.5"
               >
                 Jenis Jadwal Shift
               </label>
@@ -758,7 +758,7 @@ export function AdminShiftOvertimePanel({
                 id="shift-ov-type"
                 value={formShiftName}
                 onChange={(e) => handleShiftTypeChange(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               >
                 <option value={STANDARD_SECURITY_SHIFTS[3]}>
                   Lembur Minggu (19:00-07:00)
@@ -772,7 +772,7 @@ export function AdminShiftOvertimePanel({
             <div>
               <label
                 htmlFor="shift-ov-date"
-                className="block text-xs font-bold text-slate-700 mb-1.5"
+                className="block text-xs font-bold text-[#4A554A] mb-1.5"
               >
                 Tanggal Mulai Shift (WIB)
               </label>
@@ -782,14 +782,14 @@ export function AdminShiftOvertimePanel({
                 required
                 value={formShiftDate}
                 onChange={(e) => setFormShiftDate(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] tabular-nums focus:border-[#2B3F29] focus:outline-none"
               />
             </div>
 
             <div>
               <label
                 htmlFor="shift-ov-notes"
-                className="block text-xs font-bold text-slate-700 mb-1.5"
+                className="block text-xs font-bold text-[#4A554A] mb-1.5"
               >
                 Catatan Jadwal (Opsional)
               </label>
@@ -800,19 +800,19 @@ export function AdminShiftOvertimePanel({
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 placeholder="Misal: Pengganti jaga malam Minggu..."
-                className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none"
               />
             </div>
           </div>
 
           {/* KONTROL KHUSUS LEMBUR MINGGU: NOMINAL & OPSI BAYAR LANGSUNG KE KAS */}
           {isFormLembur && (
-            <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-4 space-y-3.5">
+            <div className="rounded-2xl bg-[#F7F4EC]/85 border border-[#E6E2D6] p-4 space-y-3.5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-end">
                 <div>
                   <label
                     htmlFor="shift-ov-nominal"
-                    className="block text-xs font-bold text-[#4C1D95] mb-1.5"
+                    className="block text-xs font-bold text-[#243825] mb-1.5"
                   >
                     Nominal Lembur (Rp)
                   </label>
@@ -825,25 +825,25 @@ export function AdminShiftOvertimePanel({
                     value={formNominalInput}
                     onChange={(e) => setFormNominalInput(e.target.value)}
                     placeholder="Contoh: 100000"
-                    className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white px-3.5 text-sm font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-sm font-mono font-bold text-[#1B271B] tabular-nums focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                   />
-                  <p className="text-[11px] text-[#4C1D95] mt-1 font-mono tabular-nums">
+                  <p className="text-[11px] text-[#243825] mt-1 font-mono tabular-nums">
                     Terbaca: <strong>{formatRupiah(parsedFormNominal)}</strong>
                   </p>
                 </div>
 
-                <label className="flex items-start gap-3 rounded-2xl bg-white/95 border border-indigo-100 px-3.5 py-3 cursor-pointer hover:border-indigo-300 transition">
+                <label className="flex items-start gap-3 rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] px-3.5 py-3 cursor-pointer hover:border-[#C6D2BF] transition">
                   <input
                     type="checkbox"
                     checked={formPayImmediately}
                     onChange={(e) => setFormPayImmediately(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#4C1D95] cursor-pointer shrink-0"
+                    className="mt-0.5 h-4 w-4 rounded border-[#C6D2BF] accent-[#2B3F29] cursor-pointer shrink-0"
                   />
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-bold text-[#0F172A] leading-tight">
+                    <p className="text-xs sm:text-sm font-bold text-[#1B271B] leading-tight">
                       Langsung Bayarkan &amp; Catat ke Kas
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                    <p className="text-[11px] text-[#6E786D] mt-0.5 leading-snug">
                       Otomatis membuat pengeluaran <strong>Terverifikasi</strong> di Buku Kas &amp;
                       memotong Saldo Kas saat ini juga.
                     </p>
@@ -852,16 +852,16 @@ export function AdminShiftOvertimePanel({
               </div>
 
               {formPayImmediately && (
-                <div className="rounded-2xl glass-hero text-slate-100 px-4 py-3 text-xs space-y-1">
-                  <p className="font-bold text-emerald-300">
+                <div className="rounded-2xl glass-hero text-[#F6F3EA] px-4 py-3 text-xs space-y-1">
+                  <p className="font-bold text-[#E5EEE3]">
                     Pratinjau Pencatatan Otomatis ke Buku Kas (transaksi_kas):
                   </p>
                   <p>
-                    <span className="text-purple-200/80">Kategori:</span>{' '}
+                    <span className="text-[#F6F3EA]/75">Kategori:</span>{' '}
                     <strong>Honor &amp; Lembur Keamanan</strong>
                   </p>
                   <p className="break-words">
-                    <span className="text-purple-200/80">Keterangan:</span>{' '}
+                    <span className="text-[#F6F3EA]/75">Keterangan:</span>{' '}
                     <span className="font-mono text-white">
                       {buildOvertimeCashDescription(
                         effectiveFormOfficer || 'Petugas',
@@ -870,8 +870,8 @@ export function AdminShiftOvertimePanel({
                     </span>
                   </p>
                   <p className="font-mono tabular-nums">
-                    <span className="text-purple-200/80 font-sans">Nominal Pengeluaran:</span>{' '}
-                    <strong className="text-emerald-300">{formatRupiah(parsedFormNominal)}</strong>
+                    <span className="text-[#F6F3EA]/75 font-sans">Nominal Pengeluaran:</span>{' '}
+                    <strong className="text-[#E5EEE3]">{formatRupiah(parsedFormNominal)}</strong>
                   </p>
                 </div>
               )}
@@ -879,14 +879,14 @@ export function AdminShiftOvertimePanel({
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#6E786D]">
               Jadwal otomatis tampil di Tab <strong>Info &amp; Shift</strong>, mendeteksi shift saat{' '}
               <strong>Absensi / Patroli</strong>, dan sinkron ke Tab <strong>Honor</strong> petugas.
             </p>
             <button
               type="submit"
               disabled={submittingForm}
-              className="min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm whitespace-nowrap transition-colors"
+              className="min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm whitespace-nowrap transition-colors"
             >
               {submittingForm ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -907,12 +907,12 @@ export function AdminShiftOvertimePanel({
 
       {/* DAFTAR JADWAL SHIFT & LEMBUR + SINKRONISASI ABSENSI + PEMBAYARAN ANTI-GANDA */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-[#0F172A]">
+            <h3 className="text-sm sm:text-base font-bold text-[#1B271B]">
               Daftar Jadwal Shift &amp; Status Pembayaran Lembur
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Verifikasi kehadiran absensi petugas sebelum membayarkan uang lembur ke Buku Kas.
             </p>
           </div>
@@ -923,13 +923,13 @@ export function AdminShiftOvertimePanel({
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
               aria-label="Filter bulan jadwal"
-              className="min-h-[38px] rounded-full border border-indigo-200/80 bg-white/95 px-3.5 text-xs font-mono font-semibold text-[#0F172A]"
+              className="min-h-[38px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-xs font-mono font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
             />
             <select
               value={filterOfficer}
               onChange={(e) => setFilterOfficer(e.target.value)}
               aria-label="Filter petugas"
-              className="min-h-[38px] rounded-full border border-indigo-200/80 bg-white/95 px-3.5 text-xs font-semibold text-[#0F172A]"
+              className="min-h-[38px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-xs font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
             >
               <option value="semua">Semua Petugas</option>
               {officerOptions.map((opt) => (
@@ -938,7 +938,7 @@ export function AdminShiftOvertimePanel({
                 </option>
               ))}
             </select>
-            <div className="inline-flex p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl">
+            <div className="inline-flex p-1 bg-[#F7F4EC] border border-[#E6E2D6] rounded-2xl">
               {(
                 [
                   { id: 'semua', label: 'Semua' },
@@ -952,8 +952,8 @@ export function AdminShiftOvertimePanel({
                   onClick={() => setFilterPayment(tab.id)}
                   className={`min-h-[30px] px-3 rounded-xl text-[11px] font-bold transition cursor-pointer ${
                     filterPayment === tab.id
-                      ? 'bg-[#4C1D95] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-[#4C1D95]'
+                      ? 'bg-[#2B3F29] text-white shadow-xs'
+                      : 'text-[#6E786D] hover:text-[#243825]'
                   }`}
                 >
                   {tab.label}
@@ -965,22 +965,22 @@ export function AdminShiftOvertimePanel({
 
         {loading ? (
           <div className="p-5 space-y-3">
-            <div className="h-20 rounded-xl bg-slate-100 animate-pulse" />
-            <div className="h-20 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-20 rounded-xl bg-[#E5EEE3]/50 animate-pulse" />
+            <div className="h-20 rounded-xl bg-[#E5EEE3]/50 animate-pulse" />
           </div>
         ) : filteredOverrides.length === 0 ? (
           <div className="px-5 py-10 text-center space-y-2">
-            <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-sm font-bold text-slate-700">
+            <Calendar className="w-8 h-8 text-[#C6D2BF] mx-auto" />
+            <p className="text-sm font-bold text-[#1B271B]">
               Belum Ada Jadwal Shift / Lembur pada Filter Ini
             </p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-[#6E786D] max-w-sm mx-auto">
               Tambahkan jadwal Lembur Minggu (19:00–07:00 WIB) atau penyesuaian shift di formulir
               atas untuk mulai sinkronisasi dengan Absensi, Honor Petugas, dan Buku Kas.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]/70">
             {filteredOverrides.map((ov) => {
               const isLembur = isSundayOvertimeShift(ov.shift_name);
               const isPaid = ov.payment_status === 'paid' || Boolean(ov.cash_transaction_id);
@@ -989,25 +989,25 @@ export function AdminShiftOvertimePanel({
               return (
                 <article
                   key={ov.id}
-                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-indigo-50/35 transition-colors"
+                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-[#F7F4EC]/70 transition-colors"
                 >
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                      <p className="text-sm sm:text-base font-bold text-[#0F172A]">
+                      <p className="text-sm sm:text-base font-bold text-[#1B271B]">
                         {ov.officer_name}
                       </p>
-                      <span className="text-slate-300" aria-hidden="true">
+                      <span className="text-[#C6D2BF]" aria-hidden="true">
                         ·
                       </span>
-                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                      <span className="text-xs font-semibold text-[#4A554A] tabular-nums">
                         {formatWibDateStr(ov.shift_date)}
                       </span>
-                      <span className="text-slate-300" aria-hidden="true">
+                      <span className="text-[#C6D2BF]" aria-hidden="true">
                         ·
                       </span>
                       <span
                         className={`text-xs font-bold ${
-                          isLembur ? 'text-[#4C1D95]' : 'text-slate-700'
+                          isLembur ? 'text-[#243825]' : 'text-[#4A554A]'
                         }`}
                       >
                         {ov.shift_name}
@@ -1018,7 +1018,7 @@ export function AdminShiftOvertimePanel({
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                       {matchedAtt ? (
                         matchedAtt.status === 'completed' ? (
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#047857]">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#243825]">
                             <UserCheck className="w-3.5 h-3.5 shrink-0" />
                             <span>
                               Absensi Terverifikasi: Masuk {formatWibTime(matchedAtt.clock_in_at)} –
@@ -1026,10 +1026,10 @@ export function AdminShiftOvertimePanel({
                             </span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#047857]">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#243825]">
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C6D2BF] opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2B3F29]" />
                             </span>
                             <span>
                               Sedang Bertugas (Masuk {formatWibTime(matchedAtt.clock_in_at)})
@@ -1037,21 +1037,21 @@ export function AdminShiftOvertimePanel({
                           </span>
                         )
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
-                          <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="inline-flex items-center gap-1.5 font-medium text-[#6E786D]">
+                          <Clock className="w-3.5 h-3.5 text-[#6E786D] shrink-0" />
                           <span>Belum ada catatan Absen Masuk pada tanggal shift ini</span>
                         </span>
                       )}
                     </div>
 
                     {ov.notes && (
-                      <p className="text-xs text-slate-600 bg-indigo-50/40 border border-indigo-100/80 rounded-xl px-3 py-1.5 max-w-xl">
+                      <p className="text-xs text-[#4A554A] bg-[#F7F4EC]/80 border border-[#E6E2D6] rounded-xl px-3 py-1.5 max-w-xl">
                         {ov.notes}
                       </p>
                     )}
 
                     {isLembur && isPaid && ov.paid_at && (
-                      <p className="text-[11px] font-medium text-[#047857]">
+                      <p className="text-[11px] font-medium text-[#243825]">
                         Dibayarkan &amp; tercatat di Buku Kas pada {formatWibDateTime(ov.paid_at)}
                       </p>
                     )}
@@ -1061,12 +1061,12 @@ export function AdminShiftOvertimePanel({
                   <div className="flex flex-wrap sm:flex-nowrap items-center justify-between lg:justify-end gap-3 shrink-0">
                     {isLembur && (
                       <div className="text-left lg:text-right">
-                        <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
+                        <p className="text-base font-mono font-extrabold text-[#1B271B] tabular-nums">
                           {formatRupiah(ov.overtime_amount)}
                         </p>
                         <p
                           className={`text-xs font-extrabold mt-0.5 ${
-                            isPaid ? 'text-[#047857]' : 'text-[#B45309]'
+                            isPaid ? 'text-[#243825]' : 'text-[#8A5F16]'
                           }`}
                         >
                           {isPaid ? 'SUDAH DIBAYAR / CAIR' : 'BELUM DIBAYAR'}
@@ -1080,7 +1080,7 @@ export function AdminShiftOvertimePanel({
                           <>
                             <span
                               title="Sudah dibayarkan & tercatat di Buku Kas (anti pencatatan ganda)"
-                              className="min-h-[40px] px-3.5 rounded-full bg-[#D1FAE5] border border-emerald-200 text-[#047857] text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap"
+                              className="min-h-[40px] px-3.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap"
                             >
                               <ShieldCheck className="w-4 h-4 shrink-0" />
                               <span>Sudah Cair</span>
@@ -1091,7 +1091,7 @@ export function AdminShiftOvertimePanel({
                                 <button
                                   type="button"
                                   onClick={() => setPreviewKwitansi(linkedTrx)}
-                                  className="min-h-[40px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                                  className="min-h-[40px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                                 >
                                   <FileText className="w-3.5 h-3.5 shrink-0" />
                                   <span>Kwitansi</span>
@@ -1102,7 +1102,7 @@ export function AdminShiftOvertimePanel({
                               type="button"
                               onClick={() => setCancelPayTarget(ov)}
                               title="Batalkan pencairan & hapus transaksi terkait di Buku Kas"
-                              className="min-h-[40px] px-3.5 rounded-full border border-amber-200 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#B45309] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                              className="min-h-[40px] px-3.5 rounded-full border border-[#E2C285] bg-[#F2D8A7]/50 hover:bg-[#F2D8A7]/80 text-[#4A3410] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                             >
                               <Undo2 className="w-3.5 h-3.5 shrink-0" />
                               <span>Batalkan Cair</span>
@@ -1112,7 +1112,7 @@ export function AdminShiftOvertimePanel({
                           <button
                             type="button"
                             onClick={() => openPayModal(ov)}
-                            className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs transition-colors"
+                            className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs transition-colors"
                           >
                             <Banknote className="w-4 h-4 shrink-0" />
                             <span>Bayar Lembur Sekarang</span>
@@ -1124,7 +1124,7 @@ export function AdminShiftOvertimePanel({
                           type="button"
                           onClick={() => openEditModal(ov)}
                           aria-label={`Edit jadwal ${ov.officer_name}`}
-                          className="min-h-[40px] min-w-[40px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 hover:text-[#4C1D95] text-slate-500 flex items-center justify-center cursor-pointer transition-colors"
+                          className="min-h-[40px] min-w-[40px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 hover:text-[#243825] text-[#6E786D] flex items-center justify-center cursor-pointer transition-colors"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
@@ -1134,7 +1134,7 @@ export function AdminShiftOvertimePanel({
                         type="button"
                         onClick={() => setDeleteTarget(ov)}
                         aria-label={`Hapus jadwal ${ov.officer_name}`}
-                        className="min-h-[40px] min-w-[40px] rounded-full border border-indigo-100 bg-white/95 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-slate-500 flex items-center justify-center cursor-pointer transition-colors"
+                        className="min-h-[40px] min-w-[40px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#C87058]/10 hover:border-[#E2A898] hover:text-[#9A422B] text-[#6E786D] flex items-center justify-center cursor-pointer transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1149,37 +1149,37 @@ export function AdminShiftOvertimePanel({
 
       {/* PENCAIRAN HONOR RUTIN PETUGAS KEAMANAN (TERPUSAT — OTOMATIS KE BUKU KAS, LPJ & TAB HONOR PETUGAS) */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-start gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#EDE9FE] border border-[#DDD6FE] text-[#4C1D95] flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 mt-0.5">
               <Wallet className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-[#0F172A] leading-tight">
+              <h3 className="text-sm sm:text-base font-bold text-[#1B271B] leading-tight">
                 Pencairan Honor Rutin Petugas Keamanan
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#6E786D] mt-0.5">
                 Cairkan honor rutin (Termin Tgl 7 / Tgl 18 / Bulanan) langsung dari sini — otomatis
                 tercatat di Buku Kas, memotong Saldo Kas, masuk LPJ, &amp; tampil di Tab Honor Petugas.
               </p>
             </div>
           </div>
-          <span className="text-xs font-mono font-bold text-[#047857] bg-[#D1FAE5] border border-emerald-200 rounded-full px-3 py-1 tabular-nums">
+          <span className="text-xs font-mono font-bold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] rounded-full px-3 py-1 tabular-nums">
             {filteredHonorRutinList.length} pencairan
           </span>
         </div>
 
-        <form onSubmit={(e) => void handleSubmitHonorRutin(e)} className="p-4 sm:p-5 border-b border-indigo-100/70 space-y-3.5 bg-indigo-50/30">
+        <form onSubmit={(e) => void handleSubmitHonorRutin(e)} className="p-4 sm:p-5 border-b border-[#E6E2D6] space-y-3.5 bg-[#F6F3EA]/65">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label htmlFor="honor-rutin-officer" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="honor-rutin-officer" className="block text-xs font-bold text-[#4A554A] mb-1.5">
                 Petugas Penerima
               </label>
               <select
                 id="honor-rutin-officer"
                 value={honorOfficer}
                 onChange={(e) => setHonorOfficer(e.target.value)}
-                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               >
                 {officerOptions.map((opt) => (
                   <option key={opt.nama} value={opt.nama}>
@@ -1190,14 +1190,14 @@ export function AdminShiftOvertimePanel({
             </div>
 
             <div>
-              <label htmlFor="honor-rutin-termin" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="honor-rutin-termin" className="block text-xs font-bold text-[#4A554A] mb-1.5">
                 Termin / Periode
               </label>
               <select
                 id="honor-rutin-termin"
                 value={honorTermin}
                 onChange={(e) => setHonorTermin(e.target.value)}
-                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-[#0F172A] focus:border-[#059669] focus:outline-none"
+                className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               >
                 {TERMIN_PENGELUARAN_LIST.map((t) => (
                   <option key={t} value={t}>
@@ -1208,7 +1208,7 @@ export function AdminShiftOvertimePanel({
             </div>
 
             <div>
-              <label htmlFor="honor-rutin-date" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="honor-rutin-date" className="block text-xs font-bold text-[#4A554A] mb-1.5">
                 Tanggal Pencairan
               </label>
               <input
@@ -1217,16 +1217,16 @@ export function AdminShiftOvertimePanel({
                 required
                 value={honorDate}
                 onChange={(e) => setHonorDate(e.target.value)}
-                className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A]"
+                className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="honor-rutin-nominal" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="honor-rutin-nominal" className="block text-xs font-bold text-[#4A554A] mb-1.5">
                 Nominal Honor (Rp)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6E786D]">
                   Rp
                 </span>
                 <input
@@ -1241,11 +1241,11 @@ export function AdminShiftOvertimePanel({
                   }
                   onChange={(e) => setHonorNominalStr(e.target.value.replace(/\D/g, ''))}
                   placeholder="Contoh: 750.000"
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#059669] focus:outline-none"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] pl-9 pr-3 text-sm font-mono font-bold text-[#1B271B] tabular-nums focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               {parsedHonorNominal > 0 && (
-                <p className="text-[11px] italic text-emerald-700 mt-1">
+                <p className="text-[11px] italic text-[#243825] mt-1">
                   {terbilangRupiah(parsedHonorNominal)}
                 </p>
               )}
@@ -1253,8 +1253,8 @@ export function AdminShiftOvertimePanel({
           </div>
 
           {duplicateHonorRutinWarning && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-xs text-amber-900 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="rounded-xl bg-[#F2D8A7]/45 border border-[#E2C285] px-3.5 py-2.5 text-xs text-[#4A3410] flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
               <span>
                 <strong>Anti-Input Ganda:</strong> Honor Rutin <strong>{honorTermin}</strong> untuk{' '}
                 <strong>{honorOfficer}</strong> bulan ini sudah dicairkan ({duplicateHonorRutinWarning.no_bukti} ·{' '}
@@ -1270,17 +1270,17 @@ export function AdminShiftOvertimePanel({
               value={honorNotes}
               onChange={(e) => setHonorNotes(e.target.value)}
               placeholder="Catatan tambahan pencairan honor (opsional)..."
-              className="flex-1 min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none"
+              className="flex-1 min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#2B3F29] focus:outline-none"
             />
             <button
               type="submit"
               disabled={submittingHonor || Boolean(duplicateHonorRutinWarning)}
-              className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap transition-colors shadow-sm"
+              className="min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap transition-colors shadow-sm"
             >
               {submittingHonor ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Banknote className="w-4 h-4 text-emerald-300" />
+                <Banknote className="w-4 h-4 text-[#E5EEE3]" />
               )}
               <span>{submittingHonor ? 'Memproses...' : 'Bayar Honor Rutin & Catat ke Kas'}</span>
             </button>
@@ -1289,46 +1289,46 @@ export function AdminShiftOvertimePanel({
 
         {/* Daftar Riwayat Pencairan Honor Rutin */}
         {filteredHonorRutinList.length === 0 ? (
-          <div className="px-5 py-7 text-center text-xs text-slate-500">
+          <div className="px-5 py-7 text-center text-xs text-[#6E786D]">
             Belum ada pencairan Honor Rutin pada bulan / filter petugas ini.
           </div>
         ) : (
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]/70">
             {filteredHonorRutinList.map((trx) => (
               <article
                 key={trx.id}
-                className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-indigo-50/35 transition-colors"
+                className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7F4EC]/70 transition-colors"
               >
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                    <span className="font-bold text-[#0F172A]">{trx.penerima_atau_sumber}</span>
+                    <span className="font-bold text-[#1B271B]">{trx.penerima_atau_sumber}</span>
                     {trx.termin && (
                       <>
-                        <span className="text-slate-300">·</span>
-                        <span className="font-semibold text-[#4C1D95]">{trx.termin}</span>
+                        <span className="text-[#C6D2BF]">·</span>
+                        <span className="font-semibold text-[#243825]">{trx.termin}</span>
                       </>
                     )}
-                    <span className="text-slate-300">·</span>
-                    <span className="font-mono text-slate-500 tabular-nums">
+                    <span className="text-[#C6D2BF]">·</span>
+                    <span className="font-mono text-[#6E786D] tabular-nums">
                       {formatTanggalSingkat(trx.tanggal)}
                     </span>
                   </div>
                   {trx.keterangan && (
-                    <p className="text-xs text-slate-600 line-clamp-2">{trx.keterangan}</p>
+                    <p className="text-xs text-[#4A554A] line-clamp-2">{trx.keterangan}</p>
                   )}
-                  <p className="text-[11px] font-mono text-slate-400">
+                  <p className="text-[11px] font-mono text-[#6E786D]">
                     {trx.no_bukti} · Tercatat di Buku Kas &amp; Tab Honor Petugas
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-                  <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums">
+                  <p className="text-base font-mono font-extrabold text-[#1B271B] tabular-nums">
                     {formatRupiah(trx.nominal)}
                   </p>
                   <button
                     type="button"
                     onClick={() => setPreviewKwitansi(trx)}
-                    className="min-h-[38px] px-3.5 rounded-full border border-emerald-200 bg-[#D1FAE5] hover:bg-[#A7F3D0] text-[#047857] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                    className="min-h-[38px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                   >
                     <FileText className="w-3.5 h-3.5 shrink-0" />
                     <span>Kwitansi</span>
@@ -1338,7 +1338,7 @@ export function AdminShiftOvertimePanel({
                     onClick={() => setDeleteHonorTarget(trx)}
                     aria-label={`Batalkan honor ${trx.no_bukti}`}
                     title="Batalkan / hapus pencairan honor (otomatis terhapus dari Buku Kas & Tab Honor Petugas)"
-                    className="min-h-[38px] min-w-[38px] rounded-full border border-indigo-100 bg-white/95 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-slate-500 flex items-center justify-center cursor-pointer transition-colors"
+                    className="min-h-[38px] min-w-[38px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#C87058]/10 hover:border-[#E2A898] hover:text-[#9A422B] text-[#6E786D] flex items-center justify-center cursor-pointer transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -1352,16 +1352,16 @@ export function AdminShiftOvertimePanel({
       {/* MODAL KONFIRMASI PEMBAYARAN LEMBUR KE BUKU KAS */}
       {payModalTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Pembayaran Lembur Minggu"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
+          <div className="bg-[#FFFDF8]/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Bayar Lembur &amp; Catat ke Kas</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <h3 className="text-base font-bold text-[#1B271B]">Bayar Lembur &amp; Catat ke Kas</h3>
+                <p className="text-xs text-[#6E786D] mt-0.5">
                   {payModalTarget.officer_name} · {formatWibDateStr(payModalTarget.shift_date)}
                 </p>
               </div>
@@ -1369,7 +1369,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 onClick={() => setPayModalTarget(null)}
                 aria-label="Tutup modal pembayaran lembur"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-100/60 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3]/60 flex items-center justify-center text-[#6E786D] cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1378,8 +1378,8 @@ export function AdminShiftOvertimePanel({
             <div className="p-5 space-y-4">
               {/* Status Verifikasi Absensi */}
               {payModalAttendance ? (
-                <div className="rounded-2xl bg-[#D1FAE5]/85 border border-emerald-200 p-3 text-xs text-[#047857] flex items-start gap-2">
-                  <UserCheck className="w-4 h-4 text-[#047857] shrink-0 mt-0.5" />
+                <div className="rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] p-3 text-xs text-[#243825] flex items-start gap-2">
+                  <UserCheck className="w-4 h-4 text-[#243825] shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">Absensi Petugas Terverifikasi</p>
                     <p className="mt-0.5">
@@ -1391,8 +1391,8 @@ export function AdminShiftOvertimePanel({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-[#FEF3C7]/90 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] p-3 text-xs text-[#4A3410] flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">Belum Ada Catatan Absensi Masuk</p>
                     <p className="mt-0.5">
@@ -1406,7 +1406,7 @@ export function AdminShiftOvertimePanel({
               <div>
                 <label
                   htmlFor="pay-modal-amount"
-                  className="block text-xs font-bold text-slate-700 mb-1.5"
+                  className="block text-xs font-bold text-[#4A554A] mb-1.5"
                 >
                   Nominal Lembur Dibayarkan (Rp)
                 </label>
@@ -1418,36 +1418,36 @@ export function AdminShiftOvertimePanel({
                   step={5000}
                   value={payModalAmountInput}
                   onChange={(e) => setPayModalAmountInput(e.target.value)}
-                  className="w-full min-h-[46px] rounded-2xl border border-indigo-200/80 bg-white px-3.5 text-base font-mono font-bold text-[#0F172A] tabular-nums focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full min-h-[46px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-base font-mono font-bold text-[#1B271B] tabular-nums focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 />
               </div>
 
-              <div className="rounded-2xl bg-indigo-50/45 border border-indigo-100/80 p-3.5 text-xs space-y-1">
-                <p className="font-bold text-[#0F172A]">Detail Entri Otomatis Buku Kas:</p>
-                <p className="text-slate-600">
-                  Kategori: <strong className="text-[#0F172A]">Honor &amp; Lembur Keamanan</strong>
+              <div className="rounded-2xl bg-[#F7F4EC]/85 border border-[#E6E2D6] p-3.5 text-xs space-y-1">
+                <p className="font-bold text-[#1B271B]">Detail Entri Otomatis Buku Kas:</p>
+                <p className="text-[#4A554A]">
+                  Kategori: <strong className="text-[#1B271B]">Honor &amp; Lembur Keamanan</strong>
                 </p>
-                <p className="text-slate-600 break-words">
+                <p className="text-[#4A554A] break-words">
                   Keterangan:{' '}
-                  <strong className="text-[#0F172A] font-mono">
+                  <strong className="text-[#1B271B] font-mono">
                     {buildOvertimeCashDescription(
                       payModalTarget.officer_name,
                       payModalTarget.shift_date
                     )}
                   </strong>
                 </p>
-                <p className="text-slate-600">
+                <p className="text-[#4A554A]">
                   Saldo Kas utama, Rekap Bulanan, dan LPJ langsung terpotong secara real-time.
                 </p>
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/80 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={payingOverride}
                 onClick={() => setPayModalTarget(null)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer transition-colors"
               >
                 Batal
               </button>
@@ -1455,7 +1455,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 disabled={payingOverride}
                 onClick={() => void handleConfirmPayOvertime()}
-                className="min-h-[44px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {payingOverride ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1472,38 +1472,38 @@ export function AdminShiftOvertimePanel({
       {/* MODAL KONFIRMASI HAPUS / BATALKAN JADWAL (SINKRON BUKU KAS) */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Hapus Jadwal Shift atau Lembur"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-[#0F172A]">Hapus / Batalkan Jadwal</h3>
+          <div className="bg-[#FFFDF8]/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#1B271B]">Hapus / Batalkan Jadwal</h3>
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
                 aria-label="Tutup konfirmasi hapus"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-100/60 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3]/60 flex items-center justify-center text-[#6E786D] cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-700 leading-relaxed">
+              <p className="text-sm text-[#4A554A] leading-relaxed">
                 Yakin ingin menghapus jadwal{' '}
-                <strong className="text-[#0F172A]">{deleteTarget.shift_name}</strong> untuk{' '}
-                <strong className="text-[#0F172A]">{deleteTarget.officer_name}</strong> tanggal{' '}
-                <strong className="text-[#0F172A]">
+                <strong className="text-[#1B271B]">{deleteTarget.shift_name}</strong> untuk{' '}
+                <strong className="text-[#1B271B]">{deleteTarget.officer_name}</strong> tanggal{' '}
+                <strong className="text-[#1B271B]">
                   {formatWibDateStr(deleteTarget.shift_date)}
                 </strong>
                 ?
               </p>
 
               {(deleteTarget.payment_status === 'paid' || deleteTarget.cash_transaction_id) && (
-                <div className="rounded-2xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-900 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="rounded-2xl bg-[#C87058]/10 border border-[#E2A898] p-3.5 text-xs text-[#7A311E] flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-[#9A422B] shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-bold">Sinkronisasi Penghapusan Buku Kas Aktif</p>
                     <p className="leading-relaxed">
@@ -1517,12 +1517,12 @@ export function AdminShiftOvertimePanel({
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/80 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={deletingOverride}
                 onClick={() => setDeleteTarget(null)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer transition-colors"
               >
                 Batal
               </button>
@@ -1530,7 +1530,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 disabled={deletingOverride}
                 onClick={() => void handleConfirmDelete()}
-                className="min-h-[44px] rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {deletingOverride ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1546,40 +1546,40 @@ export function AdminShiftOvertimePanel({
       {/* MODAL EDIT JADWAL SHIFT / PETUGAS (SINKRON REAL-TIME KE BUKU KAS) */}
       {editTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Edit Jadwal Shift atau Lembur"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-[#0F172A]">Edit Jadwal Shift / Lembur</h3>
+          <div className="bg-[#FFFDF8]/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#1B271B]">Edit Jadwal Shift / Lembur</h3>
               <button
                 type="button"
                 onClick={() => setEditTarget(null)}
                 aria-label="Tutup modal edit jadwal"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-100/60 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3]/60 flex items-center justify-center text-[#6E786D] cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Petugas</label>
+                <label className="block text-xs font-bold text-[#4A554A] mb-1">Nama Petugas</label>
                 <input
                   type="text"
                   value={editOfficerName}
                   onChange={(e) => setEditOfficerName(e.target.value)}
-                  className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Shift</label>
+                  <label className="block text-xs font-bold text-[#4A554A] mb-1">Jenis Shift</label>
                   <select
                     value={editShiftName}
                     onChange={(e) => setEditShiftName(e.target.value)}
-                    className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3 text-xs sm:text-sm text-[#0F172A]"
+                    className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-xs sm:text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   >
                     <option value={STANDARD_SECURITY_SHIFTS[3]}>Lembur Minggu (19:00-07:00)</option>
                     <option value={STANDARD_SECURITY_SHIFTS[0]}>Shift 1 (07:00-15:00)</option>
@@ -1588,18 +1588,18 @@ export function AdminShiftOvertimePanel({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal</label>
+                  <label className="block text-xs font-bold text-[#4A554A] mb-1">Tanggal</label>
                   <input
                     type="date"
                     value={editShiftDate}
                     onChange={(e) => setEditShiftDate(e.target.value)}
-                    className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3 text-sm font-mono text-[#0F172A]"
+                    className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
               </div>
               {isSundayOvertimeShift(editShiftName) && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-[#4A554A] mb-1">
                     Nominal Lembur (Rp)
                   </label>
                   <input
@@ -1609,26 +1609,26 @@ export function AdminShiftOvertimePanel({
                     step={5000}
                     value={editNominalInput}
                     onChange={(e) => setEditNominalInput(e.target.value)}
-                    className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3 text-sm font-mono font-bold text-[#0F172A]"
+                    className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono font-bold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Catatan</label>
+                <label className="block text-xs font-bold text-[#4A554A] mb-1">Catatan</label>
                 <input
                   type="text"
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/80 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={savingEdit}
                 onClick={() => setEditTarget(null)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer transition-colors"
               >
                 Batal
               </button>
@@ -1636,7 +1636,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 disabled={savingEdit}
                 onClick={() => void handleConfirmEdit()}
-                className="min-h-[44px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 <span>{savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
@@ -1649,32 +1649,32 @@ export function AdminShiftOvertimePanel({
       {/* MODAL KONFIRMASI BATALKAN PEMBAYARAN LEMBUR (JADWAL TETAP ADA, TRANSAKSI KAS DIHAPUS) */}
       {cancelPayTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Batalkan Pembayaran Lembur"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-[#0F172A]">Batalkan Pencairan Lembur</h3>
+          <div className="bg-[#FFFDF8]/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#1B271B]">Batalkan Pencairan Lembur</h3>
               <button
                 type="button"
                 onClick={() => setCancelPayTarget(null)}
                 aria-label="Tutup modal batal pencairan"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-100/60 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3]/60 flex items-center justify-center text-[#6E786D] cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 text-sm text-slate-700">
+            <div className="p-5 space-y-3 text-sm text-[#4A554A]">
               <p className="leading-relaxed">
                 Batalkan status <strong>Sudah Cair</strong> untuk lembur{' '}
-                <strong className="text-[#0F172A]">{cancelPayTarget.officer_name}</strong> tanggal{' '}
-                <strong className="text-[#0F172A]">{formatWibDateStr(cancelPayTarget.shift_date)}</strong>{' '}
+                <strong className="text-[#1B271B]">{cancelPayTarget.officer_name}</strong> tanggal{' '}
+                <strong className="text-[#1B271B]">{formatWibDateStr(cancelPayTarget.shift_date)}</strong>{' '}
                 ({formatRupiah(cancelPayTarget.overtime_amount)})?
               </p>
-              <div className="rounded-2xl bg-[#FEF3C7]/90 border border-amber-200 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] p-3.5 text-xs text-[#4A3410] flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
                   Jadwal lembur tetap tersimpan dengan status <strong>Belum Dibayar</strong>, namun
                   transaksi pengeluaran terkait di <strong>Buku Kas</strong> dan{' '}
@@ -1683,12 +1683,12 @@ export function AdminShiftOvertimePanel({
                 </p>
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/80 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={cancelingPay}
                 onClick={() => setCancelPayTarget(null)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer transition-colors"
               >
                 Kembali
               </button>
@@ -1696,7 +1696,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 disabled={cancelingPay}
                 onClick={() => void handleConfirmCancelOvertimePayment()}
-                className="min-h-[44px] rounded-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {cancelingPay ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
                 <span>{cancelingPay ? 'Membatalkan...' : 'Ya, Batalkan Cair'}</span>
@@ -1709,31 +1709,31 @@ export function AdminShiftOvertimePanel({
       {/* MODAL KONFIRMASI HAPUS PENCAIRAN HONOR RUTIN (SINKRON BUKU KAS & PORTAL PETUGAS) */}
       {deleteHonorTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Hapus Pencairan Honor Rutin"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-[#0F172A]">Batalkan Pencairan Honor Rutin</h3>
+          <div className="bg-[#FFFDF8]/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]">
+            <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-[#1B271B]">Batalkan Pencairan Honor Rutin</h3>
               <button
                 type="button"
                 onClick={() => setDeleteHonorTarget(null)}
                 aria-label="Tutup modal hapus honor rutin"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-100/60 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3]/60 flex items-center justify-center text-[#6E786D] cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 text-sm text-slate-700">
+            <div className="p-5 space-y-3 text-sm text-[#4A554A]">
               <p className="leading-relaxed">
                 Yakin ingin membatalkan &amp; menghapus pencairan Honor Rutin{' '}
-                <strong className="text-[#0F172A]">{deleteHonorTarget.penerima_atau_sumber}</strong>{' '}
+                <strong className="text-[#1B271B]">{deleteHonorTarget.penerima_atau_sumber}</strong>{' '}
                 ({deleteHonorTarget.no_bukti} · {formatRupiah(deleteHonorTarget.nominal)})?
               </p>
-              <div className="rounded-2xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-900 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl bg-[#C87058]/10 border border-[#E2A898] p-3.5 text-xs text-[#7A311E] flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-[#9A422B] shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
                   Transaksi di <strong>Buku Kas</strong> dan e-Kwitansi di{' '}
                   <strong>Tab Honor Petugas</strong> otomatis terhapus, serta Saldo Kas &amp; LPJ
@@ -1741,12 +1741,12 @@ export function AdminShiftOvertimePanel({
                 </p>
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/80 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={deletingHonor}
                 onClick={() => setDeleteHonorTarget(null)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer transition-colors"
               >
                 Batal
               </button>
@@ -1754,7 +1754,7 @@ export function AdminShiftOvertimePanel({
                 type="button"
                 disabled={deletingHonor}
                 onClick={() => void handleConfirmDeleteHonorRutin()}
-                className="min-h-[44px] rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="min-h-[44px] rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {deletingHonor ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 <span>{deletingHonor ? 'Menghapus...' : 'Ya, Batalkan & Hapus'}</span>

@@ -447,32 +447,32 @@ export function AdminSettingsDrawer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="central-settings-title"
-      className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 no-print animate-modal-backdrop"
+      className="fixed inset-0 z-50 bg-[#243825]/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 no-print animate-modal-backdrop"
       onClick={onClose}
     >
       <div
-        className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl w-full max-w-5xl max-h-[93dvh] border border-white/90 shadow-2xl flex flex-col overflow-hidden animate-modal-pop"
+        className="bg-[#FFFDF8] rounded-t-3xl sm:rounded-3xl w-full max-w-5xl max-h-[93dvh] border border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag Handle Mobile */}
         <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
-          <div className="w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
+          <div className="w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
         </div>
 
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-indigo-100/70 flex items-start sm:items-center justify-between gap-3 shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-start sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-2xl glass-hero text-emerald-300 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0 shadow-xs">
               <Settings className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1 space-y-0.5">
               <h2
                 id="central-settings-title"
-                className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight leading-snug"
+                className="text-base sm:text-lg font-bold text-[#1B271B] tracking-tight leading-snug"
               >
                 Pengaturan Sistem Terpusat
               </h2>
-              <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
+              <p className="text-[11px] sm:text-xs text-[#6E786D] leading-relaxed">
                 {isBendahara
                   ? '6 Modul Terpusat, Delegasi Hak Pengurus, Sinkronisasi Status & Audit'
                   : 'Pusat Pengaturan Terdelegasi — Modul dikelola oleh Bendahara'}
@@ -484,7 +484,7 @@ export function AdminSettingsDrawer({
             type="button"
             onClick={onClose}
             aria-label="Tutup Pengaturan Sistem"
-            className="min-h-[40px] min-w-[40px] rounded-full text-slate-500 hover:text-slate-900 hover:bg-indigo-50 flex items-center justify-center cursor-pointer shrink-0"
+            className="min-h-[40px] min-w-[40px] rounded-full text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -493,7 +493,7 @@ export function AdminSettingsDrawer({
         {/* Bar Tab Navigasi Atas — Bebas Clipping Kiri/Kanan di Mobile, Tablet & Laptop */}
         <nav
           aria-label="Navigasi Modul Pengaturan Sistem"
-          className="border-b border-indigo-100/80 bg-indigo-50/45 shrink-0"
+          className="border-b border-[#E6E2D6] bg-[#F6F3EA]/80 shrink-0"
         >
           <div
             role="tablist"
@@ -557,21 +557,21 @@ export function AdminSettingsDrawer({
                   onClick={() => setActiveTab(tab.id)}
                   className={`h-9 min-h-[36px] px-3.5 rounded-xl text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 transition-all duration-200 active:scale-[0.97] cursor-pointer border ${
                     active
-                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-sm'
+                      ? 'bg-[#2B3F29] border-[#2B3F29] text-white shadow-sm'
                       : tab.locked
-                        ? 'bg-white/70 border-slate-200/80 text-slate-400 hover:text-slate-600'
-                        : 'bg-white/90 border-indigo-100 text-slate-700 hover:text-[#4C1D95] hover:border-indigo-200 hover:bg-white'
+                        ? 'bg-[#FFFDF8]/70 border-[#E6E2D6] text-[#6E786D] hover:text-[#4A554A]'
+                        : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:text-[#243825] hover:border-[#C6D2BF] hover:bg-[#E5EEE3]/50'
                   }`}
                 >
                   <Icon
                     className={`w-3.5 h-3.5 shrink-0 ${
-                      active ? 'text-emerald-300' : tab.locked ? 'text-slate-400' : 'text-[#4C1D95]/80'
+                      active ? 'text-[#E5EEE3]' : tab.locked ? 'text-[#6E786D]' : 'text-[#384E35]'
                     }`}
                   />
                   <span>{tab.label}</span>
                   {tab.locked && (
                     <Lock
-                      className={`w-3 h-3 shrink-0 ${active ? 'text-amber-300' : 'text-slate-400'}`}
+                      className={`w-3 h-3 shrink-0 ${active ? 'text-[#F2D8A7]' : 'text-[#6E786D]'}`}
                     />
                   )}
                 </button>
@@ -643,10 +643,10 @@ export function AdminSettingsDrawer({
               </div>
 
               <div className="glass-card rounded-3xl overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+                <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A]">Daftar Akun Pengurus Aktif</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <h3 className="text-sm font-bold text-[#1B271B]">Daftar Akun Pengurus Aktif</h3>
+                    <p className="text-xs text-[#6E786D] mt-0.5">
                       Foto profil tiap pengurus langsung tampil di Header, Sidebar, Daftar Pengurus,
                       dan Log Aktivitas.
                     </p>
@@ -654,13 +654,13 @@ export function AdminSettingsDrawer({
                   <button
                     type="button"
                     onClick={() => setActiveTab('keamanan')}
-                    className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/70 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
                   >
-                    <Lock className="w-3.5 h-3.5 text-[#4C1D95]" />
+                    <Lock className="w-3.5 h-3.5 text-[#2B3F29]" />
                     <span>Ganti PIN</span>
                   </button>
                 </div>
-                <div className="divide-y divide-indigo-100/60">
+                <div className="divide-y divide-[#E6E2D6]">
                   {pengurusAccounts.map((acc) => {
                     const accAvatar =
                       acc.avatar_url || avatarMap[buildAvatarKey('admin', acc.username)] || null;
@@ -674,21 +674,21 @@ export function AdminSettingsDrawer({
                         <div className="flex items-center gap-3 min-w-0">
                           <UserAvatar name={acc.nama} src={accAvatar} size="sm" />
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#0F172A] truncate">
+                            <p className="text-sm font-bold text-[#1B271B] truncate">
                               {acc.nama}{' '}
                               {isSelf && (
-                                <span className="text-[11px] font-semibold text-emerald-700">
+                                <span className="text-[11px] font-semibold text-[#2B3F29]">
                                   (Anda)
                                 </span>
                               )}
                             </p>
-                            <p className="text-xs text-slate-500 truncate">
+                            <p className="text-xs text-[#6E786D] truncate">
                               {acc.jabatan} · Blok {acc.blokRumah} ·{' '}
                               <span className="font-mono">@{acc.username}</span>
                             </p>
                           </div>
                         </div>
-                        <span className="text-[11px] font-semibold text-[#047857] bg-[#D1FAE5] border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
+                        <span className="text-[11px] font-semibold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] px-2.5 py-0.5 rounded-full shrink-0">
                           {acc.permission === 'full' ? 'Akses Penuh' : 'Pengurus'}
                         </span>
                       </div>
@@ -700,14 +700,14 @@ export function AdminSettingsDrawer({
           )}
           {/* TAB 1: IDENTITAS, LOGO, STEMPEL & KONTAK WA (settings.residents_blocks) */}
           {activeTab === 'identitas' && !canEditResidentsBlocks && (
-            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="max-w-xl mx-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A]">
+              <h3 className="text-base font-bold text-[#1B271B]">
                 Terkunci — Atur oleh Bendahara
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Modul <span className="font-mono font-semibold">settings.residents_blocks</span>{' '}
                 (Identitas, Logo, Stempel &amp; Kontak WA) belum didelegasikan ke akun Anda. Hubungi
                 Bendahara untuk mengaktifkan akses modul ini.
@@ -715,7 +715,7 @@ export function AdminSettingsDrawer({
               <button
                 type="button"
                 onClick={() => setActiveTab('terpusat')}
-                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Kembali ke Pusat Modul
               </button>
@@ -725,8 +725,8 @@ export function AdminSettingsDrawer({
           {activeTab === 'identitas' && canEditResidentsBlocks && (
             <form onSubmit={handleSaveBrand} className="space-y-5 max-w-3xl mx-auto">
               {!isBendahara && (
-                <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900">
-                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2.5 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-4 py-3 text-xs text-[#243825]">
+                  <ShieldCheck className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                   <span>
                     Akses modul <span className="font-mono font-semibold">settings.residents_blocks</span>{' '}
                     aktif melalui delegasi Bendahara.
@@ -745,8 +745,8 @@ export function AdminSettingsDrawer({
                       altOverride={`Logo ${brandDraft.app_name}`}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#0F172A]">Logo Perumahan / Aplikasi</p>
-                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      <p className="text-sm font-bold text-[#1B271B]">Logo Perumahan / Aplikasi</p>
+                      <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
                         Tampil di cover login, header, kop kwitansi &amp; laporan PDF.
                       </p>
                     </div>
@@ -764,7 +764,7 @@ export function AdminSettingsDrawer({
                         type="button"
                         disabled={uploadingLogo}
                         onClick={() => logoInputRef.current?.click()}
-                        className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[38px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         {uploadingLogo ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -777,7 +777,7 @@ export function AdminSettingsDrawer({
                         <button
                           type="button"
                           onClick={() => setBrandDraft((p) => ({ ...p, logo_url: null }))}
-                          className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                          className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Reset</span>
@@ -790,15 +790,15 @@ export function AdminSettingsDrawer({
                 {/* Kartu Stempel Digital Resmi (PNG Transparan) */}
                 <div className="glass-card rounded-3xl p-4 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50/40 flex items-center justify-center shrink-0 overflow-hidden p-1">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-dashed border-[#C6D2BF] bg-[#E5EEE3]/40 flex items-center justify-center shrink-0 overflow-hidden p-1">
                       <OfficialStamp srcOverride={brandDraft.stempel_url ?? null} size="sm" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                        <Stamp className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                      <p className="text-sm font-bold text-[#1B271B] flex items-center gap-1.5">
+                        <Stamp className="w-4 h-4 text-[#2B3F29] shrink-0" />
                         <span>Stempel Resmi Pengurus</span>
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
                         Unggah gambar PNG transparan untuk disematkan otomatis pada kwitansi &amp;
                         LPJ PDF.
                       </p>
@@ -817,7 +817,7 @@ export function AdminSettingsDrawer({
                         type="button"
                         disabled={uploadingStempel}
                         onClick={() => stempelInputRef.current?.click()}
-                        className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[38px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         {uploadingStempel ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -830,7 +830,7 @@ export function AdminSettingsDrawer({
                         <button
                           type="button"
                           onClick={() => setBrandDraft((p) => ({ ...p, stempel_url: null }))}
-                          className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                          className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Stempel Default</span>
@@ -845,7 +845,7 @@ export function AdminSettingsDrawer({
               <div className="glass-card rounded-3xl p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
                       Nama Aplikasi / Perumahan
                     </label>
                     <input
@@ -854,11 +854,11 @@ export function AdminSettingsDrawer({
                       disabled={!canEditResidentsBlocks}
                       value={brandDraft.app_name}
                       onChange={(e) => setBrandDraft((p) => ({ ...p, app_name: e.target.value }))}
-                      className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm disabled:bg-slate-100"
+                      className="w-full min-h-[44px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
                       Subjudul Portal
                     </label>
                     <input
@@ -869,13 +869,13 @@ export function AdminSettingsDrawer({
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, app_subtitle: e.target.value }))
                       }
-                      className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 text-sm disabled:bg-slate-100"
+                      className="w-full min-h-[44px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
                     Kop Resmi &amp; Alamat Sekretariat (Kwitansi &amp; LPJ PDF)
                   </label>
                   <textarea
@@ -883,22 +883,22 @@ export function AdminSettingsDrawer({
                     disabled={!canEditResidentsBlocks}
                     value={brandDraft.kop_resmi}
                     onChange={(e) => setBrandDraft((p) => ({ ...p, kop_resmi: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-300 p-3 text-sm disabled:bg-slate-100 resize-none"
+                    className="w-full rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] p-3 text-sm text-[#1B271B] disabled:bg-[#F6F3EA] resize-none focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Bulan & Tahun Mulai Penagihan Aktif (Filter Pra-Rilis) */}
-              <div className="glass-card rounded-3xl p-5 space-y-4 border border-emerald-200/80 bg-emerald-50/25">
+              <div className="glass-card rounded-3xl p-5 space-y-4 border border-[#C6D2BF] bg-[#E5EEE3]/35">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
                     <Calendar className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-[#0F172A]">
+                    <h3 className="text-sm font-bold text-[#1B271B]">
                       Bulan &amp; Tahun Mulai Penagihan (Start Aplikasi)
                     </h3>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-[#4A554A] mt-0.5 leading-relaxed">
                       Bulan sebelum periode mulai penagihan otomatis dianggap{' '}
                       <strong>Pra-Rilis (Belum Berlaku)</strong> dan tidak dihitung sebagai
                       Belum Setor maupun Tunggakan di e-Card Warga, Matriks 12 Bulan, LPJ, dan Bot
@@ -911,7 +911,7 @@ export function AdminSettingsDrawer({
                   <div>
                     <label
                       htmlFor="billing-start-month"
-                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                      className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                     >
                       Bulan Mulai Penagihan Aktif
                     </label>
@@ -925,7 +925,7 @@ export function AdminSettingsDrawer({
                           billing_start_month: Number(e.target.value),
                         }))
                       }
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A] disabled:bg-slate-100"
+                      className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     >
                       {BULAN_LIST.map((b) => (
                         <option key={b.angka} value={b.angka}>
@@ -937,7 +937,7 @@ export function AdminSettingsDrawer({
                   <div>
                     <label
                       htmlFor="billing-start-year"
-                      className="block text-xs font-semibold text-[#0F172A] mb-1.5"
+                      className="block text-xs font-semibold text-[#1B271B] mb-1.5"
                     >
                       Tahun Mulai Penagihan
                     </label>
@@ -951,7 +951,7 @@ export function AdminSettingsDrawer({
                           billing_start_year: Number(e.target.value),
                         }))
                       }
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A] disabled:bg-slate-100"
+                      className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     >
                       {[2026, 2027, 2028]
                         .concat(
@@ -967,14 +967,14 @@ export function AdminSettingsDrawer({
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white/85 border border-emerald-200/80 px-3.5 py-2.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
+                <div className="rounded-2xl bg-[#FFFDF8] border border-[#C6D2BF] px-3.5 py-2.5 text-xs text-[#4A554A] flex flex-wrap items-center justify-between gap-2">
                   <span>
                     Penagihan aktif dimulai:{' '}
-                    <strong className="text-emerald-800">
+                    <strong className="text-[#243825]">
                       {formatBillingStartLabel(brandDraft)}
                     </strong>
                   </span>
-                  <span className="text-[11px] font-medium text-slate-500">
+                  <span className="text-[11px] font-medium text-[#6E786D]">
                     Periode sebelumnya = Pra-Rilis
                   </span>
                 </div>
@@ -982,14 +982,14 @@ export function AdminSettingsDrawer({
 
               {/* Nomor WA Pengurus & Bot */}
               <div className="glass-card rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
-                  <Phone className="w-4 h-4 text-[#4C1D95]" />
+                <div className="flex items-center gap-2 text-sm font-bold text-[#1B271B]">
+                  <Phone className="w-4 h-4 text-[#2B3F29]" />
                   <span>Nomor WhatsApp Pengurus &amp; Bot Terpisah</span>
                 </div>
 
                 {isSameAsBot && (
-                  <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-2.5 text-xs text-red-800">
-                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-2 rounded-xl bg-[#C87058]/10 border border-[#E2A898] px-3.5 py-2.5 text-xs text-[#7A311E]">
+                    <AlertTriangle className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
                     <span>
                       Nomor WA Pengurus tidak boleh sama dengan Nomor WA Bot agar pesan warga tidak
                       masuk ke bot otomatis.
@@ -999,7 +999,7 @@ export function AdminSettingsDrawer({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       WA Utama Pengurus (Bukan Bot)
                     </label>
                     <input
@@ -1009,11 +1009,11 @@ export function AdminSettingsDrawer({
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, wa_pengurus: e.target.value }))
                       }
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm font-mono disabled:bg-slate-100"
+                      className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       Label Penerima WA Pengurus
                     </label>
                     <input
@@ -1023,11 +1023,11 @@ export function AdminSettingsDrawer({
                       onChange={(e) =>
                         setBrandDraft((p) => ({ ...p, wa_pengurus_label: e.target.value }))
                       }
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm disabled:bg-slate-100"
+                      className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       Nomor WA Khusus Bot (Opsional)
                     </label>
                     <input
@@ -1036,15 +1036,15 @@ export function AdminSettingsDrawer({
                       value={brandDraft.wa_bot}
                       onChange={(e) => setBrandDraft((p) => ({ ...p, wa_bot: e.target.value }))}
                       placeholder="0851xxxx"
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 text-sm font-mono disabled:bg-slate-100"
+                      className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                   {SUSUNAN_PENGURUS.map((p) => (
-                    <div key={p.username} className="rounded-2xl border border-indigo-100/80 p-2.5 bg-indigo-50/40">
-                      <p className="text-[11px] font-semibold text-slate-700 truncate">
+                    <div key={p.username} className="rounded-2xl border border-[#E6E2D6] p-2.5 bg-[#F6F3EA]/70">
+                      <p className="text-[11px] font-semibold text-[#4A554A] truncate">
                         {p.nama} · {p.jabatan}
                       </p>
                       <input
@@ -1061,7 +1061,7 @@ export function AdminSettingsDrawer({
                           });
                         }}
                         placeholder={`Default +${normWaPengurus || '628...'}`}
-                        className="mt-1.5 w-full min-h-[36px] rounded-xl border border-indigo-200/80 bg-white/90 px-2.5 text-xs font-mono text-[#0F172A] disabled:bg-slate-100"
+                        className="mt-1.5 w-full min-h-[36px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-2.5 text-xs font-mono text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                       />
                     </div>
                   ))}
@@ -1078,7 +1078,7 @@ export function AdminSettingsDrawer({
                         pengurus_wa_map: {},
                       })
                     }
-                    className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Default</span>
@@ -1086,7 +1086,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingBrand || uploadingLogo || uploadingStempel || isSameAsBot}
-                    className="min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                    className="min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingBrand ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1102,21 +1102,21 @@ export function AdminSettingsDrawer({
 
           {/* TAB 2: METODE PEMBAYARAN (QRIS, REKENING, NOMINAL IPL) — settings.ipl_billing */}
           {activeTab === 'pembayaran' && !canEditIplBilling && (
-            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="max-w-xl mx-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A]">
+              <h3 className="text-base font-bold text-[#1B271B]">
                 Terkunci — Atur oleh Bendahara
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Modul <span className="font-mono font-semibold">settings.ipl_billing</span> (Nominal
                 IPL, QRIS, dan Rekening Kas) belum didelegasikan ke akun Anda.
               </p>
               <button
                 type="button"
                 onClick={() => setActiveTab('terpusat')}
-                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Kembali ke Pusat Modul
               </button>
@@ -1126,8 +1126,8 @@ export function AdminSettingsDrawer({
           {activeTab === 'pembayaran' && canEditIplBilling && (
             <form onSubmit={handleSavePayment} className="space-y-5 max-w-3xl mx-auto">
               {!isBendahara && (
-                <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900">
-                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2.5 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-4 py-3 text-xs text-[#243825]">
+                  <ShieldCheck className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                   <span>
                     Akses modul <span className="font-mono font-semibold">settings.ipl_billing</span>{' '}
                     aktif melalui delegasi Bendahara.
@@ -1138,15 +1138,15 @@ export function AdminSettingsDrawer({
               {/* Nominal IPL Standar Bulanan */}
               <div className="glass-card rounded-3xl p-5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Nominal IPL Bulanan Standar</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-bold text-[#1B271B]">Nominal IPL Bulanan Standar</h3>
+                  <p className="text-xs text-[#6E786D] mt-0.5">
                     Acuan nominal iuran bulanan standar warga Perumahan Saung Kebun (default Rp
                     100.000).
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="relative flex-1 max-w-xs">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6E786D]">
                       Rp
                     </span>
                     <input
@@ -1161,10 +1161,10 @@ export function AdminSettingsDrawer({
                           nominal_ipl_bulanan: Math.max(0, Number(e.target.value) || 0),
                         }))
                       }
-                      className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-10 pr-4 text-sm font-mono font-bold text-[#0F172A] tabular-nums disabled:bg-slate-100 focus:border-[#4C1D95] focus:outline-none"
+                      className="w-full min-h-[44px] rounded-2xl border border-[#D9D4C5] bg-[#FFFDF8] pl-10 pr-4 text-sm font-mono font-bold text-[#1B271B] tabular-nums disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
-                  <span className="text-xs font-mono text-[#047857] font-semibold">
+                  <span className="text-xs font-mono text-[#243825] font-semibold">
                     = {formatRupiah(payDraft.nominal_ipl_bulanan || NOMINAL_IPL_STANDAR)} / bulan
                   </span>
                 </div>
@@ -1174,8 +1174,8 @@ export function AdminSettingsDrawer({
               <div className="glass-card rounded-3xl p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A]">Pembayaran QR / QRIS</h3>
-                    <p className="text-xs text-slate-500">
+                    <h3 className="text-sm font-bold text-[#1B271B]">Pembayaran QR / QRIS</h3>
+                    <p className="text-xs text-[#6E786D]">
                       Tampilkan gambar kode QRIS resmi pada halaman Setor Iuran warga.
                     </p>
                   </div>
@@ -1186,7 +1186,7 @@ export function AdminSettingsDrawer({
                     disabled={!canEditIplBilling}
                     onClick={() => setPayDraft((p) => ({ ...p, qris_aktif: !p.qris_aktif }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      payDraft.qris_aktif ? 'bg-[#4C1D95]' : 'bg-slate-300'
+                      payDraft.qris_aktif ? 'bg-[#2B3F29]' : 'bg-[#C6D2BF]'
                     } ${canEditIplBilling ? 'cursor-pointer' : 'opacity-50'}`}
                   >
                     <span
@@ -1207,19 +1207,19 @@ export function AdminSettingsDrawer({
                 />
 
                 {payDraft.qris_image_url ? (
-                  <div className="rounded-2xl border border-indigo-100/80 p-4 bg-indigo-50/40 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="rounded-2xl border border-[#E6E2D6] p-4 bg-[#F6F3EA]/70 flex flex-col sm:flex-row items-center gap-4">
                     <img
                       src={payDraft.qris_image_url}
                       alt="QRIS Kas Lingkungan"
                       referrerPolicy="no-referrer"
-                      className="w-36 h-36 object-contain rounded-xl border border-indigo-100 bg-white"
+                      className="w-36 h-36 object-contain rounded-xl border border-[#E6E2D6] bg-white"
                     />
                     {canEditIplBilling && (
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => qrisInputRef.current?.click()}
-                          className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          className="min-h-[38px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <Upload className="w-3.5 h-3.5" />
                           <span>Ganti QRIS</span>
@@ -1229,7 +1229,7 @@ export function AdminSettingsDrawer({
                           onClick={() =>
                             setPayDraft((p) => ({ ...p, qris_image_url: null, qris_aktif: false }))
                           }
-                          className="min-h-[38px] px-4 rounded-full border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          className="min-h-[38px] px-4 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
@@ -1242,12 +1242,12 @@ export function AdminSettingsDrawer({
                     type="button"
                     disabled={!canEditIplBilling || uploadingQris}
                     onClick={() => qrisInputRef.current?.click()}
-                    className="w-full min-h-[110px] rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 hover:border-[#4C1D95] hover:bg-indigo-50/80 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50 transition-colors"
+                    className="w-full min-h-[110px] rounded-2xl border-2 border-dashed border-[#C6D2BF] bg-[#E5EEE3]/35 hover:border-[#2B3F29] hover:bg-[#E5EEE3]/65 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-[#243825] cursor-pointer disabled:opacity-50 transition-colors"
                   >
                     {uploadingQris ? (
-                      <Loader2 className="w-6 h-6 text-[#4C1D95] animate-spin" />
+                      <Loader2 className="w-6 h-6 text-[#2B3F29] animate-spin" />
                     ) : (
-                      <QrCode className="w-6 h-6 text-indigo-400" />
+                      <QrCode className="w-6 h-6 text-[#384E35]" />
                     )}
                     <span>
                       {uploadingQris ? 'Mengunggah QRIS...' : 'Klik untuk Upload Gambar QRIS'}
@@ -1258,22 +1258,22 @@ export function AdminSettingsDrawer({
 
               {/* Nomor Rekening Bendahara */}
               <div className="glass-card rounded-3xl p-5 space-y-4">
-                <h3 className="text-sm font-bold text-[#0F172A]">
+                <h3 className="text-sm font-bold text-[#1B271B]">
                   Daftar Rekening Transfer &amp; E-Wallet Resmi (Tersinkron ke Bot WA)
                 </h3>
 
-                <div className="divide-y divide-indigo-100/70 border border-indigo-100/80 rounded-2xl overflow-hidden bg-white/80">
+                <div className="divide-y divide-[#E6E2D6] border border-[#E6E2D6] rounded-2xl overflow-hidden bg-[#FFFDF8]">
                   {payDraft.rekening_list.map((rek) => (
                     <div key={rek.id} className="p-3.5 flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-xs text-slate-500">
-                          <span className="font-semibold text-[#4C1D95]">{rek.tipe}</span> ·{' '}
-                          <span className="font-semibold text-[#0F172A]">{rek.bank}</span>
+                        <p className="text-xs text-[#6E786D]">
+                          <span className="font-semibold text-[#2B3F29]">{rek.tipe}</span> ·{' '}
+                          <span className="font-semibold text-[#1B271B]">{rek.bank}</span>
                         </p>
-                        <p className="text-sm font-mono font-bold text-[#0F172A] tabular-nums mt-0.5">
+                        <p className="text-sm font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
                           {rek.nomor}
                         </p>
-                        <p className="text-xs text-slate-600">a.n. {rek.atasNama}</p>
+                        <p className="text-xs text-[#4A554A]">a.n. {rek.atasNama}</p>
                       </div>
                       {canEditIplBilling && (
                         <button
@@ -1284,7 +1284,7 @@ export function AdminSettingsDrawer({
                               rekening_list: p.rekening_list.filter((r) => r.id !== rek.id),
                             }))
                           }
-                          className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white hover:border-red-300 hover:bg-red-50 text-slate-500 hover:text-red-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          className="min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:border-[#E2A898] hover:bg-[#C87058]/10 text-[#6E786D] hover:text-[#7A311E] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
@@ -1295,15 +1295,15 @@ export function AdminSettingsDrawer({
                 </div>
 
                 {canEditIplBilling && (
-                  <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-4 space-y-3">
-                    <p className="text-xs font-bold text-[#0F172A]">Tambah Rekening Baru</p>
+                  <div className="rounded-2xl bg-[#F6F3EA]/80 border border-[#E6E2D6] p-4 space-y-3">
+                    <p className="text-xs font-bold text-[#1B271B]">Tambah Rekening Baru</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <select
                         value={newTipe}
                         onChange={(e) =>
                           setNewTipe(e.target.value as 'Transfer Bank' | 'E-Wallet')
                         }
-                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
+                        className="min-h-[40px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       >
                         <option value="Transfer Bank">Transfer Bank</option>
                         <option value="E-Wallet">E-Wallet</option>
@@ -1313,27 +1313,27 @@ export function AdminSettingsDrawer({
                         value={newBank}
                         onChange={(e) => setNewBank(e.target.value)}
                         placeholder="Nama Bank / E-Wallet (cth: Blu BCA)"
-                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
+                        className="min-h-[40px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                       <input
                         type="text"
                         value={newNomor}
                         onChange={(e) => setNewNomor(e.target.value)}
                         placeholder="Nomor Rekening"
-                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs font-mono text-[#0F172A]"
+                        className="min-h-[40px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                       <input
                         type="text"
                         value={newAtasNama}
                         onChange={(e) => setNewAtasNama(e.target.value)}
                         placeholder="Atas Nama"
-                        className="min-h-[40px] rounded-xl border border-indigo-200/80 bg-white px-3 text-xs text-[#0F172A]"
+                        className="min-h-[40px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={handleAddRekening}
-                      className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                      className="min-h-[38px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Tambah ke Daftar</span>
@@ -1347,7 +1347,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingPay || uploadingQris}
-                    className="min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                    className="min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingPay ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1364,20 +1364,20 @@ export function AdminSettingsDrawer({
           {/* TAB 3: KONFIGURASI BOT WHATSAPP & KIRIM AKUN/PIN (PENGURUS AKTIF) */}
           {activeTab === 'bot_wa' &&
             (session.role !== 'admin' || session.is_active_pengurus === false) && (
-            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="max-w-xl mx-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A]">
+              <h3 className="text-base font-bold text-[#1B271B]">
                 Akses Dibatasi — Khusus Pengurus Aktif
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Modul Bot WhatsApp &amp; Pengiriman Akun/PIN hanya dapat diakses oleh pengurus aktif.
               </p>
               <button
                 type="button"
                 onClick={() => setActiveTab('terpusat')}
-                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Kembali ke Pusat Modul
               </button>
@@ -1412,13 +1412,13 @@ export function AdminSettingsDrawer({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[#4C1D95]" />
+                    <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-[#2B3F29]" />
                       <span>Ganti PIN 6 Digit Pengurus ({session.nama_warga})</span>
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-[#6E786D] mt-0.5">
                       Ubah PIN akses akun pengurus{' '}
-                      <span className="font-mono font-semibold text-slate-700">
+                      <span className="font-mono font-semibold text-[#4A554A]">
                         {session.blok_rumah}
                       </span>{' '}
                       Anda untuk menjaga keamanan portal admin.
@@ -1427,7 +1427,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="button"
                     onClick={() => setShowPins((p) => !p)}
-                    className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
+                    className="min-h-[34px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
                   >
                     {showPins ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     <span>{showPins ? 'Sembunyikan' : 'Tampilkan'}</span>
@@ -1436,7 +1436,7 @@ export function AdminSettingsDrawer({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       PIN Saat Ini (6 Digit)
                     </label>
                     <input
@@ -1447,11 +1447,11 @@ export function AdminSettingsDrawer({
                       value={oldPin}
                       onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                      className="w-full min-h-[42px] rounded-2xl border border-[#D9D4C5] bg-[#FFFDF8] px-3.5 text-sm font-mono tracking-widest text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       PIN Baru (6 Digit)
                     </label>
                     <input
@@ -1462,11 +1462,11 @@ export function AdminSettingsDrawer({
                       value={newPin}
                       onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                      className="w-full min-h-[42px] rounded-2xl border border-[#D9D4C5] bg-[#FFFDF8] px-3.5 text-sm font-mono tracking-widest text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                       Ulangi PIN Baru
                     </label>
                     <input
@@ -1477,7 +1477,7 @@ export function AdminSettingsDrawer({
                       value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••••"
-                      className="w-full min-h-[42px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm font-mono tracking-widest text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                      className="w-full min-h-[42px] rounded-2xl border border-[#D9D4C5] bg-[#FFFDF8] px-3.5 text-sm font-mono tracking-widest text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1486,7 +1486,7 @@ export function AdminSettingsDrawer({
                   <button
                     type="submit"
                     disabled={savingPin || oldPin.length !== 6 || newPin.length !== 6 || confirmPin.length !== 6}
-                    className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                    className="min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
                     {savingPin ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1500,13 +1500,13 @@ export function AdminSettingsDrawer({
 
               {/* Log Aktivitas Sistem (settings.reports_audit) */}
               {!canAccessReportsAudit ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 flex items-start gap-3">
-                  <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-5 flex items-start gap-3">
+                  <Lock className="w-4 h-4 text-[#6E786D] shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#0F172A]">
+                    <p className="text-sm font-bold text-[#1B271B]">
                       Log Aktivitas &amp; Audit Sistem — Terkunci (Atur oleh Bendahara)
                     </p>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
                       Anda tetap dapat mengganti PIN akun pribadi di atas. Akses ke modul{' '}
                       <span className="font-mono font-semibold">settings.reports_audit</span>{' '}
                       diatur melalui delegasi Bendahara.
@@ -1515,18 +1515,18 @@ export function AdminSettingsDrawer({
                 </div>
               ) : (
               <div className="glass-card rounded-3xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-3">
+                <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                      <History className="w-4 h-4 text-[#4C1D95]" />
+                    <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                      <History className="w-4 h-4 text-[#2B3F29]" />
                       <span>Log Aktivitas &amp; Audit Sistem</span>
                       {auditLogs.length > 0 && (
-                        <span className="text-[11px] font-mono font-semibold text-[#4C1D95] bg-white/90 border border-indigo-100 px-2 py-0.5 rounded-full tabular-nums">
+                        <span className="text-[11px] font-mono font-semibold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] px-2 py-0.5 rounded-full tabular-nums">
                           {auditLogs.length}
                         </span>
                       )}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-[#6E786D] mt-0.5">
                       Rekam jejak login, verifikasi setoran, pengeluaran kas, dan perubahan pengaturan.
                     </p>
                   </div>
@@ -1539,7 +1539,7 @@ export function AdminSettingsDrawer({
                           setConfirmDeleteAuditId(null);
                           setConfirmClearAudit(true);
                         }}
-                        className="min-h-[36px] px-3.5 rounded-full border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                        className="min-h-[36px] px-3.5 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-xs font-semibold text-[#7A311E] inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Hapus Semua</span>
@@ -1553,7 +1553,7 @@ export function AdminSettingsDrawer({
                           .then((logs) => setAuditLogs(logs))
                           .finally(() => setLoadingLogs(false));
                       }}
-                      className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                      className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
                       <span>Muat Ulang</span>
@@ -1562,8 +1562,8 @@ export function AdminSettingsDrawer({
                 </div>
 
                 {confirmClearAudit && (
-                  <div className="px-5 py-3 bg-rose-50/90 border-b border-rose-200/80 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                    <p className="font-semibold text-rose-900">
+                  <div className="px-5 py-3 bg-[#C87058]/10 border-b border-[#E2A898] flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                    <p className="font-semibold text-[#7A311E]">
                       Hapus seluruh {auditLogs.length} catatan log aktivitas sistem secara permanen?
                     </p>
                     <div className="flex items-center gap-2">
@@ -1571,7 +1571,7 @@ export function AdminSettingsDrawer({
                         type="button"
                         disabled={clearingAllAudit}
                         onClick={() => setConfirmClearAudit(false)}
-                        className="px-3 py-1.5 rounded-full border border-rose-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                        className="px-3 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-[#4A554A] font-semibold hover:bg-[#F6F3EA] cursor-pointer"
                       >
                         Batal
                       </button>
@@ -1593,7 +1593,7 @@ export function AdminSettingsDrawer({
                             setClearingAllAudit(false);
                           }
                         }}
-                        className="px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                        className="px-3.5 py-1.5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
                       >
                         {clearingAllAudit ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1606,13 +1606,13 @@ export function AdminSettingsDrawer({
                   </div>
                 )}
 
-                <div className="max-h-96 overflow-y-auto divide-y divide-indigo-100/60">
+                <div className="max-h-96 overflow-y-auto divide-y divide-[#E6E2D6]">
                   {loadingLogs ? (
-                    <div className="p-8 text-center text-xs text-slate-500">
+                    <div className="p-8 text-center text-xs text-[#6E786D]">
                       Memuat log aktivitas sistem...
                     </div>
                   ) : auditLogs.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-slate-500">
+                    <div className="p-8 text-center text-xs text-[#6E786D]">
                       Belum ada catatan aktivitas sistem.
                     </div>
                   ) : (
@@ -1625,7 +1625,7 @@ export function AdminSettingsDrawer({
                       const isDeletingThis = deletingAuditId === log.id;
                       const isConfirmingThis = confirmDeleteAuditId === log.id;
                       return (
-                        <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3 hover:bg-indigo-50/30 transition-colors">
+                        <div key={log.id} className="px-5 py-3 text-xs flex items-start gap-3 hover:bg-[#F6F3EA]/70 transition-colors">
                           <UserAvatar
                             name={log.actor_name}
                             src={actorAvatar}
@@ -1634,14 +1634,14 @@ export function AdminSettingsDrawer({
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-semibold text-[#0F172A]">
+                              <span className="font-semibold text-[#1B271B]">
                                 {log.actor_name}{' '}
-                                <span className="font-mono font-normal text-slate-500">
+                                <span className="font-mono font-normal text-[#6E786D]">
                                   ({log.actor_id})
                                 </span>
                               </span>
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-mono text-[11px] text-slate-400">
+                                <span className="font-mono text-[11px] text-[#6E786D]">
                                   {formatTanggalWaktu(log.timestamp)}
                                 </span>
                                 {isConfirmingThis ? (
@@ -1664,7 +1664,7 @@ export function AdminSettingsDrawer({
                                           setDeletingAuditId(null);
                                         }
                                       }}
-                                      className="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                                      className="px-2 py-0.5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
                                     >
                                       {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                                       <span>Hapus</span>
@@ -1673,7 +1673,7 @@ export function AdminSettingsDrawer({
                                       type="button"
                                       disabled={isDeletingThis}
                                       onClick={() => setConfirmDeleteAuditId(null)}
-                                      className="px-2 py-0.5 rounded-full border border-slate-200 bg-white text-slate-600 text-[10px] font-semibold hover:bg-slate-50 cursor-pointer"
+                                      className="px-2 py-0.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-[#4A554A] text-[10px] font-semibold hover:bg-[#F6F3EA] cursor-pointer"
                                     >
                                       Batal
                                     </button>
@@ -1688,15 +1688,15 @@ export function AdminSettingsDrawer({
                                     }}
                                     aria-label="Hapus catatan log"
                                     title="Hapus catatan log ini"
-                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
+                                    className="p-1 rounded-lg text-[#6E786D] hover:text-[#7A311E] hover:bg-[#C87058]/10 transition-colors cursor-pointer disabled:opacity-40"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 )}
                               </div>
                             </div>
-                            <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
-                            <p className="text-[10px] font-mono text-[#4C1D95] mt-0.5">
+                            <p className="text-[#4A554A] mt-0.5 leading-relaxed">{log.summary}</p>
+                            <p className="text-[10px] font-mono text-[#384E35] mt-0.5">
                               {log.action} · {log.entity}
                             </p>
                           </div>
@@ -1712,21 +1712,21 @@ export function AdminSettingsDrawer({
 
           {/* TAB 5: ARSIP MODE HYBRID GOOGLE DRIVE (settings.system_integrations) */}
           {activeTab === 'arsip_drive' && !canAccessSystemIntegrations && (
-            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="max-w-xl mx-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A]">
+              <h3 className="text-base font-bold text-[#1B271B]">
                 Terkunci — Atur oleh Bendahara
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Modul <span className="font-mono font-semibold">settings.system_integrations</span>{' '}
                 (Arsip Hybrid Google Drive &amp; Bot WA) belum didelegasikan ke akun Anda.
               </p>
               <button
                 type="button"
                 onClick={() => setActiveTab('terpusat')}
-                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Kembali ke Pusat Modul
               </button>
@@ -1744,14 +1744,14 @@ export function AdminSettingsDrawer({
 
           {/* TAB 6: PETUGAS KEAMANAN, TITIK CHECKPOINT NFC & PETA MAPPING (settings.security_patrol) */}
           {activeTab === 'petugas_nfc' && !canAccessSecurityPatrol && (
-            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-3">
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="max-w-xl mx-auto rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-6 text-center space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] flex items-center justify-center mx-auto">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A]">
+              <h3 className="text-base font-bold text-[#1B271B]">
                 Terkunci — Atur oleh Bendahara
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Modul <span className="font-mono font-semibold">settings.security_patrol</span>{' '}
                 (Petugas Keamanan, Titik Checkpoint NFC &amp; Peta Patroli) belum didelegasikan ke
                 akun Anda.
@@ -1759,7 +1759,7 @@ export function AdminSettingsDrawer({
               <button
                 type="button"
                 onClick={() => setActiveTab('terpusat')}
-                className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Kembali ke Pusat Modul
               </button>

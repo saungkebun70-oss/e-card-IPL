@@ -220,7 +220,7 @@ export function PanduanBotWaModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-950/55 backdrop-blur-md"
+            className="fixed inset-0 bg-[#1B271B]/55 backdrop-blur-md"
             aria-hidden="true"
           />
 
@@ -230,29 +230,29 @@ export function PanduanBotWaModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl flex flex-col overflow-hidden"
+            className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-[#FFFDF8] backdrop-blur-xl rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Drag Indicator untuk Mobile */}
             <div className="sm:hidden pt-2.5 pb-1 flex justify-center">
-              <div className="w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
+              <div className="w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
             </div>
 
             {/* Header Modal */}
-            <div className="px-5 sm:px-6 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex items-start justify-between gap-4 shrink-0">
+            <div className="px-5 sm:px-6 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC] flex items-start justify-between gap-4 shrink-0">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-5 h-5 text-[#4C1D95]" />
+                <div className="w-10 h-10 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-5 h-5 text-[#243825]" />
                 </div>
                 <div className="min-w-0">
                   <h2
                     id="panduan-bot-wa-title"
-                    className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight"
+                    className="text-base sm:text-lg font-bold font-serif-brand text-[#1B271B] tracking-tight"
                   >
                     Panduan Bot WhatsApp IPL
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-[#6E786D] mt-0.5">
                     Perumahan Saung Kebun · Unit{' '}
-                    <span className="font-mono font-semibold text-slate-700">{blok}</span> · Format
+                    <span className="font-mono font-semibold text-[#1B271B]">{blok}</span> · Format
                     Pesan Otomatis
                   </p>
                 </div>
@@ -262,18 +262,18 @@ export function PanduanBotWaModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Tutup Panduan Bot WA"
-                className="min-h-[40px] min-w-[40px] rounded-full text-slate-500 hover:text-[#4C1D95] hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="min-h-[40px] min-w-[40px] rounded-full text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/70 flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Tab Navigasi Interaktif (3 Alur Utama) */}
-            <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-indigo-100/70 bg-indigo-50/25 shrink-0">
+            <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 shrink-0">
               <div
                 role="tablist"
                 aria-label="Kategori Panduan Bot WhatsApp"
-                className="grid grid-cols-3 gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl"
+                className="grid grid-cols-3 gap-1 p-1 bg-[#F7F4EC] border border-[#E6E2D6] rounded-2xl"
               >
                 {sections.map((sec) => {
                   const Icon = sec.icon;
@@ -287,13 +287,13 @@ export function PanduanBotWaModal({
                       onClick={() => setActiveTab(sec.id)}
                       className={`min-h-[42px] px-2.5 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                         active
-                          ? 'bg-[#4C1D95] text-white shadow-xs'
-                          : 'text-slate-600 hover:text-[#4C1D95]'
+                          ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                          : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/50'
                       }`}
                     >
                       <Icon
                         className={`w-3.5 h-3.5 shrink-0 ${
-                          active ? 'text-[#A7F3D0]' : 'text-slate-500'
+                          active ? 'text-[#E5EEE3]' : 'text-[#6E786D]'
                         }`}
                       />
                       <span className="sm:hidden truncate">{sec.shortLabel}</span>
@@ -308,16 +308,16 @@ export function PanduanBotWaModal({
             <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
               {/* Pengantar & Langkah Urut */}
               <div className="space-y-3">
-                <p className="text-sm text-slate-700 leading-relaxed">{activeSection.pengantar}</p>
+                <p className="text-sm text-[#4A554A] leading-relaxed">{activeSection.pengantar}</p>
 
-                <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-4">
-                  <h3 className="text-xs font-bold text-[#0F172A] mb-2.5">
+                <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-4">
+                  <h3 className="text-xs font-bold text-[#1B271B] mb-2.5">
                     Langkah-langkah {activeSection.label}
                   </h3>
-                  <ol className="space-y-2.5 text-sm text-slate-700">
+                  <ol className="space-y-2.5 text-sm text-[#4A554A]">
                     {activeSection.langkah.map((step, idx) => (
                       <li key={step} className="flex items-start gap-3 leading-relaxed">
-                        <span className="w-5 h-5 rounded-lg bg-[#3730A3] text-white font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
+                        <span className="w-5 h-5 rounded-lg bg-[#2B3F29] text-[#FFFDF8] font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
                           {idx + 1}
                         </span>
                         <span>{step}</span>
@@ -330,10 +330,10 @@ export function PanduanBotWaModal({
               {/* Daftar Format Pesan Otomatis Siap Pakai */}
               <div className="space-y-4">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h3 className="text-xs font-bold text-slate-500">
+                  <h3 className="text-xs font-bold text-[#4A554A]">
                     Format Pesan Otomatis untuk Blok {blok}
                   </h3>
-                  <span className="text-xs text-slate-400 tabular-nums">
+                  <span className="text-xs text-[#6E786D] tabular-nums">
                     {activeSection.formats.length} format tersedia
                   </span>
                 </div>
@@ -346,36 +346,36 @@ export function PanduanBotWaModal({
                   return (
                     <article
                       key={item.id}
-                      className="rounded-2xl border border-indigo-100/80 bg-white/95 overflow-hidden"
+                      className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] overflow-hidden"
                     >
                       <div className="p-4 space-y-3">
                         <div>
-                          <h4 className="text-sm font-bold text-[#0F172A]">{item.judul}</h4>
-                          <p className="text-xs text-slate-500 mt-0.5">{item.ringkasan}</p>
+                          <h4 className="text-sm font-bold text-[#1B271B]">{item.judul}</h4>
+                          <p className="text-xs text-[#6E786D] mt-0.5">{item.ringkasan}</p>
                         </div>
 
                         {/* Pola & Contoh Pesan */}
-                        <div className="rounded-2xl bg-[#3b0764] text-indigo-50 p-3.5 space-y-2">
-                          <div className="flex items-center justify-between gap-2 text-[11px] text-indigo-200/80">
+                        <div className="rounded-2xl bg-[#243825] text-[#F6F3EA] p-3.5 space-y-2">
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-[#C6D2BF]">
                             <span>Format Baku</span>
-                            <span className="font-mono text-indigo-100 truncate">{item.pola}</span>
+                            <span className="font-mono text-[#E5EEE3] truncate">{item.pola}</span>
                           </div>
                           <div className="pt-2 border-t border-white/15">
-                            <p className="text-[11px] text-[#A7F3D0] mb-1">
+                            <p className="text-[11px] text-[#E5EEE3] mb-1">
                               Contoh Siap Kirim (Unit {blok}):
                             </p>
-                            <code className="block text-sm font-mono font-semibold text-white break-all tabular-nums">
+                            <code className="block text-sm font-mono font-semibold text-[#FFFDF8] break-all tabular-nums">
                               {item.contohSiapKirim}
                             </code>
                           </div>
                         </div>
 
                         {/* Simulasi Balasan Bot */}
-                        <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/80 p-3">
-                          <p className="text-[11px] font-semibold text-emerald-800 mb-1">
+                        <div className="rounded-2xl bg-[#E5EEE3]/60 border border-[#C6D2BF] p-3">
+                          <p className="text-[11px] font-semibold text-[#243825] mb-1">
                             Contoh Balasan Otomatis Bot WA
                           </p>
-                          <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed font-mono">
+                          <p className="text-xs text-[#1B271B] whitespace-pre-line leading-relaxed font-mono">
                             {item.contohBalasan}
                           </p>
                         </div>
@@ -385,16 +385,16 @@ export function PanduanBotWaModal({
                           <button
                             type="button"
                             onClick={() => void handleCopyFormat(item)}
-                            className="min-h-[42px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                            className="min-h-[42px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F7F4EC] text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                           >
                             {isCopied ? (
                               <>
-                                <Check className="w-4 h-4 text-emerald-600" />
+                                <Check className="w-4 h-4 text-[#243825]" />
                                 <span>Format Tersalin</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-4 h-4 text-[#4C1D95]" />
+                                <Copy className="w-4 h-4 text-[#243825]" />
                                 <span>Salin Format Pesan</span>
                               </>
                             )}
@@ -405,9 +405,9 @@ export function PanduanBotWaModal({
                               href={waHref}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="min-h-[42px] px-3.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shadow-xs"
+                              className="min-h-[42px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shadow-xs"
                             >
-                              <MessageCircle className="w-4 h-4 text-[#A7F3D0]" />
+                              <MessageCircle className="w-4 h-4 text-[#E5EEE3]" />
                               <span>Kirim ke Bot WA</span>
                               <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                             </a>
@@ -421,9 +421,9 @@ export function PanduanBotWaModal({
                                   'Format disalin. Nomor Bot WA belum diisi Bendahara — kirim manual ke nomor Bot WA.'
                                 );
                               }}
-                              className="min-h-[42px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                              className="min-h-[42px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                             >
-                              <Bot className="w-4 h-4 text-[#4C1D95]" />
+                              <Bot className="w-4 h-4 text-[#243825]" />
                               <span>Salin untuk Bot WA</span>
                             </button>
                           )}
@@ -435,17 +435,17 @@ export function PanduanBotWaModal({
               </div>
 
               {/* Catatan Penting */}
-              <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 px-4 py-3 text-xs text-slate-600 leading-relaxed">
-                <span className="font-semibold text-[#0F172A]">Catatan: </span>
+              <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] px-4 py-3 text-xs text-[#4A554A] leading-relaxed">
+                <span className="font-semibold text-[#1B271B]">Catatan: </span>
                 {activeSection.catatan}
               </div>
             </div>
 
             {/* Footer Aksi */}
-            <div className="px-5 sm:px-6 py-3.5 border-t border-indigo-100/70 bg-indigo-50/40 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 shrink-0">
-              <p className="text-[11px] text-slate-500">
+            <div className="px-5 sm:px-6 py-3.5 border-t border-[#E6E2D6] bg-[#F7F4EC] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 shrink-0 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+              <p className="text-[11px] text-[#6E786D]">
                 Portal resmi:{' '}
-                <span className="font-mono font-semibold text-slate-700">{APP_PORTAL_URL}</span>
+                <span className="font-mono font-semibold text-[#1B271B]">{APP_PORTAL_URL}</span>
               </p>
 
               <div className="flex items-center gap-2">
@@ -456,16 +456,16 @@ export function PanduanBotWaModal({
                       onClose();
                       onGoToSetor();
                     }}
-                    className="flex-1 sm:flex-none min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
+                    className="flex-1 sm:flex-none min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                   >
-                    <CreditCard className="w-3.5 h-3.5 text-[#A7F3D0]" />
+                    <CreditCard className="w-3.5 h-3.5 text-[#E5EEE3]" />
                     <span>Setor di Portal Sekarang</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 sm:flex-none min-h-[42px] px-5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 sm:flex-none min-h-[42px] px-5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                 >
                   Tutup Panduan
                 </button>

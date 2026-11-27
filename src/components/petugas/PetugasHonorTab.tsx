@@ -212,17 +212,17 @@ export function PetugasHonorTab({
     <div className="space-y-4">
       {/* RINGKASAN TOTAL LEMBUR BULAN INI & TOTAL HONOR DITERIMA (READ-ONLY) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-3xl glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white p-4 sm:p-5 space-y-2">
+        <div className="rounded-3xl glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-md text-[#FFFDF8] p-4 sm:p-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A7F3D0]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E5EEE3]">
               Total Lembur Bulan Ini
             </p>
-            <Moon className="w-4 h-4 text-[#A7F3D0] shrink-0" />
+            <Moon className="w-4 h-4 text-[#E5EEE3] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-extrabold text-white tabular-nums">
+          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#FFFDF8] tabular-nums">
             {formatRupiah(currentMonthLemburSummary.paidTotal)}
           </p>
-          <p className="text-[11px] text-indigo-100/80 leading-snug tabular-nums">
+          <p className="text-[11px] text-[#E5EEE3]/85 leading-snug tabular-nums">
             {currentMonthLemburSummary.paidCount} jadwal lunas
             {currentMonthLemburSummary.unpaidCount > 0
               ? ` · ${currentMonthLemburSummary.unpaidCount} terjadwal (${formatRupiah(
@@ -232,47 +232,47 @@ export function PetugasHonorTab({
           </p>
         </div>
 
-        <div className="rounded-3xl glass-card bg-white/80 backdrop-blur-xl border border-white/90 p-4 sm:p-5 space-y-2">
+        <div className="rounded-3xl glass-card bg-[#FFFDF8] border border-[#E6E2D6] p-4 sm:p-5 space-y-2 shadow-xs">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4C1D95]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#2B3F29]">
               Total Honor &amp; Lembur Diterima
             </p>
-            <Wallet className="w-4 h-4 text-[#4C1D95] shrink-0" />
+            <Wallet className="w-4 h-4 text-[#2B3F29] shrink-0" />
           </div>
-          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#0F172A] tabular-nums">
+          <p className="text-xl sm:text-2xl font-mono font-extrabold text-[#1B271B] tabular-nums">
             {formatRupiah(totalHonorDiterima)}
           </p>
-          <p className="text-[11px] font-medium text-slate-500">
+          <p className="text-[11px] font-medium text-[#6E786D]">
             Privasi Pribadi Terisolasi · Hanya Tampil untuk {officerName}
           </p>
         </div>
       </section>
 
       {/* DAFTAR LEMBUR MINGGU (19:00 – 07:00 WIB) */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+      <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Moon className="w-4 h-4 text-[#4C1D95] shrink-0" />
-            <h2 className="text-sm font-bold text-[#0F172A] truncate">
+            <Moon className="w-4 h-4 text-[#2B3F29] shrink-0" />
+            <h2 className="text-sm font-bold text-[#1B271B] truncate">
               Jadwal &amp; Pencairan Lembur Minggu
             </h2>
           </div>
-          <span className="text-xs font-mono font-semibold text-slate-500 tabular-nums shrink-0">
+          <span className="text-xs font-mono font-semibold text-[#6E786D] tabular-nums shrink-0">
             {lemburOverrides.length} catatan
           </span>
         </div>
 
         {loadingOverrides ? (
           <div className="p-4 space-y-2.5">
-            <div className="h-16 rounded-2xl bg-indigo-50/70 animate-pulse" />
-            <div className="h-16 rounded-2xl bg-indigo-50/70 animate-pulse" />
+            <div className="h-16 rounded-2xl bg-[#F7F4EC] animate-pulse" />
+            <div className="h-16 rounded-2xl bg-[#F7F4EC] animate-pulse" />
           </div>
         ) : lemburOverrides.length === 0 ? (
-          <div className="px-4 py-6 text-center text-xs text-slate-500">
+          <div className="px-4 py-6 text-center text-xs text-[#6E786D]">
             Belum ada jadwal Lembur Minggu (19:00 – 07:00 WIB) atas nama Anda.
           </div>
         ) : (
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]">
             {lemburOverrides.map((ov) => {
               const isPaid = ov.payment_status === 'paid' || Boolean(ov.cash_transaction_id);
               const linkedTrx = linkedCashByOverrideId.get(ov.id) || null;
@@ -285,45 +285,45 @@ export function PetugasHonorTab({
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                      <p className="text-xs sm:text-sm font-bold text-[#1B271B]">
                         Lembur Minggu · 19:00 – 07:00 WIB
                       </p>
                       <span
                         className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md border ${
                           isPaid
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                            ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                            : 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]'
                         }`}
                       >
                         {isPaid ? 'DIBAYARKAN / LUNAS' : 'TERJADWAL / BELUM DIBAYAR'}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 font-medium tabular-nums">
-                      Tanggal Tugas: <strong className="text-[#0F172A]">{formatWibDateStr(ov.shift_date)}</strong>
+                    <p className="text-xs text-[#4A554A] font-medium tabular-nums">
+                      Tanggal Tugas: <strong className="text-[#1B271B]">{formatWibDateStr(ov.shift_date)}</strong>
                     </p>
 
                     {isPaid && ov.paid_at ? (
-                      <p className="text-[11px] text-emerald-700 inline-flex items-center gap-1">
+                      <p className="text-[11px] text-[#243825] inline-flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                         <span>Dibayarkan pada {formatWibDateTime(ov.paid_at)}</span>
                       </p>
                     ) : (
-                      <p className="text-[11px] text-amber-700 inline-flex items-center gap-1">
+                      <p className="text-[11px] text-[#6E4D12] inline-flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span>Menunggu pencairan &amp; pencatatan kas oleh Bendahara / Admin</span>
                       </p>
                     )}
 
                     {ov.notes && (
-                      <p className="text-[11px] text-slate-500 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1">
+                      <p className="text-[11px] text-[#4A554A] bg-[#F7F4EC] border border-[#E6E2D6] rounded-xl px-2.5 py-1">
                         {ov.notes}
                       </p>
                     )}
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
-                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums mr-1">
+                    <p className="text-base font-mono font-extrabold text-[#1B271B] tabular-nums mr-1">
                       {formatRupiah(ov.overtime_amount)}
                     </p>
                     {isPaid && (
@@ -339,8 +339,8 @@ export function PetugasHonorTab({
                         }
                         className={`min-h-[40px] px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
                           isConfirmed
-                            ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
-                            : 'border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] cursor-pointer'
+                            ? 'border-[#C6D2BF] bg-[#E5EEE3] text-[#243825] cursor-default'
+                            : 'border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F7F4EC] text-[#1B271B] cursor-pointer'
                         }`}
                       >
                         {isConfirmed ? (
@@ -350,7 +350,7 @@ export function PetugasHonorTab({
                           </>
                         ) : (
                           <>
-                            <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#4C1D95]" />
+                            <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#2B3F29]" />
                             <span>
                               {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
                             </span>
@@ -362,7 +362,7 @@ export function PetugasHonorTab({
                       <button
                         type="button"
                         onClick={() => onOpenKwitansi(linkedTrx)}
-                        className="min-h-[40px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                        className="min-h-[40px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D6E4D3] text-[#243825] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                       >
                         <FileText className="w-3.5 h-3.5 shrink-0" />
                         <span>e-Kwitansi</span>
@@ -377,32 +377,32 @@ export function PetugasHonorTab({
       </section>
 
       {/* RIWAYAT HONOR BULANAN & PENCAIRAN KAS */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+      <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Wallet className="w-4 h-4 text-[#4C1D95] shrink-0" />
-            <h2 className="text-sm font-bold text-[#0F172A] truncate">
+            <Wallet className="w-4 h-4 text-[#2B3F29] shrink-0" />
+            <h2 className="text-sm font-bold text-[#1B271B] truncate">
               Riwayat Honor Bulanan &amp; Pencairan Kas
             </h2>
           </div>
-          <span className="text-xs font-mono font-semibold text-slate-500 tabular-nums shrink-0">
+          <span className="text-xs font-mono font-semibold text-[#6E786D] tabular-nums shrink-0">
             {otherHonorRows.length} bukti
           </span>
         </div>
 
         {otherHonorRows.length === 0 ? (
           <div className="p-7 text-center space-y-1.5">
-            <ShieldAlert className="w-7 h-7 text-indigo-300 mx-auto" />
-            <p className="text-xs font-bold text-slate-700">
+            <ShieldAlert className="w-7 h-7 text-[#C6D2BF] mx-auto" />
+            <p className="text-xs font-bold text-[#1B271B]">
               Belum Ada Catatan Honor Rutin Lainnya
             </p>
-            <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
+            <p className="text-[11px] text-[#6E786D] max-w-sm mx-auto leading-relaxed">
               Setiap pencairan honor rutin (Termin Tgl 7 &amp; Tgl 18) maupun uang lembur yang
               dicatat Bendahara atas nama Anda akan langsung tampil beserta e-Kwitansinya di sini.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]">
             {otherHonorRows.map((trx) => {
               const isLembur =
                 trx.jenis_honor === 'honor_rutin'
@@ -420,33 +420,33 @@ export function PetugasHonorTab({
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                       <span
-                        className={`font-bold ${isLembur ? 'text-[#4C1D95]' : 'text-emerald-700'}`}
+                        className={`font-bold ${isLembur ? 'text-[#6E4D12]' : 'text-[#243825]'}`}
                       >
                         {isLembur ? 'Uang Lembur' : 'Honor Rutin'}
                       </span>
                       {trx.termin && (
                         <>
-                          <span aria-hidden="true" className="text-slate-300">
+                          <span aria-hidden="true" className="text-[#C6D2BF]">
                             ·
                           </span>
-                          <span className="text-slate-700 font-semibold">{trx.termin}</span>
+                          <span className="text-[#4A554A] font-semibold">{trx.termin}</span>
                         </>
                       )}
-                      <span aria-hidden="true" className="text-slate-300">
+                      <span aria-hidden="true" className="text-[#C6D2BF]">
                         ·
                       </span>
-                      <span className="font-mono text-slate-500 tabular-nums">
+                      <span className="font-mono text-[#6E786D] tabular-nums">
                         {formatTanggal(trx.tanggal)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 line-clamp-2">
+                    <p className="text-xs text-[#4A554A] line-clamp-2">
                       {trx.keterangan || trx.kategori}
                     </p>
-                    <p className="text-[11px] font-mono text-slate-400">{trx.no_bukti}</p>
+                    <p className="text-[11px] font-mono text-[#6E786D]">{trx.no_bukti}</p>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
-                    <p className="text-base font-mono font-extrabold text-[#0F172A] tabular-nums mr-1">
+                    <p className="text-base font-mono font-extrabold text-[#1B271B] tabular-nums mr-1">
                       {formatRupiah(trx.nominal)}
                     </p>
                     <button
@@ -457,8 +457,8 @@ export function PetugasHonorTab({
                       }
                       className={`min-h-[40px] px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
                         isConfirmed
-                          ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700 cursor-default'
-                          : 'border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] cursor-pointer'
+                          ? 'border-[#C6D2BF] bg-[#E5EEE3] text-[#243825] cursor-default'
+                          : 'border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F7F4EC] text-[#1B271B] cursor-pointer'
                       }`}
                     >
                       {isConfirmed ? (
@@ -468,7 +468,7 @@ export function PetugasHonorTab({
                         </>
                       ) : (
                         <>
-                          <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#4C1D95]" />
+                          <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#2B3F29]" />
                           <span>
                             {confirmingKey === confirmKey ? 'Mengirim...' : 'Konfirmasi Terima'}
                           </span>
@@ -478,7 +478,7 @@ export function PetugasHonorTab({
                     <button
                       type="button"
                       onClick={() => onOpenKwitansi(trx)}
-                      className="min-h-[40px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                      className="min-h-[40px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D6E4D3] text-[#243825] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                     >
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>e-Kwitansi</span>

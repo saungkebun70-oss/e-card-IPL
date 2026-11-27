@@ -46,14 +46,14 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-5 min-h-[46px] px-6 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              className="mt-5 min-h-[46px] px-6 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Muat Ulang Aplikasi</span>
             </button>
             <p
               title={errorMessage}
-              className="mt-4 pt-3 border-t border-indigo-100/70 text-[11px] font-mono text-slate-400 break-words leading-relaxed"
+              className="mt-4 pt-3 border-t border-[#E6E2D6] text-[11px] font-mono text-[#6E786D] break-words leading-relaxed"
             >
               Detail teknis: {errorMessage}
             </p>

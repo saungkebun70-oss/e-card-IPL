@@ -3,106 +3,120 @@
 
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif-brand: "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-emerald-brand: #059669;
-  --color-slate-ink: #0F172A;
-  --color-slate-canvas: #F8FAFC;
+  --color-emerald-brand: #2B3F29;
+  --color-moss-dark: #243825;
+  --color-moss-primary: #2B3F29;
+  --color-moss-accent: #384E35;
+  --color-sage-soft: #E5EEE3;
+  --color-sage-border: #C6D2BF;
+  --color-alabaster: #F6F3EA;
+  --color-cream-card: #FFFDF8;
+  --color-cream-border: #E6E2D6;
+  --color-terracotta: #C87058;
+  --color-amber-cream: #F2D8A7;
+  --color-slate-ink: #1B271B;
+  --color-slate-canvas: #F6F3EA;
+}
+
+.font-serif-brand {
+  font-family: var(--font-serif-brand);
 }
 
 /* ==========================================================================
-   SISTEM 5 TEMA TAMPILAN ESTETIK (CSS VARIABLES BERBASIS html[data-theme])
+   SISTEM TEMA VELVETY MOSS & WARM ALABASTER CREAM (DEFAULT SAUNG KEBUN)
    ========================================================================== */
 
 :root,
 html[data-theme="emerald"] {
-  --theme-bg: #eef2ff;
-  --theme-bg-gradient: radial-gradient(circle at 10% 8%, rgba(221, 214, 254, 0.78) 0%, transparent 46%),
-    radial-gradient(circle at 90% 14%, rgba(186, 230, 253, 0.76) 0%, transparent 48%),
-    radial-gradient(circle at 52% 90%, rgba(233, 213, 255, 0.62) 0%, transparent 54%),
-    linear-gradient(135deg, #eef2ff 0%, #f3e8ff 48%, #e0f2fe 100%);
-  --theme-surface: rgba(255, 255, 255, 0.80);
-  --theme-surface-solid: #ffffff;
-  --theme-surface-muted: rgba(238, 242, 255, 0.75);
-  --theme-surface-hover: rgba(255, 255, 255, 0.94);
-  --theme-border: rgba(255, 255, 255, 0.92);
-  --theme-border-subtle: rgba(199, 210, 254, 0.45);
-  --theme-card-shadow: 0 12px 32px -12px rgba(79, 70, 229, 0.14), 0 4px 12px -4px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  --theme-text: #0f172a;
-  --theme-text-secondary: #475569;
-  --theme-text-muted: #64748b;
+  --theme-bg: #F6F3EA;
+  --theme-bg-gradient: radial-gradient(circle at 12% 8%, rgba(229, 238, 227, 0.72) 0%, transparent 48%),
+    radial-gradient(circle at 88% 12%, rgba(242, 216, 167, 0.25) 0%, transparent 44%),
+    linear-gradient(180deg, #F7F4EC 0%, #F6F3EA 100%);
+  --theme-surface: rgba(255, 253, 248, 0.96);
+  --theme-surface-solid: #FFFDF8;
+  --theme-surface-muted: #F1ECE0;
+  --theme-surface-hover: #FFFDF8;
+  --theme-border: #E6E2D6;
+  --theme-border-subtle: #EAE5D9;
+  --theme-card-shadow: 0 10px 28px -12px rgba(36, 56, 37, 0.09), 0 2px 8px -2px rgba(36, 56, 37, 0.04);
+  --theme-text: #1B271B;
+  --theme-text-secondary: #4A554A;
+  --theme-text-muted: #6E786D;
 
-  --theme-primary: #4c1d95;
-  --theme-primary-hover: #3b0764;
-  --theme-primary-soft: #ede9fe;
-  --theme-primary-soft-border: #ddd6fe;
-  --theme-primary-text: #4c1d95;
+  --theme-primary: #2B3F29;
+  --theme-primary-hover: #243825;
+  --theme-primary-soft: #E5EEE3;
+  --theme-primary-soft-border: #C6D2BF;
+  --theme-primary-text: #243825;
 
-  --theme-cta-indigo: #3730a3;
-  --theme-cta-indigo-hover: #312e81;
-  --theme-cta-mint: #a7f3d0;
-  --theme-cta-mint-hover: #6ee7b7;
-  --theme-cta-mint-text: #064e3b;
+  --theme-cta-indigo: #2B3F29;
+  --theme-cta-indigo-hover: #243825;
+  --theme-cta-mint: #E5EEE3;
+  --theme-cta-mint-hover: #D3E3D0;
+  --theme-cta-mint-text: #243825;
 
-  --theme-accent: #3b0764;
-  --theme-accent-2: #6d28d9;
-  --theme-accent-border: rgba(255, 255, 255, 0.24);
-  --theme-accent-highlight: #a7f3d0;
-  --theme-hero-gradient: linear-gradient(135deg, #3b0764 0%, #4c1d95 36%, #6d28d9 74%, #312e81 100%);
-  --theme-hero-shadow: 0 20px 40px -14px rgba(76, 29, 149, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --theme-accent: #243825;
+  --theme-accent-2: #384E35;
+  --theme-accent-border: rgba(255, 253, 248, 0.22);
+  --theme-accent-highlight: #E5EEE3;
+  --theme-hero-gradient: linear-gradient(135deg, #243825 0%, #2B3F29 55%, #384E35 100%);
+  --theme-hero-shadow: 0 18px 36px -14px rgba(36, 56, 37, 0.36), inset 0 1px 0 rgba(255, 253, 248, 0.16);
 
-  --theme-header-bg: rgba(255, 255, 255, 0.82);
-  --theme-nav-bg: rgba(255, 255, 255, 0.82);
-  --theme-input-bg: rgba(255, 255, 255, 0.90);
-  --theme-input-border: #cbd5e1;
-  --theme-input-text: #0f172a;
+  --theme-header-bg: rgba(255, 253, 248, 0.92);
+  --theme-nav-bg: rgba(255, 253, 248, 0.95);
+  --theme-input-bg: #FFFDF8;
+  --theme-input-border: #D9D4C5;
+  --theme-input-text: #1B271B;
 }
 
 html[data-theme="midnight"] {
-  --theme-bg: #0b1120;
-  --theme-bg-gradient: radial-gradient(circle at 15% 10%, rgba(76, 29, 149, 0.28) 0%, transparent 45%),
+  --theme-bg: #0b1410;
+  --theme-bg-gradient: radial-gradient(circle at 15% 10%, rgba(36, 56, 37, 0.45) 0%, transparent 48%),
     radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.14) 0%, transparent 48%),
-    linear-gradient(135deg, #090d1a 0%, #0b1120 55%, #111827 100%);
-  --theme-surface: rgba(17, 24, 39, 0.88);
-  --theme-surface-solid: #111827;
-  --theme-surface-muted: #1e293b;
-  --theme-surface-hover: #1f2937;
-  --theme-border: rgba(51, 65, 85, 0.75);
-  --theme-border-subtle: #1e293b;
-  --theme-card-shadow: 0 12px 28px -10px rgba(2, 6, 23, 0.65);
-  --theme-text: #f1f5f9;
-  --theme-text-secondary: #cbd5e1;
-  --theme-text-muted: #94a3b8;
+    linear-gradient(135deg, #09110d 0%, #0b1410 55%, #111d17 100%);
+  --theme-surface: rgba(17, 29, 23, 0.90);
+  --theme-surface-solid: #111d17;
+  --theme-surface-muted: #182920;
+  --theme-surface-hover: #1e3328;
+  --theme-border: rgba(56, 78, 53, 0.65);
+  --theme-border-subtle: #1e3328;
+  --theme-card-shadow: 0 12px 28px -10px rgba(2, 12, 6, 0.65);
+  --theme-text: #f2f5f0;
+  --theme-text-secondary: #cbd5c9;
+  --theme-text-muted: #93a392;
 
-  --theme-primary: #10b981;
-  --theme-primary-hover: #059669;
-  --theme-primary-soft: rgba(16, 185, 129, 0.14);
-  --theme-primary-soft-border: rgba(16, 185, 129, 0.36);
-  --theme-primary-text: #34d399;
+  --theme-primary: #34d399;
+  --theme-primary-hover: #10b981;
+  --theme-primary-soft: rgba(52, 211, 153, 0.14);
+  --theme-primary-soft-border: rgba(52, 211, 153, 0.36);
+  --theme-primary-text: #6ee7b7;
 
-  --theme-cta-indigo: #4f46e5;
-  --theme-cta-indigo-hover: #4338ca;
+  --theme-cta-indigo: #384E35;
+  --theme-cta-indigo-hover: #2B3F29;
   --theme-cta-mint: #065f46;
   --theme-cta-mint-hover: #047857;
   --theme-cta-mint-text: #d1fae5;
 
-  --theme-accent: #1e1b4b;
-  --theme-accent-2: #064e3b;
-  --theme-accent-border: #334155;
-  --theme-accent-highlight: #34d399;
-  --theme-hero-gradient: linear-gradient(135deg, #1e1b4b 0%, #312e81 52%, #064e3b 100%);
+  --theme-accent: #182920;
+  --theme-accent-2: #243825;
+  --theme-accent-border: #2f4632;
+  --theme-accent-highlight: #6ee7b7;
+  --theme-hero-gradient: linear-gradient(135deg, #182920 0%, #243825 52%, #384E35 100%);
   --theme-hero-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.65);
 
-  --theme-header-bg: rgba(17, 24, 39, 0.95);
-  --theme-nav-bg: rgba(17, 24, 39, 0.92);
-  --theme-input-bg: #0f172a;
-  --theme-input-border: #334155;
-  --theme-input-text: #f8fafc;
+  --theme-header-bg: rgba(17, 29, 23, 0.95);
+  --theme-nav-bg: rgba(17, 29, 23, 0.94);
+  --theme-input-bg: #0f1b15;
+  --theme-input-border: #2f4632;
+  --theme-input-text: #f2f5f0;
 }
 
 html[data-theme="ocean"] {
   --theme-bg: #f0f9ff;
   --theme-bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 52%, #ecfeff 100%);
-  --theme-surface: rgba(255, 255, 255, 0.84);
+  --theme-surface: rgba(255, 255, 255, 0.90);
   --theme-surface-solid: #ffffff;
   --theme-surface-muted: #e0f2fe;
   --theme-surface-hover: #f0f9ff;
@@ -142,7 +156,7 @@ html[data-theme="ocean"] {
 html[data-theme="earth"] {
   --theme-bg: #faf8f5;
   --theme-bg-gradient: linear-gradient(135deg, #fff7ed 0%, #faf8f5 52%, #fef3c7 100%);
-  --theme-surface: rgba(255, 255, 255, 0.86);
+  --theme-surface: rgba(255, 255, 255, 0.92);
   --theme-surface-solid: #ffffff;
   --theme-surface-muted: #f3ede4;
   --theme-surface-hover: #f7f3ec;
@@ -180,43 +194,43 @@ html[data-theme="earth"] {
 }
 
 html[data-theme="royal"] {
-  --theme-bg: #eef2ff;
-  --theme-bg-gradient: linear-gradient(135deg, #e0e7ff 0%, #f5f7ff 50%, #ede9fe 100%);
-  --theme-surface: rgba(255, 255, 255, 0.82);
+  --theme-bg: #f4f5f2;
+  --theme-bg-gradient: linear-gradient(135deg, #f4f5f2 0%, #f8faf8 50%, #eef2ec 100%);
+  --theme-surface: rgba(255, 255, 255, 0.92);
   --theme-surface-solid: #ffffff;
-  --theme-surface-muted: #eef2ff;
-  --theme-surface-hover: #f5f7ff;
-  --theme-border: rgba(219, 226, 241, 0.9);
-  --theme-border-subtle: #eef2ff;
-  --theme-card-shadow: 0 10px 30px -10px rgba(67, 56, 202, 0.14);
-  --theme-text: #0f172a;
+  --theme-surface-muted: #eef1ec;
+  --theme-surface-hover: #f4f6f2;
+  --theme-border: rgba(214, 220, 210, 0.9);
+  --theme-border-subtle: #e7ebe4;
+  --theme-card-shadow: 0 10px 30px -10px rgba(30, 41, 59, 0.10);
+  --theme-text: #1e293b;
   --theme-text-secondary: #475569;
   --theme-text-muted: #64748b;
 
-  --theme-primary: #4f46e5;
-  --theme-primary-hover: #4338ca;
-  --theme-primary-soft: #eef2ff;
-  --theme-primary-soft-border: #c7d2fe;
-  --theme-primary-text: #4338ca;
+  --theme-primary: #334155;
+  --theme-primary-hover: #1e293b;
+  --theme-primary-soft: #f1f5f9;
+  --theme-primary-soft-border: #cbd5e1;
+  --theme-primary-text: #1e293b;
 
-  --theme-cta-indigo: #3730a3;
-  --theme-cta-indigo-hover: #312e81;
-  --theme-cta-mint: #a7f3d0;
-  --theme-cta-mint-hover: #6ee7b7;
-  --theme-cta-mint-text: #064e3b;
+  --theme-cta-indigo: #334155;
+  --theme-cta-indigo-hover: #1e293b;
+  --theme-cta-mint: #E5EEE3;
+  --theme-cta-mint-hover: #C6D2BF;
+  --theme-cta-mint-text: #243825;
 
-  --theme-accent: #1e1b4b;
-  --theme-accent-2: #4f46e5;
+  --theme-accent: #1e293b;
+  --theme-accent-2: #334155;
   --theme-accent-border: rgba(255, 255, 255, 0.22);
-  --theme-accent-highlight: #a5b4fc;
-  --theme-hero-gradient: linear-gradient(135deg, #1e1b4b 0%, #3730a3 52%, #4f46e5 100%);
-  --theme-hero-shadow: 0 14px 32px -10px rgba(49, 46, 129, 0.36);
+  --theme-accent-highlight: #cbd5e1;
+  --theme-hero-gradient: linear-gradient(135deg, #1e293b 0%, #334155 52%, #475569 100%);
+  --theme-hero-shadow: 0 14px 32px -10px rgba(30, 41, 59, 0.28);
 
   --theme-header-bg: rgba(255, 255, 255, 0.94);
-  --theme-nav-bg: rgba(255, 255, 255, 0.88);
+  --theme-nav-bg: rgba(255, 255, 255, 0.90);
   --theme-input-bg: #ffffff;
   --theme-input-border: #cbd5e1;
-  --theme-input-text: #0f172a;
+  --theme-input-text: #1e293b;
 }
 
 @layer base {
@@ -283,7 +297,7 @@ html[data-theme="royal"] {
 }
 
 /* ==========================================================================
-   KELAS UTILITAS FROSTED GLASS LAVENDER-INDIGO (KONSISTEN DI 3 PORTAL)
+   KELAS UTILITAS KARTU HANGAT & FROSTED GLASS SAUNG KEBUN
    ========================================================================== */
 
 .glass-canvas {
@@ -293,8 +307,8 @@ html[data-theme="royal"] {
 
 .glass-card {
   background-color: var(--theme-surface);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
   border: 1px solid var(--theme-border);
   box-shadow: var(--theme-card-shadow);
 }
@@ -307,23 +321,23 @@ html[data-theme="royal"] {
 
 .glass-header {
   background-color: var(--theme-header-bg);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   border: 1px solid var(--theme-border);
-  box-shadow: 0 10px 28px -8px rgba(79, 70, 229, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 28px -10px rgba(36, 56, 37, 0.14), inset 0 1px 0 rgba(255, 253, 248, 0.85);
 }
 
 .glass-dock {
   background-color: var(--theme-nav-bg);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   border: 1px solid var(--theme-border);
-  box-shadow: 0 14px 36px -10px rgba(79, 70, 229, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 14px 36px -10px rgba(36, 56, 37, 0.22), inset 0 1px 0 rgba(255, 253, 248, 0.85);
 }
 
 .glass-sidebar {
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(150%);
+  -webkit-backdrop-filter: blur(32px) saturate(150%);
 }
 
 /* ==========================================================================
@@ -399,74 +413,72 @@ html[data-theme="midnight"] .glass-sidebar {
 html[data-theme="midnight"] .bg-slate-50,
 html[data-theme="midnight"] .bg-slate-50\/80,
 html[data-theme="midnight"] .bg-slate-50\/70,
-html[data-theme="midnight"] .bg-slate-50\/60 {
-  background-color: #162032;
+html[data-theme="midnight"] .bg-slate-50\/60,
+html[data-theme="midnight"] .bg-\[\#F6F3EA\],
+html[data-theme="midnight"] .bg-\[\#F7F4EC\],
+html[data-theme="midnight"] .bg-\[\#FFFDF8\] {
+  background-color: #111d17;
 }
 
 html[data-theme="midnight"] .bg-slate-100,
 html[data-theme="midnight"] .bg-slate-200\/70,
 html[data-theme="midnight"] .bg-slate-200\/75,
 html[data-theme="midnight"] .bg-slate-200\/80,
-html[data-theme="midnight"] .bg-indigo-50\/40,
-html[data-theme="midnight"] .bg-indigo-50\/50,
-html[data-theme="midnight"] .bg-indigo-50\/60,
-html[data-theme="midnight"] .bg-indigo-50\/70,
-html[data-theme="midnight"] .bg-indigo-50\/80 {
-  background-color: #1e293b;
+html[data-theme="midnight"] .bg-\[\#E5EEE3\],
+html[data-theme="midnight"] .bg-\[\#E5EEE3\]\/70,
+html[data-theme="midnight"] .bg-\[\#E5EEE3\]\/80 {
+  background-color: #182920;
 }
 
 html[data-theme="midnight"] .hover\:bg-slate-50:hover,
 html[data-theme="midnight"] .hover\:bg-slate-50\/70:hover,
 html[data-theme="midnight"] .hover\:bg-slate-100:hover,
-html[data-theme="midnight"] .hover\:bg-indigo-50\/50:hover {
-  background-color: #1f2937;
+html[data-theme="midnight"] .hover\:bg-\[\#E5EEE3\]:hover {
+  background-color: #1e3328;
 }
 
 html[data-theme="midnight"] .text-\[\#0F172A\],
+html[data-theme="midnight"] .text-\[\#1B271B\],
 html[data-theme="midnight"] .text-slate-900,
 html[data-theme="midnight"] .text-slate-800 {
-  color: #f1f5f9;
+  color: #f2f5f0;
 }
 
 html[data-theme="midnight"] .text-slate-700 {
-  color: #cbd5e1;
+  color: #cbd5c9;
 }
 
 html[data-theme="midnight"] .text-slate-600 {
-  color: #94a3b8;
+  color: #a8b7a7;
 }
 
 html[data-theme="midnight"] .text-slate-500,
 html[data-theme="midnight"] .text-gray-500 {
-  color: #94a3b8;
+  color: #93a392;
 }
 
-html[data-theme="midnight"] .text-\[\#4C1D95\],
-html[data-theme="midnight"] .text-\[\#3730A3\] {
-  color: #c4b5fd;
+html[data-theme="midnight"] .text-\[\#243825\],
+html[data-theme="midnight"] .text-\[\#2B3F29\] {
+  color: #86efac;
 }
 
 html[data-theme="midnight"] .border-white\/95,
 html[data-theme="midnight"] .border-white\/90,
 html[data-theme="midnight"] .border-white\/80,
-html[data-theme="midnight"] .border-indigo-100,
-html[data-theme="midnight"] .border-indigo-100\/80,
-html[data-theme="midnight"] .border-indigo-100\/90,
-html[data-theme="midnight"] .border-indigo-200\/70,
-html[data-theme="midnight"] .border-indigo-200\/80,
+html[data-theme="midnight"] .border-\[\#E6E2D6\],
+html[data-theme="midnight"] .border-\[\#C6D2BF\],
 html[data-theme="midnight"] .border-slate-200,
 html[data-theme="midnight"] .border-slate-200\/80,
 html[data-theme="midnight"] .border-slate-200\/70,
 html[data-theme="midnight"] .border-slate-300 {
-  border-color: #273549;
+  border-color: #273e2d;
 }
 
 html[data-theme="midnight"] .border-slate-100,
-html[data-theme="midnight"] .divide-indigo-100\/70 > :not([hidden]) ~ :not([hidden]),
-html[data-theme="midnight"] .divide-indigo-100\/80 > :not([hidden]) ~ :not([hidden]),
+html[data-theme="midnight"] .divide-\[\#E6E2D6\] > :not([hidden]) ~ :not([hidden]),
 html[data-theme="midnight"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html[data-theme="midnight"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #1f2937;
+  border-color: #1e3328;
 }
 
 /* Form controls pada Midnight Emerald agar selalu kontras & jelas dibaca */

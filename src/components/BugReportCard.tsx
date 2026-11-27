@@ -46,9 +46,9 @@ const CATEGORY_OPTIONS: BugReportCategory[] = [
 ];
 
 const STATUS_BADGE_CLASSES: Record<BugReportStatus, string> = {
-  baru: 'bg-amber-50 text-amber-800 border-amber-200',
-  diproses: 'bg-sky-50 text-sky-800 border-sky-200',
-  selesai: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  baru: 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]',
+  diproses: 'bg-[#F7F4EC] text-[#384E35] border-[#C6D2BF]',
+  selesai: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
 };
 
 export function BugReportCard({ session, onToast }: BugReportCardProps) {
@@ -231,14 +231,14 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
       {/* Header Kartu */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
-            <Bug className="w-5 h-5 text-rose-600" />
+          <div className="w-10 h-10 rounded-2xl bg-[#C87058]/15 border border-[#E2A898] flex items-center justify-center shrink-0">
+            <Bug className="w-5 h-5 text-[#9A422B]" />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-[#0F172A]">
+            <h3 className="text-sm sm:text-base font-bold text-[#1B271B]">
               Pelaporan Bug Cepat
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
               Kirim snapshot error otomatis &amp; screenshot layar langsung ke pengurus saat
               menemukan kendala aplikasi.
             </p>
@@ -246,14 +246,14 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
         </div>
 
         {/* Switcher Tab Form / Riwayat */}
-        <div className="inline-flex rounded-2xl bg-indigo-50/80 border border-indigo-100/80 p-1 self-start sm:self-center shrink-0">
+        <div className="inline-flex rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-1 self-start sm:self-center shrink-0">
           <button
             type="button"
             onClick={() => setActiveView('form')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               activeView === 'form'
-                ? 'bg-[#4C1D95] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'text-[#4A554A] hover:text-[#243825]'
             }`}
           >
             Lapor Bug
@@ -266,8 +266,8 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeView === 'history'
-                ? 'bg-[#4C1D95] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#4C1D95]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'text-[#4A554A] hover:text-[#243825]'
             }`}
           >
             <span>{isAdmin ? 'Daftar Laporan' : 'Riwayat Saya'}</span>
@@ -275,10 +275,10 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
                   activeView === 'history'
-                    ? 'bg-white/20 text-white'
+                    ? 'bg-white/20 text-[#FFFDF8]'
                     : openReportCount > 0
-                      ? 'bg-rose-100 text-rose-700'
-                      : 'bg-indigo-100 text-[#4C1D95]'
+                      ? 'bg-[#C87058]/20 text-[#7A311E]'
+                      : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
               >
                 {reports.length}
@@ -292,9 +292,9 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
       {activeView === 'form' && (
         <form onSubmit={handleSubmit} className="space-y-4">
           {lastSubmittedId && (
-            <div className="flex items-start justify-between gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-3.5 py-2.5 text-xs text-emerald-900">
+            <div className="flex items-start justify-between gap-2 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-3.5 py-2.5 text-xs text-[#243825]">
               <div className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-[#243825] shrink-0 mt-0.5" />
                 <span>
                   Laporan terkirim dengan kode{' '}
                   <strong className="font-mono">#{lastSubmittedId}</strong>. Terima kasih telah
@@ -304,7 +304,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               <button
                 type="button"
                 onClick={() => setLastSubmittedId(null)}
-                className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                className="text-[#384E35] hover:text-[#243825] cursor-pointer"
                 aria-label="Tutup notifikasi terkirim"
               >
                 <X className="w-3.5 h-3.5" />
@@ -317,7 +317,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             <div className="sm:col-span-5">
               <label
                 htmlFor="bug-category"
-                className="block text-xs font-semibold text-slate-700 mb-1"
+                className="block text-xs font-semibold text-[#4A554A] mb-1"
               >
                 Kategori Kendala
               </label>
@@ -325,7 +325,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                 id="bug-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as BugReportCategory)}
-                className="w-full min-h-[42px] px-3.5 rounded-2xl border border-indigo-200/80 bg-white/90 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15 focus:border-[#4C1D95]"
+                className="w-full min-h-[42px] px-3.5 rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] text-sm text-[#1B271B] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20 focus:border-[#2B3F29]"
               >
                 {CATEGORY_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>
@@ -338,9 +338,9 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             <div className="sm:col-span-7">
               <label
                 htmlFor="bug-title"
-                className="block text-xs font-semibold text-slate-700 mb-1"
+                className="block text-xs font-semibold text-[#4A554A] mb-1"
               >
-                Ringkasan Masalah <span className="text-rose-500">*</span>
+                Ringkasan Masalah <span className="text-[#C87058]">*</span>
               </label>
               <input
                 id="bug-title"
@@ -349,7 +349,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Contoh: Tombol upload bukti transfer tidak merespons"
-                className="w-full min-h-[42px] px-3.5 rounded-2xl border border-indigo-200/80 bg-white/90 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15 focus:border-[#4C1D95]"
+                className="w-full min-h-[42px] px-3.5 rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20 focus:border-[#2B3F29]"
                 required
               />
             </div>
@@ -359,9 +359,9 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
           <div>
             <label
               htmlFor="bug-description"
-              className="block text-xs font-semibold text-slate-700 mb-1"
+              className="block text-xs font-semibold text-[#4A554A] mb-1"
             >
-              Detail &amp; Langkah Kejadian <span className="text-rose-500">*</span>
+              Detail &amp; Langkah Kejadian <span className="text-[#C87058]">*</span>
             </label>
             <textarea
               id="bug-description"
@@ -370,19 +370,19 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ceritakan menu yang dibuka, tombol yang ditekan, serta pesan error yang muncul..."
-              className="w-full px-3.5 py-2.5 rounded-2xl border border-indigo-200/80 bg-white/90 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15 focus:border-[#4C1D95] resize-y"
+              className="w-full px-3.5 py-2.5 rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20 focus:border-[#2B3F29] resize-y"
               required
             />
           </div>
 
           {/* Upload / Tangkap Screenshot Layar */}
-          <div className="rounded-2xl border border-indigo-100/80 bg-indigo-50/40 p-3.5 space-y-3">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3.5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold text-[#0F172A]">
+                <p className="text-xs font-bold text-[#1B271B]">
                   Screenshot Layar (Opsional)
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-[#6E786D]">
                   Otomatis dikompresi dan diunggah aman ke Supabase Storage.
                 </p>
               </div>
@@ -397,9 +397,9 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[38px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <ImagePlus className="w-3.5 h-3.5 text-[#4C1D95]" />
+                  <ImagePlus className="w-3.5 h-3.5 text-[#243825]" />
                   <span>{screenshotFile ? 'Ganti Gambar' : 'Unggah Screenshot'}</span>
                 </button>
 
@@ -408,7 +408,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                     type="button"
                     disabled={capturingScreen}
                     onClick={() => void handleCaptureScreen()}
-                    className="min-h-[38px] px-3.5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-xs font-semibold text-[#4C1D95] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 whitespace-nowrap"
+                    className="min-h-[38px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 whitespace-nowrap"
                   >
                     {capturingScreen ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -422,11 +422,11 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             </div>
 
             {screenshotFile && screenshotPreviewUrl && (
-              <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white/95 p-2.5">
+              <div className="flex items-center gap-3 rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-2.5">
                 <button
                   type="button"
                   onClick={() => setLightboxImageUrl(screenshotPreviewUrl)}
-                  className="w-16 h-12 rounded-xl overflow-hidden border border-indigo-100 bg-indigo-50/40 shrink-0 cursor-pointer"
+                  className="w-16 h-12 rounded-xl overflow-hidden border border-[#E6E2D6] bg-[#F7F4EC] shrink-0 cursor-pointer"
                   title="Perbesar screenshot"
                 >
                   <img
@@ -436,17 +436,17 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                   />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-[#0F172A] truncate">
+                  <p className="text-xs font-semibold text-[#1B271B] truncate">
                     {screenshotFile.name}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-mono">
+                  <p className="text-[11px] text-[#6E786D] font-mono">
                     {formatFileSize(screenshotFile.size)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => attachScreenshotFile(null)}
-                  className="p-2 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  className="p-2 rounded-full text-[#6E786D] hover:text-[#9A422B] hover:bg-[#C87058]/15 transition-colors cursor-pointer"
                   aria-label="Hapus screenshot"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -456,20 +456,20 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
           </div>
 
           {/* Snapshot Error Otomatis */}
-          <div className="rounded-2xl border border-indigo-100/80 bg-white/90 p-3.5 space-y-2.5">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3.5 space-y-2.5">
             <div className="flex items-start justify-between gap-3">
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeSnapshot}
                   onChange={(e) => setIncludeSnapshot(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-indigo-300 text-[#4C1D95] accent-[#4C1D95] focus:ring-[#4C1D95]"
+                  className="mt-0.5 h-4 w-4 rounded border-[#C6D2BF] text-[#2B3F29] accent-[#2B3F29] focus:ring-[#2B3F29]"
                 />
                 <span>
-                  <span className="block text-xs font-bold text-[#0F172A]">
+                  <span className="block text-xs font-bold text-[#1B271B]">
                     Lampirkan Snapshot Error &amp; Info Perangkat Otomatis
                   </span>
-                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                  <span className="block text-[11px] text-[#6E786D] mt-0.5">
                     Versi v{currentSnapshot.app_version} · {currentSnapshot.platform} ·{' '}
                     {currentSnapshot.recent_errors.length} catatan error terekam di sesi ini
                   </span>
@@ -479,7 +479,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               <button
                 type="button"
                 onClick={() => setShowSnapshotPreview((v) => !v)}
-                className="text-[11px] font-semibold text-[#4C1D95] hover:text-[#3730A3] inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                className="text-[11px] font-semibold text-[#243825] hover:text-[#1B271B] inline-flex items-center gap-1 shrink-0 cursor-pointer"
               >
                 <span>Detail</span>
                 {showSnapshotPreview ? (
@@ -491,25 +491,25 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             </div>
 
             {showSnapshotPreview && (
-              <div className="rounded-2xl bg-slate-900 text-slate-100 p-3 text-[11px] font-mono space-y-1.5 overflow-x-auto">
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-300">
+              <div className="rounded-2xl bg-[#1B271B] text-[#F6F3EA] p-3 text-[11px] font-mono space-y-1.5 overflow-x-auto">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[#C6D2BF]">
                   <span>Versi: v{currentSnapshot.app_version} ({currentSnapshot.build_id})</span>
                   <span>Platform: {currentSnapshot.platform}</span>
                   <span>Layar: {currentSnapshot.viewport}</span>
                   <span>URL: {currentSnapshot.url}</span>
                 </div>
-                <div className="pt-1.5 border-t border-slate-700/80">
-                  <p className="text-[#A7F3D0] font-semibold mb-1">
+                <div className="pt-1.5 border-t border-white/15">
+                  <p className="text-[#E5EEE3] font-semibold mb-1">
                     Log Error Sesi ({currentSnapshot.recent_errors.length}):
                   </p>
                   {currentSnapshot.recent_errors.length === 0 ? (
-                    <p className="text-slate-400">
+                    <p className="text-[#C6D2BF]/80">
                       Belum ada crash/exception JavaScript terekam pada sesi aktif ini.
                     </p>
                   ) : (
                     <ul className="space-y-1 max-h-32 overflow-y-auto">
                       {currentSnapshot.recent_errors.slice(0, 5).map((err, idx) => (
-                        <li key={`${err.timestamp}-${idx}`} className="text-rose-300 break-words">
+                        <li key={`${err.timestamp}-${idx}`} className="text-[#F2D8A7] break-words">
                           [{err.source}] {err.message}
                         </li>
                       ))}
@@ -525,7 +525,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full sm:w-auto min-h-[44px] px-6 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm whitespace-nowrap"
+              className="w-full sm:w-auto min-h-[44px] px-6 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm whitespace-nowrap"
             >
               {submitting ? (
                 <>
@@ -547,7 +547,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
       {activeView === 'history' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#6E786D]">
               {isAdmin
                 ? 'Menampilkan seluruh laporan bug yang dikirim Warga & Pengurus.'
                 : 'Menampilkan laporan bug yang pernah Anda kirimkan.'}
@@ -556,7 +556,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
               type="button"
               onClick={() => void loadReports()}
               disabled={loadingReports}
-              className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-[#4C1D95] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 whitespace-nowrap"
+              className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingReports ? 'animate-spin' : ''}`} />
               <span>Muat Ulang</span>
@@ -564,14 +564,14 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
           </div>
 
           {loadingReports && reports.length === 0 ? (
-            <div className="py-8 flex items-center justify-center gap-2 text-xs text-slate-500">
-              <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+            <div className="py-8 flex items-center justify-center gap-2 text-xs text-[#6E786D]">
+              <Loader2 className="w-4 h-4 animate-spin text-[#243825]" />
               <span>Memuat daftar laporan bug...</span>
             </div>
           ) : reports.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-indigo-200/80 bg-indigo-50/40 p-6 text-center">
-              <Bug className="w-6 h-6 text-indigo-300 mx-auto" />
-              <p className="text-xs font-semibold text-slate-600 mt-2">
+            <div className="rounded-2xl border border-dashed border-[#C6D2BF] bg-[#F7F4EC] p-6 text-center">
+              <Bug className="w-6 h-6 text-[#6E786D] mx-auto" />
+              <p className="text-xs font-semibold text-[#4A554A] mt-2">
                 Belum ada laporan bug yang tercatat.
               </p>
             </div>
@@ -583,7 +583,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                 return (
                   <article
                     key={item.id}
-                    className="rounded-2xl border border-indigo-100/80 bg-white/80 p-3.5 space-y-2.5"
+                    className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3.5 space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -593,21 +593,21 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                           >
                             {BUG_STATUS_LABELS[item.status]}
                           </span>
-                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[#4C1D95]">
+                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825]">
                             {BUG_CATEGORY_LABELS[item.category]}
                           </span>
                           {item.is_local_only && (
-                            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700">
+                            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#F7F4EC] border border-[#E6E2D6] text-[#4A554A]">
                               Lokal
                             </span>
                           )}
                         </div>
-                        <h4 className="text-sm font-bold text-[#0F172A] mt-1.5 break-words">
+                        <h4 className="text-sm font-bold text-[#1B271B] mt-1.5 break-words">
                           {item.title}
                         </h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <p className="text-[11px] text-[#6E786D] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {isAdmin && (
-                            <span className="font-semibold text-slate-700">
+                            <span className="font-semibold text-[#4A554A]">
                               {item.reporter_name} ({item.reporter_role === 'warga' ? `Blok ${formatBlokRumah(item.blok_rumah)}` : item.reporter_role})
                             </span>
                           )}
@@ -626,7 +626,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                         <button
                           type="button"
                           onClick={() => setLightboxImageUrl(item.screenshot_url)}
-                          className="w-14 h-12 rounded-xl overflow-hidden border border-indigo-100 bg-white shrink-0 cursor-pointer hover:opacity-90"
+                          className="w-14 h-12 rounded-xl overflow-hidden border border-[#E6E2D6] bg-[#FFFDF8] shrink-0 cursor-pointer hover:opacity-90"
                           title="Lihat screenshot"
                         >
                           <img
@@ -639,19 +639,19 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                    <p className="text-xs text-[#4A554A] whitespace-pre-line leading-relaxed">
                       {item.description}
                     </p>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-indigo-100/70">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E6E2D6]">
                       <button
                         type="button"
                         onClick={() =>
                           setExpandedReportId(isExpanded ? null : item.id)
                         }
-                        className="text-[11px] font-semibold text-[#4C1D95] hover:text-[#3730A3] inline-flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-semibold text-[#243825] hover:text-[#1B271B] inline-flex items-center gap-1 cursor-pointer"
                       >
-                        <FileCode2 className="w-3.5 h-3.5 text-[#4C1D95]/70" />
+                        <FileCode2 className="w-3.5 h-3.5 text-[#384E35]" />
                         <span>
                           Snapshot ({errorCount} error)
                         </span>
@@ -673,7 +673,7 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-colors cursor-pointer disabled:cursor-default ${
                                 item.status === st
                                   ? STATUS_BADGE_CLASSES[st]
-                                  : 'bg-white/95 border-indigo-100 text-slate-600 hover:bg-indigo-50'
+                                  : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#F7F4EC]'
                               }`}
                             >
                               {BUG_STATUS_LABELS[st]}
@@ -684,31 +684,31 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
                     </div>
 
                     {isExpanded && (
-                      <div className="rounded-2xl bg-slate-900 text-slate-100 p-3 text-[11px] font-mono space-y-1 overflow-x-auto">
+                      <div className="rounded-2xl bg-[#1B271B] text-[#F6F3EA] p-3 text-[11px] font-mono space-y-1 overflow-x-auto">
                         {item.error_snapshot ? (
                           <>
-                            <p className="text-slate-300">
+                            <p className="text-[#C6D2BF]">
                               URL: {item.error_snapshot.url} · Layar: {item.error_snapshot.viewport}
                             </p>
-                            <p className="text-slate-400 break-all">
+                            <p className="text-[#C6D2BF]/75 break-all">
                               UA: {item.error_snapshot.user_agent}
                             </p>
                             {item.error_snapshot.recent_errors.length > 0 ? (
-                              <div className="pt-1.5 mt-1.5 border-t border-slate-700 space-y-1">
+                              <div className="pt-1.5 mt-1.5 border-t border-white/15 space-y-1">
                                 {item.error_snapshot.recent_errors.map((err, idx) => (
-                                  <div key={`${err.timestamp}-${idx}`} className="text-rose-300 break-words">
+                                  <div key={`${err.timestamp}-${idx}`} className="text-[#F2D8A7] break-words">
                                     [{err.source}] {err.message}
                                   </div>
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-slate-400 pt-1">
+                              <p className="text-[#C6D2BF]/80 pt-1">
                                 Tidak ada exception JavaScript terekam saat laporan dikirim.
                               </p>
                             )}
                           </>
                         ) : (
-                          <p className="text-slate-400">
+                          <p className="text-[#C6D2BF]/80">
                             Pengguna tidak menyertakan snapshot perangkat pada laporan ini.
                           </p>
                         )}
@@ -725,25 +725,25 @@ export function BugReportCard({ session, onToast }: BugReportCardProps) {
       {/* Modal Pratinjau Screenshot (In-App Lightbox) */}
       {lightboxImageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md animate-modal-backdrop flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-[#1B271B]/65 backdrop-blur-md animate-modal-backdrop flex items-center justify-center p-4"
           onClick={() => setLightboxImageUrl(null)}
         >
           <div
-            className="relative max-w-3xl w-full bg-white/95 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden shadow-2xl animate-modal-pop"
+            className="relative max-w-3xl w-full bg-[#FFFDF8] backdrop-blur-xl border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-3.5 border-b border-indigo-100/70 bg-indigo-50/40 flex items-center justify-between">
-              <span className="text-xs font-bold text-[#0F172A]">Pratinjau Screenshot Laporan Bug</span>
+            <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC] flex items-center justify-between">
+              <span className="text-xs font-bold text-[#1B271B]">Pratinjau Screenshot Laporan Bug</span>
               <button
                 type="button"
                 onClick={() => setLightboxImageUrl(null)}
-                className="p-1.5 rounded-full text-slate-500 hover:bg-indigo-100/60 cursor-pointer"
+                className="p-1.5 rounded-full text-[#4A554A] hover:bg-[#E5EEE3]/70 cursor-pointer"
                 aria-label="Tutup pratinjau screenshot"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-3 bg-indigo-50/30 max-h-[75dvh] overflow-auto flex items-center justify-center">
+            <div className="p-3 bg-[#F6F3EA] max-h-[75dvh] overflow-auto flex items-center justify-center">
               <img
                 src={lightboxImageUrl}
                 alt="Screenshot laporan bug"

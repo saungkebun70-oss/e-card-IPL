@@ -139,13 +139,13 @@ export function AdminLpjSlide({
   return (
     <div className="space-y-5">
       {/* Toolbar Kontrol Filter Triwulan & Tombol Ekspor PDF/Cetak A4 */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 no-print">
+      <section className="bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)] no-print">
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500">
+          <p className="text-xs font-semibold text-[#4A554A]">
             Pilih Periode Laporan Pertanggungjawaban (Per 3 Bulan)
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-indigo-50/80 rounded-2xl flex-1 sm:flex-none">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-[#F6F3EA] border border-[#E6E2D6] rounded-2xl flex-1 sm:flex-none">
               {TRIWULAN_LIST.map((tw) => {
                 const active = triwulanId === tw.id;
                 return (
@@ -155,8 +155,8 @@ export function AdminLpjSlide({
                     onClick={() => setTriwulanId(tw.id as 1 | 2 | 3 | 4)}
                     className={`min-h-[38px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                       active
-                        ? 'bg-[#4C1D95] text-white shadow-sm'
-                        : 'text-slate-600 hover:text-[#4C1D95]'
+                        ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                        : 'text-[#4A554A] hover:text-[#243825]'
                     }`}
                   >
                     {tw.label}
@@ -169,7 +169,7 @@ export function AdminLpjSlide({
               aria-label="Pilih Tahun LPJ"
               value={tahun}
               onChange={(e) => setTahun(Number(e.target.value))}
-              className="min-h-[42px] rounded-2xl border border-indigo-100 bg-white/95 px-3.5 text-sm font-mono font-bold text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+              className="min-h-[42px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-sm font-mono font-bold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
             >
               {[TAHUN_AKTIF - 1, TAHUN_AKTIF, TAHUN_AKTIF + 1].map((y) => (
                 <option key={y} value={y}>
@@ -185,7 +185,7 @@ export function AdminLpjSlide({
             type="button"
             disabled={printingPdf || downloadingPdf}
             onClick={() => void handlePrintA4()}
-            className="min-h-[44px] px-4 rounded-full border border-slate-200 bg-white/95 hover:bg-slate-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+            className="min-h-[44px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#1B271B] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
           >
             {printingPdf ? (
               <LoadingSpinner size="xs" tone="current" />
@@ -198,7 +198,7 @@ export function AdminLpjSlide({
             type="button"
             disabled={downloadingPdf || printingPdf}
             onClick={() => void handleDownloadPdf()}
-            className="min-h-[44px] px-4 sm:px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
+            className="min-h-[44px] px-4 sm:px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97] shadow-sm"
           >
             {downloadingPdf ? (
               <LoadingSpinner size="xs" tone="white" />
@@ -214,19 +214,19 @@ export function AdminLpjSlide({
       <article
         ref={reportRef}
         id="printable-report"
-        className="bg-white border border-indigo-100/90 rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
+        className="bg-white border border-[#E6E2D6] rounded-3xl print:rounded-none print:border-none print:shadow-none p-4 sm:p-7 print:p-0 space-y-5 print:space-y-3.5"
       >
         {/* Kop Resmi Pengurus — Proporsional Tanpa Memanjang ke Bawah */}
-        <header className="flex items-center gap-3 sm:gap-4 border-b-2 border-[#0F172A] pb-3.5 print:pb-2.5">
+        <header className="flex items-center gap-3 sm:gap-4 border-b-2 border-[#243825] pb-3.5 print:pb-2.5">
           <BrandLogo size="md" variant="light" className="shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700 leading-tight">
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#2B3F29] leading-tight">
               Pengurus Lingkungan Perumahan Saung Kebun
             </p>
-            <h2 className="text-sm sm:text-lg print:text-base font-extrabold text-[#0F172A] tracking-tight leading-snug mt-0.5">
+            <h2 className="text-sm sm:text-lg print:text-base font-extrabold text-[#1B271B] tracking-tight leading-snug mt-0.5">
               LAPORAN PERTANGGUNGJAWABAN (LPJ) {lpj.labelTriwulan.toUpperCase()} {lpj.tahun}
             </h2>
-            <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug">
+            <p className="text-[11px] sm:text-xs text-[#4A554A] mt-0.5 leading-snug">
               Periode <strong>{lpj.rentangBulan} {lpj.tahun}</strong> · {kopAlamat}
             </p>
           </div>
@@ -234,52 +234,52 @@ export function AdminLpjSlide({
 
         {/* 1. Ikhtisar Arus Kas 3 Bulan — Otomatis 5 Kolom Sejajar Saat Cetak A4 */}
         <section className="space-y-2.5 print:space-y-1.5 avoid-break">
-          <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
-            <FileSpreadsheet className="w-4 h-4 text-[#059669] shrink-0 print:w-3.5 print:h-3.5" />
+          <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
+            <FileSpreadsheet className="w-4 h-4 text-[#2B3F29] shrink-0 print:w-3.5 print:h-3.5" />
             <span>1. Ikhtisar Arus Kas ({lpj.rentangBulan} {lpj.tahun})</span>
           </h3>
 
           <div className="grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-2.5 print:gap-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 print:p-2">
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-slate-500">
+            <div className="rounded-xl border border-[#E6E2D6] bg-[#F6F3EA]/70 p-3 print:p-2">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-[#6E786D]">
                 Saldo Awal
               </p>
-              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#0F172A] tabular-nums mt-1">
+              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#1B271B] tabular-nums mt-1">
                 {formatRupiah(lpj.saldoAwal)}
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 print:p-2">
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-emerald-800 flex items-center gap-1">
+            <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/50 p-3 print:p-2">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-[#243825] flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 shrink-0" />
                 <span>Pemasukan IPL</span>
               </p>
-              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#059669] tabular-nums mt-1">
+              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#2B3F29] tabular-nums mt-1">
                 {formatRupiah(lpj.totalIpl)}
               </p>
             </div>
-            <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3 print:p-2">
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-sky-800">
+            <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/30 p-3 print:p-2">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-[#384E35]">
                 Pemasukan Lain
               </p>
-              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-sky-700 tabular-nums mt-1">
+              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#243825] tabular-nums mt-1">
                 {formatRupiah(lpj.totalPemasukanLain)}
               </p>
             </div>
-            <div className="rounded-xl border border-red-200 bg-red-50/40 p-3 print:p-2">
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-red-800 flex items-center gap-1">
+            <div className="rounded-xl border border-[#E2A898] bg-[#C87058]/10 p-3 print:p-2">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-[#7A311E] flex items-center gap-1">
                 <TrendingDown className="w-3 h-3 shrink-0" />
                 <span>Pengeluaran</span>
               </p>
-              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-red-700 tabular-nums mt-1">
+              <p className="text-sm sm:text-base print:text-xs font-bold font-mono text-[#9A422B] tabular-nums mt-1">
                 {formatRupiah(lpj.totalPengeluaran)}
               </p>
             </div>
-            <div className="col-span-2 lg:col-span-1 print:col-span-1 rounded-xl bg-[#0F172A] text-white p-3 print:p-2">
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-slate-300 flex items-center gap-1">
-                <Wallet className="w-3 h-3 text-emerald-400 shrink-0" />
+            <div className="col-span-2 lg:col-span-1 print:col-span-1 rounded-xl bg-[#243825] text-[#FFFDF8] p-3 print:p-2">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] font-semibold text-[#E5EEE3]/85 flex items-center gap-1">
+                <Wallet className="w-3 h-3 text-[#E5EEE3] shrink-0" />
                 <span>Saldo Akhir</span>
               </p>
-              <p className="text-sm sm:text-base print:text-xs font-extrabold font-mono text-emerald-400 tabular-nums mt-1">
+              <p className="text-sm sm:text-base print:text-xs font-extrabold font-mono text-[#E5EEE3] tabular-nums mt-1">
                 {formatRupiah(lpj.saldoAkhir)}
               </p>
             </div>
@@ -289,18 +289,18 @@ export function AdminLpjSlide({
         {/* 2. Tingkat Kepatuhan Pembayaran Warga */}
         <section className="space-y-2 print:space-y-1.5 avoid-break">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-[#059669] shrink-0 print:w-3.5 print:h-3.5" />
+            <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-[#2B3F29] shrink-0 print:w-3.5 print:h-3.5" />
               <span>2. Tingkat Kepatuhan Pembayaran IPL Warga</span>
             </h3>
-            <span className="text-[11px] sm:text-xs print:text-[10px] font-mono font-bold text-emerald-700">
+            <span className="text-[11px] sm:text-xs print:text-[10px] font-mono font-bold text-[#2B3F29]">
               Rata-rata: {lpj.rataRataKepatuhan}% ({lpj.totalUnitAktif} Unit Aktif)
             </span>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <div className="overflow-x-auto border border-[#E6E2D6] rounded-xl">
             <table className="w-full text-xs print:text-[10px]">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+              <thead className="bg-[#F6F3EA] border-b border-[#E6E2D6] text-[#4A554A]">
                 <tr>
                   <th className="text-left px-3 sm:px-4 py-2 print:py-1.5 font-semibold">Periode Bulan</th>
                   <th className="text-center px-2.5 py-2 print:py-1.5 font-semibold">Aktif</th>
@@ -309,45 +309,45 @@ export function AdminLpjSlide({
                   <th className="text-right px-3 sm:px-4 py-2 print:py-1.5 font-semibold">IPL Terkumpul</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E6E2D6]/60">
                 {lpj.kepatuhanPerBulan.map((row) => (
                   <tr key={row.bulan}>
-                    <td className="px-3 sm:px-4 py-2 print:py-1.5 font-semibold text-[#0F172A] whitespace-nowrap">
+                    <td className="px-3 sm:px-4 py-2 print:py-1.5 font-semibold text-[#1B271B] whitespace-nowrap">
                       {row.namaBulan} {lpj.tahun}
                       {row.isPraRilis && (
-                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-500 border border-slate-200">
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-[#F6F3EA] text-[10px] font-medium text-[#6E786D] border border-[#E6E2D6]">
                           Pra-Rilis
                         </span>
                       )}
                     </td>
-                    <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-slate-600">
+                    <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-[#4A554A]">
                       {row.unitAktif}
                     </td>
-                    <td className="px-2.5 py-2 print:py-1.5 text-center font-mono font-bold tabular-nums text-[#059669]">
+                    <td className="px-2.5 py-2 print:py-1.5 text-center font-mono font-bold tabular-nums text-[#2B3F29]">
                       {row.unitLunas}
                     </td>
-                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-[#0F172A]">
+                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-[#1B271B]">
                       {row.persentase}%
                     </td>
-                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono tabular-nums text-slate-700 whitespace-nowrap">
+                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono tabular-nums text-[#4A554A] whitespace-nowrap">
                       {formatRupiah(row.nominalTerkumpul)}
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-emerald-50/60 border-t border-slate-200 font-bold">
+              <tfoot className="bg-[#E5EEE3]/60 border-t border-[#E6E2D6] font-bold">
                 <tr>
-                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-[#0F172A]">
+                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-[#1B271B]">
                     Rata-rata / Total Triwulan
                   </td>
                   <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums">
                     {lpj.totalUnitAktif}
                   </td>
                   <td className="px-2.5 py-2 print:py-1.5 text-center font-mono">—</td>
-                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-[#059669] tabular-nums">
+                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-[#243825] tabular-nums">
                     {lpj.rataRataKepatuhan}%
                   </td>
-                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-[#059669] tabular-nums whitespace-nowrap">
+                  <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-[#243825] tabular-nums whitespace-nowrap">
                     {formatRupiah(lpj.totalIpl)}
                   </td>
                 </tr>
@@ -358,13 +358,13 @@ export function AdminLpjSlide({
 
         {/* 3. Rekapitulasi Pengeluaran per Pos Anggaran */}
         <section className="space-y-2 print:space-y-1.5 avoid-break">
-          <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A]">
+          <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B]">
             3. Rekapitulasi Realisasi Pengeluaran per Pos Anggaran
           </h3>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <div className="overflow-x-auto border border-[#E6E2D6] rounded-xl">
             <table className="w-full text-xs print:text-[10px]">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+              <thead className="bg-[#F6F3EA] border-b border-[#E6E2D6] text-[#4A554A]">
                 <tr>
                   <th className="text-left px-3 sm:px-4 py-2 print:py-1.5 font-semibold">
                     Pos Anggaran / Kategori
@@ -376,26 +376,26 @@ export function AdminLpjSlide({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E6E2D6]/60">
                 {lpj.pengeluaranPerKategori.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-4 print:py-3 text-center text-slate-500">
+                    <td colSpan={4} className="px-4 py-4 print:py-3 text-center text-[#6E786D]">
                       Belum ada pencatatan pengeluaran anggaran pada {lpj.labelTriwulan} {lpj.tahun}.
                     </td>
                   </tr>
                 ) : (
                   lpj.pengeluaranPerKategori.map((item) => (
                     <tr key={item.kategori}>
-                      <td className="px-3 sm:px-4 py-2 print:py-1.5 font-medium text-[#0F172A]">
+                      <td className="px-3 sm:px-4 py-2 print:py-1.5 font-medium text-[#1B271B]">
                         {item.kategori}
                       </td>
-                      <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-slate-600">
+                      <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-[#4A554A]">
                         {item.jumlahTransaksi}
                       </td>
-                      <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono tabular-nums text-slate-600">
+                      <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono tabular-nums text-[#4A554A]">
                         {item.persentase}%
                       </td>
-                      <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-red-700 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-[#9A422B] whitespace-nowrap">
                         {formatRupiah(item.totalNominal)}
                       </td>
                     </tr>
@@ -403,16 +403,16 @@ export function AdminLpjSlide({
                 )}
               </tbody>
               {lpj.pengeluaranPerKategori.length > 0 && (
-                <tfoot className="bg-red-50/50 border-t border-slate-200 font-bold">
+                <tfoot className="bg-[#C87058]/10 border-t border-[#E6E2D6] font-bold">
                   <tr>
-                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-[#0F172A]">
+                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-[#1B271B]">
                       Total Pengeluaran Triwulan
                     </td>
                     <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums">
                       {lpj.pengeluaranPerKategori.reduce((s, k) => s + k.jumlahTransaksi, 0)}
                     </td>
                     <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono">100%</td>
-                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-red-700 tabular-nums whitespace-nowrap">
+                    <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono text-[#9A422B] tabular-nums whitespace-nowrap">
                       {formatRupiah(lpj.totalPengeluaran)}
                     </td>
                   </tr>
@@ -423,9 +423,9 @@ export function AdminLpjSlide({
         </section>
 
         {/* 4. Lembar Pengesahan Resmi + Stempel Digital Pengurus (Rapi, Tidak Menutupi Nama) */}
-        <section className="pt-3 print:pt-2.5 border-t border-slate-200 avoid-break space-y-4 print:space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs print:text-[10px] text-slate-600">
-            <span className="font-bold text-[#0F172A]">4. Lembar Pengesahan Pengurus</span>
+        <section className="pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break space-y-4 print:space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs print:text-[10px] text-[#4A554A]">
+            <span className="font-bold text-[#1B271B]">4. Lembar Pengesahan Pengurus</span>
             <span>Karawang, {formatTanggal(new Date().toISOString())}</span>
           </div>
 
@@ -439,42 +439,42 @@ export function AdminLpjSlide({
             </div>
 
             <div>
-              <p className="text-xs print:text-[10px] font-semibold text-slate-700">
+              <p className="text-xs print:text-[10px] font-semibold text-[#4A554A]">
                 Ketua Lingkungan
               </p>
               <div className="h-16 sm:h-20 print:h-14" />
-              <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
-              <p className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A] mt-1.5">
+              <div className="border-b border-[#C6D2BF] w-32 sm:w-40 mx-auto" />
+              <p className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] mt-1.5">
                 Erlangga
               </p>
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-500">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-[#6E786D]">
                 Blok B3/7 · Perumahan Saung Kebun
               </p>
             </div>
 
             <div>
-              <p className="text-xs print:text-[10px] font-semibold text-slate-700">
+              <p className="text-xs print:text-[10px] font-semibold text-[#4A554A]">
                 Bendahara Lingkungan
               </p>
               <div className="h-16 sm:h-20 print:h-14" />
-              <div className="border-b border-slate-400 w-32 sm:w-40 mx-auto" />
-              <p className="text-xs sm:text-sm print:text-xs font-bold text-[#0F172A] mt-1.5">
+              <div className="border-b border-[#C6D2BF] w-32 sm:w-40 mx-auto" />
+              <p className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] mt-1.5">
                 Andriansyah
               </p>
-              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-500">
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-[#6E786D]">
                 Blok B7/16 · Perumahan Saung Kebun
               </p>
             </div>
           </div>
 
           <div className="pt-1 text-center">
-            <p className="text-[11px] print:text-[10px] text-slate-500">Mengetahui,</p>
-            <p className="text-xs print:text-[10px] font-bold text-[#0F172A] mt-0.5">
+            <p className="text-[11px] print:text-[10px] text-[#6E786D]">Mengetahui,</p>
+            <p className="text-xs print:text-[10px] font-bold text-[#1B271B] mt-0.5">
               Ketua RT / RW / Kepala Desa Bengle
             </p>
             <div className="h-14 sm:h-16 print:h-12" />
-            <div className="border-b border-slate-400 w-44 sm:w-52 mx-auto" />
-            <p className="text-[10px] text-slate-500 mt-1">
+            <div className="border-b border-[#C6D2BF] w-44 sm:w-52 mx-auto" />
+            <p className="text-[10px] text-[#6E786D] mt-1">
               ( .................................................... )
             </p>
           </div>

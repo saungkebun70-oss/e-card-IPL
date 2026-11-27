@@ -109,27 +109,27 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="kwitansi-digital-title"
-      className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-modal-backdrop"
+      className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-modal-backdrop"
       onClick={props.onClose}
     >
       <div
-        className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-2xl w-full border border-white/90 shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col animate-modal-pop"
+        className="bg-[#FFFDF8] backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-2xl w-full border border-[#E6E2D6] shadow-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-indigo-200 no-print" aria-hidden="true" />
+        <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-[#C6D2BF] no-print" aria-hidden="true" />
         {/* Header Modal (Disembunyikan saat cetak) */}
-        <div className="px-4 sm:px-5 py-3 border-b border-indigo-100/70 flex items-center justify-between gap-3 bg-indigo-50/40 no-print shrink-0">
+        <div className="px-4 sm:px-5 py-3 border-b border-[#E6E2D6] flex items-center justify-between gap-3 bg-[#F7F4EC] no-print shrink-0">
           <div className="min-w-0">
-            <h3 id="kwitansi-digital-title" className="text-sm font-bold text-[#0F172A] truncate">
+            <h3 id="kwitansi-digital-title" className="text-sm font-bold font-serif-brand text-[#1B271B] truncate">
               {judulDokumen}
             </h3>
-            <p className="text-[11px] font-mono text-slate-500 truncate">{nomorDokumen}</p>
+            <p className="text-[11px] font-mono text-[#6E786D] truncate">{nomorDokumen}</p>
           </div>
           <button
             type="button"
             onClick={props.onClose}
             aria-label="Tutup kwitansi"
-            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-full text-slate-500 hover:text-[#4C1D95] hover:bg-indigo-50 cursor-pointer shrink-0"
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-full text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/70 cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -179,13 +179,13 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
             <div
               className={`rounded-xl px-3.5 py-2.5 flex items-center gap-2 border text-xs font-bold leading-snug ${
                 isPengeluaran
-                  ? 'bg-red-50/70 border-red-200 text-red-900'
-                  : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                  ? 'bg-[#C87058]/12 border-[#E2A898] text-[#7A311E]'
+                  : 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
               }`}
             >
               <CheckCircle2
                 className={`w-4 h-4 shrink-0 ${
-                  isPengeluaran ? 'text-red-600' : 'text-[#059669]'
+                  isPengeluaran ? 'text-[#C87058]' : 'text-[#243825]'
                 }`}
               />
               <span>
@@ -214,9 +214,9 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                       <span className="col-span-5 sm:col-span-4 text-[11px] sm:text-xs font-semibold text-slate-500">
                         Diterima Dari
                       </span>
-                      <span className="col-span-7 sm:col-span-8 font-bold text-[#0F172A] break-words">
+                      <span className="col-span-7 sm:col-span-8 font-bold text-[#1B271B] break-words">
                         {props.trx.nama_warga}{' '}
-                        <span className="font-mono text-emerald-700 whitespace-nowrap">
+                        <span className="font-mono text-[#243825] whitespace-nowrap">
                           (Blok {formatBlokRumah(props.trx.blok_rumah) || props.trx.blok_rumah})
                         </span>
                       </span>
@@ -303,7 +303,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                     </p>
                     <p
                       className={`text-lg sm:text-xl font-extrabold font-mono tabular-nums mt-0.5 ${
-                        isPengeluaran ? 'text-red-700' : 'text-[#059669]'
+                        isPengeluaran ? 'text-[#9A422B]' : 'text-[#243825]'
                       }`}
                     >
                       {formatRupiah(nominal)}
@@ -372,11 +372,11 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
         </div>
 
         {/* Footer Tombol Aksi — Rapi 1 Baris di Tablet/Desktop & Simetris di Mobile */}
-        <div className="px-4 sm:px-5 py-3 bg-indigo-50/40 border-t border-indigo-100/70 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 no-print shrink-0">
+        <div className="px-4 sm:px-5 py-3 bg-[#F7F4EC] border-t border-[#E6E2D6] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 no-print shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={props.onClose}
-            className="w-full sm:w-auto min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-indigo-50 cursor-pointer"
+            className="w-full sm:w-auto min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-xs sm:text-sm font-semibold text-[#4A554A] hover:bg-[#E5EEE3]/50 cursor-pointer"
           >
             Tutup
           </button>
@@ -386,12 +386,12 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               type="button"
               disabled={printing || downloading}
               onClick={() => void handlePrintA4()}
-              className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#0F172A] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+              className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#1B271B] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
               {printing ? (
                 <LoadingSpinner size="xs" tone="current" />
               ) : (
-                <Printer className="w-4 h-4 shrink-0 text-[#4C1D95]" />
+                <Printer className="w-4 h-4 shrink-0 text-[#243825]" />
               )}
               <span>{printing ? 'Menyiapkan...' : 'Cetak A4'}</span>
             </button>
@@ -399,7 +399,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               type="button"
               disabled={downloading || printing}
               onClick={() => void handleDownloadPdf()}
-              className="min-h-[42px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
+              className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-all duration-200 active:scale-[0.97]"
             >
               {downloading ? (
                 <LoadingSpinner size="xs" tone="white" />

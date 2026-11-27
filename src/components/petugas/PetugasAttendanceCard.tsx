@@ -313,74 +313,74 @@ export function PetugasAttendanceCard({
       {/* KARTU UTAMA: ABSENSI JAGA */}
       <section
         aria-label="Absensi Jaga Petugas Keamanan"
-        className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+        className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs"
       >
         {/* Header Kartu + Live Clock WIB */}
-        <div className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] text-white px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#A7F3D0] shrink-0" />
-              <h2 className="text-sm sm:text-base font-bold text-white leading-tight">
+              <ShieldCheck className="w-4 h-4 text-[#E5EEE3] shrink-0" />
+              <h2 className="text-sm sm:text-base font-bold text-[#FFFDF8] leading-tight">
                 Absensi Jaga
               </h2>
             </div>
-            <p className="text-xs text-indigo-100/80 mt-1 truncate">
+            <p className="text-xs text-[#E5EEE3]/85 mt-1 truncate">
               {officerName} <span aria-hidden="true">·</span>{' '}
-              <span className="text-[#A7F3D0] font-medium">
+              <span className="text-[#E5EEE3] font-semibold">
                 {activeSession ? activeSession.shift_name : detectedShift.shiftName}
               </span>
             </p>
           </div>
 
           {/* Jam WIB Real-Time */}
-          <div className="sm:text-right shrink-0 rounded-2xl bg-white/10 border border-white/15 px-3.5 py-2">
-            <p className="text-lg sm:text-xl font-mono font-bold text-white tabular-nums leading-none">
+          <div className="sm:text-right shrink-0 rounded-2xl bg-[#FFFDF8]/10 border border-[#FFFDF8]/15 px-3.5 py-2">
+            <p className="text-lg sm:text-xl font-mono font-bold text-[#FFFDF8] tabular-nums leading-none">
               {wibNow.timeStr}{' '}
-              <span className="text-[11px] font-sans font-semibold text-[#A7F3D0]">WIB</span>
+              <span className="text-[11px] font-sans font-semibold text-[#E5EEE3]">WIB</span>
             </p>
-            <p className="text-[11px] text-indigo-100/80 mt-1 tabular-nums">{wibNow.dateLabel}</p>
+            <p className="text-[11px] text-[#E5EEE3]/80 mt-1 tabular-nums">{wibNow.dateLabel}</p>
           </div>
         </div>
 
         {/* Konten Status & Tombol Aksi */}
         <div className="p-4 sm:p-5 space-y-4">
           {loading ? (
-            <div className="h-24 rounded-2xl bg-indigo-50/70 animate-pulse" />
+            <div className="h-24 rounded-2xl bg-[#F7F4EC] animate-pulse" />
           ) : activeSession ? (
             /* STATUS: SEDANG BERTUGAS (ON DUTY) */
             <div className="space-y-3.5">
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 sm:p-4 space-y-2.5">
+              <div className="rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] p-3.5 sm:p-4 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-emerald-800">
+                  <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-[#243825]">
                     <span className="relative flex h-2.5 w-2.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#384E35] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#2B3F29]" />
                     </span>
                     <span>SEDANG BERTUGAS (ON DUTY)</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-900 tabular-nums">
+                  <span className="text-xs font-mono font-bold text-[#243825] tabular-nums">
                     Durasi: {activeEval?.durationLabel || '0 mnt'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-emerald-200/70 text-xs">
+                <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[#C6D2BF] text-xs">
                   <div>
-                    <p className="text-[11px] text-emerald-800/80">Jam Absen Masuk</p>
-                    <p className="font-mono font-bold text-[#0F172A] tabular-nums mt-0.5">
+                    <p className="text-[11px] text-[#4A554A]">Jam Absen Masuk</p>
+                    <p className="font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
                       {formatWibTime(activeSession.clock_in_at)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] text-emerald-800/80">Tanggal Mulai Shift</p>
-                    <p className="font-semibold text-[#0F172A] tabular-nums mt-0.5">
+                    <p className="text-[11px] text-[#4A554A]">Tanggal Mulai Shift</p>
+                    <p className="font-semibold text-[#1B271B] tabular-nums mt-0.5">
                       {formatWibDateStr(activeSession.shift_date)}
                     </p>
                   </div>
                 </div>
 
                 {isCrossMidnightActive && (
-                  <div className="rounded-xl bg-[#3b0764] text-indigo-50 px-3 py-2 text-[11px] flex items-center gap-2">
-                    <Moon className="w-3.5 h-3.5 text-[#A7F3D0] shrink-0" />
+                  <div className="rounded-xl bg-[#243825] text-[#FFFDF8] px-3 py-2 text-[11px] flex items-center gap-2">
+                    <Moon className="w-3.5 h-3.5 text-[#E5EEE3] shrink-0" />
                     <span>
                       Sesi lintas hari ({activeSession.shift_name} mulai{' '}
                       {formatWibDateStr(activeSession.shift_date)}) tetap terhubung untuk Absen
@@ -392,13 +392,13 @@ export function PetugasAttendanceCard({
                 {activeSession.clock_in_photo_url &&
                   isSafeAttendanceImageUrl(activeSession.clock_in_photo_url) && (
                     <div className="flex items-center justify-between gap-2 pt-1">
-                      <span className="text-[11px] text-emerald-800">
+                      <span className="text-[11px] text-[#243825]">
                         Foto absen masuk terlampir
                       </span>
                       <button
                         type="button"
                         onClick={() => setLightboxUrl(activeSession.clock_in_photo_url)}
-                        className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 underline inline-flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-semibold text-[#243825] hover:text-[#1B271B] underline inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Lihat Foto</span>
@@ -410,7 +410,7 @@ export function PetugasAttendanceCard({
               <button
                 type="button"
                 onClick={openClockOutModal}
-                className="w-full min-h-[48px] px-4 rounded-full bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
+                className="w-full min-h-[48px] px-4 rounded-full bg-[#C87058] hover:bg-[#B25C45] active:scale-[0.99] text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
               >
                 <LogOut className="w-4 h-4 shrink-0" />
                 <span>Absen Pulang (Clock-Out)</span>
@@ -420,52 +420,52 @@ export function PetugasAttendanceCard({
             /* STATUS: BELUM ABSEN MASUK ATAU BARU SELESAI SHIFT */
             <div className="space-y-3.5">
               {completedCurrentShift ? (
-                <div className="rounded-2xl bg-indigo-50/60 border border-indigo-100/80 p-3.5 space-y-2">
+                <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-3.5 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#243825]">
                       <CheckCircle2 className="w-4 h-4 shrink-0" />
                       <span>SELESAI BERTUGAS</span>
                     </span>
-                    <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                    <span className="text-xs font-mono font-semibold text-[#4A554A] tabular-nums">
                       {evaluateAttendance(completedCurrentShift).durationLabel}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 tabular-nums">
+                  <p className="text-xs text-[#4A554A] tabular-nums">
                     {completedCurrentShift.shift_name} · Masuk{' '}
-                    <strong className="text-[#0F172A]">
+                    <strong className="text-[#1B271B]">
                       {formatWibTime(completedCurrentShift.clock_in_at)}
                     </strong>{' '}
                     · Pulang{' '}
-                    <strong className="text-[#0F172A]">
+                    <strong className="text-[#1B271B]">
                       {formatWibTime(completedCurrentShift.clock_out_at)}
                     </strong>
                   </p>
                   {completedCurrentShift.handover_notes && (
-                    <p className="text-xs text-slate-600 bg-white/90 border border-indigo-100/80 rounded-xl px-2.5 py-1.5 whitespace-pre-line">
+                    <p className="text-xs text-[#4A554A] bg-[#FFFDF8] border border-[#E6E2D6] rounded-xl px-2.5 py-1.5 whitespace-pre-line">
                       {completedCurrentShift.handover_notes}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 px-3.5 py-3 flex items-start justify-between gap-3">
+                <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] px-3.5 py-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#0F172A]">
+                    <p className="text-xs font-bold text-[#1B271B]">
                       Jadwal Terdeteksi: {detectedShift.shiftName}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-[#6E786D] mt-0.5 leading-relaxed">
                       {detectedShift.isLemburMinggu
                         ? 'Terdeteksi jadwal Lembur Minggu (19:00 – 07:00 WIB). Silakan tekan Absen Masuk saat tiba di pos.'
                         : 'Tekan tombol di bawah saat mulai berjaga agar status kehadiran tampil real-time untuk Warga & Pengurus.'}
                     </p>
                   </div>
-                  <Clock className="w-4 h-4 text-[#4C1D95] shrink-0 mt-0.5" />
+                  <Clock className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                 </div>
               )}
 
               <button
                 type="button"
                 onClick={openClockInModal}
-                className="w-full min-h-[48px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] active:scale-[0.99] text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
+                className="w-full min-h-[48px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] active:scale-[0.99] text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
               >
                 <LogIn className="w-4 h-4 shrink-0" />
                 <span>
@@ -482,24 +482,24 @@ export function PetugasAttendanceCard({
       {/* JADWAL SHIFT JAGA REGULER & KARTU OTOMATIS LEMBUR MINGGU (19:00 – 07:00 WIB) */}
       <section
         aria-label="Jadwal Shift Jaga dan Lembur Minggu"
-        className="glass-card rounded-3xl overflow-hidden"
+        className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs"
       >
-        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Calendar className="w-4 h-4 text-[#4C1D95] shrink-0" />
-            <h3 className="text-sm font-bold text-[#0F172A] truncate">
+            <Calendar className="w-4 h-4 text-[#2B3F29] shrink-0" />
+            <h3 className="text-sm font-bold text-[#1B271B] truncate">
               Jadwal Shift Jaga &amp; Lembur Minggu
             </h3>
           </div>
-          <span className="text-[11px] font-semibold text-slate-500 shrink-0">WIB</span>
+          <span className="text-[11px] font-semibold text-[#6E786D] shrink-0">WIB</span>
         </div>
 
         <div className="p-4 sm:p-5 space-y-3">
           {/* Kartu Sorotan Otomatis LEMBUR MINGGU (muncul tiap Hari Minggu atau saat dijadwalkan Admin) */}
           {(isSundayOrEarlyMonday || upcomingOrActiveLembur) && (
-            <div className="rounded-2xl glass-hero text-white p-3.5 sm:p-4 space-y-2">
+            <div className="rounded-2xl glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] p-3.5 sm:p-4 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-[#A7F3D0]">
+                <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-[#E5EEE3]">
                   <Moon className="w-4 h-4 shrink-0" />
                   <span>LEMBUR MINGGU (19:00 – 07:00 WIB)</span>
                 </div>
@@ -508,8 +508,8 @@ export function PetugasAttendanceCard({
                     className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md border ${
                       upcomingOrActiveLembur.payment_status === 'paid' ||
                       upcomingOrActiveLembur.cash_transaction_id
-                        ? 'bg-emerald-500/20 text-[#A7F3D0] border-emerald-400/40'
-                        : 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+                        ? 'bg-[#E5EEE3]/20 text-[#E5EEE3] border-[#E5EEE3]/40'
+                        : 'bg-[#F2D8A7]/25 text-[#F2D8A7] border-[#F2D8A7]/40'
                     }`}
                   >
                     {upcomingOrActiveLembur.payment_status === 'paid' ||
@@ -521,24 +521,24 @@ export function PetugasAttendanceCard({
               </div>
 
               {upcomingOrActiveLembur ? (
-                <div className="text-xs text-indigo-100/90 space-y-1">
+                <div className="text-xs text-[#E5EEE3]/90 space-y-1">
                   <p className="tabular-nums">
                     Jadwal Anda:{' '}
-                    <strong className="text-white">
+                    <strong className="text-[#FFFDF8]">
                       {formatWibDateStr(upcomingOrActiveLembur.shift_date)}
                     </strong>{' '}
                     · Uang Lembur:{' '}
-                    <strong className="font-mono text-[#A7F3D0]">
+                    <strong className="font-mono text-[#E5EEE3]">
                       {formatRupiah(upcomingOrActiveLembur.overtime_amount)}
                     </strong>
                   </p>
-                  <p className="text-[11px] text-indigo-100/75">
+                  <p className="text-[11px] text-[#E5EEE3]/75">
                     Shift Lembur Minggu otomatis terpilih saat Anda menekan Absen Masuk &amp; Scan
                     Patroli pada jam 19:00 – 07:00 WIB.
                   </p>
                 </div>
               ) : (
-                <p className="text-xs text-indigo-100/85 leading-relaxed">
+                <p className="text-xs text-[#E5EEE3]/85 leading-relaxed">
                   Hari Minggu malam (19:00 – 07:00 WIB) berlaku jadwal Lembur Minggu. Petugas yang
                   bertugas dapat langsung memilih shift ini saat Absen Masuk.
                 </p>
@@ -561,17 +561,17 @@ export function PetugasAttendanceCard({
                   key={item.label}
                   className={`rounded-2xl border px-3 py-2.5 ${
                     isCurrent
-                      ? 'bg-indigo-50/90 border-indigo-200'
-                      : 'bg-indigo-50/40 border-indigo-100/80'
+                      ? 'bg-[#E5EEE3] border-[#C6D2BF]'
+                      : 'bg-[#F7F4EC] border-[#E6E2D6]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-bold text-[#0F172A]">{item.label}</p>
+                    <p className="text-xs font-bold text-[#1B271B]">{item.label}</p>
                     {isCurrent && (
-                      <span className="text-[10px] font-extrabold text-[#4C1D95]">Aktif</span>
+                      <span className="text-[10px] font-extrabold text-[#243825]">Aktif</span>
                     )}
                   </div>
-                  <p className="text-[11px] font-mono text-slate-600 tabular-nums mt-0.5">
+                  <p className="text-[11px] font-mono text-[#4A554A] tabular-nums mt-0.5">
                     {item.jam}
                   </p>
                 </div>
@@ -584,31 +584,31 @@ export function PetugasAttendanceCard({
       {/* RIWAYAT ABSENSI PRIBADI (7 HARI TERAKHIR) */}
       <section
         aria-label="Riwayat Absensi Pribadi 7 Hari Terakhir"
-        className="glass-card rounded-3xl overflow-hidden"
+        className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs"
       >
-        <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <History className="w-4 h-4 text-[#4C1D95] shrink-0" />
-            <h3 className="text-sm font-bold text-[#0F172A] truncate">
+            <History className="w-4 h-4 text-[#2B3F29] shrink-0" />
+            <h3 className="text-sm font-bold text-[#1B271B] truncate">
               Riwayat Absensi Pribadi (7 Hari Terakhir)
             </h3>
           </div>
-          <span className="text-xs font-mono font-semibold text-slate-500 tabular-nums shrink-0">
+          <span className="text-xs font-mono font-semibold text-[#6E786D] tabular-nums shrink-0">
             {last7DaysHistory.length} sesi
           </span>
         </div>
 
         {loading ? (
           <div className="p-4 space-y-2.5">
-            <div className="h-14 rounded-2xl bg-indigo-50/70 animate-pulse" />
-            <div className="h-14 rounded-2xl bg-indigo-50/70 animate-pulse" />
+            <div className="h-14 rounded-2xl bg-[#F7F4EC] animate-pulse" />
+            <div className="h-14 rounded-2xl bg-[#F7F4EC] animate-pulse" />
           </div>
         ) : last7DaysHistory.length === 0 ? (
-          <div className="px-4 py-6 text-center text-xs text-slate-500">
+          <div className="px-4 py-6 text-center text-xs text-[#6E786D]">
             Belum ada catatan absensi pribadi dalam 7 hari terakhir.
           </div>
         ) : (
-          <div className="divide-y divide-indigo-100/60">
+          <div className="divide-y divide-[#E6E2D6]">
             {last7DaysHistory.map((item) => {
               const ev = evaluateAttendance(item, nowMs);
               const isOnDuty = item.status === 'on_duty';
@@ -616,31 +616,31 @@ export function PetugasAttendanceCard({
                 <article key={item.id} className="px-4 sm:px-5 py-3.5 space-y-1.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-[#0F172A] truncate">
+                      <p className="text-xs sm:text-sm font-bold text-[#1B271B] truncate">
                         {formatWibDateStr(item.shift_date)}{' '}
-                        <span className="font-normal text-slate-400">·</span>{' '}
-                        <span className="font-semibold text-slate-700">{item.shift_name}</span>
+                        <span className="font-normal text-[#C6D2BF]">·</span>{' '}
+                        <span className="font-semibold text-[#4A554A]">{item.shift_name}</span>
                       </p>
                     </div>
                     <span
                       className={`text-xs font-bold shrink-0 ${
-                        isOnDuty ? 'text-emerald-700' : 'text-slate-600'
+                        isOnDuty ? 'text-[#243825]' : 'text-[#6E786D]'
                       }`}
                     >
                       {isOnDuty ? 'Sedang Bertugas' : 'Selesai Bertugas'}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 font-mono tabular-nums">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#4A554A] font-mono tabular-nums">
                     <span>
                       Masuk {formatWibTime(item.clock_in_at)} · Pulang{' '}
                       {item.clock_out_at ? formatWibTime(item.clock_out_at) : 'Belum pulang'}
                     </span>
-                    <span className="font-semibold text-[#0F172A]">{ev.durationLabel}</span>
+                    <span className="font-semibold text-[#1B271B]">{ev.durationLabel}</span>
                   </div>
 
                   {item.handover_notes && (
-                    <p className="text-xs text-slate-600 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1.5 whitespace-pre-line">
+                    <p className="text-xs text-[#4A554A] bg-[#F7F4EC] border border-[#E6E2D6] rounded-xl px-2.5 py-1.5 whitespace-pre-line">
                       {item.handover_notes}
                     </p>
                   )}
@@ -649,7 +649,7 @@ export function PetugasAttendanceCard({
                     <button
                       type="button"
                       onClick={() => setLightboxUrl(item.clock_in_photo_url)}
-                      className="text-[11px] font-semibold text-[#4C1D95] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-semibold text-[#2B3F29] hover:underline inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Camera className="w-3.5 h-3.5" />
                       <span>Lihat Foto Absen Masuk</span>
@@ -665,17 +665,17 @@ export function PetugasAttendanceCard({
       {/* MODAL KONFIRMASI ABSEN MASUK (CLOCK-IN) */}
       {clockInModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Absen Masuk"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
-            <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
-            <div className="px-5 py-4 bg-indigo-50/40 border-b border-indigo-100/70 flex items-center justify-between gap-3">
+          <div className="bg-[#FFFDF8] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
+            <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
+            <div className="px-5 py-4 bg-[#F7F4EC] border-b border-[#E6E2D6] flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Konfirmasi Absen Masuk</h3>
-                <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                <h3 className="font-serif-brand text-base font-bold text-[#1B271B]">Konfirmasi Absen Masuk</h3>
+                <p className="text-xs text-[#6E786D] mt-0.5 tabular-nums">
                   {officerName} · {wibNow.hhmm} WIB ({wibNow.dateLabel})
                 </p>
               </div>
@@ -683,7 +683,7 @@ export function PetugasAttendanceCard({
                 type="button"
                 onClick={() => setClockInModalOpen(false)}
                 aria-label="Tutup modal absen masuk"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-[#4C1D95] cursor-pointer"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3] flex items-center justify-center text-[#6E786D] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -693,7 +693,7 @@ export function PetugasAttendanceCard({
               <div>
                 <label
                   htmlFor="petugas-clockin-shift"
-                  className="block text-xs font-bold text-slate-700 mb-1.5"
+                  className="block text-xs font-bold text-[#4A554A] mb-1.5"
                 >
                   Jadwal Shift Aktif
                 </label>
@@ -701,7 +701,7 @@ export function PetugasAttendanceCard({
                   id="petugas-clockin-shift"
                   value={selectedShiftName}
                   onChange={(e) => setSelectedShiftName(e.target.value)}
-                  className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-sm font-medium text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-sm font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 >
                   {shiftChoices.map((opt) => (
                     <option key={opt} value={opt}>
@@ -709,14 +709,14 @@ export function PetugasAttendanceCard({
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-[#6E786D] mt-1">
                   Otomatis menyesuaikan jadwal dari Admin (termasuk Lembur Minggu 19:00–07:00 WIB).
                 </p>
               </div>
 
               {/* Foto Selfie / Pos Jaga (Opsional) */}
               <div>
-                <p className="block text-xs font-bold text-slate-700 mb-1.5">
+                <p className="block text-xs font-bold text-[#4A554A] mb-1.5">
                   Foto Selfie / Pos Jaga (Opsional)
                 </p>
                 <input
@@ -728,7 +728,7 @@ export function PetugasAttendanceCard({
                   className="hidden"
                 />
                 {photoPreviewUrl ? (
-                  <div className="relative rounded-2xl overflow-hidden border border-indigo-100/80 bg-indigo-50/40">
+                  <div className="relative rounded-2xl overflow-hidden border border-[#E6E2D6] bg-[#F7F4EC]">
                     <img
                       src={photoPreviewUrl}
                       alt="Pratinjau foto absen masuk"
@@ -737,7 +737,7 @@ export function PetugasAttendanceCard({
                     <button
                       type="button"
                       onClick={clearSelectedPhoto}
-                      className="absolute top-2 right-2 min-h-[36px] px-3 rounded-full bg-slate-900/80 hover:bg-red-600 text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                      className="absolute top-2 right-2 min-h-[36px] px-3 rounded-full bg-[#1B271B]/80 hover:bg-[#C87058] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Hapus</span>
@@ -747,9 +747,9 @@ export function PetugasAttendanceCard({
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="w-full min-h-[48px] rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/60 text-slate-700 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition"
+                    className="w-full min-h-[48px] rounded-2xl border border-dashed border-[#C6D2BF] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-[#1B271B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition"
                   >
-                    <Camera className="w-4 h-4 text-[#4C1D95]" />
+                    <Camera className="w-4 h-4 text-[#2B3F29]" />
                     <span>Ambil Foto Kamera / Pilih Galeri</span>
                   </button>
                 )}
@@ -759,7 +759,7 @@ export function PetugasAttendanceCard({
               <div>
                 <label
                   htmlFor="petugas-clockin-note"
-                  className="block text-xs font-bold text-slate-700 mb-1.5"
+                  className="block text-xs font-bold text-[#4A554A] mb-1.5"
                 >
                   Catatan Kondisi Awal Pos (Opsional)
                 </label>
@@ -770,17 +770,17 @@ export function PetugasAttendanceCard({
                   value={initialNotes}
                   onChange={(e) => setInitialNotes(e.target.value)}
                   placeholder="Contoh: Pos jaga rapi, gerbang aman, HT dan senter siap digunakan..."
-                  className="w-full rounded-2xl border border-indigo-200/80 bg-white/90 px-3 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 py-2.5 text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 />
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={submittingClockIn}
                 onClick={() => setClockInModalOpen(false)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer"
               >
                 Batal
               </button>
@@ -789,7 +789,7 @@ export function PetugasAttendanceCard({
                 disabled={submittingClockIn}
                 aria-busy={submittingClockIn}
                 onClick={() => void handleConfirmClockIn()}
-                className="min-h-[44px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[44px] rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submittingClockIn ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -806,45 +806,45 @@ export function PetugasAttendanceCard({
       {/* MODAL KONFIRMASI ABSEN PULANG (CLOCK-OUT) */}
       {clockOutModalOpen && activeSession && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Absen Pulang"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/90 shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
-            <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
-            <div className="px-5 py-4 bg-indigo-50/40 border-b border-indigo-100/70 flex items-center justify-between gap-3">
+          <div className="bg-[#FFFDF8] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-modal-pop">
+            <div className="sm:hidden mx-auto mt-2.5 w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
+            <div className="px-5 py-4 bg-[#F7F4EC] border-b border-[#E6E2D6] flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Konfirmasi Absen Pulang</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{activeSession.shift_name}</p>
+                <h3 className="font-serif-brand text-base font-bold text-[#1B271B]">Konfirmasi Absen Pulang</h3>
+                <p className="text-xs text-[#6E786D] mt-0.5">{activeSession.shift_name}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setClockOutModalOpen(false)}
                 aria-label="Tutup modal absen pulang"
-                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-[#4C1D95] cursor-pointer"
+                className="min-h-[40px] min-w-[40px] rounded-full hover:bg-[#E5EEE3] flex items-center justify-center text-[#6E786D] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-4 overflow-y-auto">
-              <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-3.5 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-3.5 grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-[11px] text-slate-500">Jam Masuk</p>
-                  <p className="text-xs sm:text-sm font-mono font-bold text-[#0F172A] tabular-nums mt-0.5">
+                  <p className="text-[11px] text-[#6E786D]">Jam Masuk</p>
+                  <p className="text-xs sm:text-sm font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
                     {formatWibTime(activeSession.clock_in_at)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-slate-500">Jam Pulang</p>
-                  <p className="text-xs sm:text-sm font-mono font-bold text-amber-700 tabular-nums mt-0.5">
+                  <p className="text-[11px] text-[#6E786D]">Jam Pulang</p>
+                  <p className="text-xs sm:text-sm font-mono font-bold text-[#9A422B] tabular-nums mt-0.5">
                     {wibNow.hhmm} WIB
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-slate-500">Total Durasi</p>
-                  <p className="text-xs sm:text-sm font-mono font-bold text-[#4C1D95] tabular-nums mt-0.5">
+                  <p className="text-[11px] text-[#6E786D]">Total Durasi</p>
+                  <p className="text-xs sm:text-sm font-mono font-bold text-[#243825] tabular-nums mt-0.5">
                     {activeEval?.durationLabel || '0 mnt'}
                   </p>
                 </div>
@@ -853,7 +853,7 @@ export function PetugasAttendanceCard({
               <div>
                 <label
                   htmlFor="petugas-clockout-notes"
-                  className="block text-xs font-bold text-slate-700 mb-1.5"
+                  className="block text-xs font-bold text-[#4A554A] mb-1.5"
                 >
                   Catatan Serah Terima Shift (Opsional)
                 </label>
@@ -864,17 +864,17 @@ export function PetugasAttendanceCard({
                   value={handoverNotes}
                   onChange={(e) => setHandoverNotes(e.target.value)}
                   placeholder="Contoh: Situasi aman terkendali, serah terima ke Pak Warta..."
-                  className="w-full rounded-2xl border border-indigo-200/80 bg-white/90 px-3 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                  className="w-full rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 py-2.5 text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                 />
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-indigo-100/70 bg-indigo-50/40 grid grid-cols-2 gap-2.5">
+            <div className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={submittingClockOut}
                 onClick={() => setClockOutModalOpen(false)}
-                className="min-h-[44px] rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-sm font-semibold cursor-pointer"
+                className="min-h-[44px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#4A554A] text-sm font-semibold cursor-pointer"
               >
                 Batal
               </button>
@@ -883,7 +883,7 @@ export function PetugasAttendanceCard({
                 disabled={submittingClockOut}
                 aria-busy={submittingClockOut}
                 onClick={() => void handleConfirmClockOut()}
-                className="min-h-[44px] rounded-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[44px] rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {submittingClockOut ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -900,23 +900,23 @@ export function PetugasAttendanceCard({
       {/* LIGHTBOX FOTO ABSEN */}
       {lightboxUrl && isSafeAttendanceImageUrl(lightboxUrl) && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-50 bg-[#1B271B]/75 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-label="Foto Absen Masuk"
           onClick={() => setLightboxUrl(null)}
         >
           <div
-            className="relative max-w-lg w-full bg-white/95 backdrop-blur-xl rounded-3xl border border-white/90 overflow-hidden shadow-2xl animate-modal-pop"
+            className="relative max-w-lg w-full bg-[#FFFDF8] rounded-3xl border border-[#E6E2D6] overflow-hidden shadow-2xl animate-modal-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 bg-indigo-50/40 border-b border-indigo-100/70 flex items-center justify-between">
-              <p className="text-xs font-bold text-[#0F172A]">Foto Absen Masuk Pos Jaga</p>
+            <div className="px-4 py-3 bg-[#F7F4EC] border-b border-[#E6E2D6] flex items-center justify-between">
+              <p className="text-xs font-bold text-[#1B271B]">Foto Absen Masuk Pos Jaga</p>
               <button
                 type="button"
                 onClick={() => setLightboxUrl(null)}
                 aria-label="Tutup pratinjau foto"
-                className="min-h-[36px] min-w-[36px] rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-600 hover:text-[#4C1D95] cursor-pointer"
+                className="min-h-[36px] min-w-[36px] rounded-full hover:bg-[#E5EEE3] flex items-center justify-center text-[#4A554A] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -925,7 +925,7 @@ export function PetugasAttendanceCard({
               src={lightboxUrl}
               alt="Foto absen masuk petugas keamanan"
               referrerPolicy="no-referrer"
-              className="w-full max-h-[70dvh] object-contain bg-slate-900"
+              className="w-full max-h-[70dvh] object-contain bg-[#1B271B]"
             />
           </div>
         </div>

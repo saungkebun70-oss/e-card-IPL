@@ -249,16 +249,16 @@ export function ProfilLingkungan({
   return (
     <div className="space-y-6">
       {/* Header Identitas Lingkungan & Ringkasan */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-        <div className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-indigo-100/70">
+      <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
+        <div className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-[#E6E2D6]">
           <div className="min-w-0 space-y-1.5">
-            <p className="text-xs font-semibold text-[#4C1D95]">
+            <p className="text-xs font-semibold text-[#2B3F29]">
               Profil Lingkungan &amp; Kepengurusan Resmi
             </p>
-            <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight text-balance">
+            <h2 className="text-xl sm:text-2xl font-serif-brand font-bold text-[#1B271B] tracking-tight text-balance">
               Perumahan Saung Kebun
             </h2>
-            <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">
+            <p className="text-sm text-[#4A554A] leading-relaxed max-w-2xl">
               Desa Bengle, Kec. Majalaya, Kab. Karawang · Informasi resmi jajaran pengurus
               lingkungan, lokasi unit pengurus, dan layanan koordinasi bagi seluruh warga.
             </p>
@@ -268,7 +268,7 @@ export function ProfilLingkungan({
           <div
             role="tablist"
             aria-label="Mode Tampilan Susunan Pengurus"
-            className="inline-flex items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl self-start lg:self-center shrink-0"
+            className="inline-flex items-center gap-1 p-1 bg-[#F7F4EC] border border-[#E6E2D6] rounded-2xl self-start lg:self-center shrink-0"
           >
             <button
               type="button"
@@ -277,8 +277,8 @@ export function ProfilLingkungan({
               onClick={() => setViewMode('daftar')}
               className={`min-h-[40px] px-3.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 viewMode === 'daftar'
-                  ? 'bg-[#4C1D95] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                  : 'text-[#4A554A] hover:text-[#243825]'
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -291,8 +291,8 @@ export function ProfilLingkungan({
               onClick={() => setViewMode('struktur')}
               className={`min-h-[40px] px-3.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 viewMode === 'struktur'
-                  ? 'bg-[#4C1D95] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                  : 'text-[#4A554A] hover:text-[#243825]'
               }`}
             >
               <Network className="w-3.5 h-3.5" />
@@ -302,14 +302,14 @@ export function ProfilLingkungan({
         </div>
 
         {/* 4 Ringkasan Wilayah (Flat Hairline Grid, Tabular Numerals) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-indigo-100/60 bg-indigo-50/40">
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-[#E6E2D6] bg-[#F7F4EC]">
           {RINGKASAN_WILAYAH.map((item) => (
             <div key={item.label} className="px-5 py-4">
-              <p className="text-xs text-slate-500">{item.label}</p>
-              <p className="text-base sm:text-lg font-bold text-[#0F172A] font-mono tabular-nums mt-0.5">
+              <p className="text-xs text-[#6E786D]">{item.label}</p>
+              <p className="text-base sm:text-lg font-bold text-[#1B271B] font-mono tabular-nums mt-0.5">
                 {item.nilai}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5 truncate">{item.sub}</p>
+              <p className="text-xs text-[#6E786D] mt-0.5 truncate">{item.sub}</p>
             </div>
           ))}
         </div>
@@ -322,14 +322,14 @@ export function ProfilLingkungan({
           className="flex flex-col md:flex-row md:items-center justify-between gap-3"
         >
           {/* Segmented Filter Jabatan */}
-          <div className="flex items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl overflow-x-auto max-w-full">
+          <div className="flex items-center gap-1 p-1 bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => setJabatanFilter('Semua')}
               className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums ${
                 jabatanFilter === 'Semua'
-                  ? 'bg-[#4C1D95] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#4C1D95]'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                  : 'text-[#4A554A] hover:text-[#243825]'
               }`}
             >
               Semua ({ENRICHED_PENGURUS.length})
@@ -344,8 +344,8 @@ export function ProfilLingkungan({
                   onClick={() => setJabatanFilter(jabatan)}
                   className={`min-h-[40px] px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums ${
                     active
-                      ? 'bg-[#4C1D95] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-[#4C1D95]'
+                      ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                      : 'text-[#4A554A] hover:text-[#243825]'
                   }`}
                 >
                   {jabatan} ({count})
@@ -356,21 +356,21 @@ export function ProfilLingkungan({
 
           {/* Input Pencarian */}
           <div className="relative w-full md:w-72 shrink-0">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#6E786D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama, bidang, blok..."
               aria-label="Cari pengurus Saung Kebun"
-              className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 pl-10 pr-10 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+              className="w-full min-h-[44px] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] pl-10 pr-10 text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl text-slate-400 hover:text-[#4C1D95] cursor-pointer"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl text-[#6E786D] hover:text-[#243825] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -385,12 +385,12 @@ export function ProfilLingkungan({
         <div className="lg:col-span-7">
           {viewMode === 'daftar' ? (
             filteredPengurus.length === 0 ? (
-              <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-8 text-center">
-                <Users className="w-8 h-8 text-indigo-300 mx-auto" />
-                <p className="text-sm font-semibold text-[#0F172A] mt-3">
+              <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-8 text-center">
+                <Users className="w-8 h-8 text-[#C6D2BF] mx-auto" />
+                <p className="text-sm font-semibold text-[#1B271B] mt-3">
                   Pengurus tidak ditemukan
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#6E786D] mt-1">
                   Tidak ada pengurus yang cocok dengan kata kunci &ldquo;{searchQuery}&rdquo;.
                 </p>
                 <button
@@ -399,13 +399,13 @@ export function ProfilLingkungan({
                     setSearchQuery('');
                     setJabatanFilter('Semua');
                   }}
-                  className="mt-4 min-h-[40px] px-5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  className="mt-4 min-h-[40px] px-5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#1B271B] cursor-pointer"
                 >
                   Tampilkan Semua Pengurus
                 </button>
               </div>
             ) : (
-              <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden divide-y divide-indigo-100/60">
+              <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden divide-y divide-[#E6E2D6]">
                 {filteredPengurus.map((p) => {
                   const isSelected = selectedPengurus.username === p.username;
                   return (
@@ -414,8 +414,8 @@ export function ProfilLingkungan({
                       type="button"
                       onClick={() => handleSelectPengurus(p.username)}
                       aria-pressed={isSelected}
-                      className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4C1D95] ${
-                        isSelected ? 'bg-indigo-50/75' : 'bg-transparent hover:bg-indigo-50/40'
+                      className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2B3F29] ${
+                        isSelected ? 'bg-[#E5EEE3]/65' : 'bg-transparent hover:bg-[#F7F4EC]'
                       }`}
                     >
                       {/* Foto Profil / Inisial Pengurus */}
@@ -423,33 +423,33 @@ export function ProfilLingkungan({
                         name={p.nama}
                         src={avatarMap[buildAvatarKey('admin', p.username)] || null}
                         size="md"
-                        ringClassName={isSelected ? 'ring-2 ring-[#4C1D95]' : 'ring-1 ring-indigo-100'}
+                        ringClassName={isSelected ? 'ring-2 ring-[#2B3F29]' : 'ring-1 ring-[#E6E2D6]'}
                       />
 
                       {/* Identitas Utama (Zero-Pill Metadata) */}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="text-sm sm:text-base font-bold text-[#0F172A] truncate">
+                          <span className="text-sm sm:text-base font-bold text-[#1B271B] truncate">
                             {p.nama}
                           </span>
-                          <span aria-hidden="true" className="text-indigo-200 text-xs">
+                          <span aria-hidden="true" className="text-[#C6D2BF] text-xs">
                             ·
                           </span>
                           <span
                             className={`text-xs font-semibold ${
-                              p.permission === 'full' ? 'text-[#4C1D95]' : 'text-slate-600'
+                              p.permission === 'full' ? 'text-[#2B3F29]' : 'text-[#4A554A]'
                             }`}
                           >
                             {p.jabatan}
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                        <p className="text-xs text-[#6E786D] mt-0.5 line-clamp-1">
                           {p.peranSingkat}
                         </p>
 
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 mt-1.5">
-                          <span className="font-mono font-semibold text-slate-700 tabular-nums">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#6E786D] mt-1.5">
+                          <span className="font-mono font-semibold text-[#1B271B] tabular-nums">
                             Blok {formatBlokRumah(p.blokRumah) || p.blokRumah}
                           </span>
                           <span aria-hidden="true">·</span>
@@ -465,8 +465,8 @@ export function ProfilLingkungan({
                       <ChevronRight
                         className={`w-4 h-4 shrink-0 transition-transform ${
                           isSelected
-                            ? 'text-[#4C1D95] translate-x-0.5'
-                            : 'text-slate-400'
+                            ? 'text-[#2B3F29] translate-x-0.5'
+                            : 'text-[#6E786D]'
                         }`}
                       />
                     </button>
@@ -478,13 +478,13 @@ export function ProfilLingkungan({
             /* Bagan Struktur Organisasi Interaktif */
             <section
               aria-label="Bagan Struktur Pengurus Saung Kebun"
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-5 sm:p-6"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6"
             >
               <div className="mb-5">
-                <h3 className="text-sm font-bold text-[#0F172A]">
+                <h3 className="text-sm font-serif-brand font-bold text-[#1B271B]">
                   Struktur Kepengurusan Saung Kebun
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-[#6E786D] mt-0.5">
                   Pilih salah satu posisi pengurus pada bagan untuk melihat rincian tugas dan aksi
                   layanan warga.
                 </p>
@@ -503,7 +503,7 @@ export function ProfilLingkungan({
                 )}
 
                 {/* Garis Penghubung Vertikal */}
-                <div aria-hidden="true" className="w-px h-6 bg-slate-200" />
+                <div aria-hidden="true" className="w-px h-6 bg-[#C6D2BF]" />
 
                 {/* Tingkat 2: Ketua */}
                 {ketua && (
@@ -517,17 +517,17 @@ export function ProfilLingkungan({
                 )}
 
                 {/* Garis Penghubung Cabang ke 3 Bidang */}
-                <div aria-hidden="true" className="w-px h-6 bg-slate-200" />
+                <div aria-hidden="true" className="w-px h-6 bg-[#C6D2BF]" />
                 <div
                   aria-hidden="true"
-                  className="hidden sm:block w-2/3 h-px bg-slate-200"
+                  className="hidden sm:block w-2/3 h-px bg-[#C6D2BF]"
                 />
 
                 {/* Tingkat 3: Bendahara, Humas (2), Seksi Olahraga */}
                 <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-0 sm:mt-4">
                   {/* Bendahara */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-slate-500 sm:text-center pt-2 sm:pt-0">
+                    <p className="text-xs font-semibold text-[#6E786D] sm:text-center pt-2 sm:pt-0">
                       Keuangan &amp; Kas IPL
                     </p>
                     {bendahara && (
@@ -542,7 +542,7 @@ export function ProfilLingkungan({
 
                   {/* Humas (Doni & Wahyu) */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-slate-500 sm:text-center pt-2 sm:pt-0">
+                    <p className="text-xs font-semibold text-[#6E786D] sm:text-center pt-2 sm:pt-0">
                       Hubungan Masyarakat
                     </p>
                     <div className="space-y-2.5">
@@ -560,7 +560,7 @@ export function ProfilLingkungan({
 
                   {/* Seksi Olahraga */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-slate-500 sm:text-center pt-2 sm:pt-0">
+                    <p className="text-xs font-semibold text-[#6E786D] sm:text-center pt-2 sm:pt-0">
                       Kegiatan Olahraga
                     </p>
                     {olahraga && (
@@ -588,10 +588,10 @@ export function ProfilLingkungan({
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               aria-label={`Detail Pengurus ${selectedPengurus.nama}`}
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden"
             >
               {/* Header Detail */}
-              <div className="p-5 sm:p-6 border-b border-indigo-100/70">
+              <div className="p-5 sm:p-6 border-b border-[#E6E2D6]">
                 <div className="flex items-start gap-4">
                   <UserAvatar
                     name={selectedPengurus.nama}
@@ -599,32 +599,32 @@ export function ProfilLingkungan({
                     size="lg"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[#4C1D95]">
+                    <p className="text-xs font-semibold text-[#2B3F29]">
                       {selectedPengurus.jabatan} · Perumahan Saung Kebun
                     </p>
-                    <h3 className="text-lg font-bold text-[#0F172A] mt-0.5 truncate">
+                    <h3 className="text-lg font-serif-brand font-bold text-[#1B271B] mt-0.5 truncate">
                       {selectedPengurus.nama}
                     </h3>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-                      <MapPin className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
-                      <span className="font-mono font-semibold text-slate-700 tabular-nums">
+                    <div className="flex items-center gap-1.5 text-xs text-[#6E786D] mt-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
+                      <span className="font-mono font-semibold text-[#1B271B] tabular-nums">
                         {selectedPengurus.keteranganLokasi}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-600 leading-relaxed mt-4">
+                <p className="text-sm text-[#4A554A] leading-relaxed mt-4">
                   {selectedPengurus.deskripsiTugas}
                 </p>
               </div>
 
               {/* Peran Portal & Daftar Tugas */}
               <div className="p-5 sm:p-6 space-y-5">
-                <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100">
-                  <ShieldCheck className="w-4 h-4 text-[#4C1D95] shrink-0 mt-0.5" />
-                  <div className="text-xs text-slate-600 leading-relaxed">
-                    <span className="font-semibold text-[#0F172A]">
+                <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#E5EEE3]/55 border border-[#C6D2BF]">
+                  <ShieldCheck className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
+                  <div className="text-xs text-[#4A554A] leading-relaxed">
+                    <span className="font-semibold text-[#1B271B]">
                       {selectedPengurus.permission === 'full'
                         ? 'Wewenang Keuangan Penuh'
                         : 'Wewenang Pendampingan & Penerima Titip IPL'}
@@ -638,15 +638,15 @@ export function ProfilLingkungan({
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-500 mb-2">
+                  <h4 className="text-xs font-semibold text-[#6E786D] mb-2">
                     Tugas &amp; Tanggung Jawab Utama
                   </h4>
-                  <ul className="space-y-2 text-sm text-slate-700">
+                  <ul className="space-y-2 text-sm text-[#4A554A]">
                     {selectedPengurus.tanggungJawab.map((item) => (
                       <li key={item} className="flex items-start gap-2.5 leading-relaxed">
                         <span
                           aria-hidden="true"
-                          className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"
+                          className="w-1.5 h-1.5 rounded-full bg-[#2B3F29] mt-2 shrink-0"
                         />
                         <span>{item}</span>
                       </li>
@@ -654,14 +654,14 @@ export function ProfilLingkungan({
                   </ul>
                 </div>
 
-                <div className="pt-4 border-t border-indigo-100/70">
-                  <h4 className="text-xs font-semibold text-slate-500 mb-2">
+                <div className="pt-4 border-t border-[#E6E2D6]">
+                  <h4 className="text-xs font-semibold text-[#6E786D] mb-2">
                     Layanan untuk Warga
                   </h4>
-                  <ul className="space-y-1.5 text-sm text-slate-700">
+                  <ul className="space-y-1.5 text-sm text-[#4A554A]">
                     {selectedPengurus.layananWarga.map((item) => (
                       <li key={item} className="flex items-start gap-2.5 leading-relaxed">
-                        <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -669,13 +669,13 @@ export function ProfilLingkungan({
                 </div>
 
                 {/* Tombol Aksi Fungsional */}
-                <div className="pt-4 border-t border-indigo-100/70 space-y-2.5">
+                <div className="pt-4 border-t border-[#E6E2D6] space-y-2.5">
                   <button
                     type="button"
                     onClick={() => handleTitipTunai(selectedPengurus)}
-                    className="w-full min-h-[46px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] active:scale-[0.99] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                    className="w-full min-h-[46px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] active:scale-[0.99] text-[#FFFDF8] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
                   >
-                    <Banknote className="w-4 h-4 shrink-0 text-[#A7F3D0]" />
+                    <Banknote className="w-4 h-4 shrink-0 text-[#E5EEE3]" />
                     <span className="truncate">
                       Titip Setor Tunai ke {selectedPengurus.nama}
                     </span>
@@ -686,25 +686,25 @@ export function ProfilLingkungan({
                       href={buildWaPengurusHref(selectedPengurus)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="min-h-[44px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                      className="min-h-[44px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
                     >
-                      <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <MessageCircle className="w-4 h-4 text-[#2B3F29] shrink-0" />
                       <span>WhatsApp Pengurus</span>
                     </a>
 
                     <button
                       type="button"
                       onClick={() => void handleCopyLokasi(selectedPengurus)}
-                      className="min-h-[44px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                      className="min-h-[44px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       {copiedUsername === selectedPengurus.username ? (
                         <>
-                          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <Check className="w-4 h-4 text-[#243825] shrink-0" />
                           <span>Blok Tersalin</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                          <Copy className="w-4 h-4 text-[#2B3F29] shrink-0" />
                           <span>Salin Blok {formatBlokRumah(selectedPengurus.blokRumah) || selectedPengurus.blokRumah}</span>
                         </>
                       )}
@@ -716,8 +716,8 @@ export function ProfilLingkungan({
           </AnimatePresence>
 
           {/* Catatan Sekretariat */}
-          <div className="mt-4 px-1 flex items-start gap-2.5 text-xs text-slate-500 leading-relaxed">
-            <Building2 className="w-4 h-4 text-[#4C1D95] shrink-0 mt-0.5" />
+          <div className="mt-4 px-1 flex items-start gap-2.5 text-xs text-[#6E786D] leading-relaxed">
+            <Building2 className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
             <p>{brand.kop_resmi}</p>
           </div>
         </aside>
@@ -746,10 +746,10 @@ function OrgNodeButton({
       type="button"
       onClick={() => onSelect(pengurus.username)}
       aria-pressed={selected}
-      className={`text-left rounded-2xl border p-3.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C1D95] ${
+      className={`text-left rounded-2xl border p-3.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2B3F29] ${
         selected
-          ? 'border-[#4C1D95] bg-indigo-50/80 ring-1 ring-[#4C1D95]/20'
-          : 'border-indigo-100/80 bg-white/90 hover:border-indigo-300 hover:bg-indigo-50/40'
+          ? 'border-[#2B3F29] bg-[#E5EEE3]/75 ring-1 ring-[#2B3F29]/25'
+          : 'border-[#E6E2D6] bg-[#FFFDF8] hover:border-[#C6D2BF] hover:bg-[#F7F4EC]'
       } ${className}`}
     >
       <div className="flex items-center gap-3">
@@ -757,14 +757,14 @@ function OrgNodeButton({
           name={pengurus.nama}
           src={avatarUrl || null}
           size="sm"
-          ringClassName={selected ? 'ring-2 ring-[#4C1D95]' : 'ring-1 ring-indigo-100'}
+          ringClassName={selected ? 'ring-2 ring-[#2B3F29]' : 'ring-1 ring-[#E6E2D6]'}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-[#4C1D95] truncate">
+          <p className="text-[11px] font-semibold text-[#2B3F29] truncate">
             {pengurus.jabatan}
           </p>
-          <p className="text-sm font-bold text-[#0F172A] truncate">{pengurus.nama}</p>
-          <p className="text-xs font-mono text-slate-500 tabular-nums">
+          <p className="text-sm font-bold text-[#1B271B] truncate">{pengurus.nama}</p>
+          <p className="text-xs font-mono text-[#6E786D] tabular-nums">
             Blok {formatBlokRumah(pengurus.blokRumah) || pengurus.blokRumah}
           </p>
         </div>

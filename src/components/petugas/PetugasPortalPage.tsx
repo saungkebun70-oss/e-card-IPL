@@ -88,7 +88,7 @@ import {
   isWebNfcSupported,
   normalizeNfcUid,
 } from '../../lib/webNfc';
-import { BrandLogo } from '../BrandLogo';
+import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 import { PetugasAttendanceCard } from './PetugasAttendanceCard';
@@ -1105,7 +1105,7 @@ export function PetugasPortalPage({
   const renderPetugasSidebarNav = () => (
     <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-5 md:py-6 lg:py-5 space-y-6 md:space-y-7 lg:space-y-6">
       <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
-        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#6E786D]">
           Menu Keamanan
         </p>
         {sidebarNavItems.map((item) => {
@@ -1118,27 +1118,27 @@ export function PetugasPortalPage({
               onClick={() => handleSelectTabFromSidebar(item.id)}
               className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+                  ? 'bg-[#E5EEE3] text-[#243825] font-bold border border-[#C6D2BF] shadow-2xs'
+                  : 'text-[#4A554A] font-medium hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6]'
               }`}
             >
               <span
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-slate-100/85 text-slate-500'
+                    ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                    : 'bg-[#F7F4EC] text-[#4A554A]'
                 }`}
               >
                 <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">{item.label}</p>
-                <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
                   {item.subtitle}
                 </p>
               </div>
               {item.id === 'scan' && scanningNfc && (
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold shrink-0">
+                <span className="px-2 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-[10px] font-bold shrink-0">
                   Aktif
                 </span>
               )}
@@ -1148,7 +1148,7 @@ export function PetugasPortalPage({
       </div>
 
       <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
-        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#6E786D]">
           Komunikasi &amp; Profil
         </p>
         <button
@@ -1159,27 +1159,27 @@ export function PetugasPortalPage({
           }}
           className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
             chatModalOpen
-              ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-              : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+              ? 'bg-[#E5EEE3] text-[#243825] font-bold border border-[#C6D2BF] shadow-2xs'
+              : 'text-[#4A554A] font-medium hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6]'
           }`}
         >
           <span
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
               chatModalOpen
-                ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                : 'bg-sky-50 text-[#0284C7]'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'bg-[#E5EEE3] text-[#243825]'
             }`}
           >
             <MessageSquare className="w-[18px] h-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
-            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+            <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
               DM &amp; Group (Pengurus · Warga)
             </p>
           </div>
           {unreadChatCount > 0 && !chatModalOpen && (
-            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
+            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#C87058] text-[#FFFDF8] tabular-nums shrink-0">
               {unreadChatCount > 99 ? '99+' : unreadChatCount}
             </span>
           )}
@@ -1188,14 +1188,14 @@ export function PetugasPortalPage({
         <button
           type="button"
           onClick={handleOpenProfileFromSidebar}
-          className="w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+          className="w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug font-medium text-[#4A554A] hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6] transition-all duration-200 cursor-pointer"
         >
-          <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
             <UserCircle2 className="w-[18px] h-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Profil &amp; Tema Petugas</p>
-            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+            <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
               Foto, Tema, Notifikasi &amp; Biometrik
             </p>
           </div>
@@ -1205,13 +1205,13 @@ export function PetugasPortalPage({
   );
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] glass-canvas bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] text-[#0F172A] overflow-x-hidden">
-      {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
+    <div className="min-h-[100dvh] w-full max-w-[100vw] glass-canvas bg-[#F6F3EA] text-[#1B271B] overflow-x-hidden">
+      {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-white/65 backdrop-blur-2xl backdrop-saturate-150 border-l border-l-white/20 border-r border-r-white/85 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),8px_0_36px_-14px_rgba(49,46,129,0.16)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-[#FFFDF8]/92 backdrop-blur-xl border-r border-[#E6E2D6] shadow-[8px_0_30px_-14px_rgba(36,56,37,0.12)] no-print"
       >
-        <div className="px-4 pt-5 pb-4 border-b border-indigo-100/70 shrink-0">
+        <div className="px-4 pt-5 pb-4 border-b border-[#E6E2D6] shrink-0">
           <button
             type="button"
             onClick={() => handleSelectTabFromSidebar('scan')}
@@ -1219,10 +1219,10 @@ export function PetugasPortalPage({
           >
             <BrandLogo size="md" variant="light" className="shrink-0" />
             <div className="min-w-0">
-              <p className="text-sm font-extrabold tracking-tight text-[#0F172A] leading-tight truncate">
+              <p className="font-serif-brand text-sm font-bold tracking-tight text-[#1B271B] leading-tight truncate">
                 {brand.app_name || 'Perumahan Saung Kebun'}
               </p>
-              <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+              <p className="text-[11px] font-medium text-[#6E786D] truncate mt-0.5">
                 Portal Petugas Keamanan
               </p>
             </div>
@@ -1231,33 +1231,33 @@ export function PetugasPortalPage({
 
         {renderPetugasSidebarNav()}
 
-        <div className="mt-auto px-4 pt-3.5 pb-4 border-t border-indigo-100/70 bg-white/40 backdrop-blur-xl space-y-2.5 shrink-0">
+        <div className="mt-auto px-4 pt-3.5 pb-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/75 space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleOpenProfileFromSidebar}
-            className="group w-full p-3 rounded-2xl bg-white/80 hover:bg-gradient-to-r hover:from-indigo-50/95 hover:via-sky-50/90 hover:to-white border border-white/90 hover:border-sky-200/80 shadow-2xs hover:shadow-sm flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
+            className="group w-full p-3 rounded-2xl bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 border border-[#E6E2D6] hover:border-[#C6D2BF] shadow-2xs flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
           >
             <UserAvatar
               name={profil.nama}
               src={effectiveAvatarUrl}
               size="sm"
-              className="shrink-0 ring-2 ring-white/80 group-hover:ring-sky-200/80 transition-all"
+              className="shrink-0 ring-2 ring-[#C6D2BF] transition-all"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#0F172A] group-hover:text-[#312E81] truncate leading-tight transition-colors">
+              <p className="text-xs font-bold text-[#1B271B] group-hover:text-[#243825] truncate leading-tight transition-colors">
                 {profil.nama}
               </p>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5 leading-tight">
+              <p className="text-[11px] text-[#6E786D] truncate mt-0.5 leading-tight">
                 Keamanan · {effectiveShiftLabel}
               </p>
             </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#312E81] group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
+            <ChevronRight className="w-3.5 h-3.5 text-[#6E786D] group-hover:text-[#243825] group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
           </button>
 
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
-            className="w-full min-h-[42px] px-3.5 rounded-2xl bg-red-50/90 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
+            className="w-full min-h-[42px] px-3.5 rounded-2xl bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] border border-[#E2A898] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>Keluar / Logout</span>
@@ -1267,7 +1267,7 @@ export function PetugasPortalPage({
         </div>
       </aside>
 
-      {/* SLIDE-OVER GLASS SIDEBAR — MOBILE & TABLET (< lg) */}
+      {/* SLIDE-OVER SIDEBAR — MOBILE & TABLET (< lg) */}
       <AnimatePresence>
         {sidebarOpen && (
           <div
@@ -1282,7 +1282,7 @@ export function PetugasPortalPage({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm"
+              className="fixed inset-0 bg-[#1B271B]/50 backdrop-blur-sm"
             />
 
             <motion.aside
@@ -1290,17 +1290,17 @@ export function PetugasPortalPage({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-white/75 backdrop-blur-2xl backdrop-saturate-150 rounded-r-3xl border-l border-l-white/20 border-r border-r-white/90 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),0_25px_50px_-12px_rgba(15,23,42,0.35)] flex flex-col overflow-hidden"
+              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-[#FFFDF8] rounded-r-3xl border-r border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden"
             >
-              <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shrink-0">
+              <div className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <BrandLogo size="md" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-white leading-tight truncate">
+                      <p className="font-serif-brand text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                         {brand?.app_name || 'Perumahan Saung Kebun'}
                       </p>
-                      <p className="text-[11px] text-sky-100/90 truncate mt-0.5">
+                      <p className="text-[11px] text-[#E5EEE3]/85 truncate mt-0.5">
                         Portal Petugas Keamanan
                       </p>
                     </div>
@@ -1309,7 +1309,7 @@ export function PetugasPortalPage({
                     type="button"
                     onClick={() => setSidebarOpen(false)}
                     aria-label="Tutup menu sidebar"
-                    className="h-9 w-9 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                    className="h-9 w-9 rounded-xl bg-[#FFFDF8]/15 hover:bg-[#FFFDF8]/25 active:scale-95 text-[#FFFDF8] flex items-center justify-center transition cursor-pointer shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1318,33 +1318,33 @@ export function PetugasPortalPage({
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="group mt-4 w-full text-left p-3 rounded-2xl bg-white/15 hover:bg-gradient-to-r hover:from-white/25 hover:to-sky-200/20 border border-white/20 hover:border-white/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
+                  className="group mt-4 w-full text-left p-3 rounded-2xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/20 hover:border-[#FFFDF8]/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={profil.nama}
                     src={effectiveAvatarUrl}
                     size="md"
-                    ringClassName="ring-2 ring-sky-200/70"
+                    ringClassName="ring-2 ring-[#E5EEE3]/70"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white leading-tight truncate">
+                    <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                       {profil.nama}
                     </p>
-                    <p className="mt-0.5 text-[11px] font-medium text-sky-100 truncate">
+                    <p className="mt-0.5 text-[11px] font-medium text-[#E5EEE3]/90 truncate">
                       Keamanan · {effectiveShiftLabel}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-sky-100 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-[#E5EEE3] group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
               </div>
 
               {renderPetugasSidebarNav()}
 
-              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-indigo-100/80 bg-white/55 backdrop-blur-xl space-y-2.5 shrink-0">
+              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
-                  className="w-full min-h-[44px] px-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] font-semibold text-sm border border-red-100 inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full min-h-[44px] px-4 rounded-2xl bg-[#C87058]/10 text-[#7A311E] hover:bg-[#C87058]/20 active:scale-[0.98] font-semibold text-sm border border-[#E2A898] inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>Keluar / Logout</span>
@@ -1357,25 +1357,33 @@ export function PetugasPortalPage({
       </AnimatePresence>
 
       {/* Header Tetap & Anti-Geser Khusus Petugas (Offset lg:left-[260px] pada Desktop) */}
-      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-gradient-to-r from-[#312E81]/95 via-[#3730A3]/95 to-[#0284C7]/95 backdrop-blur-xl text-white border-b border-white/15 flex items-center shadow-lg shadow-indigo-950/15">
-        <div className="max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
+      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#243825] text-[#FFFDF8] border-b border-[#384E35]/60 flex items-center shadow-md">
+        <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img
+            src="/assets/aistudio/1795778734359_8dc82f49.jpg"
+            alt=""
+            className="w-full h-full object-cover object-center opacity-45"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/72 to-[#243825]/88" />
+        </div>
+        <div className="relative z-10 max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
               aria-label="Buka Menu Sidebar Petugas"
               title="Menu Profil & Navigasi"
-              className="lg:hidden h-10 w-10 rounded-xl bg-white/12 hover:bg-white/22 border border-white/20 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors active:scale-95"
+              className="lg:hidden h-10 w-10 rounded-xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/22 border border-[#FFFDF8]/20 text-[#FFFDF8] flex items-center justify-center cursor-pointer shrink-0 transition-colors active:scale-95"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <BrandLogo size="xs" variant="dark" className="shrink-0 lg:hidden" />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white leading-tight truncate">
+              <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                 {profil.nama}
               </p>
-              <p className="text-[11px] text-sky-100 font-medium truncate">
+              <p className="text-[11px] text-[#E5EEE3]/85 font-medium truncate">
                 Keamanan · {effectiveShiftLabel}
               </p>
             </div>
@@ -1387,7 +1395,7 @@ export function PetugasPortalPage({
               disabled={refreshing}
               onClick={() => void loadData(true)}
               aria-label="Muat ulang data petugas"
-              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-sky-100 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+              className="h-10 w-10 rounded-full bg-[#FFFDF8]/10 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/15 text-[#E5EEE3] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -1411,7 +1419,7 @@ export function PetugasPortalPage({
               }}
               aria-label="Profil & Menu Petugas"
               title="Profil & Pengaturan Petugas"
-              className="p-0.5 rounded-full border border-white/25 bg-white/10 hover:border-sky-200 transition-colors cursor-pointer shrink-0"
+              className="p-0.5 rounded-full border border-[#FFFDF8]/25 bg-[#FFFDF8]/10 hover:border-[#E5EEE3] transition-colors cursor-pointer shrink-0"
             >
               <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" />
             </button>
@@ -1419,7 +1427,7 @@ export function PetugasPortalPage({
         </div>
       </header>
 
-      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] pb-28 lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-3xl mx-auto px-3 py-3 sm:px-4 space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState
@@ -1431,10 +1439,10 @@ export function PetugasPortalPage({
         {/* Banner Judul Halaman Aktif */}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-[#0F172A] leading-tight">
+            <h1 className="font-serif-brand text-base sm:text-lg font-bold text-[#1B271B] leading-tight">
               {TAB_TITLES[activeTab].title}
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">
+            <p className="text-xs text-[#6E786D] mt-0.5 truncate">
               {TAB_TITLES[activeTab].subtitle}
             </p>
           </div>
@@ -1442,12 +1450,12 @@ export function PetugasPortalPage({
             <button
               type="button"
               onClick={() => handleSelectTab('peta')}
-              className="shrink-0 rounded-2xl bg-indigo-50/80 border border-indigo-200/80 px-3 py-1.5 text-right cursor-pointer hover:bg-indigo-100/80 transition-all duration-200 active:scale-[0.97]"
+              className="shrink-0 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-3 py-1.5 text-right cursor-pointer hover:bg-[#D6E4D3] transition-all duration-200 active:scale-[0.97]"
             >
-              <p className="text-[10px] font-semibold text-[#4C1D95] leading-none">
+              <p className="text-[10px] font-semibold text-[#243825] leading-none">
                 {activeLiveSession?.status === 'active' ? 'LIVE Aktif' : 'Siklus Aktif'}
               </p>
-              <p className="text-xs font-mono font-bold text-[#3730A3] tabular-nums mt-0.5">
+              <p className="text-xs font-mono font-bold text-[#2B3F29] tabular-nums mt-0.5">
                 {activeCycleProgress.scanned}/{activeCycleProgress.total} Pos
               </p>
             </button>
@@ -1467,7 +1475,7 @@ export function PetugasPortalPage({
             {/* KARTU FOTO PROFIL PETUGAS KEAMANAN */}
             <section
               aria-label="Foto Profil Petugas Keamanan"
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 shadow-xs"
             >
               <ProfileAvatarEditor
                 session={session}
@@ -1482,7 +1490,7 @@ export function PetugasPortalPage({
             {/* KARTU TEMA TAMPILAN (NYAMAN UNTUK PATROLI SIANG / MALAM) */}
             <section
               aria-label="Tema Tampilan Portal Petugas"
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 shadow-xs"
             >
               <ThemePicker onToast={onToast} />
             </section>
@@ -1490,7 +1498,7 @@ export function PetugasPortalPage({
             {/* KARTU PENGATURAN NOTIFIKASI, SUARA & GETARAN */}
             <section
               aria-label="Pengaturan Notifikasi, Suara & Getaran Petugas"
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 shadow-xs"
             >
               <NotificationSettingsCard session={session} onToast={onToast} />
             </section>
@@ -1498,14 +1506,14 @@ export function PetugasPortalPage({
             {/* KARTU PENGATURAN MASUK CEPAT BIOMETRIK (FACE ID / SIDIK JARI) */}
             <section
               aria-label="Keamanan Akses Biometrik"
-              className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
             >
               <div className="flex items-start gap-3 min-w-0">
                 <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
                     isBiometricEnabledForMe
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-indigo-50 text-[#4C1D95] border border-indigo-100'
+                      ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                      : 'bg-[#F7F4EC] text-[#2B3F29] border-[#E6E2D6]'
                   }`}
                 >
                   {biometryAvailability?.isFace ? (
@@ -1516,20 +1524,20 @@ export function PetugasPortalPage({
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-bold text-[#0F172A]">
+                    <h2 className="text-sm font-bold text-[#1B271B]">
                       Masuk Cepat {biometryAvailability?.label || 'Biometrik'}
                     </h2>
                     <span
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${
                         isBiometricEnabledForMe
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-indigo-50 text-[#4C1D95] border border-indigo-100'
+                          ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                          : 'bg-[#F7F4EC] text-[#4A554A] border-[#E6E2D6]'
                       }`}
                     >
                       {isBiometricEnabledForMe ? 'Aktif' : 'Nonaktif'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
                     {biometryAvailability?.isAvailable
                       ? isBiometricEnabledForMe
                         ? `Aktif di perangkat ini hingga ${formatTanggal(biometricProfile?.expires_at || '')}. Saat keluar, Anda dapat masuk kembali tanpa mengetik PIN 6 digit.`
@@ -1547,8 +1555,8 @@ export function PetugasPortalPage({
                   onClick={() => void handleToggleBiometric()}
                   className={`min-h-[42px] px-4 rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-60 ${
                     isBiometricEnabledForMe
-                      ? 'bg-indigo-50/80 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-indigo-100 hover:border-red-200'
-                      : 'bg-[#3730A3] hover:bg-[#312E81] text-white shadow-sm'
+                      ? 'bg-[#F7F4EC] hover:bg-[#C87058]/15 text-[#4A554A] hover:text-[#7A311E] border border-[#E6E2D6] hover:border-[#E2A898]'
+                      : 'bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] shadow-sm'
                   }`}
                 >
                   {togglingBiometric ? (
@@ -1564,55 +1572,55 @@ export function PetugasPortalPage({
             </section>
 
             {/* INFO VERSI & CEK PEMBARUAN MANUAL */}
-            <div className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl px-4 py-3">
+            <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl px-4 py-3 shadow-xs">
               <AppVersionFooter compact />
             </div>
           </>
         )}
 
-        {/* PANEL KONTROL LIVE TRACKING PATROLI RINGKAS (Pada Tab Info & Scan; pada Tab Peta ditempatkan tepat di bawah Peta 3D) */}
+        {/* PANEL KONTROL LIVE TRACKING PATROLI RINGKAS */}
         {(activeTab === 'info' || activeTab === 'scan') && (
           <section
             aria-label="Status Patroli Live GPS"
-            className={`rounded-3xl p-4 sm:p-5 space-y-3 ${
+            className={`rounded-3xl p-4 sm:p-5 space-y-3 relative overflow-hidden ${
               activeLiveSession?.status === 'active'
-                ? 'glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white'
-                : 'glass-card bg-white/80 backdrop-blur-xl border border-white/90 text-[#0F172A]'
+                ? 'glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-md text-[#FFFDF8]'
+                : 'glass-card bg-[#FFFDF8] border border-[#E6E2D6] text-[#1B271B] shadow-xs'
             }`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   {activeLiveSession?.status === 'active' ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#A7F3D0]">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#E5EEE3]">
                       <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5EEE3] opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E5EEE3]" />
                       </span>
                       PATROLI LIVE AKTIF DI PETA 3D
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F172A]">
-                      <Navigation className="w-4 h-4 text-[#4C1D95]" />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1B271B]">
+                      <Navigation className="w-4 h-4 text-[#2B3F29]" />
                       Live Tracking Patroli di Peta 3D
                     </span>
                   )}
                 </div>
 
                 {activeLiveSession?.status === 'active' ? (
-                  <p className="text-[11px] text-indigo-100/90 font-mono tabular-nums flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <p className="text-[11px] text-[#E5EEE3]/90 font-mono tabular-nums flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="inline-flex items-center gap-1">
-                      <Crosshair className="w-3.5 h-3.5 text-[#A7F3D0]" />
+                      <Crosshair className="w-3.5 h-3.5 text-[#E5EEE3]" />
                       GPS Aktif ({gpsAccuracy !== null ? `±${gpsAccuracy}m` : 'mengunci...'})
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
-                      <Smartphone className="w-3.5 h-3.5 text-[#A7F3D0]" />
+                      <Smartphone className="w-3.5 h-3.5 text-[#E5EEE3]" />
                       {wakeLockActive ? 'Layar Terjaga' : 'Layar Normal'}
                     </span>
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#6E786D]">
                     Mulai Patroli Live agar posisi &amp; jejak rute Anda tampil real-time di Peta
                     3D Perumahan Saung Kebun.
                   </p>
@@ -1630,7 +1638,7 @@ export function PetugasPortalPage({
                           startGpsWatcherForSession(activeLiveSession);
                           onToast('info', 'Pelacakan GPS live dilanjutkan.');
                         }}
-                        className="min-h-[42px] px-3.5 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                        className="min-h-[42px] px-3.5 rounded-full bg-[#E5EEE3] hover:bg-[#C6D2BF] text-[#243825] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         <Crosshair className="w-4 h-4" />
                         <span>Lanjutkan GPS</span>
@@ -1640,7 +1648,7 @@ export function PetugasPortalPage({
                       type="button"
                       disabled={completingLivePatrol}
                       onClick={() => setConfirmFinishOpen(true)}
-                      className="min-h-[42px] px-4 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      className="min-h-[42px] px-4 rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-[#FFFDF8] text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
                       <Square className="w-3.5 h-3.5 fill-current" />
                       <span>Selesai Patroli</span>
@@ -1651,7 +1659,7 @@ export function PetugasPortalPage({
                     type="button"
                     disabled={startingLivePatrol}
                     onClick={() => void handleStartLivePatrol()}
-                    className="w-full sm:w-auto min-h-[44px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shadow-sm transition-colors"
+                    className="w-full sm:w-auto min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shadow-sm transition-colors"
                   >
                     {startingLivePatrol ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1667,8 +1675,8 @@ export function PetugasPortalPage({
             </div>
 
             {gpsErrorMsg && (
-              <div className="rounded-2xl bg-red-50 border border-red-200 p-3 text-xs text-red-900 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl bg-[#C87058]/10 border border-[#E2A898] p-3 text-xs text-[#7A311E] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
                 <p className="leading-relaxed">{gpsErrorMsg}</p>
               </div>
             )}
@@ -1677,8 +1685,8 @@ export function PetugasPortalPage({
 
         {loading && !data ? (
           <div className="space-y-4">
-            <div className="h-36 rounded-2xl bg-slate-200/70 animate-pulse" />
-            <div className="h-56 rounded-2xl bg-slate-200/70 animate-pulse" />
+            <div className="h-36 rounded-2xl bg-[#E6E2D6]/70 animate-pulse" />
+            <div className="h-56 rounded-2xl bg-[#E6E2D6]/70 animate-pulse" />
           </div>
         ) : (
           <>
@@ -1686,48 +1694,49 @@ export function PetugasPortalPage({
             {activeTab === 'info' && (
               <div className="space-y-4">
                 {/* Kartu Shift Aktif & Ringkasan Tugas */}
-                <section className="glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white rounded-3xl p-4 sm:p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-3">
+                <section className="glass-hero relative overflow-hidden bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-md text-[#FFFDF8] rounded-3xl p-4 sm:p-5 space-y-4">
+                  <SaungKebunWatermark />
+                  <div className="flex items-start justify-between gap-3 relative z-10">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 text-[#A7F3D0] flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-2xl bg-[#FFFDF8]/12 border border-[#FFFDF8]/20 text-[#E5EEE3] flex items-center justify-center shrink-0">
                         <Shield className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A7F3D0]">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E5EEE3]">
                           Shift Bertugas Aktif
                         </p>
-                        <p className="text-base font-bold text-white truncate mt-0.5">
+                        <p className="text-base font-bold text-[#FFFDF8] truncate mt-0.5">
                           {effectiveShiftLabel}
                         </p>
-                        <p className="text-xs text-indigo-100/75 font-mono mt-0.5">
+                        <p className="text-xs text-[#E5EEE3]/75 font-mono mt-0.5">
                           @{profil.username} · Perumahan Saung Kebun
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl bg-white/10 border border-white/15 p-3">
-                      <p className="text-[11px] text-indigo-100/75">Scan Pribadi Hari Ini</p>
-                      <p className="text-lg font-mono font-bold text-white tabular-nums mt-0.5">
+                  <div className="grid grid-cols-2 gap-2.5 relative z-10">
+                    <div className="rounded-2xl bg-[#FFFDF8]/10 border border-[#FFFDF8]/15 p-3">
+                      <p className="text-[11px] text-[#E5EEE3]/80">Scan Pribadi Hari Ini</p>
+                      <p className="text-lg font-mono font-bold text-[#FFFDF8] tabular-nums mt-0.5">
                         {patroliHariIni.length}{' '}
-                        <span className="text-xs font-sans font-normal text-indigo-100/75">kali</span>
+                        <span className="text-xs font-sans font-normal text-[#E5EEE3]/80">kali</span>
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-white/10 border border-white/15 p-3">
-                      <p className="text-[11px] text-indigo-100/75">Progres Peta Shift</p>
-                      <p className="text-lg font-mono font-bold text-[#A7F3D0] tabular-nums mt-0.5">
+                    <div className="rounded-2xl bg-[#FFFDF8]/10 border border-[#FFFDF8]/15 p-3">
+                      <p className="text-[11px] text-[#E5EEE3]/80">Progres Peta Shift</p>
+                      <p className="text-lg font-mono font-bold text-[#E5EEE3] tabular-nums mt-0.5">
                         {activeCycleProgress.scanned}/{activeCycleProgress.total}{' '}
-                        <span className="text-xs font-sans font-normal text-indigo-100/75">titik</span>
+                        <span className="text-xs font-sans font-normal text-[#E5EEE3]/80">titik</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 relative z-10">
                     <button
                       type="button"
                       onClick={handleCenterScanFabClick}
-                      className="min-h-[44px] rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                      className="min-h-[44px] rounded-full bg-[#E5EEE3] hover:bg-[#C6D2BF] text-[#243825] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <Radio className="w-4 h-4 shrink-0" />
                       <span>Mulai Scan NFC</span>
@@ -1735,18 +1744,18 @@ export function PetugasPortalPage({
                     <button
                       type="button"
                       onClick={() => handleSelectTab('peta')}
-                      className="min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                      className="min-h-[44px] rounded-full bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/22 border border-[#FFFDF8]/20 text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                     >
-                      <MapIcon className="w-4 h-4 shrink-0 text-[#A7F3D0]" />
+                      <MapIcon className="w-4 h-4 shrink-0 text-[#E5EEE3]" />
                       <span>Buka Peta Patroli</span>
                     </button>
                   </div>
                 </section>
 
                 {/* Instruksi Keamanan Hari Ini dari Pengurus */}
-                <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-3">
-                  <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs">
+                  <h2 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#6E4D12] shrink-0" />
                     <span>Instruksi Keamanan Hari Ini dari Pengurus</span>
                   </h2>
 
@@ -1755,20 +1764,20 @@ export function PetugasPortalPage({
                       {data.instruksiKeamanan.slice(0, 4).map((info) => (
                         <div
                           key={info.id}
-                          className="rounded-2xl bg-amber-50/75 border border-amber-200/90 px-3.5 py-3 space-y-1"
+                          className="rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] px-3.5 py-3 space-y-1"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-amber-800">
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[#4A3410]">
                             <span className="font-bold">{info.title}</span>
                             <span className="font-mono">{formatTanggalWaktu(info.created_at)}</span>
                           </div>
-                          <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                          <p className="text-xs text-[#4A554A] leading-relaxed whitespace-pre-line">
                             {info.message}
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100/80 px-3.5 py-3 text-xs text-slate-600 leading-relaxed">
+                    <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] px-3.5 py-3 text-xs text-[#4A554A] leading-relaxed">
                       Belum ada instruksi keamanan khusus hari ini. Lakukan patroli rutin di seluruh
                       titik checkpoint dan laporkan segera bila ada kondisi mencurigakan.
                     </div>
@@ -1777,12 +1786,12 @@ export function PetugasPortalPage({
 
                 {/* Tombol Panggilan Darurat ke Erlangga (Ketua) & Andriansyah (Bendahara) */}
                 {emergencyPengurus.length > 0 && (
-                  <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-3">
+                  <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs">
                     <div>
-                      <h2 className="text-sm font-bold text-[#0F172A]">
+                      <h2 className="text-sm font-bold text-[#1B271B]">
                         Panggilan Darurat ke Pengurus
                       </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-[#6E786D] mt-0.5">
                         Hubungi langsung Ketua atau Bendahara lingkungan bila terjadi kondisi darurat.
                       </p>
                     </div>
@@ -1794,13 +1803,13 @@ export function PetugasPortalPage({
                         return (
                           <div
                             key={contact.label}
-                            className="rounded-2xl border border-indigo-100/80 bg-indigo-50/50 p-3.5 flex items-center justify-between gap-2"
+                            className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3.5 flex items-center justify-between gap-2"
                           >
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-[#0F172A] truncate">
+                              <p className="text-xs font-bold text-[#1B271B] truncate">
                                 {contact.label}
                               </p>
-                              <p className="text-[11px] font-mono text-slate-500 tabular-nums mt-0.5">
+                              <p className="text-[11px] font-mono text-[#6E786D] tabular-nums mt-0.5">
                                 +{contact.wa}
                               </p>
                             </div>
@@ -1809,14 +1818,14 @@ export function PetugasPortalPage({
                                 href={`https://wa.me/${contact.wa}?text=${waText}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="min-h-[40px] px-3.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1"
+                                className="min-h-[40px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1"
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
                                 <span>WA</span>
                               </a>
                               <a
                                 href={`tel:+${contact.wa}`}
-                                className="min-h-[40px] px-3.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center gap-1"
+                                className="min-h-[40px] px-3.5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1"
                               >
                                 <PhoneCall className="w-3.5 h-3.5" />
                                 <span>Telp</span>
@@ -1833,16 +1842,16 @@ export function PetugasPortalPage({
 
             {/* TAB 2: RIWAYAT PATROLI PRIBADI */}
             {activeTab === 'riwayat' && (
-              <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden">
-                <div className="px-4 sm:px-5 py-3.5 border-b border-indigo-100/70 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl">
+              <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-xs">
+                <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 p-1 bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl">
                     <button
                       type="button"
                       onClick={() => setRiwayatFilter('hari_ini')}
                       className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
                         riwayatFilter === 'hari_ini'
-                          ? 'bg-[#4C1D95] text-white shadow-xs'
-                          : 'text-slate-600 hover:text-[#4C1D95]'
+                          ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                          : 'text-[#4A554A] hover:text-[#1B271B]'
                       }`}
                     >
                       Hari Ini ({patroliHariIni.length})
@@ -1852,8 +1861,8 @@ export function PetugasPortalPage({
                       onClick={() => setRiwayatFilter('semua')}
                       className={`min-h-[34px] px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
                         riwayatFilter === 'semua'
-                          ? 'bg-[#4C1D95] text-white shadow-xs'
-                          : 'text-slate-600 hover:text-[#4C1D95]'
+                          ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                          : 'text-[#4A554A] hover:text-[#1B271B]'
                       }`}
                     >
                       Semua Riwayat ({data?.patroliPribadi.length || 0})
@@ -1863,7 +1872,7 @@ export function PetugasPortalPage({
                   <button
                     type="button"
                     onClick={handleCenterScanFabClick}
-                    className="min-h-[36px] px-3.5 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    className="min-h-[36px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <Radio className="w-3.5 h-3.5" />
                     <span>Scan Baru</span>
@@ -1872,19 +1881,19 @@ export function PetugasPortalPage({
 
                 {displayedRiwayat.length === 0 ? (
                   <div className="p-8 text-center space-y-2">
-                    <ClipboardList className="w-8 h-8 text-indigo-300 mx-auto" />
-                    <p className="text-sm font-bold text-slate-700">
+                    <ClipboardList className="w-8 h-8 text-[#C6D2BF] mx-auto" />
+                    <p className="text-sm font-bold text-[#1B271B]">
                       {riwayatFilter === 'hari_ini'
                         ? 'Belum Ada Scan Checkpoint Hari Ini'
                         : 'Belum Ada Riwayat Patroli'}
                     </p>
-                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    <p className="text-xs text-[#6E786D] max-w-xs mx-auto">
                       Ketuk tombol SCAN NFC di tengah bawah untuk mulai men-tap stiker checkpoint di
                       lapangan.
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-indigo-100/60">
+                  <div className="divide-y divide-[#E6E2D6]">
                     {displayedRiwayat.map((log) => {
                       const isAman = log.status_kondisi === 'Aman';
                       return (
@@ -1894,36 +1903,36 @@ export function PetugasPortalPage({
                         >
                           <div className="min-w-0 space-y-1">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                              <p className="text-sm font-bold text-[#0F172A]">{log.nama_lokasi}</p>
+                              <p className="text-sm font-bold text-[#1B271B]">{log.nama_lokasi}</p>
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
                                   isAman
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                                    : 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]'
                                 }`}
                               >
                                 {isAman ? 'Situasi Aman' : 'Ada Catatan'}
                               </span>
                             </div>
                             {log.catatan && (
-                              <p className="text-xs text-slate-700 bg-indigo-50/50 border border-indigo-100/80 rounded-xl px-2.5 py-1.5 leading-snug">
+                              <p className="text-xs text-[#4A554A] bg-[#F7F4EC] border border-[#E6E2D6] rounded-xl px-2.5 py-1.5 leading-snug">
                                 {log.catatan}
                               </p>
                             )}
-                            <p className="text-[11px] text-slate-400">
-                              Metode: <span className="font-medium text-slate-600">{log.metode_scan}</span>
+                            <p className="text-[11px] text-[#6E786D]">
+                              Metode: <span className="font-medium text-[#4A554A]">{log.metode_scan}</span>
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-xs font-mono font-bold text-[#0F172A] tabular-nums inline-flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-[#4C1D95]" />
+                            <p className="text-xs font-mono font-bold text-[#1B271B] tabular-nums inline-flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-[#2B3F29]" />
                               {new Date(log.waktu_scan).toLocaleTimeString('id-ID', {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}{' '}
                               WIB
                             </p>
-                            <p className="text-[10px] font-mono text-slate-400 mt-0.5 tabular-nums">
+                            <p className="text-[10px] font-mono text-[#6E786D] mt-0.5 tabular-nums">
                               {formatTanggal(log.waktu_scan)}
                             </p>
                           </div>
@@ -1937,11 +1946,11 @@ export function PetugasPortalPage({
 
             {/* TAB 3 (TENGAH FAB): PATROLI & SCAN CHECKPOINT NFC */}
             {activeTab === 'scan' && (
-              <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-5 space-y-4">
+              <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 space-y-4 shadow-xs">
                 {/* Pilihan Kondisi & Catatan Sebelum Tap */}
-                <div className="space-y-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 p-3.5">
+                <div className="space-y-3 rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] p-3.5">
                   <div>
-                    <p className="text-xs font-semibold text-[#0F172A] mb-1.5">
+                    <p className="text-xs font-semibold text-[#1B271B] mb-1.5">
                       Kondisi Area Patroli
                     </p>
                     <div className="grid grid-cols-2 gap-2">
@@ -1950,8 +1959,8 @@ export function PetugasPortalPage({
                         onClick={() => setStatusKondisi('Aman')}
                         className={`min-h-[44px] rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
                           statusKondisi === 'Aman'
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                            : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
+                            ? 'bg-[#2B3F29] border-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                            : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]'
                         }`}
                       >
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -1962,8 +1971,8 @@ export function PetugasPortalPage({
                         onClick={() => setStatusKondisi('Ada Catatan')}
                         className={`min-h-[44px] rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
                           statusKondisi === 'Ada Catatan'
-                            ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
-                            : 'bg-white/95 border-indigo-100 text-slate-700 hover:bg-indigo-50'
+                            ? 'bg-[#C87058] border-[#C87058] text-[#FFFDF8] shadow-xs'
+                            : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:bg-[#F2D8A7]/40'
                         }`}
                       >
                         <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1975,7 +1984,7 @@ export function PetugasPortalPage({
                   <div>
                     <label
                       htmlFor="catatan-patroli"
-                      className="block text-xs font-semibold text-[#0F172A] mb-1"
+                      className="block text-xs font-semibold text-[#1B271B] mb-1"
                     >
                       Catatan Lapangan (Opsional)
                     </label>
@@ -1985,30 +1994,30 @@ export function PetugasPortalPage({
                       value={catatanPatroli}
                       onChange={(e) => setCatatanPatroli(e.target.value)}
                       placeholder="Contoh: PJU Blok B3 mati / gerbang terkunci rapi..."
-                      className="w-full min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                      className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                     />
                   </div>
                 </div>
 
-                {/* Status Banner Scan NFC (Dikendalikan langsung oleh Tombol Bulat Tengah "Scan NFC") */}
+                {/* Status Banner Scan NFC */}
                 <div className="space-y-2.5">
                   {submittingPatroli ? (
                     <div
                       role="status"
-                      className="rounded-2xl px-3.5 py-3 text-xs font-semibold flex items-center gap-2.5 border bg-indigo-50/80 border-indigo-200 text-[#4C1D95]"
+                      className="rounded-2xl px-3.5 py-3 text-xs font-semibold flex items-center gap-2.5 border bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]"
                     >
-                      <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95] shrink-0" />
+                      <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29] shrink-0" />
                       <span>Menyimpan log patroli &amp; memperbarui status pin peta...</span>
                     </div>
                   ) : scanningNfc ? (
                     <div
                       role="status"
-                      className="rounded-2xl px-3.5 py-3 text-xs font-semibold flex items-start gap-2.5 border bg-emerald-50 border-emerald-200 text-emerald-900"
+                      className="rounded-2xl px-3.5 py-3 text-xs font-semibold flex items-start gap-2.5 border bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]"
                     >
                       <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-60 [animation-delay:250ms]" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#384E35] opacity-75" />
+                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-[#384E35] opacity-60 [animation-delay:250ms]" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#2B3F29]" />
                       </span>
                       <span className="leading-relaxed">
                         Mode Scan Aktif — Tempelkan stiker NFC ke belakang HP sekarang...
@@ -2019,20 +2028,20 @@ export function PetugasPortalPage({
                       role="status"
                       className={`rounded-2xl px-3.5 py-3 text-xs font-medium flex items-start gap-2.5 border ${
                         nfcStatusError
-                          ? 'bg-amber-50 border-amber-200 text-amber-900'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                          ? 'bg-[#F2D8A7]/45 border-[#E2C285] text-[#4A3410]'
+                          : 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
                       }`}
                     >
                       {nfcStatusError ? (
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-4 h-4 text-[#6E4D12] shrink-0 mt-0.5" />
                       ) : (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                       )}
                       <span className="leading-relaxed">{nfcStatusText}</span>
                     </div>
                   ) : (
-                    <div className="rounded-2xl px-3.5 py-2.5 text-xs text-slate-600 bg-indigo-50/40 border border-dashed border-indigo-200 flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                    <div className="rounded-2xl px-3.5 py-2.5 text-xs text-[#4A554A] bg-[#F7F4EC] border border-dashed border-[#C6D2BF] flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-[#2B3F29] shrink-0" />
                       <span>
                         Ketuk tombol bulat <strong>Scan NFC</strong> di tengah bawah untuk
                         mengaktifkan sensor NFC.
@@ -2040,7 +2049,7 @@ export function PetugasPortalPage({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between gap-2 text-xs text-slate-500 pt-1">
+                  <div className="flex items-center justify-between gap-2 text-xs text-[#6E786D] pt-1">
                     <span>
                       {nfcSupported
                         ? 'Web NFC foreground siap (Chrome Android).'
@@ -2049,21 +2058,21 @@ export function PetugasPortalPage({
                     <button
                       type="button"
                       onClick={() => setShowManualForm((v) => !v)}
-                      className="font-semibold text-[#4C1D95] hover:underline cursor-pointer shrink-0"
+                      className="font-semibold text-[#2B3F29] hover:underline cursor-pointer shrink-0"
                     >
                       {showManualForm ? 'Tutup Input Manual' : 'Input Manual Checkpoint'}
                     </button>
                   </div>
 
-                  {/* Fallback Input Manual Checkpoint (iOS / Laptop / Pengujian Tanpa Crash) */}
+                  {/* Fallback Input Manual Checkpoint */}
                   {showManualForm && (
-                    <div className="rounded-2xl border border-indigo-100/80 bg-indigo-50/50 p-3.5 space-y-3">
+                    <div className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3.5 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-bold text-[#0F172A]">
+                        <p className="text-xs font-bold text-[#1B271B]">
                           Input Manual Checkpoint (Fallback Non-NFC)
                         </p>
                         {gpsAccuracy !== null && (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-800 border-emerald-200 tabular-nums">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border bg-[#E5EEE3] text-[#243825] border-[#C6D2BF] tabular-nums">
                             GPS Aktif (±{gpsAccuracy}m)
                           </span>
                         )}
@@ -2073,7 +2082,7 @@ export function PetugasPortalPage({
                         <select
                           value={selectedTitikId}
                           onChange={(e) => setSelectedTitikId(e.target.value)}
-                          className="sm:col-span-5 min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs sm:text-sm text-[#0F172A] focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                          className="sm:col-span-5 min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-xs sm:text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                         >
                           {(data?.titikPatroli || [])
                             .filter((t) => t.aktif !== false)
@@ -2088,15 +2097,15 @@ export function PetugasPortalPage({
                           value={manualUidInput}
                           onChange={(e) => setManualUidInput(normalizeNfcUid(e.target.value))}
                           placeholder="UID NFC (opsional)"
-                          className="sm:col-span-3 min-h-[44px] rounded-2xl border border-indigo-200/80 bg-white/90 px-3 text-xs font-mono text-[#0F172A] placeholder:font-sans placeholder:text-slate-400 focus:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/15"
+                          className="sm:col-span-3 min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-xs font-mono text-[#1B271B] placeholder:font-sans placeholder:text-[#6E786D]/70 focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
                         />
                         <button
                           type="button"
                           disabled={submittingPatroli || (!selectedTitikId && !manualUidInput.trim())}
                           onClick={() => void handleManualFallbackVerify()}
-                          className="sm:col-span-4 min-h-[44px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                          className="sm:col-span-4 min-h-[44px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
                         >
-                          <MapPin className="w-4 h-4 shrink-0 text-[#A7F3D0]" />
+                          <MapPin className="w-4 h-4 shrink-0 text-[#E5EEE3]" />
                           <span>Catat Checkpoint</span>
                         </button>
                       </div>
@@ -2105,16 +2114,16 @@ export function PetugasPortalPage({
                 </div>
 
                 {/* Ringkasan Cepat 3 Scan Terakhir & Tautan ke Peta */}
-                <div className="pt-3 border-t border-indigo-100/70 flex items-center justify-between gap-2">
-                  <p className="text-xs text-slate-600">
+                <div className="pt-3 border-t border-[#E6E2D6] flex items-center justify-between gap-2">
+                  <p className="text-xs text-[#4A554A]">
                     Scan hari ini:{' '}
-                    <strong className="font-mono text-[#0F172A]">{patroliHariIni.length}</strong>{' '}
+                    <strong className="font-mono text-[#1B271B]">{patroliHariIni.length}</strong>{' '}
                     checkpoint
                   </p>
                   <button
                     type="button"
                     onClick={() => handleSelectTab('peta')}
-                    className="text-xs font-bold text-[#4C1D95] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-[#2B3F29] hover:underline inline-flex items-center gap-1 cursor-pointer"
                   >
                     <MapIcon className="w-3.5 h-3.5" />
                     <span>Cek Status Pin di Peta</span>
@@ -2153,29 +2162,29 @@ export function PetugasPortalPage({
                   aria-label="Kontrol Patroli Live di Bawah Peta 3D"
                   className={`rounded-3xl p-4 sm:p-5 space-y-3 ${
                     activeLiveSession?.status === 'active'
-                      ? 'glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 text-white'
-                      : 'glass-card bg-white/80 backdrop-blur-xl border border-white/90 text-[#0F172A]'
+                      ? 'glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-md text-[#FFFDF8]'
+                      : 'glass-card bg-[#FFFDF8] border border-[#E6E2D6] text-[#1B271B] shadow-xs'
                   }`}
                 >
                   {activeLiveSession?.status === 'active' ? (
                     <>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#A7F3D0]">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#E5EEE3]">
                             <span className="relative flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5EEE3] opacity-80" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E5EEE3]" />
                             </span>
                             PATROLI LIVE SEDANG BERLANGSUNG
                           </span>
-                          <p className="text-xs font-mono text-indigo-100/95 tabular-nums flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <p className="text-xs font-mono text-[#E5EEE3]/90 tabular-nums flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="inline-flex items-center gap-1">
-                              <Crosshair className="w-3.5 h-3.5 text-[#A7F3D0]" />
+                              <Crosshair className="w-3.5 h-3.5 text-[#E5EEE3]" />
                               GPS Aktif ({gpsAccuracy !== null ? `±${gpsAccuracy}m` : 'mencari...'})
                             </span>
                             <span>•</span>
                             <span className="inline-flex items-center gap-1">
-                              <Smartphone className="w-3.5 h-3.5 text-[#A7F3D0]" />
+                              <Smartphone className="w-3.5 h-3.5 text-[#E5EEE3]" />
                               {wakeLockActive ? 'Layar Terjaga' : 'Layar Normal'}
                             </span>
                           </p>
@@ -2189,7 +2198,7 @@ export function PetugasPortalPage({
                               startGpsWatcherForSession(activeLiveSession);
                               onToast('info', 'Pelacakan GPS live dilanjutkan.');
                             }}
-                            className="min-h-[38px] px-3.5 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                            className="min-h-[38px] px-3.5 rounded-full bg-[#E5EEE3] hover:bg-[#C6D2BF] text-[#243825] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                           >
                             <Crosshair className="w-3.5 h-3.5" />
                             <span>Lanjutkan GPS</span>
@@ -2198,7 +2207,7 @@ export function PetugasPortalPage({
                       </div>
 
                       {calibratedCount < 2 && (
-                        <p className="text-[11px] text-indigo-100/90 bg-white/10 border border-white/15 rounded-2xl px-3 py-2 leading-relaxed">
+                        <p className="text-[11px] text-[#E5EEE3]/90 bg-[#FFFDF8]/10 border border-[#FFFDF8]/15 rounded-2xl px-3 py-2 leading-relaxed">
                           Kalibrasi GPS pos saat ini ({calibratedCount} pos). Posisi Anda akan
                           otomatis berpindah mengikuti Pos yang terakhir di-scan NFC hingga Pengurus
                           mengunci minimal 2 pos di Pengaturan &gt; Petugas.
@@ -2209,7 +2218,7 @@ export function PetugasPortalPage({
                         type="button"
                         disabled={completingLivePatrol}
                         onClick={() => setConfirmFinishOpen(true)}
-                        className="w-full min-h-[48px] rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors"
+                        className="w-full min-h-[48px] rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors"
                       >
                         <Square className="w-4 h-4 fill-current" />
                         <span>Selesai Patroli</span>
@@ -2218,11 +2227,11 @@ export function PetugasPortalPage({
                   ) : (
                     <>
                       <div className="space-y-0.5">
-                        <p className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                          <Navigation className="w-4 h-4 text-[#4C1D95]" />
+                        <p className="text-sm font-bold text-[#1B271B] flex items-center gap-1.5">
+                          <Navigation className="w-4 h-4 text-[#2B3F29]" />
                           <span>Live Tracking Patroli Real-Time</span>
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[#6E786D]">
                           Aktifkan pelacakan GPS &amp; jaga layar tetap menyala agar posisi dan
                           jejak rute Anda muncul langsung di atas Peta 3D.
                         </p>
@@ -2232,7 +2241,7 @@ export function PetugasPortalPage({
                         type="button"
                         disabled={startingLivePatrol}
                         onClick={() => void handleStartLivePatrol()}
-                        className="w-full min-h-[50px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-sm font-extrabold inline-flex items-center justify-center gap-2 shadow-md shadow-indigo-900/20 cursor-pointer transition-colors"
+                        className="w-full min-h-[50px] rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-sm font-extrabold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors"
                       >
                         {startingLivePatrol ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
@@ -2247,8 +2256,8 @@ export function PetugasPortalPage({
                   )}
 
                   {gpsErrorMsg && (
-                    <div className="rounded-2xl bg-red-50 border border-red-200 p-3 text-xs text-red-900 flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="rounded-2xl bg-[#C87058]/10 border border-[#E2A898] p-3 text-xs text-[#7A311E] flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
                       <p className="leading-relaxed">{gpsErrorMsg}</p>
                     </div>
                   )}
@@ -2257,9 +2266,9 @@ export function PetugasPortalPage({
                 <button
                   type="button"
                   onClick={handleCenterScanFabClick}
-                  className="w-full min-h-[48px] rounded-full bg-[#4C1D95] hover:bg-[#3b0764] text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors"
+                  className="w-full min-h-[48px] rounded-full bg-[#243825] hover:bg-[#1B271B] text-[#FFFDF8] text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors"
                 >
-                  <Radio className="w-4 h-4 text-[#A7F3D0]" />
+                  <Radio className="w-4 h-4 text-[#E5EEE3]" />
                   <span>Scan Checkpoint NFC Sekarang</span>
                 </button>
               </div>
@@ -2281,17 +2290,17 @@ export function PetugasPortalPage({
         onToast={onToast}
       />
 
-      {/* 7. DUAL-RING FLOATING ORB DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
+      {/* FLOATING BOTTOM NAVIGATION DOCK — MOBILE & TABLET (< lg) */}
       <nav
         aria-label="Navigasi Bawah Floating Orb Dock Petugas"
-        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
+        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-[#FFFDF8]/92 backdrop-blur-2xl border border-[#E6E2D6] shadow-[0_14px_38px_-8px_rgba(36,56,37,0.22)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
       >
         {/* 1. Pos Jaga / Info & Shift */}
         <button
           type="button"
           onClick={() => handleSelectTab('info')}
           className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'info' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+            activeTab === 'info' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
           }`}
         >
           <Shield
@@ -2302,7 +2311,7 @@ export function PetugasPortalPage({
           />
           <span
             className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'info' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+              activeTab === 'info' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
             }`}
           >
             Pos Jaga
@@ -2311,7 +2320,7 @@ export function PetugasPortalPage({
             aria-hidden="true"
             className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
               activeTab === 'info'
-                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                ? 'bg-[#2B3F29] opacity-100 scale-100'
                 : 'bg-transparent opacity-0 scale-0'
             }`}
           />
@@ -2322,7 +2331,7 @@ export function PetugasPortalPage({
           type="button"
           onClick={() => handleSelectTab('riwayat')}
           className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'riwayat' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+            activeTab === 'riwayat' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
           }`}
         >
           <ClipboardList
@@ -2333,7 +2342,7 @@ export function PetugasPortalPage({
           />
           <span
             className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'riwayat' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+              activeTab === 'riwayat' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
             }`}
           >
             Patroli
@@ -2342,13 +2351,13 @@ export function PetugasPortalPage({
             aria-hidden="true"
             className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
               activeTab === 'riwayat'
-                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                ? 'bg-[#2B3F29] opacity-100 scale-100'
                 : 'bg-transparent opacity-0 scale-0'
             }`}
           />
         </button>
 
-        {/* 3. CENTER DUAL-RING FLOATING ORB: PEMICU SCAN WEB NFC */}
+        {/* 3. CENTER FLOATING ORB: PEMICU SCAN WEB NFC */}
         <div className="flex flex-col items-center justify-center relative">
           <button
             type="button"
@@ -2360,23 +2369,23 @@ export function PetugasPortalPage({
                 : 'Aktifkan Scan NFC Checkpoint Patroli'
             }
             aria-pressed={scanningNfc}
-            className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full text-white shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
+            className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full text-[#FFFDF8] shadow-xl flex flex-col items-center justify-center gap-0.5 ring-4 ring-[#FFFDF8] relative cursor-pointer transition-all duration-200 active:scale-95 disabled:opacity-70 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:-z-10 ${
               scanningNfc
-                ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-emerald-500/40 scale-[1.06] before:border-emerald-400/50 before:bg-emerald-400/15'
+                ? 'bg-gradient-to-tr from-[#2B3F29] to-[#384E35] shadow-[#243825]/40 scale-[1.06] before:border-[#384E35]/50 before:bg-[#E5EEE3]/40'
                 : activeTab === 'scan'
-                  ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] shadow-sky-500/35 scale-[1.04] before:border-sky-400/40 before:bg-sky-400/10'
-                  : 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] shadow-sky-900/25 hover:scale-[1.02] before:border-sky-400/40 before:bg-sky-400/10'
+                  ? 'bg-gradient-to-tr from-[#243825] to-[#384E35] shadow-[#243825]/35 scale-[1.04] before:border-[#C6D2BF] before:bg-[#E5EEE3]/30'
+                  : 'bg-gradient-to-tr from-[#243825] to-[#2B3F29] shadow-[#243825]/25 hover:scale-[1.02] before:border-[#C6D2BF]/80 before:bg-[#E5EEE3]/20'
             }`}
           >
             {scanningNfc && (
               <>
                 <span
                   aria-hidden="true"
-                  className="absolute -inset-2 rounded-full bg-emerald-400/40 animate-ping pointer-events-none"
+                  className="absolute -inset-2 rounded-full bg-[#384E35]/40 animate-ping pointer-events-none"
                 />
                 <span
                   aria-hidden="true"
-                  className="absolute inset-0 rounded-full bg-emerald-300/35 animate-ping [animation-delay:300ms] pointer-events-none"
+                  className="absolute inset-0 rounded-full bg-[#C6D2BF]/40 animate-ping [animation-delay:300ms] pointer-events-none"
                 />
               </>
             )}
@@ -2388,7 +2397,7 @@ export function PetugasPortalPage({
                 strokeWidth={2.4}
               />
             )}
-            <span className="text-[9px] font-bold tracking-wide leading-none text-sky-50 relative z-10">
+            <span className="text-[9px] font-bold tracking-wide leading-none text-[#E5EEE3] relative z-10">
               {submittingPatroli ? 'Simpan' : scanningNfc ? 'Aktif' : 'Scan'}
             </span>
           </button>
@@ -2396,9 +2405,7 @@ export function PetugasPortalPage({
             aria-hidden="true"
             className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all duration-200 ${
               activeTab === 'scan' || scanningNfc
-                ? scanningNfc
-                  ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.95)] opacity-100 scale-100'
-                  : 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                ? 'bg-[#2B3F29] opacity-100 scale-100'
                 : 'bg-transparent opacity-0 scale-0'
             }`}
           />
@@ -2409,7 +2416,7 @@ export function PetugasPortalPage({
           type="button"
           onClick={() => handleSelectTab('honor')}
           className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'honor' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+            activeTab === 'honor' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
           }`}
         >
           <Wallet
@@ -2420,7 +2427,7 @@ export function PetugasPortalPage({
           />
           <span
             className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'honor' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+              activeTab === 'honor' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
             }`}
           >
             Honor
@@ -2429,7 +2436,7 @@ export function PetugasPortalPage({
             aria-hidden="true"
             className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
               activeTab === 'honor'
-                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                ? 'bg-[#2B3F29] opacity-100 scale-100'
                 : 'bg-transparent opacity-0 scale-0'
             }`}
           />
@@ -2440,7 +2447,7 @@ export function PetugasPortalPage({
           type="button"
           onClick={() => handleSelectTab('peta')}
           className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-            activeTab === 'peta' ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+            activeTab === 'peta' ? 'text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
           }`}
         >
           <MapIcon
@@ -2451,7 +2458,7 @@ export function PetugasPortalPage({
           />
           <span
             className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-              activeTab === 'peta' ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+              activeTab === 'peta' ? 'font-bold text-[#243825]' : 'font-medium text-[#4A554A]'
             }`}
           >
             Peta
@@ -2460,7 +2467,7 @@ export function PetugasPortalPage({
             aria-hidden="true"
             className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
               activeTab === 'peta'
-                ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
+                ? 'bg-[#2B3F29] opacity-100 scale-100'
                 : 'bg-transparent opacity-0 scale-0'
             }`}
           />
@@ -2475,24 +2482,24 @@ export function PetugasPortalPage({
         />
       )}
 
-      {/* Modal Profil & Tema Petugas (Dibuka saat ketuk Avatar di Header) */}
+      {/* Modal Profil & Tema Petugas */}
       {profileModalOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Pengaturan Profil dan Tema Petugas"
           onClick={() => setProfileModalOpen(false)}
-          className="fixed inset-0 z-[65] bg-slate-950/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-[65] bg-[#1B271B]/55 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white/95 backdrop-blur-xl w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-white/90 p-5 space-y-5 shadow-2xl animate-modal-pop"
+            className="bg-[#FFFDF8] w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#E6E2D6] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-5 shadow-2xl animate-modal-pop"
           >
-            <div className="sm:hidden mx-auto w-10 h-1 rounded-full bg-indigo-200" aria-hidden="true" />
-            <div className="flex items-center justify-between gap-2 pb-3 border-b border-indigo-100/70">
+            <div className="sm:hidden mx-auto w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E6E2D6]">
               <div>
-                <h2 className="text-base font-bold text-[#0F172A]">Profil &amp; Tema Petugas</h2>
-                <p className="text-xs text-slate-500">
+                <h2 className="font-serif-brand text-base font-bold text-[#1B271B]">Profil &amp; Tema Petugas</h2>
+                <p className="text-xs text-[#6E786D]">
                   Ubah foto profil atau pilih tema tampilan (termasuk Midnight untuk patroli malam).
                 </p>
               </div>
@@ -2500,7 +2507,7 @@ export function PetugasPortalPage({
                 type="button"
                 onClick={() => setProfileModalOpen(false)}
                 aria-label="Tutup modal profil dan tema"
-                className="w-9 h-9 rounded-full text-slate-400 hover:text-[#4C1D95] hover:bg-indigo-50 flex items-center justify-center cursor-pointer"
+                className="w-9 h-9 rounded-full text-[#6E786D] hover:text-[#243825] hover:bg-[#E5EEE3] flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2515,11 +2522,11 @@ export function PetugasPortalPage({
               compact
             />
 
-            <div className="pt-4 border-t border-indigo-100/70">
+            <div className="pt-4 border-t border-[#E6E2D6]">
               <ThemePicker compact onToast={onToast} />
             </div>
 
-            <div className="pt-4 border-t border-indigo-100/70">
+            <div className="pt-4 border-t border-[#E6E2D6]">
               <NotificationSettingsCard session={session} compact onToast={onToast} />
             </div>
           </div>
@@ -2532,14 +2539,14 @@ export function PetugasPortalPage({
           role="dialog"
           aria-modal="true"
           aria-label="Konfirmasi Selesai Patroli"
-          className="fixed inset-0 z-[60] bg-slate-950/55 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
+          className="fixed inset-0 z-[60] bg-[#1B271B]/55 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
         >
-          <div className="bg-white/95 backdrop-blur-xl w-full max-w-sm rounded-3xl border border-white/90 p-5 space-y-4 shadow-2xl animate-modal-pop">
+          <div className="bg-[#FFFDF8] w-full max-w-sm rounded-3xl border border-[#E6E2D6] p-5 space-y-4 shadow-2xl animate-modal-pop">
             <div className="space-y-1.5">
-              <h2 className="text-base font-bold text-[#0F172A]">Selesaikan Patroli Live?</h2>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <h2 className="font-serif-brand text-base font-bold text-[#1B271B]">Selesaikan Patroli Live?</h2>
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Pelacakan GPS dan penguncian layar akan dihentikan, lalu sesi patroli Anda (
-                <strong className="font-mono text-[#0F172A]">
+                <strong className="font-mono text-[#1B271B]">
                   {activeCycleProgress.scanned}/{activeCycleProgress.total} Pos
                 </strong>
                 ) akan ditutup dengan status selesai.
@@ -2550,7 +2557,7 @@ export function PetugasPortalPage({
                 type="button"
                 disabled={completingLivePatrol}
                 onClick={() => setConfirmFinishOpen(false)}
-                className="min-h-[40px] px-4 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-bold text-slate-700 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F7F4EC] text-xs font-bold text-[#4A554A] cursor-pointer"
               >
                 Batal
               </button>
@@ -2559,7 +2566,7 @@ export function PetugasPortalPage({
                 disabled={completingLivePatrol}
                 aria-busy={completingLivePatrol}
                 onClick={() => void handleConfirmFinishLivePatrol()}
-                className="min-h-[40px] px-4 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                className="min-h-[40px] px-4 rounded-full bg-[#C87058] hover:bg-[#B25C45] disabled:opacity-60 text-[#FFFDF8] text-xs font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer"
               >
                 {completingLivePatrol && <LoadingSpinner size="xs" tone="white" />}
                 <span>{completingLivePatrol ? 'Menyelesaikan...' : 'Ya, Selesai Patroli'}</span>

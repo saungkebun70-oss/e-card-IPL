@@ -305,18 +305,18 @@ export function ChatMessageAttachmentBubble({
   };
 
   const cardSurfaceClass = isMine
-    ? 'bg-white/14 border-white/25 text-white'
-    : 'bg-indigo-50/75 border-indigo-200/80 text-[#0F172A]';
+    ? 'bg-white/14 border-white/25 text-[#FFFDF8]'
+    : 'bg-[#F6F3EA]/90 border-[#E6E2D6] text-[#1B271B]';
 
-  const subTextClass = isMine ? 'text-sky-100/85' : 'text-slate-600';
+  const subTextClass = isMine ? 'text-[#E5EEE3]/85' : 'text-[#4A554A]';
 
   const actionBtnPrimaryClass = isMine
-    ? 'bg-white/95 hover:bg-white text-[#312E81] border border-white/80'
-    : 'bg-[#312E81] hover:bg-[#3730A3] text-white border border-[#312E81]';
+    ? 'bg-[#FFFDF8] hover:bg-white text-[#243825] border border-white/80'
+    : 'bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] border border-[#2B3F29]';
 
   const actionBtnSecondaryClass = isMine
-    ? 'bg-white/15 hover:bg-white/25 text-white border border-white/30'
-    : 'bg-white hover:bg-indigo-50 text-[#312E81] border border-indigo-200';
+    ? 'bg-white/15 hover:bg-white/25 text-[#FFFDF8] border border-white/30'
+    : 'bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]';
 
   if (isPending) {
     return (
@@ -341,8 +341,8 @@ export function ChatMessageAttachmentBubble({
       <div
         className={`mb-2 w-full min-w-0 max-w-full rounded-xl border px-2.5 py-2 flex items-center gap-2 ${
           isMine
-            ? 'bg-rose-950/35 border-rose-300/40 text-rose-100'
-            : 'bg-rose-50 border-rose-200 text-rose-800'
+            ? 'bg-[#C87058]/30 border-[#E2A898]/50 text-[#FFFDF8]'
+            : 'bg-[#C87058]/10 border-[#E2A898] text-[#7A311E]'
         }`}
       >
         <AlertCircle className="w-4 h-4 shrink-0" />
@@ -376,15 +376,15 @@ export function ChatMessageAttachmentBubble({
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}
-                className="w-full max-h-60 min-h-[110px] object-cover block bg-slate-900/10"
+                className="w-full max-h-60 min-h-[110px] object-cover block bg-[#1B271B]/10"
               />
               {isOptimisticLocalPreview ? (
-                <span className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-slate-950/65 text-white text-[10px] font-semibold inline-flex items-center gap-1 backdrop-blur-xs">
+                <span className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-[#1B271B]/65 text-[#FFFDF8] text-[10px] font-semibold inline-flex items-center gap-1 backdrop-blur-xs">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Mengirim...</span>
                 </span>
               ) : null}
-              <span className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-950/60 text-white text-[10px] font-semibold inline-flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity backdrop-blur-xs">
+              <span className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-[#1B271B]/60 text-[#FFFDF8] text-[10px] font-semibold inline-flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity backdrop-blur-xs">
                 <Maximize2 className="w-3 h-3" />
                 <span>Pratinjau</span>
               </span>
@@ -398,7 +398,7 @@ export function ChatMessageAttachmentBubble({
               >
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isMine ? 'bg-white/15 text-white' : 'bg-white text-[#312E81]'
+                    isMine ? 'bg-white/15 text-[#FFFDF8]' : 'bg-[#FFFDF8] text-[#243825] border border-[#E6E2D6]'
                   }`}
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -447,7 +447,7 @@ export function ChatMessageAttachmentBubble({
         >
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              isMine ? 'bg-white/20 text-white' : 'bg-[#312E81] text-white'
+              isMine ? 'bg-white/20 text-[#FFFDF8]' : 'bg-[#2B3F29] text-[#FFFDF8]'
             }`}
           >
             <Play className="w-4 h-4 fill-current ml-0.5" />
@@ -474,8 +474,8 @@ export function ChatMessageAttachmentBubble({
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 isMine
-                  ? 'bg-white/20 text-white'
-                  : 'bg-white text-[#312E81] border border-indigo-100'
+                  ? 'bg-white/20 text-[#FFFDF8]'
+                  : 'bg-[#FFFDF8] text-[#243825] border border-[#E6E2D6]'
               }`}
             >
               {renderDocumentIcon(fileName, mimeType || message.attachment_mime || '')}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bug,
   ChevronRight,
@@ -17,10 +17,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import { formatBlokRumah } from '../lib/format';
-import { BrandLogo } from './BrandLogo';
+import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
+
+const HEADER_BG_SRC = '/assets/aistudio/1795778734359_8dc82f49.jpg';
 import {
   fetchUnreadNotificationCount,
   getCanonicalUserId,
@@ -65,6 +67,8 @@ interface AppShellProps {
   headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
+
+const SHORT_MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 export function AppShell({
   session,
@@ -112,14 +116,19 @@ export function AppShell({
   const isProfilActive = activeTab === 'profil';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
-  // Batasi dock bawah maksimal 5 ikon agar Dual-Ring Floating Orb Dock selalu simetris
+  const currentMonthBadge = useMemo(() => {
+    const now = new Date();
+    return `${SHORT_MONTHS_ID[now.getMonth()]} ${now.getFullYear()}`;
+  }, []);
+
+  // Batasi dock bawah maksimal 5 ikon agar Floating Dock selalu simetris
   const bottomDockItems = navItems.slice(0, 5);
 
   const sessionRef = useRef<SessionUser>(session);
   sessionRef.current = session;
   const sessionKey = getCanonicalUserId(session);
 
-  // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari tabel `notifications` untuk badge Lonceng Header
+  // Ambil jumlah notifikasi belum dibaca (is_read = false) langsung dari tabel `notifications`
   useEffect(() => {
     let active = true;
     const syncUnreadCount = async () => {
@@ -260,11 +269,17 @@ export function AppShell({
       ? `Keamanan · ${session.shift || 'Petugas'}`
       : `Warga · Blok ${displayWargaBlok}`;
 
+  const compactIdentityLabel = isAdmin
+    ? `${session.nama_warga} · ${session.jabatan || 'Pengurus'}`
+    : isPetugas
+      ? `${session.nama_warga} · Keamanan`
+      : `${session.nama_warga} · Blok ${displayWargaBlok}`;
+
   const renderSidebarNavigation = () => (
-    <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-5 md:py-6 lg:py-5 space-y-6 md:space-y-7 lg:space-y-6">
+    <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-4 md:py-5 lg:py-4 space-y-5">
       {/* Daftar Menu Utama */}
-      <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
-        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
+      <div className="space-y-1.5">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.09em] text-[#6E786D]">
           Menu Utama
         </p>
         {navItems.map((item) => {
@@ -276,24 +291,30 @@ export function AppShell({
               key={item.id}
               type="button"
               onClick={() => handleSelectNav(item.id)}
-              className={`w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
               <span
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-slate-100/85 text-slate-500'
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
               >
-                <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
+                <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.3 : 2} />
               </span>
               <span className="truncate flex-1">{labelText}</span>
               {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 tabular-nums shrink-0">
+                <span
+                  className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${
+                    isActive
+                      ? 'bg-[#F2D8A7] text-[#3F2C0D]'
+                      : 'bg-[#F2D8A7] text-[#4A3410]'
+                  }`}
+                >
                   {item.badgeCount > 9 ? '9+' : item.badgeCount}
                 </span>
               )}
@@ -302,42 +323,46 @@ export function AppShell({
         })}
       </div>
 
-      {/* Menu Tambahan Sesuai Role (Di Luar 5 Ikon Bawah) */}
-      <div className="space-y-1.5 md:space-y-2 lg:space-y-1.5">
-        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400/90">
+      {/* Menu Tambahan Sesuai Role */}
+      <div className="space-y-1.5">
+        <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.09em] text-[#6E786D]">
           {isAdmin ? 'Komunikasi & Pengaturan' : 'Komunikasi & Profil'}
         </p>
 
-        {/* Chat Lingkungan Real-Time (Pengurus, Warga & Keamanan) */}
+        {/* Chat Lingkungan Real-Time */}
         <button
           type="button"
           onClick={() => {
             setDrawerOpen(false);
             setChatModalOpen(true);
           }}
-          className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+          className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
             isChatModalOpen
-              ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-              : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+              ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+              : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
           }`}
         >
           <span
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
               isChatModalOpen
-                ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                : 'bg-sky-50 text-[#0284C7]'
+                ? 'bg-white/15 text-[#FFFDF8]'
+                : 'bg-[#E5EEE3] text-[#243825]'
             }`}
           >
-            <MessageSquare className="w-[18px] h-[18px]" />
+            <MessageSquare className="w-[17px] h-[17px]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
-            <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+            <p
+              className={`text-[11px] font-normal truncate mt-0.5 ${
+                isChatModalOpen ? 'text-[#E5EEE3]/85' : 'text-[#6E786D]'
+              }`}
+            >
               DM &amp; Group (Pengurus · Warga · Keamanan)
             </p>
           </div>
           {unreadChatCount > 0 && !isChatModalOpen && (
-            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white tabular-nums shrink-0">
+            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#C87058] text-white tabular-nums shrink-0">
               {unreadChatCount > 99 ? '99+' : unreadChatCount}
             </span>
           )}
@@ -348,24 +373,28 @@ export function AppShell({
             <button
               type="button"
               onClick={() => handleSelectNav('lpj')}
-              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isLpjActive
-                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
               <span
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                   isLpjActive
-                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-indigo-50 text-[#312E81]'
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
               >
-                <FileCheck2 className="w-[18px] h-[18px]" />
+                <FileCheck2 className="w-[17px] h-[17px]" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Laporan LPJ (PDF)</p>
-                <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                <p
+                  className={`text-[11px] font-normal truncate mt-0.5 ${
+                    isLpjActive ? 'text-[#E5EEE3]/85' : 'text-[#6E786D]'
+                  }`}
+                >
                   Rekap Triwulanan A4
                 </p>
               </div>
@@ -374,24 +403,24 @@ export function AppShell({
             <button
               type="button"
               onClick={() => handleSelectNav('laporan_bug')}
-              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isBugReportsActive
-                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
               <span
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                   isBugReportsActive
-                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-rose-50 text-rose-600'
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#C87058]/15 text-[#A94E38]'
                 }`}
               >
-                <Bug className="w-[18px] h-[18px]" />
+                <Bug className="w-[17px] h-[17px]" />
               </span>
               <span className="truncate flex-1">Laporan Bug</span>
               {pendingBugCount > 0 && (
-                <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 tabular-nums shrink-0">
+                <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#C87058] text-white tabular-nums shrink-0">
                   {pendingBugCount}
                 </span>
               )}
@@ -400,10 +429,10 @@ export function AppShell({
             <button
               type="button"
               onClick={handleOpenProfileFromSidebar}
-              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
-                <UserCircle2 className="w-[18px] h-[18px]" />
+              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                <UserCircle2 className="w-[17px] h-[17px]" />
               </span>
               <span className="truncate flex-1">Profil Pengurus</span>
             </button>
@@ -412,14 +441,14 @@ export function AppShell({
               <button
                 type="button"
                 onClick={handleOpenSettingsFromSidebar}
-                className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+                className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
               >
-                <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Settings className="w-[18px] h-[18px]" />
+                <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                  <Settings className="w-[17px] h-[17px]" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate leading-tight">Pengaturan Sistem</p>
-                  <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                  <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
                     {canAccessBotWa
                       ? 'Tarif IPL, QRIS, Bot WA & Identitas'
                       : 'Tema, Identitas, QRIS & Petugas'}
@@ -433,24 +462,28 @@ export function AppShell({
             <button
               type="button"
               onClick={() => handleSelectNav('profil')}
-              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug transition-all duration-200 cursor-pointer ${
+              className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug transition-all duration-200 cursor-pointer ${
                 isProfilActive
-                  ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 text-[#312E81] font-bold border border-sky-200/80 shadow-2xs'
-                  : 'text-slate-600 font-medium hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80'
+                  ? 'bg-[#2B3F29] text-[#FFFDF8] font-bold shadow-sm shadow-[#243825]/20'
+                  : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
               <span
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                   isProfilActive
-                    ? 'bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                    : 'bg-sky-50 text-sky-700'
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
               >
-                <UserCircle2 className="w-[18px] h-[18px]" />
+                <UserCircle2 className="w-[17px] h-[17px]" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Profil Warga</p>
-                <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                <p
+                  className={`text-[11px] font-normal truncate mt-0.5 ${
+                    isProfilActive ? 'text-[#E5EEE3]/85' : 'text-[#6E786D]'
+                  }`}
+                >
                   Foto, PIN, Tema &amp; Notifikasi
                 </p>
               </div>
@@ -459,10 +492,10 @@ export function AppShell({
             <button
               type="button"
               onClick={() => handleSelectNav('riwayat')}
-              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <span className="w-9 h-9 rounded-xl bg-indigo-50 text-[#312E81] flex items-center justify-center shrink-0">
-                <ReceiptText className="w-[18px] h-[18px]" />
+              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                <ReceiptText className="w-[17px] h-[17px]" />
               </span>
               <span className="truncate flex-1">Kwitansi Digital</span>
             </button>
@@ -470,10 +503,10 @@ export function AppShell({
             <button
               type="button"
               onClick={() => handleSelectNav('lingkungan')}
-              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] lg:text-sm leading-snug font-medium text-slate-600 hover:bg-white/80 hover:text-[#0F172A] border border-transparent hover:border-white/80 transition-all duration-200 cursor-pointer"
+              className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                <PhoneCall className="w-[18px] h-[18px]" />
+              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                <PhoneCall className="w-[17px] h-[17px]" />
               </span>
               <span className="truncate flex-1">Hubungi Pengurus</span>
             </button>
@@ -484,62 +517,73 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF] to-[#E0F2FE] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
-      {/* SIDEBAR KACA ESTETIK TETAP — DESKTOP (lg+, lebar 260px) */}
+    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
+      {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-white/65 backdrop-blur-2xl backdrop-saturate-150 border-l border-l-white/20 border-r border-r-white/85 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),8px_0_36px_-14px_rgba(49,46,129,0.16)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
       >
-        {/* Brand Header Sidebar */}
-        <div className="px-4 pt-5 pb-4 border-b border-indigo-100/70 shrink-0">
+        {/* Brand Header Sidebar Velvety Moss Green + Foto Lingkungan + Watermark */}
+        <div className="relative overflow-hidden px-4 pt-5 pb-4 bg-[#243825] text-[#FFFDF8] shrink-0">
+          <img
+            src={HEADER_BG_SRC}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-35"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-br from-[#243825]/90 via-[#2B3F29]/82 to-[#384E35]/90"
+          />
+          <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-32 h-24" tone="cream" />
           <button
             type="button"
             onClick={() => handleSelectNav(isAdmin ? 'dashboard' : 'beranda')}
-            className="w-full flex items-center gap-3 text-left cursor-pointer group"
+            className="relative z-10 w-full flex items-center gap-3 text-left cursor-pointer group"
           >
-            <BrandLogo size="md" variant="light" className="shrink-0" />
+            <BrandLogo size="sm" variant="dark" className="shrink-0" />
             <div className="min-w-0">
-              <p className="text-sm font-extrabold tracking-tight text-[#0F172A] leading-tight truncate">
-                {brand.app_name || 'Perumahan Saung Kebun'}
+              <p className="font-serif-brand text-base font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
+                {brand.app_name || 'e-Card Verifikasi'}
               </p>
-              <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
-                {isAdmin ? 'Portal Pengurus' : 'Portal Warga IPL'}
+              <p className="text-[11px] font-medium text-[#E5EEE3]/85 truncate mt-0.5">
+                {brand.app_subtitle || 'IPL Digital — Perumahan Saung Kebun'}
               </p>
             </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenProfileFromSidebar}
+            className="relative z-10 group mt-3.5 w-full text-left p-2.5 rounded-2xl bg-white/10 hover:bg-white/16 border border-white/15 flex items-center gap-2.5 transition-all duration-200 cursor-pointer"
+          >
+            <UserAvatar
+              name={session.nama_warga}
+              src={effectiveAvatarUrl}
+              size="sm"
+              ringClassName="ring-2 ring-[#E5EEE3]/50"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-[#FFFDF8] truncate leading-tight">
+                {session.nama_warga}
+              </p>
+              <p className="text-[10.5px] text-[#E5EEE3]/85 truncate mt-0.5 leading-tight">
+                {roleSubtitleLabel}
+              </p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-[#E5EEE3]/80 group-hover:translate-x-0.5 shrink-0 transition-transform" />
           </button>
         </div>
 
         {/* Daftar Menu Lengkap di Tengah */}
         {renderSidebarNavigation()}
 
-        {/* Kartu Mini Profil Pengguna Aktif + Logout di Bawah Sidebar */}
-        <div className="mt-auto px-4 pt-3.5 pb-4 border-t border-indigo-100/70 bg-white/40 backdrop-blur-xl space-y-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleOpenProfileFromSidebar}
-            className="group w-full p-3 rounded-2xl bg-white/80 hover:bg-gradient-to-r hover:from-indigo-50/95 hover:via-sky-50/90 hover:to-white border border-white/90 hover:border-sky-200/80 shadow-2xs hover:shadow-sm flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
-          >
-            <UserAvatar
-              name={session.nama_warga}
-              src={effectiveAvatarUrl}
-              size="sm"
-              className="shrink-0 ring-2 ring-white/80 group-hover:ring-sky-200/80 transition-all"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#0F172A] group-hover:text-[#312E81] truncate leading-tight transition-colors">
-                {session.nama_warga}
-              </p>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5 leading-tight">
-                {roleSubtitleLabel}
-              </p>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#312E81] group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
-          </button>
-
+        {/* Footer Sidebar: Logout Terakota Lembut + Versi */}
+        <div className="mt-auto px-4 pt-3 pb-4 border-t border-[#E6E2D6] bg-[#FFFDF8]/75 space-y-2.5 shrink-0">
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
-            className="w-full min-h-[42px] px-3.5 rounded-2xl bg-red-50/90 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
+            className="w-full min-h-[42px] px-3.5 rounded-2xl bg-[#C87058]/14 hover:bg-[#C87058] text-[#A44831] hover:text-white border border-[#C87058]/35 text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>Keluar / Logout</span>
@@ -549,7 +593,7 @@ export function AppShell({
         </div>
       </aside>
 
-      {/* SLIDE-OVER GLASS SIDEBAR — MOBILE & TABLET (< lg) UNTUK SEMUA ROLE */}
+      {/* SLIDE-OVER LEFT DRAWER — MOBILE & TABLET (< lg) */}
       <AnimatePresence>
         {drawerOpen && (
           <div
@@ -558,37 +602,36 @@ export function AppShell({
             aria-label="Menu Sidebar & Profil"
             className="lg:hidden fixed inset-0 z-[60] flex no-print"
           >
-            {/* Backdrop Blur */}
+            {/* Backdrop Gelap Semi-Transparan */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={() => setDrawerOpen(false)}
-              className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm"
+              className="fixed inset-0 bg-[#142015]/55 backdrop-blur-sm"
             />
 
-            {/* Panel Drawer Frosted Spatial Glass */}
+            {/* Panel Drawer Kiri (~80% lebar viewport, sudut kanan membulat) */}
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-white/75 backdrop-blur-2xl backdrop-saturate-150 rounded-r-3xl border-l border-l-white/20 border-r border-r-white/90 shadow-[inset_1px_0_0_rgba(255,255,255,0.55),0_25px_50px_-12px_rgba(15,23,42,0.35)] flex flex-col overflow-hidden"
+              className="relative z-10 w-[80vw] max-w-[330px] h-full bg-[#F6F3EA] rounded-r-3xl border-r border-[#E6E2D6] shadow-[0_25px_50px_-12px_rgba(20,32,21,0.45)] flex flex-col overflow-hidden"
             >
-              {/* Header Drawer + Kartu Profil Lengkap */}
-              <div
-                className="px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white shrink-0"
-              >
-                <div className="flex items-center justify-between gap-2.5">
+              {/* Header Drawer Velvety Moss Green dengan Watermark Saung Kebun */}
+              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
+                <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-36 h-28" tone="cream" />
+                <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <BrandLogo size="md" variant="dark" className="shrink-0" />
+                    <BrandLogo size="sm" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-white leading-tight truncate">
-                        {brand?.app_name || 'Perumahan Saung Kebun'}
+                      <p className="font-serif-brand text-base font-bold text-[#FFFDF8] leading-tight truncate">
+                        {brand?.app_name || 'e-Card Verifikasi'}
                       </p>
-                      <p className="text-[11px] text-sky-100/90 truncate mt-0.5">
-                        {brand?.app_subtitle || 'e-Card Verifikasi & IPL Digital'}
+                      <p className="text-[11px] text-[#E5EEE3]/90 truncate mt-0.5">
+                        {brand?.app_subtitle || 'IPL Digital — Perumahan Saung Kebun'}
                       </p>
                     </div>
                   </div>
@@ -596,45 +639,45 @@ export function AppShell({
                     type="button"
                     onClick={() => setDrawerOpen(false)}
                     aria-label="Tutup menu sidebar"
-                    className="h-9 w-9 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                    className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-[#FFFDF8] flex items-center justify-center transition cursor-pointer shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Kartu Profil Lengkap Pengguna */}
+                {/* Kartu Profil Pengguna Bulat */}
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="group mt-4 w-full text-left p-3 rounded-2xl bg-white/15 hover:bg-gradient-to-r hover:from-white/25 hover:to-sky-200/20 border border-white/20 hover:border-white/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
+                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl bg-white/12 hover:bg-white/20 border border-white/20 flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={session?.nama_warga || 'Pengguna'}
                     src={effectiveAvatarUrl}
                     size="md"
-                    ringClassName="ring-2 ring-sky-200/70"
+                    ringClassName="ring-2 ring-[#E5EEE3]/70"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white leading-tight truncate">
+                    <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                       {session?.nama_warga || 'Pengguna'}
                     </p>
-                    <p className="mt-0.5 text-[11px] font-medium text-sky-100 truncate">
+                    <p className="mt-0.5 text-[11px] font-medium text-[#E5EEE3]/90 truncate">
                       {roleSubtitleLabel}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-sky-100 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-[#E5EEE3] group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
               </div>
 
               {/* Menu Utama & Menu Tambahan */}
               {renderSidebarNavigation()}
 
-              {/* Footer Drawer + Logout */}
-              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-indigo-100/80 bg-white/55 backdrop-blur-xl space-y-2.5 shrink-0">
+              {/* Footer Drawer + Logout Terakota */}
+              <div className="mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#FFFDF8]/80 space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
-                  className="w-full min-h-[44px] px-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] font-semibold text-sm border border-red-100 inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full min-h-[44px] px-4 rounded-2xl bg-[#C87058] hover:bg-[#B75F47] active:scale-[0.98] font-bold text-sm text-[#FFFDF8] shadow-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>Keluar / Logout</span>
@@ -646,71 +689,131 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      {/* FLOATING GLASS HEADER BAR (Offset lg:left-[260px] pada Desktop) */}
-      <div className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 px-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.55rem)] pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto glass-header bg-white/85 backdrop-blur-xl border border-white/90 rounded-2xl px-3 sm:px-5 min-h-13 sm:min-h-16 py-1.5 sm:py-2 flex flex-nowrap items-center justify-between gap-2 sm:gap-4 pointer-events-auto">
-          {/* Zona Kiri: Tombol Menu Sidebar (Mobile/Tablet) + Brand/Judul Halaman */}
-          <div className="flex flex-nowrap items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+      {/* HEADER COMPACT MOBILE/TABLET DENGAN FOTO LINGKUNGAN + PIL KACA MENGAMBANG */}
+      <div className="lg:hidden relative z-30 no-print">
+        <header className="relative overflow-hidden rounded-b-[28px] shadow-[0_10px_26px_-12px_rgba(27,39,27,0.35)] pt-[calc(max(env(safe-area-inset-top,0px),14px)+0.55rem)] pb-9 px-3.5 sm:px-5">
+          {/* Foto Latar Jalan Rindang Saung Kebun */}
+          <img
+            src={HEADER_BG_SRC}
+            alt="Suasana Perumahan Saung Kebun"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/66 to-[#243825]/86"
+          />
+
+          {/* Bar Atas Header */}
+          <div className="relative z-10 flex items-center justify-between gap-2">
+            {/* Tombol Hamburger Kaca Bulat (Kiri) */}
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Buka Menu Sidebar"
               title="Menu Profil, Layanan & Keluar"
-              className="lg:hidden relative h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-indigo-200/70 bg-white/80 hover:bg-white text-[#312E81] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+              className="relative h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
             >
-              <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Menu className="w-4.5 h-4.5" />
               {isAdmin && pendingBugCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#243825]">
                   {pendingBugCount > 9 ? '9+' : pendingBugCount}
                 </span>
               )}
             </button>
 
+            {/* Logo Transparan + Judul Tengah */}
             <button
               type="button"
               onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
-              className="flex flex-nowrap items-center gap-2 min-w-0 text-left cursor-pointer group"
+              className="flex items-center gap-2 min-w-0 text-left cursor-pointer"
             >
-              <span className="lg:hidden shrink-0 flex">
-                <BrandLogo size="xs" className="shrink-0 sm:hidden" />
-                <BrandLogo size="sm" className="shrink-0 hidden sm:flex" />
-              </span>
+              <BrandLogo size="xs" variant="dark" className="shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-extrabold tracking-tight text-[var(--theme-text)] leading-tight truncate">
-                  <span className="lg:hidden">{brand.app_name || 'e-Card Verifikasi'}</span>
-                  <span className="hidden lg:inline">{activePageTitle}</span>
+                <p className="font-serif-brand text-[15px] font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
+                  {brand.app_name || 'e-Card Verifikasi'}
                 </p>
-                <p className="hidden sm:block text-[11px] font-medium text-[var(--theme-text-muted)] leading-tight truncate">
-                  <span className="lg:hidden">
-                    {isAdmin
-                      ? activePageTitle
-                      : isPetugas
-                        ? `Keamanan · ${activePageTitle}`
-                        : `Blok ${displayWargaBlok} · ${activePageTitle}`}
-                  </span>
-                  <span className="hidden lg:inline">
-                    {isAdmin
-                      ? adminIdentityLabel
-                      : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
-                  </span>
+                <p className="text-[10.5px] font-medium text-[#E5EEE3]/90 leading-tight truncate">
+                  {brand.app_subtitle || 'Perumahan Saung Kebun'}
                 </p>
               </div>
             </button>
-          </div>
 
-          {/* Zona Kanan: Lonceng Notifikasi + Pengaturan Cepat + Avatar Profil */}
-          <div className="flex flex-nowrap items-center gap-2 shrink-0">
-            {headerAction && <div className="shrink-0">{headerAction}</div>}
-
-            <div className="inline-flex items-center visible opacity-100 shrink-0">
+            {/* Lonceng Notifikasi + Aksi Kanan */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {headerAction && <div className="shrink-0">{headerAction}</div>}
+              {isAdmin && onOpenSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  aria-label="Pengaturan Sistem"
+                  title="Pengaturan Sistem Terpusat"
+                  className="hidden sm:inline-flex h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] items-center justify-center transition-colors cursor-pointer shrink-0"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              )}
               <NotificationBell
                 session={session}
-                variant="light"
+                variant="dark"
                 externalUnreadCount={unreadNotificationCount}
                 onUnreadCountChange={setUnreadNotificationCount}
                 onNavigateTarget={onNavigateTarget}
               />
             </div>
+          </div>
+        </header>
+
+        {/* Pil Kaca Mengambang di Bawah Header Compact */}
+        <div className="relative z-20 -mt-5 px-3.5 sm:px-5">
+          <div className="max-w-3xl mx-auto rounded-full bg-[#FFFDF8]/95 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_10px_24px_-10px_rgba(36,56,37,0.20)] px-2.5 py-1.5 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
+            >
+              <UserAvatar
+                name={session.nama_warga}
+                src={effectiveAvatarUrl}
+                size="xs"
+                className="shrink-0 ring-1 ring-[#C6D2BF]"
+              />
+              <span className="text-xs font-bold text-[#1B271B] truncate">
+                {compactIdentityLabel}
+              </span>
+            </button>
+            <span className="shrink-0 px-3 py-1 rounded-full bg-[#2B3F29] text-[#FFFDF8] text-[11px] font-bold tracking-tight whitespace-nowrap">
+              {currentMonthBadge}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* HEADER DESKTOP BERSIH (lg+, sejajar konten di kanan sidebar 260px) */}
+      <div className="hidden lg:block fixed top-0 left-[260px] right-0 z-30 px-8 pt-3 pointer-events-none no-print">
+        <header className="max-w-7xl mx-auto rounded-2xl bg-[#FFFDF8]/92 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_8px_24px_-10px_rgba(36,56,37,0.12)] px-5 py-2.5 flex items-center justify-between gap-4 pointer-events-auto">
+          <div className="min-w-0">
+            <p className="font-serif-brand text-base font-bold text-[#1B271B] leading-tight truncate">
+              {activePageTitle}
+            </p>
+            <p className="text-[11px] font-medium text-[#6E786D] truncate">
+              {isAdmin ? adminIdentityLabel : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            {headerAction && <div className="shrink-0">{headerAction}</div>}
+
+            <span className="px-3 py-1.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-bold whitespace-nowrap">
+              {currentMonthBadge}
+            </span>
+
+            <NotificationBell
+              session={session}
+              variant="light"
+              externalUnreadCount={unreadNotificationCount}
+              onUnreadCountChange={setUnreadNotificationCount}
+              onNavigateTarget={onNavigateTarget}
+            />
 
             {isAdmin && onOpenSettings && (
               <button
@@ -718,7 +821,7 @@ export function AppShell({
                 onClick={onOpenSettings}
                 aria-label="Pengaturan Sistem"
                 title="Pengaturan Sistem Terpusat"
-                className="hidden sm:inline-flex h-9 w-9 rounded-xl border border-indigo-200/70 bg-white/80 hover:bg-white text-[var(--theme-text-secondary)] hover:text-[#312E81] items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="h-10 w-10 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -726,24 +829,12 @@ export function AppShell({
 
             <button
               type="button"
-              onClick={() => {
-                if (window.innerWidth < 1024) {
-                  setDrawerOpen(true);
-                } else {
-                  handleOpenProfileFromSidebar();
-                }
-              }}
+              onClick={handleOpenProfileFromSidebar}
               aria-label={`Profil ${session.nama_warga}`}
-              title={isAdmin ? adminIdentityLabel : 'Profil & Akun'}
-              className="flex flex-nowrap items-center gap-2 p-0.5 sm:pr-2.5 rounded-full border border-indigo-200/70 bg-white/85 hover:bg-white transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 p-1 pr-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 transition-colors cursor-pointer shrink-0"
             >
-              <UserAvatar
-                name={session.nama_warga}
-                src={effectiveAvatarUrl}
-                size="sm"
-                className="shrink-0"
-              />
-              <span className="hidden sm:inline text-xs font-semibold text-[var(--theme-text)] max-w-[110px] truncate">
+              <UserAvatar name={session.nama_warga} src={effectiveAvatarUrl} size="sm" />
+              <span className="text-xs font-bold text-[#1B271B] max-w-[120px] truncate">
                 {session.nama_warga}
               </span>
             </button>
@@ -751,8 +842,8 @@ export function AppShell({
         </header>
       </div>
 
-      {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Dual-Ring Floating Orb Dock) */}
-      <main className="flex-1 lg:pl-[260px] px-3 py-3 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+4.85rem)] sm:pt-[5.75rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
+      <main className="flex-1 lg:pl-[260px] px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[5.5rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -781,10 +872,10 @@ export function AppShell({
         onToast={onToast}
       />
 
-      {/* 7. DUAL-RING FLOATING ORB DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
+      {/* FLOATING BOTTOM DOCK — MOBILE & TABLET (< lg, Maksimal 5 Ikon) */}
       <nav
-        aria-label="Navigasi Bawah Floating Orb Dock"
-        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_14px_38px_-8px_rgba(49,46,129,0.22),0_4px_14px_-2px_rgba(2,132,199,0.16)] px-2 sm:px-4 py-2 grid grid-cols-5 items-center z-40 no-print"
+        aria-label="Navigasi Bawah Floating Dock"
+        className="lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-md rounded-full bg-[#FFFDF8]/95 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_14px_34px_-10px_rgba(36,56,37,0.22)] px-2 sm:px-3.5 py-1.5 grid grid-cols-5 items-center z-40 no-print"
       >
         {bottomDockItems.map((item) => {
           const Icon = item.icon;
@@ -799,21 +890,19 @@ export function AppShell({
                   onClick={() => onTabChange(item.id)}
                   aria-label={item.label}
                   title={item.label}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 -mt-7 sm:-mt-8 rounded-full bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white shadow-xl shadow-sky-900/25 flex flex-col items-center justify-center gap-0.5 ring-4 ring-white/90 relative cursor-pointer transition-all duration-200 active:scale-95 before:content-[''] before:absolute before:-inset-1.5 before:rounded-full before:border before:border-sky-400/40 before:bg-sky-400/10 before:-z-10 ${
-                    isActive ? 'scale-[1.04] shadow-sky-500/35' : 'hover:scale-[1.02]'
+                  className={`w-14 h-14 sm:w-15 sm:h-15 -mt-6 sm:-mt-7 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] shadow-lg shadow-[#243825]/30 flex flex-col items-center justify-center gap-0.5 ring-4 ring-[#FFFDF8] relative cursor-pointer transition-all duration-200 active:scale-95 ${
+                    isActive ? 'scale-[1.04] ring-[#E5EEE3]' : 'hover:scale-[1.02]'
                   }`}
                 >
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" strokeWidth={2.4} />
-                  <span className="text-[9px] font-bold tracking-wide leading-none text-sky-50">
+                  <Icon className="w-5 h-5 shrink-0" strokeWidth={2.4} />
+                  <span className="text-[9px] font-bold tracking-wide leading-none text-[#FFFDF8]">
                     {dockLabel}
                   </span>
                 </button>
                 <span
                   aria-hidden="true"
-                  className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all duration-200 ${
-                    isActive
-                      ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
-                      : 'bg-transparent opacity-0 scale-0'
+                  className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
+                    isActive ? 'bg-[#2B3F29] opacity-100 scale-100' : 'bg-transparent opacity-0 scale-0'
                   }`}
                 />
               </div>
@@ -825,26 +914,24 @@ export function AppShell({
               key={item.id}
               type="button"
               onClick={() => onTabChange(item.id)}
-              className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
-                isActive ? 'text-[#312E81]' : 'text-slate-500 hover:text-[#312E81]'
+              className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all duration-150 active:scale-[0.94] cursor-pointer min-w-0 ${
+                isActive ? 'bg-[#E5EEE3] text-[#243825]' : 'text-[#6E786D] hover:text-[#243825]'
               }`}
             >
               <div className="relative">
                 <Icon
-                  className={`w-[19px] h-[19px] sm:w-[20px] sm:h-[20px] transition-transform duration-150 ${
-                    isActive ? 'scale-105' : ''
-                  }`}
+                  className="w-[18px] h-[18px] sm:w-[19px] sm:h-[19px]"
                   strokeWidth={isActive ? 2.4 : 1.9}
                 />
                 {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold font-mono flex items-center justify-center tabular-nums shadow-xs">
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-[#C87058] text-white text-[9px] font-bold font-mono flex items-center justify-center tabular-nums shadow-xs">
                     {item.badgeCount > 9 ? '9+' : item.badgeCount}
                   </span>
                 )}
               </div>
               <span
-                className={`text-[11px] mt-1 leading-none truncate max-w-full ${
-                  isActive ? 'font-bold text-[#312E81]' : 'font-medium text-slate-600'
+                className={`text-[10.5px] mt-0.5 leading-none truncate max-w-full ${
+                  isActive ? 'font-bold text-[#243825]' : 'font-medium text-[#5A665A]'
                 }`}
               >
                 {dockLabel}
@@ -852,9 +939,7 @@ export function AppShell({
               <span
                 aria-hidden="true"
                 className={`w-1.5 h-1.5 rounded-full mt-1 transition-all duration-200 ${
-                  isActive
-                    ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.95)] opacity-100 scale-100'
-                    : 'bg-transparent opacity-0 scale-0'
+                  isActive ? 'bg-[#2B3F29] opacity-100 scale-100' : 'bg-transparent opacity-0 scale-0'
                 }`}
               />
             </button>

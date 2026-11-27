@@ -174,20 +174,25 @@ export function AdminPaymentSettingsModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="payment-settings-title"
-      className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-md flex items-center justify-center p-4 animate-modal-backdrop"
+      className="fixed inset-0 z-50 bg-[#243825]/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 animate-modal-backdrop"
       onClick={() => !saving && onClose()}
     >
       <div
-        className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col border border-white/90 shadow-2xl overflow-hidden animate-modal-pop"
+        className="bg-[#FFFDF8] rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[90dvh] flex flex-col border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drag Handle Mobile */}
+        <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
+          <div className="w-10 h-1 rounded-full bg-[#C6D2BF]" aria-hidden="true" />
+        </div>
+
         {/* Header Modal */}
-        <div className="px-5 py-4 border-b border-indigo-100/70 flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/70 flex items-center justify-between gap-3">
           <div>
-            <h3 id="payment-settings-title" className="text-base font-bold text-[#0F172A]">
+            <h3 id="payment-settings-title" className="text-base font-bold text-[#1B271B]">
               Pengaturan Pembayaran &amp; Susunan Pengurus
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Kelola QRIS, nomor rekening transfer, dan daftar pengurus penerima setoran tunai.
             </p>
           </div>
@@ -196,7 +201,7 @@ export function AdminPaymentSettingsModal({
             disabled={saving}
             onClick={onClose}
             aria-label="Tutup pengaturan pembayaran"
-            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-indigo-50 cursor-pointer"
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full text-[#6E786D] hover:text-[#1B271B] hover:bg-[#E5EEE3] cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -204,8 +209,8 @@ export function AdminPaymentSettingsModal({
 
         {/* Banner RBAC jika bukan Bendahara */}
         {!canEdit && (
-          <div className="px-5 py-3 bg-[#FEF3C7] border-b border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
-            <ShieldAlert className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
+          <div className="px-5 py-3 bg-[#F2D8A7]/45 border-b border-[#E2C285] flex items-start gap-2.5 text-xs text-[#4A3410]">
+            <ShieldAlert className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
             <span>
               Mode Lihat Saja ({session.jabatan || 'Pengurus'}). Upload gambar QRIS dan perubahan
               nomor rekening transfer hanya dapat dilakukan oleh <strong>Bendahara (Andriansyah)</strong>.
@@ -215,7 +220,7 @@ export function AdminPaymentSettingsModal({
 
         {/* Tab Segmented Selector */}
         <div className="px-5 pt-4">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-indigo-50/80 border border-indigo-100/80 rounded-2xl">
+          <div className="grid grid-cols-3 gap-1 p-1 bg-[#F6F3EA] border border-[#E6E2D6] rounded-2xl">
             {(
               [
                 { id: 'qris', label: 'QR / QRIS', shortLabel: 'QRIS', icon: QrCode },
@@ -232,8 +237,8 @@ export function AdminPaymentSettingsModal({
                   onClick={() => setActiveTab(tab.id)}
                   className={`min-h-[38px] px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors cursor-pointer min-w-0 ${
                     active
-                      ? 'bg-[#4C1D95] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-[#4C1D95]'
+                      ? 'bg-[#2B3F29] text-white shadow-sm'
+                      : 'text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/50'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -249,10 +254,10 @@ export function AdminPaymentSettingsModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {activeTab === 'qris' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100/80 bg-indigo-50/45 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/45 px-4 py-3">
                 <div>
-                  <p className="text-sm font-bold text-[#0F172A]">Aktifkan Pembayaran QR / QRIS</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-bold text-[#1B271B]">Aktifkan Pembayaran QR / QRIS</p>
+                  <p className="text-xs text-[#6E786D]">
                     Tampilkan gambar kode QRIS pada halaman Setor Iuran warga.
                   </p>
                 </div>
@@ -263,7 +268,7 @@ export function AdminPaymentSettingsModal({
                   disabled={!canEdit}
                   onClick={() => setDraft((prev) => ({ ...prev, qris_aktif: !prev.qris_aktif }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    draft.qris_aktif ? 'bg-[#4C1D95]' : 'bg-slate-300'
+                    draft.qris_aktif ? 'bg-[#2B3F29]' : 'bg-[#C6D2BF]'
                   } ${canEdit ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
                 >
                   <span
@@ -285,20 +290,20 @@ export function AdminPaymentSettingsModal({
               />
 
               {draft.qris_image_url ? (
-                <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
-                  <div className="p-4 flex items-center justify-center bg-white">
+                <div className="rounded-xl border border-[#E6E2D6] overflow-hidden bg-[#F7F4EC]">
+                  <div className="p-4 flex items-center justify-center bg-[#FFFFFF]">
                     <img
                       src={draft.qris_image_url}
                       alt="QRIS Kas Lingkungan Perumahan Saung Kebun"
                       referrerPolicy="no-referrer"
-                      className="max-h-64 w-auto object-contain rounded-lg border border-slate-200"
+                      className="max-h-64 w-auto object-contain rounded-lg border border-[#E6E2D6]"
                     />
                   </div>
                   {canEdit && (
-                    <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+                    <div className="px-4 py-3 border-t border-[#E6E2D6] bg-[#F7F4EC] flex items-center justify-between gap-2">
                       <label
                         htmlFor="admin-qris-upload"
-                        className="min-h-[36px] px-3 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-xs font-semibold text-emerald-700 inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[36px] px-3 rounded-lg border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         {uploadingQris ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -310,7 +315,7 @@ export function AdminPaymentSettingsModal({
                       <button
                         type="button"
                         onClick={handleRemoveQris}
-                        className="min-h-[36px] px-3 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-xs font-semibold text-red-700 inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[36px] px-3 rounded-lg border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-xs font-semibold text-[#7A311E] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Hapus QRIS</span>
@@ -321,25 +326,25 @@ export function AdminPaymentSettingsModal({
               ) : (
                 <label
                   htmlFor={canEdit ? 'admin-qris-upload' : undefined}
-                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-7 text-center min-h-[168px] ${
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#C6D2BF] bg-[#F7F4EC] p-7 text-center min-h-[168px] ${
                     canEdit
-                      ? 'hover:border-emerald-600 hover:bg-emerald-50/40 cursor-pointer'
+                      ? 'hover:border-[#2B3F29] hover:bg-[#E5EEE3]/50 cursor-pointer'
                       : 'opacity-75 cursor-not-allowed'
                   }`}
                 >
                   {uploadingQris ? (
-                    <Loader2 className="w-7 h-7 text-[#059669] animate-spin mb-2" />
+                    <Loader2 className="w-7 h-7 text-[#2B3F29] animate-spin mb-2" />
                   ) : (
-                    <QrCode className="w-8 h-8 text-slate-400 mb-2" />
+                    <QrCode className="w-8 h-8 text-[#6E786D] mb-2" />
                   )}
-                  <p className="text-sm font-semibold text-[#0F172A]">
+                  <p className="text-sm font-semibold text-[#1B271B]">
                     {uploadingQris
                       ? 'Mengunggah gambar QRIS...'
                       : canEdit
                         ? 'Upload Gambar QRIS Resmi Kas Lingkungan'
                         : 'Gambar QRIS belum diunggah oleh Bendahara'}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-[#6E786D] mt-1">
                     Format JPG/PNG. Otomatis tampil di Portal Warga setelah disimpan.
                   </p>
                 </label>
@@ -347,7 +352,7 @@ export function AdminPaymentSettingsModal({
 
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                     Nama Merchant / Label QRIS
                   </label>
                   <input
@@ -356,11 +361,11 @@ export function AdminPaymentSettingsModal({
                     value={draft.qris_label}
                     onChange={(e) => setDraft((prev) => ({ ...prev, qris_label: e.target.value }))}
                     placeholder="QRIS Kas Lingkungan Perumahan Saung Kebun"
-                    className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 px-3.5 text-sm text-[#0F172A]"
+                    className="w-full min-h-[42px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] disabled:bg-[#F6F3EA] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                     Catatan Instruksi QRIS untuk Warga
                   </label>
                   <textarea
@@ -370,7 +375,7 @@ export function AdminPaymentSettingsModal({
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, qris_catatan: e.target.value }))
                     }
-                    className="w-full rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 p-3 text-sm text-[#0F172A]"
+                    className="w-full rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] disabled:bg-[#F6F3EA] p-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
               </div>
@@ -379,9 +384,9 @@ export function AdminPaymentSettingsModal({
 
           {activeTab === 'rekening' && (
             <div className="space-y-4">
-              <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <div className="divide-y divide-[#E6E2D6] border border-[#E6E2D6] rounded-xl overflow-hidden bg-[#FFFFFF]">
                 {draft.rekening_list.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-500">
+                  <div className="p-6 text-center text-xs text-[#6E786D]">
                     Belum ada nomor rekening yang tersimpan.
                   </div>
                 ) : (
@@ -391,22 +396,22 @@ export function AdminPaymentSettingsModal({
                       className="p-3.5 flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span className="font-semibold text-emerald-700">{rek.tipe}</span>
+                        <div className="flex items-center gap-2 text-xs text-[#6E786D]">
+                          <span className="font-semibold text-[#243825]">{rek.tipe}</span>
                           <span aria-hidden="true">·</span>
-                          <span className="font-semibold text-[#0F172A]">{rek.bank}</span>
+                          <span className="font-semibold text-[#1B271B]">{rek.bank}</span>
                         </div>
-                        <p className="text-sm font-mono font-bold text-[#0F172A] tabular-nums mt-0.5">
+                        <p className="text-sm font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
                           {rek.nomor}
                         </p>
-                        <p className="text-xs text-slate-600 truncate">a.n. {rek.atasNama}</p>
+                        <p className="text-xs text-[#4A554A] truncate">a.n. {rek.atasNama}</p>
                       </div>
                       {canEdit && (
                         <button
                           type="button"
                           onClick={() => handleDeleteRekening(rek.id)}
                           aria-label={`Hapus rekening ${rek.bank}`}
-                          className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-500 hover:text-red-700 inline-flex items-center gap-1 text-xs font-medium cursor-pointer shrink-0"
+                          className="min-h-[36px] px-2.5 rounded-lg border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] inline-flex items-center gap-1 text-xs font-medium cursor-pointer shrink-0 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
@@ -418,13 +423,13 @@ export function AdminPaymentSettingsModal({
               </div>
 
               {canEdit && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                  <p className="text-xs font-bold text-[#0F172A]">
+                <div className="rounded-xl border border-[#E6E2D6] bg-[#F7F4EC] p-4 space-y-3">
+                  <p className="text-xs font-bold text-[#1B271B]">
                     Tambah Nomor Rekening / E-Wallet Baru
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                         Jenis Pembayaran
                       </label>
                       <select
@@ -432,14 +437,14 @@ export function AdminPaymentSettingsModal({
                         onChange={(e) =>
                           setNewTipe(e.target.value as 'Transfer Bank' | 'E-Wallet')
                         }
-                        className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-[#0F172A]"
+                        className="w-full min-h-[40px] rounded-lg border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-xs font-medium text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       >
                         <option value="Transfer Bank">Transfer Bank</option>
                         <option value="E-Wallet">E-Wallet</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                         Nama Bank / E-Wallet
                       </label>
                       <input
@@ -447,11 +452,11 @@ export function AdminPaymentSettingsModal({
                         value={newBank}
                         onChange={(e) => setNewBank(e.target.value)}
                         placeholder="Contoh: Bank BRI / DANA"
-                        className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs text-[#0F172A]"
+                        className="w-full min-h-[40px] rounded-lg border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                         Nomor Rekening / No. HP
                       </label>
                       <input
@@ -459,11 +464,11 @@ export function AdminPaymentSettingsModal({
                         value={newNomor}
                         onChange={(e) => setNewNomor(e.target.value)}
                         placeholder="Contoh: 1234567890"
-                        className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono text-[#0F172A]"
+                        className="w-full min-h-[40px] rounded-lg border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-xs font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                         Atas Nama Pemilik Rekening
                       </label>
                       <input
@@ -471,14 +476,14 @@ export function AdminPaymentSettingsModal({
                         value={newAtasNama}
                         onChange={(e) => setNewAtasNama(e.target.value)}
                         placeholder="Contoh: Andriansyah (Bendahara)"
-                        className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-xs text-[#0F172A]"
+                        className="w-full min-h-[40px] rounded-lg border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                       />
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleAddRekening}
-                    className="min-h-[38px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[38px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Tambah ke Daftar Rekening</span>
@@ -490,12 +495,12 @@ export function AdminPaymentSettingsModal({
 
           {activeTab === 'pengurus' && (
             <div className="space-y-3">
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#4A554A] leading-relaxed">
                 Susunan pengurus resmi Perumahan Saung Kebun yang memiliki akses Portal Admin (
-                <span className="font-mono text-slate-800">{APP_ADMIN_PORTAL_URL}</span>). Gunakan
+                <span className="font-mono text-[#1B271B]">{APP_ADMIN_PORTAL_URL}</span>). Gunakan
                 tombol di kanan untuk menyalin atau mengirim template akses pengurus via WhatsApp:
               </p>
-              <div className="divide-y divide-indigo-100/70 border border-indigo-100/80 rounded-2xl overflow-hidden bg-white">
+              <div className="divide-y divide-[#E6E2D6] border border-[#E6E2D6] rounded-2xl overflow-hidden bg-[#FFFFFF]">
                 {SUSUNAN_PENGURUS.map((p) => {
                   const account = pengurusAccounts?.find(
                     (a) => a.username.toLowerCase() === p.username.toLowerCase()
@@ -519,18 +524,18 @@ export function AdminPaymentSettingsModal({
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-bold text-[#0F172A]">{p.jabatan}</span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
-                          <span className="font-semibold text-[#4C1D95]">{p.nama}</span>
-                          <span aria-hidden="true" className="text-slate-300">·</span>
-                          <span className="font-mono text-slate-500">Blok {p.blokRumah}</span>
+                          <span className="font-bold text-[#1B271B]">{p.jabatan}</span>
+                          <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
+                          <span className="font-semibold text-[#2B3F29]">{p.nama}</span>
+                          <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
+                          <span className="font-mono text-[#6E786D]">Blok {p.blokRumah}</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <p className="text-[11px] text-[#6E786D] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           <span>
-                            Username: <span className="font-mono font-semibold text-slate-700">{p.username}</span>
+                            Username: <span className="font-mono font-semibold text-[#1B271B]">{p.username}</span>
                           </span>
                           <span aria-hidden="true">·</span>
-                          <span className={p.permission === 'full' ? 'text-emerald-700 font-semibold' : ''}>
+                          <span className={p.permission === 'full' ? 'text-[#243825] font-semibold' : ''}>
                             {p.permission === 'full' ? 'Akses Penuh' : 'Tambah Data'}
                           </span>
                         </p>
@@ -540,7 +545,7 @@ export function AdminPaymentSettingsModal({
                           href={buildWhatsAppLink(targetWa, waMessage)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-h-[34px] px-3 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                          className="min-h-[34px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span>Kirim WA</span>
@@ -560,12 +565,12 @@ export function AdminPaymentSettingsModal({
                               onToast('error', 'Gagal menyalin template.');
                             }
                           }}
-                          className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                          className="min-h-[34px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F7F4EC] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors"
                         >
                           {copiedUser === p.username ? (
                             <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-700">Tersalin</span>
+                              <Check className="w-3.5 h-3.5 text-[#2B3F29]" />
+                              <span className="text-[#243825]">Tersalin</span>
                             </>
                           ) : (
                             <>
@@ -584,12 +589,12 @@ export function AdminPaymentSettingsModal({
         </div>
 
         {/* Footer Modal */}
-        <div className="px-5 py-4 bg-indigo-50/40 border-t border-indigo-100/70 flex items-center justify-end gap-2">
+        <div className="px-5 py-4 bg-[#F7F4EC] border-t border-[#E6E2D6] flex items-center justify-end gap-2">
           <button
             type="button"
             disabled={saving}
             onClick={onClose}
-            className="min-h-[42px] px-4 rounded-full border border-indigo-100 bg-white/95 text-sm font-semibold text-slate-700 hover:bg-indigo-50 cursor-pointer"
+            className="min-h-[42px] px-4 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] text-sm font-semibold text-[#4A554A] hover:bg-[#F6F3EA] cursor-pointer transition-colors"
           >
             {canEdit ? 'Batal' : 'Tutup'}
           </button>
@@ -598,7 +603,7 @@ export function AdminPaymentSettingsModal({
               type="button"
               disabled={saving || uploadingQris}
               onClick={() => void handleSave()}
-              className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              className="min-h-[42px] px-5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap transition-colors"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

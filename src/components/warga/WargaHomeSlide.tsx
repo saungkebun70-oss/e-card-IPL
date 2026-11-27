@@ -33,7 +33,7 @@ import {
   resolveEffectiveMonthStatus,
 } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
-import { BrandLogo } from '../BrandLogo';
+import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
 
 interface WargaHomeSlideProps {
@@ -60,38 +60,38 @@ function getMonthCellStyles(status: EffectiveStatusBulanEcard) {
   switch (status) {
     case 'Lunas':
       return {
-        box: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+        box: 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]',
         label: 'Lunas',
-        labelColor: 'text-emerald-700',
+        labelColor: 'text-[#243825]',
         icon: CheckCircle2,
       };
     case 'Menunggu Verifikasi':
       return {
-        box: 'bg-amber-50 border-amber-200 text-amber-900',
+        box: 'bg-[#F2D8A7]/45 border-[#E2C285] text-[#4A3410]',
         label: 'Menunggu',
-        labelColor: 'text-amber-700',
+        labelColor: 'text-[#6E4D12]',
         icon: Clock,
       };
     case 'Jatuh Tempo':
     case 'Belum Bayar':
       return {
-        box: 'bg-red-50 border-red-200 text-red-900 hover:border-red-400',
+        box: 'bg-[#C87058]/15 border-[#E2A898] text-[#7A311E] hover:border-[#C87058]',
         label: status === 'Jatuh Tempo' ? 'Jatuh Tempo' : 'Belum Bayar',
-        labelColor: 'text-red-700',
+        labelColor: 'text-[#A44831]',
         icon: AlertTriangle,
       };
     case 'Pra-Rilis':
       return {
-        box: 'bg-slate-100/80 border-slate-200/80 text-slate-500',
+        box: 'bg-[#EFECE2] border-[#E0DCCE] text-[#6E786D]',
         label: 'Pra-Rilis',
-        labelColor: 'text-slate-500',
+        labelColor: 'text-[#6E786D]',
         icon: Calendar,
       };
     default:
       return {
-        box: 'bg-white/65 border-indigo-100/80 text-slate-600 hover:border-indigo-200',
+        box: 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:border-[#C6D2BF]',
         label: 'Belum Tagihan',
-        labelColor: 'text-slate-500',
+        labelColor: 'text-[#6E786D]',
         icon: Calendar,
       };
   }
@@ -152,30 +152,30 @@ export function WargaHomeSlide({
     rawCurrentStatus === 'Lunas'
       ? {
           text: 'LUNAS · SAH BEND & KETUA',
-          bg: 'bg-emerald-500 text-white',
+          bg: 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]',
           icon: CheckCircle2,
         }
       : rawCurrentStatus === 'Menunggu Verifikasi'
         ? currentMonthTrx?.status_verifikasi === 'ACC Bendahara'
           ? {
               text: 'ACC BENDAHARA · MENUNGGU KETUA',
-              bg: 'bg-sky-500 text-white',
+              bg: 'bg-[#F2D8A7] text-[#4A3410]',
               icon: ShieldCheck,
             }
           : {
               text: 'MENUNGGU BENDAHARA',
-              bg: 'bg-amber-500 text-slate-950',
+              bg: 'bg-[#F2D8A7] text-[#4A3410]',
               icon: Clock,
             }
         : rawCurrentStatus === 'Pra-Rilis'
           ? {
               text: 'PRA-RILIS · BELUM BERLAKU',
-              bg: 'bg-slate-500 text-white',
+              bg: 'bg-[#384E35] text-[#E5EEE3] border border-[#C6D2BF]/30',
               icon: Calendar,
             }
           : {
               text: 'BELUM BAYAR',
-              bg: 'bg-red-600 text-white',
+              bg: 'bg-[#C87058] text-[#FFFDF8]',
               icon: AlertTriangle,
             };
 
@@ -199,16 +199,16 @@ export function WargaHomeSlide({
       {notifications.length > 0 && (
         <section
           aria-label="Pengumuman Pengurus Lingkungan"
-          className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden"
+          className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
-              <Megaphone className="w-4 h-4 text-[#4C1D95] shrink-0" />
+          <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC] flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-[#1B271B]">
+              <Megaphone className="w-4 h-4 text-[#2B3F29] shrink-0" />
               <span>Pengumuman Pengurus</span>
               {unreadNotifications.length > 0 && (
                 <>
-                  <span aria-hidden="true" className="text-indigo-200 font-normal">·</span>
-                  <span className="text-xs font-mono font-semibold text-[#4C1D95] tabular-nums">
+                  <span aria-hidden="true" className="text-[#C6D2BF] font-normal">·</span>
+                  <span className="text-xs font-mono font-semibold text-[#243825] tabular-nums">
                     {unreadNotifications.length} baru
                   </span>
                 </>
@@ -218,7 +218,7 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => setShowReadHistory((v) => !v)}
-                className="text-xs font-semibold text-slate-600 hover:text-[#4C1D95] cursor-pointer whitespace-nowrap"
+                className="text-xs font-semibold text-[#4A554A] hover:text-[#243825] cursor-pointer whitespace-nowrap"
               >
                 {showReadHistory
                   ? 'Sembunyikan yang sudah dibaca'
@@ -228,30 +228,30 @@ export function WargaHomeSlide({
           </div>
 
           {displayedNotifications.length === 0 ? (
-            <div className="px-5 py-3.5 text-xs text-slate-500 flex items-center justify-between gap-2">
+            <div className="px-5 py-3.5 text-xs text-[#6E786D] flex items-center justify-between gap-2">
               <span>Semua pengumuman terbaru sudah Anda baca.</span>
               <button
                 type="button"
                 onClick={() => setShowReadHistory(true)}
-                className="font-semibold text-[#4C1D95] hover:underline cursor-pointer whitespace-nowrap"
+                className="font-semibold text-[#2B3F29] hover:underline cursor-pointer whitespace-nowrap"
               >
                 Lihat arsip
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-indigo-100/60">
+            <div className="divide-y divide-[#E6E2D6]">
               {displayedNotifications.map((notif) => {
                 const isRead = readIds.includes(notif.id);
                 return (
                   <article
                     key={notif.id}
                     className={`px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
-                      isRead ? 'bg-indigo-50/30' : 'bg-white/40'
+                      isRead ? 'bg-[#F7F4EC]/50' : 'bg-[#FFFDF8]'
                     }`}
                   >
                     <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                        <span className="font-semibold text-[#4C1D95]">{notif.category}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#6E786D]">
+                        <span className="font-semibold text-[#2B3F29]">{notif.category}</span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono tabular-nums">
                           {formatTanggalWaktu(notif.created_at)}
@@ -261,8 +261,8 @@ export function WargaHomeSlide({
                           {notif.sender_name} ({notif.sender_jabatan})
                         </span>
                       </div>
-                      <h3 className="text-sm font-bold text-[#0F172A]">{notif.title}</h3>
-                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                      <h3 className="text-sm font-bold text-[#1B271B]">{notif.title}</h3>
+                      <p className="text-xs text-[#4A554A] leading-relaxed whitespace-pre-line">
                         {notif.message}
                       </p>
                     </div>
@@ -270,7 +270,7 @@ export function WargaHomeSlide({
                       <button
                         type="button"
                         onClick={() => markAsRead(notif.id)}
-                        className="min-h-[36px] px-3.5 rounded-full border border-indigo-200 bg-white/95 hover:border-[#4C1D95] hover:text-[#4C1D95] text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
+                        className="min-h-[36px] px-3.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3]/50 hover:bg-[#E5EEE3] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Tandai Dibaca</span>
@@ -287,14 +287,11 @@ export function WargaHomeSlide({
       {/* Baris Atas: e-Card Verifikasi (Focal Anchor) + Ringkasan Siklus Tagihan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* e-Card Verifikasi Digital */}
-        <section className="lg:col-span-7 glass-hero bg-gradient-to-r from-[#4C1D95] via-[#6D28D9] to-[#312E81] shadow-xl shadow-indigo-900/15 rounded-3xl text-white p-4 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[228px] sm:min-h-[248px]">
+        <section className="lg:col-span-7 glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-xl shadow-[#243825]/15 rounded-3xl text-[#FFFDF8] p-4 sm:p-7 relative overflow-hidden flex flex-col justify-between min-h-[228px] sm:min-h-[248px]">
+          <SaungKebunWatermark className="right-3 bottom-2 w-36 h-36 opacity-[0.11]" />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-400/20 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-16 -left-16 w-52 h-52 rounded-full bg-emerald-400/15 blur-3xl"
+            className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-[#E5EEE3]/10 blur-3xl"
           />
 
           {/* Header Kartu */}
@@ -302,35 +299,37 @@ export function WargaHomeSlide({
             <div className="flex items-center gap-3.5">
               <BrandLogo size="sm" variant="dark" className="shrink-0" />
               <div>
-                <p className="text-sm font-bold tracking-tight text-white">e-Card Verifikasi IPL</p>
-                <p className="text-xs text-indigo-100/80">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
+                <p className="text-sm font-serif-brand font-bold tracking-tight text-[#FFFDF8]">
+                  e-Card Verifikasi IPL
+                </p>
+                <p className="text-xs text-[#E5EEE3]/80">Perumahan Saung Kebun · Tahun {TAHUN_AKTIF}</p>
               </div>
             </div>
-            <ShieldCheck className="w-6 h-6 shrink-0 text-[#A7F3D0]" />
+            <ShieldCheck className="w-6 h-6 shrink-0 text-[#E5EEE3]" />
           </div>
 
           {/* Identitas Utama Rumah */}
           <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-indigo-200/80">Nama Kepala Keluarga</p>
-              <p className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
+              <p className="text-xs text-[#E5EEE3]/75">Nama Kepala Keluarga</p>
+              <p className="text-xl sm:text-2xl font-serif-brand font-bold text-[#FFFDF8] tracking-tight mt-0.5">
                 {profil.nama_warga}
               </p>
             </div>
             <div className="sm:text-right">
-              <p className="text-xs text-indigo-200/80">Blok / No. Rumah</p>
-              <p className="text-2xl sm:text-3xl font-bold font-mono text-[#A7F3D0] tracking-tight tabular-nums mt-0.5">
+              <p className="text-xs text-[#E5EEE3]/75">Blok / No. Rumah</p>
+              <p className="text-2xl sm:text-3xl font-bold font-mono text-[#E5EEE3] tracking-tight tabular-nums mt-0.5">
                 {formatBlokRumah(profil.blok_rumah)}
               </p>
             </div>
           </div>
 
           {/* Footer Kartu: Status Hunian + Badge Bulan Berjalan */}
-          <div className="relative z-10 mt-6 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-indigo-100/85">
+          <div className="relative z-10 mt-6 pt-4 border-t border-[#E5EEE3]/15 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-[#E5EEE3]/85">
               <span>Status Hunian:</span>
-              <span className="font-semibold text-white">{profil.status_hunian}</span>
-              <span aria-hidden="true" className="text-white/40">·</span>
+              <span className="font-semibold text-[#FFFDF8]">{profil.status_hunian}</span>
+              <span aria-hidden="true" className="text-[#E5EEE3]/40">·</span>
               <span>Periode {currentMonthName} {TAHUN_AKTIF}</span>
             </div>
 
@@ -344,41 +343,43 @@ export function WargaHomeSlide({
         </section>
 
         {/* Panel Info Siklus Tagihan */}
-        <aside className="lg:col-span-5 glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
+        <aside className="lg:col-span-5 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
           <div>
-            <h2 className="text-base font-bold text-[#0F172A]">Informasi Siklus Tagihan IPL</h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{brand.kop_resmi}</p>
+            <h2 className="text-base font-serif-brand font-bold text-[#1B271B]">
+              Informasi Siklus Tagihan IPL
+            </h2>
+            <p className="text-xs text-[#6E786D] mt-1 leading-relaxed">{brand.kop_resmi}</p>
 
-            <dl className="mt-4 divide-y divide-indigo-100/60 text-xs sm:text-sm">
+            <dl className="mt-4 divide-y divide-[#E6E2D6] text-xs sm:text-sm">
               <div className="py-2.5 flex items-center justify-between gap-3">
-                <dt className="text-slate-600 shrink-0">Nominal Standar IPL</dt>
-                <dd className="font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap text-right">
+                <dt className="text-[#4A554A] shrink-0">Nominal Standar IPL</dt>
+                <dd className="font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap text-right">
                   {formatRupiah(profil.nominal_iuran || NOMINAL_IPL_STANDAR)} / bln
                 </dd>
               </div>
               <div className="py-2.5 flex items-center justify-between gap-3">
-                <dt className="text-slate-600 shrink-0">Terbit Tagihan</dt>
-                <dd className="font-semibold text-[#0F172A] tabular-nums whitespace-nowrap text-right">
+                <dt className="text-[#4A554A] shrink-0">Terbit Tagihan</dt>
+                <dd className="font-semibold text-[#1B271B] tabular-nums whitespace-nowrap text-right">
                   Tgl {TANGGAL_TERBIT_TAGIHAN} setiap bulan
                 </dd>
               </div>
               <div className="py-2.5 flex items-center justify-between gap-3">
-                <dt className="text-slate-600 shrink-0">Batas Jatuh Tempo</dt>
-                <dd className="font-semibold text-red-700 tabular-nums whitespace-nowrap text-right">
+                <dt className="text-[#4A554A] shrink-0">Batas Jatuh Tempo</dt>
+                <dd className="font-semibold text-[#A44831] tabular-nums whitespace-nowrap text-right">
                   Tgl {TANGGAL_JATUH_TEMPO} setiap bulan
                 </dd>
               </div>
               <div className="py-2.5 flex items-center justify-between gap-3">
-                <dt className="text-slate-600 shrink-0">Rekap {TAHUN_AKTIF}</dt>
+                <dt className="text-[#4A554A] shrink-0">Rekap {TAHUN_AKTIF}</dt>
                 <dd className="flex items-center justify-end gap-1.5 font-mono text-[11px] sm:text-xs font-semibold tabular-nums whitespace-nowrap">
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                  <span className="px-2 py-0.5 rounded-full bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]">
                     {jumlahLunas} Lunas
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full border ${
                       jumlahTunggakan > 0
-                        ? 'bg-red-50 text-red-700 border-red-200/70'
-                        : 'bg-slate-50 text-slate-600 border-slate-200/70'
+                        ? 'bg-[#C87058]/15 text-[#A44831] border-[#E2A898]'
+                        : 'bg-[#F7F4EC] text-[#6E786D] border-[#E6E2D6]'
                     }`}
                   >
                     {jumlahTunggakan} Belum
@@ -395,25 +396,25 @@ export function WargaHomeSlide({
               <button
                 type="button"
                 onClick={() => onQuickPayMonth(currentMonth)}
-                className="w-full min-h-[46px] rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-indigo-900/15"
+                className="w-full min-h-[46px] rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-[#243825]/15"
               >
                 <span>Setor Iuran {currentMonthName} Sekarang</span>
                 <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             )}
             {rawCurrentStatus === 'Pra-Rilis' && (
-              <div className="rounded-2xl bg-slate-100/90 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-600 text-center">
+              <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] px-3.5 py-2.5 text-xs text-[#4A554A] text-center">
                 Penagihan aktif dimulai{' '}
-                <strong className="text-slate-800">{formatBillingStartLabel(brand)}</strong>.
+                <strong className="text-[#1B271B]">{formatBillingStartLabel(brand)}</strong>.
               </div>
             )}
 
             <button
               type="button"
               onClick={() => setPanduanWaOpen(true)}
-              className="w-full min-h-[44px] rounded-full border border-indigo-200/80 bg-white/95 hover:bg-indigo-50/70 text-[#0F172A] text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full min-h-[44px] rounded-full border border-[#C6D2BF] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-[#243825] text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Bot className="w-4 h-4 text-[#312E81] shrink-0" />
+              <Bot className="w-4 h-4 text-[#2B3F29] shrink-0" />
               <span>Panduan Bot WA (Cek Saldo &amp; Setor)</span>
             </button>
           </div>
@@ -421,34 +422,34 @@ export function WargaHomeSlide({
       </div>
 
       {/* Matriks Status 12 Bulan (Januari – Desember 2026) */}
-      <section className="glass-card bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-4 sm:p-6">
+      <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">
+            <h2 className="text-base sm:text-lg font-serif-brand font-bold text-[#1B271B]">
               Matriks Status 12 Bulan ({TAHUN_AKTIF})
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            <p className="text-xs sm:text-sm text-[#6E786D] mt-0.5">
               Ketuk bulan yang belum lunas untuk langsung menyetor iuran (mulai penagihan:{' '}
-              <span className="font-semibold text-slate-700">{formatBillingStartLabel(brand)}</span>).
+              <span className="font-semibold text-[#1B271B]">{formatBillingStartLabel(brand)}</span>).
             </p>
           </div>
 
           {/* Legenda Status (warna + teks eksplisit) */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#4A554A]">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-600" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#2B3F29]" />
               Lunas
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#D9A754]" />
               Menunggu Verifikasi
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-600" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#C87058]" />
               Jatuh Tempo / Belum Bayar
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-slate-400" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#C6C2B5]" />
               Pra-Rilis / Belum Berlaku
             </span>
           </div>
@@ -477,7 +478,7 @@ export function WargaHomeSlide({
                 onClick={() => canClick && onQuickPayMonth(b.angka)}
                 className={`text-left rounded-2xl border p-3.5 transition-all min-h-[88px] flex flex-col justify-between ${style.box} ${
                   canClick ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
-                } ${isCurrent ? 'ring-2 ring-[#4C1D95]/30' : ''}`}
+                } ${isCurrent ? 'ring-2 ring-[#2B3F29]/35' : ''}`}
               >
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-sm font-bold">{b.singkat}</span>

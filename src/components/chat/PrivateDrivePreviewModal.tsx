@@ -272,7 +272,7 @@ export function PrivateDrivePreviewModal({
       aria-modal="true"
       aria-label={`Pratinjau lampiran ${fileName}`}
       onClick={(e) => e.stopPropagation()}
-      className="fixed inset-0 z-[10000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 no-print"
+      className="fixed inset-0 z-[10000] bg-[#1B271B]/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 no-print"
     >
       <button
         type="button"
@@ -281,11 +281,11 @@ export function PrivateDrivePreviewModal({
         className="absolute inset-0 w-full h-full cursor-default"
       />
 
-      <div className="relative z-10 w-full max-w-lg max-h-[88dvh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col min-w-0">
+      <div className="relative z-10 w-full max-w-lg max-h-[88dvh] bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl shadow-2xl overflow-hidden flex flex-col min-w-0">
         {/* Header Modal (shrink-0) */}
-        <div className="shrink-0 px-4 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3 min-w-0 bg-white">
+        <div className="shrink-0 px-4 py-3.5 border-b border-[#E6E2D6] flex items-center justify-between gap-3 min-w-0 bg-[#FFFDF8]">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 text-[#312E81] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
               {attachmentType === 'photo' ? (
                 <ImageIcon className="w-4 h-4" />
               ) : attachmentType === 'video' ? (
@@ -295,8 +295,8 @@ export function PrivateDrivePreviewModal({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-bold text-[#0F172A] truncate">{fileName}</p>
-              <p className="text-[11px] text-slate-600 truncate mt-0.5">
+              <p className="text-xs sm:text-sm font-bold text-[#1B271B] truncate">{fileName}</p>
+              <p className="text-[11px] text-[#4A554A] truncate mt-0.5">
                 <span>{extLabel}</span>
                 {message.attachment_size_bytes ? (
                   <>
@@ -307,7 +307,7 @@ export function PrivateDrivePreviewModal({
                   </>
                 ) : null}
                 <span> · </span>
-                <span className="inline-flex items-center gap-1 font-semibold text-[#312E81]">
+                <span className="inline-flex items-center gap-1 font-semibold text-[#243825]">
                   {isPrivate && <Lock className="w-3 h-3 inline" />}
                   {isPrivate ? 'Akses Privat Terverifikasi' : 'Lampiran Ruang Chat'}
                 </span>
@@ -319,42 +319,42 @@ export function PrivateDrivePreviewModal({
             type="button"
             onClick={onClose}
             aria-label="Tutup pratinjau"
-            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+            className="w-9 h-9 rounded-full bg-[#F6F3EA] hover:bg-[#E5EEE3] text-[#4A554A] inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Konten Media (flex-1 min-h-0) */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-50/70 flex items-center justify-center">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-[#F6F3EA]/70 flex items-center justify-center">
           {state.loading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-center">
-              <Loader2 className="w-7 h-7 animate-spin text-[#312E81]" />
-              <p className="text-xs sm:text-sm font-semibold text-[#0F172A]">
+              <Loader2 className="w-7 h-7 animate-spin text-[#2B3F29]" />
+              <p className="text-xs sm:text-sm font-semibold text-[#1B271B]">
                 {isPrivate
                   ? 'Memverifikasi izin anggota ruang & memuat lampiran...'
                   : 'Menyiapkan pratinjau lampiran...'}
               </p>
             </div>
           ) : state.error ? (
-            <div className="max-w-md w-full rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-center space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 mx-auto flex items-center justify-center">
+            <div className="max-w-md w-full rounded-2xl border border-[#E2A898] bg-[#C87058]/10 p-4 text-center space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-[#C87058]/15 text-[#9A422B] mx-auto flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="space-y-1.5">
-                <p className="text-sm font-bold text-rose-900">
+                <p className="text-sm font-bold text-[#7A311E]">
                   {isPrivate || /ditolak|privat/i.test(state.error)
                     ? 'Akses lampiran privat ditolak'
                     : 'Akses Berkas Tidak Dapat Dibuka'}
                 </p>
-                <p className="text-xs text-rose-700 leading-relaxed break-words">
+                <p className="text-xs text-[#7A311E] leading-relaxed break-words">
                   {state.reason || state.error}
                 </p>
                 {state.reason &&
                   state.error &&
                   state.reason.trim() !== state.error.trim() &&
                   !/^Akses lampiran privat ditolak\.?$/i.test(state.error.trim()) && (
-                    <p className="text-[11px] text-rose-600/90 leading-relaxed break-words">
+                    <p className="text-[11px] text-[#9A422B] leading-relaxed break-words">
                       {state.error}
                     </p>
                   )}
@@ -362,7 +362,7 @@ export function PrivateDrivePreviewModal({
               <button
                 type="button"
                 onClick={handleRetry}
-                className="min-h-[40px] px-4 rounded-xl bg-[#312E81] hover:bg-[#3730A3] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Coba Lagi</span>
@@ -374,7 +374,7 @@ export function PrivateDrivePreviewModal({
               alt={fileName}
               referrerPolicy="no-referrer"
               onError={() => setImageLoadFailed(true)}
-              className="w-auto h-auto max-w-full max-h-[54dvh] object-contain rounded-2xl shadow-sm mx-auto bg-white"
+              className="w-auto h-auto max-w-full max-h-[54dvh] object-contain rounded-2xl shadow-sm mx-auto bg-[#FFFDF8]"
             />
           ) : attachmentType === 'video' && state.sourceUrl ? (
             isPrivate || state.sourceUrl.includes('chat-drive-private-access') ? (
@@ -388,13 +388,13 @@ export function PrivateDrivePreviewModal({
                 Peramban Anda tidak mendukung pemutaran video langsung.
               </video>
             ) : (
-              <div className="max-w-md w-full rounded-2xl border border-indigo-100 bg-white p-5 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#312E81] mx-auto flex items-center justify-center">
+              <div className="max-w-md w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-5 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] text-[#243825] mx-auto flex items-center justify-center">
                   <Film className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-[#0F172A] break-words">{fileName}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-bold text-[#1B271B] break-words">{fileName}</p>
+                  <p className="text-xs text-[#4A554A]">
                     Video siap diputar. Gunakan tombol di bawah untuk memutar atau membuka berkas.
                   </p>
                 </div>
@@ -404,16 +404,16 @@ export function PrivateDrivePreviewModal({
             <iframe
               title={`Pratinjau ${fileName}`}
               src={state.sourceUrl}
-              className="w-full h-[54dvh] rounded-2xl border border-indigo-100 bg-white"
+              className="w-full h-[54dvh] rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8]"
             />
           ) : (
-            <div className="max-w-md w-full rounded-2xl border border-indigo-100 bg-white p-5 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#312E81] mx-auto flex items-center justify-center">
+            <div className="max-w-md w-full rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-5 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] text-[#243825] mx-auto flex items-center justify-center">
                 <FileText className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-bold text-[#0F172A] break-words">{fileName}</p>
-                <p className="text-xs text-slate-600">
+                <p className="text-sm font-bold text-[#1B271B] break-words">{fileName}</p>
+                <p className="text-xs text-[#4A554A]">
                   {imageLoadFailed
                     ? 'Pratinjau gambar tidak dapat ditampilkan di layar ini.'
                     : 'Berkas terverifikasi aman. Silakan unduh atau buka berkas.'}
@@ -424,8 +424,8 @@ export function PrivateDrivePreviewModal({
         </div>
 
         {/* Footer Aksi (shrink-0) */}
-        <div className="shrink-0 px-4 py-3.5 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]">
-          <p className="text-[11px] text-slate-500 text-center sm:text-left">
+        <div className="shrink-0 px-4 py-3.5 border-t border-[#E6E2D6] bg-[#FFFDF8] flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]">
+          <p className="text-[11px] text-[#6E786D] text-center sm:text-left">
             {isPrivate
               ? 'Akses privat terverifikasi untuk anggota ruang.'
               : 'Lampiran aman untuk anggota ruang chat.'}
@@ -438,7 +438,7 @@ export function PrivateDrivePreviewModal({
                 download={state.isBlob ? fileName : undefined}
                 target={state.isBlob ? undefined : '_blank'}
                 rel={state.isBlob ? undefined : 'noopener noreferrer'}
-                className="min-h-[40px] px-3.5 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs"
+                className="min-h-[40px] px-3.5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
                 <span>{state.isBlob ? 'Unduh Berkas' : 'Buka Berkas'}</span>
@@ -450,7 +450,7 @@ export function PrivateDrivePreviewModal({
                 href={safeDriveWebLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-h-[40px] px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#312E81] text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+                className="min-h-[40px] px-3.5 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D7E4D4] text-[#243825] text-xs font-semibold inline-flex items-center justify-center gap-1.5"
               >
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 <span>Buka di Tab Baru</span>
@@ -460,7 +460,7 @@ export function PrivateDrivePreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center justify-center cursor-pointer"
+              className="min-h-[40px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#F6F3EA] hover:bg-[#E5EEE3] text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center cursor-pointer"
             >
               Tutup
             </button>

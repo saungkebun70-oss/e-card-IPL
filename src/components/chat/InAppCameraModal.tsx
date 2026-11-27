@@ -215,19 +215,19 @@ export function InAppCameraModal({
       aria-modal="true"
       aria-label="Kamera Chat Cepat"
       onClick={(e) => e.stopPropagation()}
-      className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between h-[100dvh] pb-[env(safe-area-inset-bottom,16px)] no-print"
+      className="fixed inset-0 z-[9999] bg-[#1B271B]/95 flex flex-col justify-between h-[100dvh] pb-[env(safe-area-inset-bottom,16px)] no-print"
     >
       {/* Header Atas (shrink-0) */}
-      <div className="shrink-0 px-4 py-3 bg-slate-950/90 border-b border-white/10 flex items-center justify-between gap-2 text-white">
+      <div className="shrink-0 px-4 py-3 bg-[#1B271B]/90 border-b border-white/10 flex items-center justify-between gap-2 text-[#FFFDF8]">
         <div className="flex items-center gap-2 min-w-0">
-          <Camera className="w-4 h-4 text-sky-300 shrink-0" />
+          <Camera className="w-4 h-4 text-[#E5EEE3] shrink-0" />
           <span className="text-sm font-bold truncate">Ambil Foto Lampiran</span>
         </div>
         <button
           type="button"
           onClick={handleSafeClose}
           aria-label="Tutup kamera"
-          className="min-h-[44px] min-w-[44px] rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+          className="min-h-[44px] min-w-[44px] rounded-xl bg-white/10 hover:bg-white/20 text-[#FFFDF8] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -242,16 +242,16 @@ export function InAppCameraModal({
             className="w-full h-full max-h-[65dvh] object-contain rounded-2xl"
           />
         ) : cameraError ? (
-          <div className="p-6 text-center space-y-4 max-w-sm rounded-3xl bg-slate-900/90 border border-white/10">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 text-sky-300 mx-auto flex items-center justify-center">
+          <div className="p-6 text-center space-y-4 max-w-sm rounded-3xl bg-[#243825]/95 border border-[#C6D2BF]/25">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 text-[#E5EEE3] mx-auto flex items-center justify-center">
               <Camera className="w-6 h-6" />
             </div>
-            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{cameraError}</p>
+            <p className="text-xs sm:text-sm text-[#FFFDF8]/90 leading-relaxed">{cameraError}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={handleUseNativeCamera}
-                className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#384E35] border border-[#C6D2BF]/30 text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4 shrink-0" />
                 <span>Gunakan Kamera Perangkat</span>
@@ -259,7 +259,7 @@ export function InAppCameraModal({
               <button
                 type="button"
                 onClick={() => void startCamera(facingMode)}
-                className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-white/10 hover:bg-white/20 text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5 shrink-0" />
                 <span>Coba Lagi</span>
@@ -278,8 +278,8 @@ export function InAppCameraModal({
               }`}
             />
             {starting && (
-              <div className="absolute inset-3 rounded-2xl bg-slate-950/75 flex flex-col items-center justify-center gap-2 text-white">
-                <Loader2 className="w-6 h-6 animate-spin text-sky-300" />
+              <div className="absolute inset-3 rounded-2xl bg-[#1B271B]/75 flex flex-col items-center justify-center gap-2 text-[#FFFDF8]">
+                <Loader2 className="w-6 h-6 animate-spin text-[#E5EEE3]" />
                 <span className="text-xs font-medium">Menyalakan kamera...</span>
               </div>
             )}
@@ -288,13 +288,13 @@ export function InAppCameraModal({
       </div>
 
       {/* Footer Kontrol Bawah (shrink-0) */}
-      <div className="shrink-0 py-4 px-6 bg-slate-950/90 border-t border-white/10 flex items-center justify-center gap-6">
+      <div className="shrink-0 py-4 px-6 bg-[#1B271B]/90 border-t border-white/10 flex items-center justify-center gap-6">
         {capturedUrl ? (
           <>
             <button
               type="button"
               onClick={handleRetake}
-              className="min-h-[44px] px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              className="min-h-[44px] px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4 shrink-0" />
               <span>Ulangi</span>
@@ -302,7 +302,7 @@ export function InAppCameraModal({
             <button
               type="button"
               onClick={handleConfirmPhoto}
-              className="min-h-[44px] px-5 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:brightness-105 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              className="min-h-[44px] px-5 rounded-2xl bg-[#2B3F29] hover:bg-[#384E35] border border-[#C6D2BF]/30 text-[#FFFDF8] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-md"
             >
               <Check className="w-4 h-4 shrink-0" />
               <span>Gunakan Foto</span>
@@ -313,7 +313,7 @@ export function InAppCameraModal({
             <button
               type="button"
               onClick={handleSafeClose}
-              className="min-h-[44px] px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center cursor-pointer shrink-0"
+              className="min-h-[44px] px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center cursor-pointer shrink-0"
             >
               Batal
             </button>
@@ -323,9 +323,9 @@ export function InAppCameraModal({
               disabled={starting || Boolean(cameraError)}
               onClick={handleTakeSnapshot}
               aria-label="Jepret foto"
-              className="w-16 h-16 min-h-[44px] min-w-[44px] rounded-full bg-white hover:bg-sky-50 active:scale-95 disabled:opacity-40 p-1.5 flex items-center justify-center cursor-pointer shadow-lg ring-4 ring-white/25 transition-all shrink-0"
+              className="w-16 h-16 min-h-[44px] min-w-[44px] rounded-full bg-[#FFFDF8] hover:bg-[#E5EEE3] active:scale-95 disabled:opacity-40 p-1.5 flex items-center justify-center cursor-pointer shadow-lg ring-4 ring-white/25 transition-all shrink-0"
             >
-              <span className="w-full h-full rounded-full border-2 border-slate-900 bg-white block" />
+              <span className="w-full h-full rounded-full border-2 border-[#1B271B] bg-[#FFFDF8] block" />
             </button>
 
             <button
@@ -334,7 +334,7 @@ export function InAppCameraModal({
               onClick={handleToggleFacing}
               aria-label="Ganti kamera depan atau belakang"
               title="Ganti kamera depan / belakang"
-              className="min-h-[44px] min-w-[44px] px-3.5 rounded-2xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white inline-flex items-center justify-center cursor-pointer shrink-0"
+              className="min-h-[44px] min-w-[44px] px-3.5 rounded-2xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-[#FFFDF8] inline-flex items-center justify-center cursor-pointer shrink-0"
             >
               <SwitchCamera className="w-5 h-5" />
             </button>

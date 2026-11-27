@@ -781,21 +781,21 @@ export function AdminHybridDrivePanel({
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* Banner Penjelasan Mode Hybrid */}
-      <div className="glass-card rounded-3xl p-5 border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/50 space-y-2.5">
+      <div className="glass-card rounded-3xl p-5 border border-[#C6D2BF] bg-gradient-to-br from-[#E5EEE3]/70 via-[#FFFDF8] to-[#F6F3EA] space-y-2.5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#4C1D95] text-emerald-300 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0">
             <HardDrive className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-[#0F172A]">
+              <h3 className="text-sm sm:text-base font-bold text-[#1B271B]">
                 Penyimpanan Mode Hybrid (Supabase + Google Drive)
               </h3>
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]">
                 Target: {DRIVE_TARGET_EMAIL}
               </span>
             </div>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+            <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
               Transaksi harian Warga dan patroli Keamanan tetap masuk ke{' '}
               <strong>Supabase Storage</strong> tanpa perlu login Google. Saat kuota menumpuk,
               Pengurus dapat mengarsipkan foto lama secara batch ke{' '}
@@ -807,8 +807,8 @@ export function AdminHybridDrivePanel({
       </div>
 
       {!canManage && (
-        <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7] border border-amber-200 px-4 py-3 text-xs text-amber-900">
-          <ShieldAlert className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] px-4 py-3 text-xs text-[#4A3410]">
+          <ShieldAlert className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
           <span>
             Mode lihat saja ({session.jabatan || 'Pengurus'}). Pengarsipan &amp; koneksi Google Drive
             khusus akun <strong>Bendahara</strong> atau <strong>Ketua</strong>.
@@ -820,15 +820,15 @@ export function AdminHybridDrivePanel({
       <div className="glass-card rounded-3xl p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <UploadCloud className="w-4 h-4 text-[#4C1D95]" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <UploadCloud className="w-4 h-4 text-[#2B3F29]" />
               <span>Koneksi Google Drive Pusat Pengurus</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Hubungkan dengan akun Google{' '}
-              <span className="font-mono font-semibold text-slate-700">{DRIVE_TARGET_EMAIL}</span>{' '}
+              <span className="font-mono font-semibold text-[#4A554A]">{DRIVE_TARGET_EMAIL}</span>{' '}
               untuk mengelola folder{' '}
-              <span className="font-mono text-[#4C1D95]">{HYBRID_ROOT_FOLDER_NAME}</span>.
+              <span className="font-mono text-[#2B3F29]">{HYBRID_ROOT_FOLDER_NAME}</span>.
             </p>
           </div>
 
@@ -838,7 +838,7 @@ export function AdminHybridDrivePanel({
                 type="button"
                 disabled={loadingDriveInfo}
                 onClick={() => void loadDriveWorkspace(accessToken, folderFilter)}
-                className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingDriveInfo ? 'animate-spin' : ''}`} />
                 <span>Segarkan Drive</span>
@@ -846,7 +846,7 @@ export function AdminHybridDrivePanel({
               <button
                 type="button"
                 onClick={handleGoogleSignOut}
-                className="min-h-[36px] px-3.5 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[36px] px-3.5 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-xs font-semibold text-[#7A311E] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Keluar Google</span>
@@ -860,20 +860,20 @@ export function AdminHybridDrivePanel({
           data-testid="drive-oauth-health-indicator"
           className={`rounded-2xl border p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
             oauthHealth.state === 'connected'
-              ? 'border-emerald-200 bg-emerald-50/75 text-emerald-950'
+              ? 'border-[#C6D2BF] bg-[#E5EEE3]/75 text-[#1B271B]'
               : oauthHealth.state === 'needs_refresh'
-                ? 'border-amber-200 bg-amber-50/85 text-amber-950'
-                : 'border-rose-200 bg-rose-50/85 text-rose-950'
+                ? 'border-[#E2C285] bg-[#F2D8A7]/45 text-[#4A3410]'
+                : 'border-[#E2A898] bg-[#C87058]/12 text-[#7A311E]'
           }`}
         >
           <div className="flex items-start gap-3 min-w-0">
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 oauthHealth.state === 'connected'
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-[#2B3F29] text-[#E5EEE3]'
                   : oauthHealth.state === 'needs_refresh'
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-rose-600 text-white'
+                    ? 'bg-[#D99B38] text-white'
+                    : 'bg-[#C87058] text-white'
               }`}
             >
               {oauthHealth.state === 'connected' ? (
@@ -891,21 +891,21 @@ export function AdminHybridDrivePanel({
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                     oauthHealth.state === 'connected'
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-[#2B3F29] text-[#E5EEE3]'
                       : oauthHealth.state === 'needs_refresh'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-rose-600 text-white'
+                        ? 'bg-[#F2D8A7] text-[#4A3410] border border-[#E2C285]'
+                        : 'bg-[#C87058] text-white'
                   }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full bg-white ${
-                      oauthHealth.state !== 'connected' ? 'animate-pulse' : ''
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      oauthHealth.state === 'needs_refresh' ? 'bg-[#4A3410]' : 'bg-white'
+                    } ${oauthHealth.state !== 'connected' ? 'animate-pulse' : ''}`}
                   />
                   <span>{oauthHealth.label}</span>
                 </span>
                 {lastSyncedAt && oauthHealth.state === 'connected' && (
-                  <span className="text-[11px] text-emerald-800/80">
+                  <span className="text-[11px] text-[#384E35]">
                     Disinkronkan: {formatTanggalWaktu(lastSyncedAt)}
                   </span>
                 )}
@@ -920,10 +920,10 @@ export function AdminHybridDrivePanel({
                 type="button"
                 disabled={resyncingOAuth || connectingServer || signingIn}
                 onClick={() => void handleResyncOAuth()}
-                className={`min-h-[38px] px-4 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 shadow-sm cursor-pointer transition-colors disabled:opacity-50 ${
+                className={`min-h-[38px] px-4 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm cursor-pointer transition-colors disabled:opacity-50 ${
                   oauthHealth.state === 'expired'
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-amber-600 hover:bg-amber-700'
+                    ? 'bg-[#C87058] hover:bg-[#B25C45] text-white'
+                    : 'bg-[#2B3F29] hover:bg-[#243825] text-white'
                 }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resyncingOAuth ? 'animate-spin' : ''}`} />
@@ -936,18 +936,18 @@ export function AdminHybridDrivePanel({
         {needsAuth || !accessToken ? (
           <div className="space-y-3">
             {/* Informasi Jalur OAuth2 Server (Web, Android APK, iOS) */}
-            <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/45 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-[#4C1D95] text-emerald-300 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0">
                   <Server className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-bold text-[#0F172A]">
+                  <p className="text-sm font-bold text-[#1B271B]">
                     Jalur OAuth2 Server (Web, APK Android &amp; iOS)
                   </p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-xs text-[#4A554A] leading-relaxed">
                     Penyimpanan arsip &amp; lampiran ke{' '}
-                    <span className="font-mono font-semibold text-slate-800">
+                    <span className="font-mono font-semibold text-[#1B271B]">
                       {DRIVE_TARGET_EMAIL}
                     </span>{' '}
                     didukung otomatis oleh Supabase Edge Function &amp; Server OAuth2 tanpa perlu
@@ -955,20 +955,20 @@ export function AdminHybridDrivePanel({
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-100 text-[#4C1D95] border border-indigo-200 shrink-0 self-start sm:self-center">
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF] shrink-0 self-start sm:self-center">
                 Edge Refresh Siap
               </span>
             </div>
 
             {domainStatus?.checked && !domainStatus.authorized && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50/85 p-4 text-xs text-rose-950 space-y-2.5">
+              <div className="rounded-2xl border border-[#E2A898] bg-[#C87058]/10 p-4 text-xs text-[#7A311E] space-y-2.5">
                 <div className="flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <ShieldAlert className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-bold">
                       Domain &quot;{domainStatus.hostname}&quot; Belum Didaftarkan di Firebase
                     </p>
-                    <p className="leading-relaxed text-rose-900">
+                    <p className="leading-relaxed text-[#7A311E]/90">
                       Jika ingin membuka penjelajah file manual di browser, pastikan domain di bawah
                       ini masuk ke <strong>Authorized domains</strong> pada project Firebase{' '}
                       <span className="font-mono font-semibold">{domainStatus.projectId}</span>:
@@ -976,14 +976,14 @@ export function AdminHybridDrivePanel({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 bg-white/90 border border-rose-200 rounded-xl px-3 py-2">
-                  <code className="font-mono font-bold text-xs text-[#0F172A] flex-1 truncate">
+                <div className="flex flex-wrap items-center gap-2 bg-[#FFFDF8] border border-[#E2A898] rounded-xl px-3 py-2">
+                  <code className="font-mono font-bold text-xs text-[#1B271B] flex-1 truncate">
                     {domainStatus.hostname}
                   </code>
                   <button
                     type="button"
                     onClick={() => void handleCopyHostname(domainStatus.hostname)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-800 inline-flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-[#F6F3EA] hover:bg-[#E5EEE3] text-[11px] font-semibold text-[#1B271B] inline-flex items-center gap-1 cursor-pointer"
                   >
                     <Copy className="w-3 h-3" />
                     <span>Salin Domain</span>
@@ -995,7 +995,7 @@ export function AdminHybridDrivePanel({
                     href={FIREBASE_AUTH_SETTINGS_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-h-[34px] px-3.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5"
+                    className="min-h-[34px] px-3.5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Buka Pengaturan Firebase</span>
@@ -1004,7 +1004,7 @@ export function AdminHybridDrivePanel({
                     type="button"
                     disabled={checkingDomain}
                     onClick={() => void handleRecheckDomain()}
-                    className="min-h-[34px] px-3.5 rounded-full border border-rose-200 bg-white hover:bg-rose-100 text-rose-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="min-h-[34px] px-3.5 rounded-full border border-[#E2A898] bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#7A311E] text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${checkingDomain ? 'animate-spin' : ''}`} />
                     <span>{checkingDomain ? 'Memeriksa...' : 'Cek Ulang Domain'}</span>
@@ -1014,12 +1014,12 @@ export function AdminHybridDrivePanel({
             )}
 
             {waitingExternalBrowser && signingIn && (
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/90 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-start gap-2.5 text-xs text-indigo-950">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95] shrink-0 mt-0.5" />
+              <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/70 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-2.5 text-xs text-[#243825]">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29] shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
                     <p className="font-bold">Menunggu Login Google di Browser Sistem...</p>
-                    <p className="text-[11px] text-indigo-900/85 leading-relaxed">
+                    <p className="text-[11px] text-[#384E35] leading-relaxed">
                       Selesaikan login akun Google pada jendela browser aman (Chrome / Safari).
                       Setelah berhasil, Anda akan kembali ke aplikasi dengan status{' '}
                       <strong>Terhubung</strong> secara otomatis.
@@ -1029,7 +1029,7 @@ export function AdminHybridDrivePanel({
                 <button
                   type="button"
                   onClick={handleCancelExternalBrowser}
-                  className="min-h-[38px] px-4 rounded-full border border-indigo-200 bg-white hover:bg-indigo-100 text-xs font-semibold text-indigo-900 shrink-0 cursor-pointer self-start sm:self-center"
+                  className="min-h-[38px] px-4 rounded-full border border-[#C6D2BF] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-xs font-semibold text-[#243825] shrink-0 cursor-pointer self-start sm:self-center"
                 >
                   Batal
                 </button>
@@ -1037,18 +1037,18 @@ export function AdminHybridDrivePanel({
             )}
 
             {signInErrorMsg && (!domainStatus?.checked || domainStatus.authorized) && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/85 px-4 py-3 text-xs text-amber-950 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/45 px-4 py-3 text-xs text-[#4A3410] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                 <span>{signInErrorMsg}</span>
               </div>
             )}
 
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4 space-y-3">
+            <div className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/75 p-4 space-y-3">
               <div className="space-y-1">
-                <p className="text-xs font-bold text-[#0F172A]">
+                <p className="text-xs font-bold text-[#1B271B]">
                   Penjelajah Folder &amp; Arsip Google Drive (Web, Android APK &amp; iOS)
                 </p>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
+                <p className="text-[11px] text-[#4A554A] leading-relaxed">
                   {embeddedMode
                     ? `Di Android APK / iOS, gunakan "Hubungkan Langsung via Server" untuk langsung menjelajahi folder ${HYBRID_ROOT_FOLDER_NAME} (${DRIVE_TARGET_EMAIL}), atau pilih "Masuk dengan Akun Google" untuk membuka jendela autentikasi browser aman (Chrome / Safari).`
                     : `Hubungkan langsung lewat OAuth2 Server atau masuk menggunakan akun Google ${DRIVE_TARGET_EMAIL} untuk menjelajahi isi folder dan menjalankan arsip batch.`}
@@ -1060,12 +1060,12 @@ export function AdminHybridDrivePanel({
                   type="button"
                   disabled={!canManage || connectingServer || signingIn}
                   onClick={() => void handleConnectViaServer()}
-                  className="min-h-[44px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+                  className="min-h-[44px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
                 >
                   {connectingServer ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Server className="w-4 h-4 text-emerald-300" />
+                    <Server className="w-4 h-4 text-[#E5EEE3]" />
                   )}
                   <span>
                     {connectingServer
@@ -1078,13 +1078,13 @@ export function AdminHybridDrivePanel({
                   type="button"
                   disabled={!canManage || signingIn || connectingServer}
                   onClick={handleGoogleSignIn}
-                  className="gsi-material-button inline-flex items-center justify-center gap-2.5 min-h-[44px] px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-2xs text-xs font-semibold text-slate-800 cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
+                  className="gsi-material-button inline-flex items-center justify-center gap-2.5 min-h-[44px] px-4 rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] hover:bg-[#F6F3EA] shadow-2xs text-xs font-semibold text-[#1B271B] cursor-pointer disabled:opacity-50 shrink-0 transition-colors"
                 >
                   <div className="gsi-material-button-state" />
                   <div className="gsi-material-button-content-wrapper flex items-center gap-2">
                     <div className="gsi-material-button-icon w-4 h-4 shrink-0">
                       {signingIn ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+                        <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
                       ) : (
                         <svg
                           version="1.1"
@@ -1125,16 +1125,16 @@ export function AdminHybridDrivePanel({
             <div
               className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
                 isTargetEmailMatched
-                  ? 'border-emerald-200 bg-emerald-50/70'
-                  : 'border-amber-200 bg-amber-50/70'
+                  ? 'border-[#C6D2BF] bg-[#E5EEE3]/70'
+                  : 'border-[#E2C285] bg-[#F2D8A7]/45'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                     isTargetEmailMatched
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-amber-600 text-white'
+                      ? 'bg-[#2B3F29] text-[#E5EEE3]'
+                      : 'bg-[#D99B38] text-white'
                   }`}
                 >
                   {isTargetEmailMatched ? (
@@ -1144,13 +1144,13 @@ export function AdminHybridDrivePanel({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#0F172A] truncate">
+                  <p className="text-sm font-bold text-[#1B271B] truncate">
                     {driveAbout?.displayName ||
                       connectedAccount?.displayName ||
                       googleUser?.displayName ||
                       'Akun Google Terhubung'}
                   </p>
-                  <p className="text-xs font-mono text-slate-700 truncate">
+                  <p className="text-xs font-mono text-[#4A554A] truncate">
                     {activeEmail || DRIVE_TARGET_EMAIL}
                   </p>
                 </div>
@@ -1160,8 +1160,8 @@ export function AdminHybridDrivePanel({
                 <span
                   className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                     isTargetEmailMatched
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : 'bg-amber-100 text-amber-900 border border-amber-300'
+                      ? 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
+                      : 'bg-[#F2D8A7] text-[#4A3410] border border-[#E2C285]'
                   }`}
                 >
                   {connectedAccount?.source === 'supabase_edge_function'
@@ -1176,7 +1176,7 @@ export function AdminHybridDrivePanel({
                   <button
                     type="button"
                     onClick={handleGoogleSignIn}
-                    className="px-3 py-1 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold cursor-pointer"
+                    className="px-3 py-1 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-[11px] font-semibold cursor-pointer"
                   >
                     Ganti Akun
                   </button>
@@ -1185,26 +1185,26 @@ export function AdminHybridDrivePanel({
             </div>
 
             {/* Kuota Google Drive */}
-            <div className="rounded-2xl border border-indigo-100 bg-white/90 p-4 space-y-2">
+            <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-4 space-y-2">
               <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="font-semibold text-slate-700">
+                <span className="font-semibold text-[#4A554A]">
                   Kapasitas Google Drive ({activeEmail || DRIVE_TARGET_EMAIL})
                 </span>
-                <span className="font-mono font-bold text-[#4C1D95] tabular-nums">
+                <span className="font-mono font-bold text-[#243825] tabular-nums">
                   {formatBytesCompact(quotaUsed)} /{' '}
                   {quotaLimit > 0 ? formatBytesCompact(quotaLimit) : 'Tak Terbatas'} ({quotaPct}%)
                 </span>
               </div>
-              <div className="h-2.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+              <div className="h-2.5 w-full rounded-full bg-[#E5EEE3] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#4C1D95] to-emerald-500 transition-all duration-300"
+                  className="h-full rounded-full bg-gradient-to-r from-[#243825] to-[#384E35] transition-all duration-300"
                   style={{ width: `${Math.max(quotaPct, 2)}%` }}
                 />
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-0.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6E786D] pt-0.5">
                 <span>
                   Folder Arsip:{' '}
-                  <strong className="text-slate-700">{HYBRID_ROOT_FOLDER_NAME}</strong> (5
+                  <strong className="text-[#1B271B]">{HYBRID_ROOT_FOLDER_NAME}</strong> (5
                   subfolder otomatis)
                 </span>
                 {config.lastBackupAt && (
@@ -1220,11 +1220,11 @@ export function AdminHybridDrivePanel({
       <div className="glass-card rounded-3xl p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#4C1D95]" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#2B3F29]" />
               <span>Monitor Backend Penyimpanan Supabase &amp; Routing OAuth2</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Backend memantau kuota Storage &amp; Database Supabase secara real-time dan mengalihkan
               upload media baru ke Google Drive bila mendekati batas.
             </p>
@@ -1233,7 +1233,7 @@ export function AdminHybridDrivePanel({
             type="button"
             disabled={loadingMonitor}
             onClick={() => void refreshBackendMonitor(true)}
-            className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+            className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingMonitor ? 'animate-spin' : ''}`} />
             <span>Cek Kuota</span>
@@ -1245,8 +1245,8 @@ export function AdminHybridDrivePanel({
           <div
             className={`rounded-2xl border p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 text-xs ${
               backendMonitor.shouldRouteNewMediaToDrive
-                ? 'border-amber-200 bg-amber-50/80 text-amber-950'
-                : 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+                ? 'border-[#E2C285] bg-[#F2D8A7]/45 text-[#4A3410]'
+                : 'border-[#C6D2BF] bg-[#E5EEE3]/70 text-[#243825]'
             }`}
           >
             <div className="space-y-0.5">
@@ -1262,8 +1262,8 @@ export function AdminHybridDrivePanel({
             <span
               className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 self-start sm:self-center ${
                 backendMonitor.shouldRouteNewMediaToDrive
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-white border border-emerald-200 text-emerald-800'
+                  ? 'bg-[#2B3F29] text-[#E5EEE3]'
+                  : 'bg-[#FFFDF8] border border-[#C6D2BF] text-[#243825]'
               }`}
             >
               {backendMonitor.shouldRouteNewMediaToDrive
@@ -1275,56 +1275,56 @@ export function AdminHybridDrivePanel({
 
         {/* Meter Storage & Database Supabase */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          <div className="rounded-2xl border border-indigo-100 bg-white/90 p-3.5 space-y-2">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3.5 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700">Supabase Storage Bucket</span>
-              <span className="font-mono font-bold text-[#4C1D95] tabular-nums">
+              <span className="font-semibold text-[#4A554A]">Supabase Storage Bucket</span>
+              <span className="font-mono font-bold text-[#2B3F29] tabular-nums">
                 {formatBytesCompact(backendMonitor?.storageUsedBytes ?? 0)} /{' '}
                 {formatBytesCompact(backendMonitor?.storageLimitBytes ?? 1024 * 1024 * 1024)} (
                 {backendMonitor?.storageUsagePercent ?? 0}%)
               </span>
             </div>
-            <div className="h-2.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-[#E5EEE3] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   (backendMonitor?.storageUsagePercent ?? 0) >=
                   (backendMonitor?.settings?.thresholdPercent ?? 80)
-                    ? 'bg-rose-500'
-                    : 'bg-[#4C1D95]'
+                    ? 'bg-[#C87058]'
+                    : 'bg-[#2B3F29]'
                 }`}
                 style={{
                   width: `${Math.min(100, Math.max(backendMonitor?.storageUsagePercent ?? 0, 2))}%`,
                 }}
               />
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#6E786D]">
               Total objek: <strong>{backendMonitor?.totalObjects ?? 0} file</strong>
             </p>
           </div>
 
-          <div className="rounded-2xl border border-indigo-100 bg-white/90 p-3.5 space-y-2">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3.5 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700">Database PostgreSQL Supabase</span>
-              <span className="font-mono font-bold text-emerald-700 tabular-nums">
+              <span className="font-semibold text-[#4A554A]">Database PostgreSQL Supabase</span>
+              <span className="font-mono font-bold text-[#243825] tabular-nums">
                 {formatBytesCompact(backendMonitor?.dbUsedBytes ?? 0)} /{' '}
                 {formatBytesCompact(backendMonitor?.dbLimitBytes ?? 500 * 1024 * 1024)} (
                 {backendMonitor?.dbUsagePercent ?? 0}%)
               </span>
             </div>
-            <div className="h-2.5 w-full rounded-full bg-emerald-100 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-[#E5EEE3] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   (backendMonitor?.dbUsagePercent ?? 0) >=
                   (backendMonitor?.settings?.thresholdPercent ?? 80)
-                    ? 'bg-rose-500'
-                    : 'bg-emerald-500'
+                    ? 'bg-[#C87058]'
+                    : 'bg-[#384E35]'
                 }`}
                 style={{
                   width: `${Math.min(100, Math.max(backendMonitor?.dbUsagePercent ?? 0, 2))}%`,
                 }}
               />
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#6E786D]">
               Sumber ukur:{' '}
               <strong>
                 {backendMonitor?.measuredVia === 'rpc_exact'
@@ -1338,9 +1338,9 @@ export function AdminHybridDrivePanel({
         </div>
 
         {/* Pengaturan Ambang Batas Otomatis */}
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/35 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 items-center">
+        <div className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/75 p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 items-center">
           <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+            <label className="block text-xs font-semibold text-[#1B271B] mb-1">
               Ambang Batas Pemakaian Supabase untuk Pindah Otomatis
             </label>
             <select
@@ -1349,7 +1349,7 @@ export function AdminHybridDrivePanel({
               onChange={(e) =>
                 void handleSaveBackendRule({ thresholdPercent: Number(e.target.value) })
               }
-              className="w-full min-h-[40px] rounded-xl border border-indigo-200 bg-white px-3 text-xs font-semibold text-[#0F172A] disabled:bg-slate-100"
+              className="w-full min-h-[40px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs font-semibold text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
             >
               {THRESHOLD_PERCENT_OPTIONS.map((pct) => (
                 <option key={pct} value={pct}>
@@ -1368,9 +1368,9 @@ export function AdminHybridDrivePanel({
                 onChange={(e) =>
                   void handleSaveBackendRule({ autoRouteOnNearLimit: e.target.checked })
                 }
-                className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+                className="mt-0.5 rounded border-[#C6D2BF] accent-[#2B3F29]"
               />
-              <span className="text-xs text-slate-700 leading-snug">
+              <span className="text-xs text-[#4A554A] leading-snug">
                 <strong>Alihkan otomatis file baru ke Google Drive OAuth2</strong> jika kuota
                 Supabase melewati ambang batas.
               </span>
@@ -1384,9 +1384,9 @@ export function AdminHybridDrivePanel({
                 onChange={(e) =>
                   void handleSaveBackendRule({ forceRouteToDrive: e.target.checked })
                 }
-                className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+                className="mt-0.5 rounded border-[#C6D2BF] accent-[#2B3F29]"
               />
-              <span className="text-xs text-slate-700 leading-snug">
+              <span className="text-xs text-[#4A554A] leading-snug">
                 <strong>Paksa arahkan semua media baru ke Google Drive sekarang</strong> (aktif
                 langsung tanpa menunggu kuota penuh).
               </span>
@@ -1399,11 +1399,11 @@ export function AdminHybridDrivePanel({
       <div className="glass-card rounded-3xl p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <Archive className="w-4 h-4 text-[#4C1D95]" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <Archive className="w-4 h-4 text-[#2B3F29]" />
               <span>Audit Media &amp; Arsip Otomatis ke Google Drive</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Pindahkan foto lama dari Supabase Storage ke Google Drive tanpa memutus tampilan di
               aplikasi.
             </p>
@@ -1412,7 +1412,7 @@ export function AdminHybridDrivePanel({
             type="button"
             disabled={scanning}
             onClick={() => void runInventoryScan(config.retentionDays)}
-            className="min-h-[36px] px-3.5 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+            className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} />
             <span>Pindai Ulang</span>
@@ -1421,37 +1421,37 @@ export function AdminHybridDrivePanel({
 
         {/* Statistik Ringkas Supabase vs Google Drive */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-2xl border border-indigo-100 bg-white/90 p-3.5">
-            <p className="text-[11px] font-semibold text-slate-500">Masih di Supabase</p>
-            <p className="text-lg font-extrabold text-[#0F172A] tabular-nums mt-0.5">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-3.5">
+            <p className="text-[11px] font-semibold text-[#6E786D]">Masih di Supabase</p>
+            <p className="text-lg font-extrabold text-[#1B271B] tabular-nums mt-0.5">
               {scanning ? '...' : scanSummary?.supabaseCount ?? 0} file
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-[#6E786D] mt-0.5">
               Est. {formatBytesCompact(scanSummary?.estimatedSupabaseBytes ?? 0)}
             </p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5">
-            <p className="text-[11px] font-semibold text-emerald-800">Sudah di Google Drive</p>
-            <p className="text-lg font-extrabold text-emerald-900 tabular-nums mt-0.5">
+          <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/70 p-3.5">
+            <p className="text-[11px] font-semibold text-[#243825]">Sudah di Google Drive</p>
+            <p className="text-lg font-extrabold text-[#243825] tabular-nums mt-0.5">
               {scanning ? '...' : scanSummary?.driveCount ?? 0} file
             </p>
-            <p className="text-[11px] text-emerald-700 mt-0.5">Tersimpan di Drive pusat</p>
+            <p className="text-[11px] text-[#384E35] mt-0.5">Tersimpan di Drive pusat</p>
           </div>
-          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3.5">
-            <p className="text-[11px] font-semibold text-violet-900">Siap Diarsipkan</p>
-            <p className="text-lg font-extrabold text-[#4C1D95] tabular-nums mt-0.5">
+          <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/40 p-3.5">
+            <p className="text-[11px] font-semibold text-[#4A3410]">Siap Diarsipkan</p>
+            <p className="text-lg font-extrabold text-[#4A3410] tabular-nums mt-0.5">
               {scanning ? '...' : scanSummary?.eligibleCount ?? 0} file
             </p>
-            <p className="text-[11px] text-violet-800 mt-0.5">Sesuai filter umur arsip</p>
+            <p className="text-[11px] text-[#6B4E1A] mt-0.5">Sesuai filter umur arsip</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
-            <p className="text-[11px] font-semibold text-slate-500">Arsip Terakhir</p>
-            <p className="text-sm font-bold text-[#0F172A] mt-1 truncate">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/80 p-3.5">
+            <p className="text-[11px] font-semibold text-[#6E786D]">Arsip Terakhir</p>
+            <p className="text-sm font-bold text-[#1B271B] mt-1 truncate">
               {config.lastArchiveAt
                 ? `${config.lastArchiveCount} file`
                 : 'Belum pernah'}
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+            <p className="text-[10px] text-[#6E786D] mt-0.5 truncate">
               {config.lastArchiveAt ? formatTanggalWaktu(config.lastArchiveAt) : 'Siap dijalankan'}
             </p>
           </div>
@@ -1472,14 +1472,14 @@ export function AdminHybridDrivePanel({
               return (
                 <div
                   key={cat.key}
-                  className="rounded-2xl border border-indigo-100/80 bg-indigo-50/35 px-3 py-2.5"
+                  className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/70 px-3 py-2.5"
                 >
-                  <p className="font-semibold text-[#0F172A] truncate">{cat.label}</p>
-                  <p className="text-[11px] text-slate-600 mt-1">
+                  <p className="font-semibold text-[#1B271B] truncate">{cat.label}</p>
+                  <p className="text-[11px] text-[#4A554A] mt-1">
                     Supabase: <strong>{stat.supabase}</strong> · Drive:{' '}
-                    <strong className="text-emerald-700">{stat.drive}</strong>
+                    <strong className="text-[#243825]">{stat.drive}</strong>
                   </p>
-                  <p className="text-[11px] text-[#4C1D95] font-semibold">
+                  <p className="text-[11px] text-[#2B3F29] font-semibold">
                     Siap pindah: {stat.eligible}
                   </p>
                 </div>
@@ -1489,17 +1489,17 @@ export function AdminHybridDrivePanel({
         )}
 
         {/* Pengaturan Aturan Mode Hybrid */}
-        <div className="rounded-2xl border border-indigo-100 bg-white/85 p-4 space-y-3.5">
+        <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-4 space-y-3.5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-center">
             <div>
-              <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+              <label className="block text-xs font-semibold text-[#1B271B] mb-1">
                 Batas Umur Foto Sebelum Dipindahkan ke Google Drive
               </label>
               <select
                 disabled={!canManage || archiving}
                 value={config.retentionDays}
                 onChange={(e) => updateConfig({ retentionDays: Number(e.target.value) })}
-                className="w-full min-h-[42px] rounded-xl border border-indigo-200 bg-white px-3 text-xs font-semibold text-[#0F172A] disabled:bg-slate-100"
+                className="w-full min-h-[42px] rounded-xl border border-[#D9D4C5] bg-[#FFFDF8] px-3 text-xs font-semibold text-[#1B271B] disabled:bg-[#F6F3EA] focus:border-[#2B3F29] focus:outline-none"
               >
                 {RETENTION_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -1518,9 +1518,9 @@ export function AdminHybridDrivePanel({
                   onChange={(e) =>
                     updateConfig({ deleteSupabaseAfterArchive: e.target.checked })
                   }
-                  className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+                  className="mt-0.5 rounded border-[#C6D2BF] accent-[#2B3F29]"
                 />
-                <span className="text-xs text-slate-700 leading-snug">
+                <span className="text-xs text-[#4A554A] leading-snug">
                   <strong>Hapus salinan lama di Supabase</strong> setelah berhasil diunggah &amp;
                   tautan database diperbarui ke Google Drive (hemat kuota 1 GB Supabase).
                 </span>
@@ -1534,9 +1534,9 @@ export function AdminHybridDrivePanel({
                   onChange={(e) =>
                     updateConfig({ directUploadWhenConnected: e.target.checked })
                   }
-                  className="mt-0.5 rounded border-indigo-300 text-[#4C1D95] focus:ring-[#4C1D95]"
+                  className="mt-0.5 rounded border-[#C6D2BF] accent-[#2B3F29]"
                 />
-                <span className="text-xs text-slate-700 leading-snug">
+                <span className="text-xs text-[#4A554A] leading-snug">
                   <strong>Upload nota kas langsung ke Google Drive</strong> saat Admin sedang
                   terhubung di sesi ini (otomatis fallback ke Supabase jika tidak login Google).
                 </span>
@@ -1546,16 +1546,16 @@ export function AdminHybridDrivePanel({
 
           {/* Progress Arsip Batch */}
           {archiveProgress && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#4C1D95]">
+            <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/70 p-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-semibold text-[#243825]">
                 <span className="truncate">{archiveProgress.label}</span>
                 <span className="font-mono tabular-nums shrink-0">
                   {archiveProgress.current}/{archiveProgress.total}
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-indigo-200 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-[#FFFDF8] overflow-hidden border border-[#C6D2BF]">
                 <div
-                  className="h-full bg-[#4C1D95] transition-all duration-200"
+                  className="h-full bg-[#2B3F29] transition-all duration-200"
                   style={{
                     width: `${
                       archiveProgress.total > 0
@@ -1574,12 +1574,12 @@ export function AdminHybridDrivePanel({
               type="button"
               disabled={!canManage || !accessToken || backingUp || archiving}
               onClick={handleBackupDatabase}
-              className="min-h-[42px] px-4 rounded-full border border-indigo-200 bg-white hover:bg-indigo-50 disabled:opacity-50 text-xs font-semibold text-[#0F172A] inline-flex items-center gap-2 cursor-pointer transition-colors"
+              className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 disabled:opacity-50 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-2 cursor-pointer transition-colors"
             >
               {backingUp ? (
-                <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
               ) : (
-                <DatabaseBackup className="w-4 h-4 text-[#4C1D95]" />
+                <DatabaseBackup className="w-4 h-4 text-[#2B3F29]" />
               )}
               <span>{backingUp ? 'Membuat Backup...' : 'Backup Database JSON ke Drive'}</span>
             </button>
@@ -1594,12 +1594,12 @@ export function AdminHybridDrivePanel({
                 scanSummary.eligibleCount === 0
               }
               onClick={() => setConfirmArchiveOpen(true)}
-              className="min-h-[44px] px-5 rounded-full bg-[#4C1D95] hover:bg-[#3B0764] disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+              className="min-h-[44px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
             >
               {archiving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Archive className="w-4 h-4 text-emerald-300" />
+                <Archive className="w-4 h-4 text-[#E5EEE3]" />
               )}
               <span>
                 {archiving
@@ -1614,18 +1614,18 @@ export function AdminHybridDrivePanel({
       {/* Penjelajah Folder Manual — Dikelompokkan Berdasarkan Folder Tahunan */}
       {accessToken && !needsAuth && (
         <div className="glass-card rounded-3xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 space-y-3">
+          <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/75 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4 text-[#4C1D95]" />
+                <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-[#2B3F29]" />
                   <span>Penjelajah Folder Manual ({HYBRID_ROOT_FOLDER_NAME})</span>
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-[#6E786D] mt-0.5">
                   File arsip otomatis dikelompokkan berdasarkan folder tahunan (mis.{' '}
-                  <span className="font-mono font-semibold text-slate-700">2023</span>,{' '}
-                  <span className="font-mono font-semibold text-slate-700">2024</span>,{' '}
-                  <span className="font-mono font-semibold text-slate-700">2026</span>) agar mudah
+                  <span className="font-mono font-semibold text-[#4A554A]">2023</span>,{' '}
+                  <span className="font-mono font-semibold text-[#4A554A]">2024</span>,{' '}
+                  <span className="font-mono font-semibold text-[#4A554A]">2026</span>) agar mudah
                   ditelusuri.
                 </p>
               </div>
@@ -1636,7 +1636,7 @@ export function AdminHybridDrivePanel({
                     type="button"
                     disabled={organizingYearFolders || loadingFiles}
                     onClick={() => void handleOrganizeIntoYearFolders()}
-                    className="min-h-[34px] px-3 rounded-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                    className="min-h-[34px] px-3 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                     title="Pindahkan file lama di Drive ke dalam subfolder tahunan (2023, 2024, dst.)"
                   >
                     {organizingYearFolders ? (
@@ -1652,14 +1652,14 @@ export function AdminHybridDrivePanel({
                   </button>
                 )}
 
-                <div className="inline-flex rounded-full bg-white border border-indigo-100 p-0.5">
+                <div className="inline-flex rounded-full bg-[#FFFDF8] border border-[#E6E2D6] p-0.5">
                   <button
                     type="button"
                     onClick={() => setExplorerViewMode('yearly')}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
                       explorerViewMode === 'yearly'
-                        ? 'bg-[#4C1D95] text-white'
-                        : 'text-slate-600 hover:text-[#4C1D95]'
+                        ? 'bg-[#2B3F29] text-white'
+                        : 'text-[#4A554A] hover:text-[#243825]'
                     }`}
                   >
                     <Calendar className="w-3 h-3" />
@@ -1670,8 +1670,8 @@ export function AdminHybridDrivePanel({
                     onClick={() => setExplorerViewMode('flat')}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
                       explorerViewMode === 'flat'
-                        ? 'bg-[#4C1D95] text-white'
-                        : 'text-slate-600 hover:text-[#4C1D95]'
+                        ? 'bg-[#2B3F29] text-white'
+                        : 'text-[#4A554A] hover:text-[#243825]'
                     }`}
                   >
                     <Layers className="w-3 h-3" />
@@ -1692,8 +1692,8 @@ export function AdminHybridDrivePanel({
                     onClick={() => void handleFilterChange(item.key)}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
                       active
-                        ? 'bg-[#4C1D95] text-white'
-                        : 'bg-white border border-indigo-100 text-slate-600 hover:bg-indigo-50'
+                        ? 'bg-[#2B3F29] text-white'
+                        : 'bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]/60'
                     }`}
                   >
                     {item.label}
@@ -1704,9 +1704,9 @@ export function AdminHybridDrivePanel({
 
             {/* Filter Pill Folder Tahunan */}
             {availableYears.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-indigo-100/70">
-                <span className="text-[11px] font-semibold text-slate-500 mr-1 inline-flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-[#4C1D95]" />
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E6E2D6]">
+                <span className="text-[11px] font-semibold text-[#6E786D] mr-1 inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#2B3F29]" />
                   <span>Tahun Arsip:</span>
                 </span>
                 <button
@@ -1714,8 +1714,8 @@ export function AdminHybridDrivePanel({
                   onClick={() => setSelectedYearFilter('all')}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
                     selectedYearFilter === 'all'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-white border border-indigo-100 text-slate-600 hover:bg-emerald-50'
+                      ? 'bg-[#2B3F29] text-white'
+                      : 'bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]'
                   }`}
                 >
                   Semua ({driveFiles.length})
@@ -1729,14 +1729,14 @@ export function AdminHybridDrivePanel({
                       onClick={() => setSelectedYearFilter(year)}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1 ${
                         active
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-white border border-indigo-100 text-slate-700 hover:bg-emerald-50'
+                          ? 'bg-[#2B3F29] text-white'
+                          : 'bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]'
                       }`}
                     >
                       <span>{year}</span>
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                          active ? 'bg-white/20 text-white' : 'bg-indigo-50 text-[#4C1D95]'
+                          active ? 'bg-white/20 text-white' : 'bg-[#E5EEE3] text-[#243825]'
                         }`}
                       >
                         {count}
@@ -1750,12 +1750,12 @@ export function AdminHybridDrivePanel({
 
           <div className="max-h-[460px] overflow-y-auto">
             {loadingFiles ? (
-              <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+              <div className="p-8 text-center text-xs text-[#6E786D] flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
                 <span>Memuat file dan struktur folder tahunan Google Drive...</span>
               </div>
             ) : filteredDriveFiles.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
+              <div className="p-8 text-center text-xs text-[#6E786D]">
                 Belum ada file arsip pada filter kategori/tahun ini.
               </div>
             ) : explorerViewMode === 'yearly' ? (
@@ -1768,20 +1768,20 @@ export function AdminHybridDrivePanel({
                   return (
                     <div
                       key={group.year}
-                      className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-2xs"
+                      className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] overflow-hidden shadow-2xs"
                     >
                       <button
                         type="button"
                         onClick={() => toggleYearExpanded(group.year)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50/80 via-white to-emerald-50/40 hover:from-indigo-100/70 flex items-center justify-between gap-3 text-left cursor-pointer transition-colors"
+                        className="w-full px-4 py-3 bg-gradient-to-r from-[#F6F3EA] via-[#FFFDF8] to-[#E5EEE3]/45 hover:from-[#E5EEE3]/70 flex items-center justify-between gap-3 text-left cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                            <ChevronDown className="w-4 h-4 text-[#2B3F29] shrink-0" />
                           ) : (
-                            <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-[#6E786D] shrink-0" />
                           )}
-                          <div className="w-8 h-8 rounded-xl bg-[#4C1D95] text-amber-300 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-[#243825] text-[#F2D8A7] flex items-center justify-center shrink-0">
                             {isExpanded ? (
                               <FolderOpen className="w-4 h-4" />
                             ) : (
@@ -1790,17 +1790,17 @@ export function AdminHybridDrivePanel({
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-xs sm:text-sm font-bold text-[#0F172A] font-mono">
+                              <span className="text-xs sm:text-sm font-bold text-[#1B271B] font-mono">
                                 Folder Tahun {group.year}
                               </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-[#4C1D95]">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]">
                                 {group.files.length} file
                               </span>
-                              <span className="text-[10px] font-semibold text-slate-500 tabular-nums">
+                              <span className="text-[10px] font-semibold text-[#6E786D] tabular-nums">
                                 {formatBytesCompact(group.totalBytes)}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            <p className="text-[11px] text-[#6E786D] truncate mt-0.5">
                               {allInPhysicalYearFolder
                                 ? `Tersimpan rapi di subfolder Drive /${group.year}`
                                 : group.physicalCount > 0
@@ -1813,8 +1813,8 @@ export function AdminHybridDrivePanel({
                         <span
                           className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 hidden sm:inline-flex ${
                             allInPhysicalYearFolder
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              ? 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
+                              : 'bg-[#F6F3EA] text-[#4A554A] border border-[#E6E2D6]'
                           }`}
                         >
                           /{group.year}
@@ -1822,7 +1822,7 @@ export function AdminHybridDrivePanel({
                       </button>
 
                       {isExpanded && (
-                        <div className="divide-y divide-indigo-100/60 border-t border-indigo-100/70">
+                        <div className="divide-y divide-[#E6E2D6] border-t border-[#E6E2D6]">
                           {group.files.map((file) => {
                             const isImage = file.mimeType.startsWith('image/');
                             const folderLabel =
@@ -1836,14 +1836,14 @@ export function AdminHybridDrivePanel({
                             return (
                               <div
                                 key={file.id}
-                                className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-indigo-50/30"
+                                className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#F6F3EA]/60"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
                                   {isImage ? (
                                     <button
                                       type="button"
                                       onClick={() => setPreviewImageFile(file)}
-                                      className="w-11 h-11 rounded-xl border border-indigo-100 bg-white overflow-hidden shrink-0 cursor-pointer"
+                                      className="w-11 h-11 rounded-xl border border-[#E6E2D6] bg-white overflow-hidden shrink-0 cursor-pointer"
                                       title="Pratinjau gambar"
                                     >
                                       <img
@@ -1854,16 +1854,16 @@ export function AdminHybridDrivePanel({
                                       />
                                     </button>
                                   ) : (
-                                    <div className="w-11 h-11 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-[#4C1D95]">
+                                    <div className="w-11 h-11 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/70 flex items-center justify-center shrink-0 text-[#2B3F29]">
                                       <DatabaseBackup className="w-5 h-5" />
                                     </div>
                                   )}
                                   <div className="min-w-0">
-                                    <p className="text-xs font-bold text-[#0F172A] truncate">
+                                    <p className="text-xs font-bold text-[#1B271B] truncate">
                                       {file.name}
                                     </p>
-                                    <p className="text-[11px] text-slate-500 truncate">
-                                      <span className="font-mono text-[#4C1D95]">{displayPath}</span>{' '}
+                                    <p className="text-[11px] text-[#6E786D] truncate">
+                                      <span className="font-mono text-[#2B3F29]">{displayPath}</span>{' '}
                                       · {formatBytesCompact(file.sizeBytes)} ·{' '}
                                       {formatTanggalWaktu(file.createdTime)}
                                     </p>
@@ -1875,7 +1875,7 @@ export function AdminHybridDrivePanel({
                                     <button
                                       type="button"
                                       onClick={() => setPreviewImageFile(file)}
-                                      className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600 cursor-pointer"
+                                      className="p-2 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-[#4A554A] cursor-pointer"
                                       title="Lihat Gambar"
                                     >
                                       <ImageIcon className="w-3.5 h-3.5" />
@@ -1886,7 +1886,7 @@ export function AdminHybridDrivePanel({
                                       href={file.webViewLink}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600"
+                                      className="p-2 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-[#4A554A]"
                                       title="Buka di Google Drive"
                                     >
                                       <ExternalLink className="w-3.5 h-3.5" />
@@ -1896,7 +1896,7 @@ export function AdminHybridDrivePanel({
                                     <button
                                       type="button"
                                       onClick={() => setConfirmDeleteFile(file)}
-                                      className="p-2 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                      className="p-2 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] cursor-pointer"
                                       title="Hapus file dari Google Drive"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -1913,7 +1913,7 @@ export function AdminHybridDrivePanel({
                 })}
               </div>
             ) : (
-              <div className="divide-y divide-indigo-100/60">
+              <div className="divide-y divide-[#E6E2D6]">
                 {filteredDriveFiles.map((file) => {
                   const isImage = file.mimeType.startsWith('image/');
                   const folderLabel =
@@ -1926,14 +1926,14 @@ export function AdminHybridDrivePanel({
                   return (
                     <div
                       key={file.id}
-                      className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-indigo-50/30"
+                      className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-[#F6F3EA]/60"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         {isImage ? (
                           <button
                             type="button"
                             onClick={() => setPreviewImageFile(file)}
-                            className="w-11 h-11 rounded-xl border border-indigo-100 bg-white overflow-hidden shrink-0 cursor-pointer"
+                            className="w-11 h-11 rounded-xl border border-[#E6E2D6] bg-white overflow-hidden shrink-0 cursor-pointer"
                             title="Pratinjau gambar"
                           >
                             <img
@@ -1944,19 +1944,19 @@ export function AdminHybridDrivePanel({
                             />
                           </button>
                         ) : (
-                          <div className="w-11 h-11 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-[#4C1D95]">
+                          <div className="w-11 h-11 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/70 flex items-center justify-center shrink-0 text-[#2B3F29]">
                             <DatabaseBackup className="w-5 h-5" />
                           </div>
                         )}
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="text-xs font-bold text-[#0F172A] truncate">{file.name}</p>
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-[#4C1D95] shrink-0">
+                            <p className="text-xs font-bold text-[#1B271B] truncate">{file.name}</p>
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#E5EEE3] text-[#243825] shrink-0">
                               {file.archiveYear}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            <span className="font-mono text-[#4C1D95]">{displayPath}</span> ·{' '}
+                          <p className="text-[11px] text-[#6E786D] truncate">
+                            <span className="font-mono text-[#2B3F29]">{displayPath}</span> ·{' '}
                             {formatBytesCompact(file.sizeBytes)} ·{' '}
                             {formatTanggalWaktu(file.createdTime)}
                           </p>
@@ -1968,7 +1968,7 @@ export function AdminHybridDrivePanel({
                           <button
                             type="button"
                             onClick={() => setPreviewImageFile(file)}
-                            className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600 cursor-pointer"
+                            className="p-2 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-[#4A554A] cursor-pointer"
                             title="Lihat Gambar"
                           >
                             <ImageIcon className="w-3.5 h-3.5" />
@@ -1979,7 +1979,7 @@ export function AdminHybridDrivePanel({
                             href={file.webViewLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600"
+                            className="p-2 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-[#4A554A]"
                             title="Buka di Google Drive"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -1989,7 +1989,7 @@ export function AdminHybridDrivePanel({
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteFile(file)}
-                            className="p-2 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                            className="p-2 rounded-full border border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] cursor-pointer"
                             title="Hapus file dari Google Drive"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -2010,22 +2010,22 @@ export function AdminHybridDrivePanel({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[70] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[70] bg-[#243825]/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setConfirmArchiveOpen(false)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-indigo-100 space-y-4"
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-[#E6E2D6] space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#4C1D95] text-emerald-300 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-base font-bold text-[#0F172A]">
+                <h4 className="text-base font-bold text-[#1B271B]">
                   Konfirmasi Arsip Media ke Google Drive
                 </h4>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
                   Sebanyak <strong>{scanSummary.eligibleCount} file</strong> akan diunggah ke folder{' '}
                   <span className="font-mono font-semibold">{HYBRID_ROOT_FOLDER_NAME}</span> pada
                   akun <strong>{activeEmail || DRIVE_TARGET_EMAIL}</strong> dan tautannya di
@@ -2034,7 +2034,7 @@ export function AdminHybridDrivePanel({
               </div>
             </div>
 
-            <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 p-3 text-xs space-y-1 text-slate-700">
+            <div className="rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] p-3 text-xs space-y-1 text-[#4A554A]">
               <p>• Bukti IPL: {scanSummary.byCategory.bukti_ipl.eligible} file</p>
               <p>• Nota Kas: {scanSummary.byCategory.pengeluaran_kas.eligible} file</p>
               <p>• Absensi Keamanan: {scanSummary.byCategory.absensi_keamanan.eligible} file</p>
@@ -2042,8 +2042,8 @@ export function AdminHybridDrivePanel({
             </div>
 
             {config.deleteSupabaseAfterArchive && (
-              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] p-3 text-xs text-[#4A3410] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                 <span>
                   Setelah sukses masuk Google Drive dan link database diperbarui, salinan asli di{' '}
                   <strong>Supabase Storage akan dihapus</strong> untuk menghemat kuota 1 GB.
@@ -2055,14 +2055,14 @@ export function AdminHybridDrivePanel({
               <button
                 type="button"
                 onClick={() => setConfirmArchiveOpen(false)}
-                className="min-h-[40px] px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4A554A] cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={() => void handleConfirmExecuteArchive()}
-                className="min-h-[40px] px-5 rounded-full bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Ya, Arsipkan Sekarang
               </button>
@@ -2076,22 +2076,22 @@ export function AdminHybridDrivePanel({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[70] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[70] bg-[#243825]/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => !deletingFileId && setConfirmDeleteFile(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-rose-100 space-y-4"
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-[#E2A898] space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-[#C87058]/15 text-[#7A311E] flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-base font-bold text-[#0F172A]">
+                <h4 className="text-base font-bold text-[#1B271B]">
                   Hapus File dari Google Drive?
                 </h4>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
                   Anda akan menghapus file{' '}
                   <strong className="break-all">{confirmDeleteFile.name}</strong> dari Google Drive{' '}
                   <strong>{activeEmail || DRIVE_TARGET_EMAIL}</strong>. Tindakan ini tidak dapat
@@ -2105,7 +2105,7 @@ export function AdminHybridDrivePanel({
                 type="button"
                 disabled={Boolean(deletingFileId)}
                 onClick={() => setConfirmDeleteFile(null)}
-                className="min-h-[40px] px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4A554A] cursor-pointer"
               >
                 Batal
               </button>
@@ -2113,7 +2113,7 @@ export function AdminHybridDrivePanel({
                 type="button"
                 disabled={Boolean(deletingFileId)}
                 onClick={() => void handleConfirmDeleteDriveFile()}
-                className="min-h-[40px] px-5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                className="min-h-[40px] px-5 rounded-full bg-[#C87058] hover:bg-[#B25C45] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
               >
                 {deletingFileId && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Ya, Hapus Permanen</span>
@@ -2128,24 +2128,24 @@ export function AdminHybridDrivePanel({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-[70] bg-[#243825]/75 backdrop-blur-md flex items-center justify-center p-4"
           onClick={() => setPreviewImageFile(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl"
+            className="bg-[#FFFDF8] rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-[#E6E2D6]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
-              <p className="text-xs font-bold text-[#0F172A] truncate">{previewImageFile.name}</p>
+            <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/75 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold text-[#1B271B] truncate">{previewImageFile.name}</p>
               <button
                 type="button"
                 onClick={() => setPreviewImageFile(null)}
-                className="px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 cursor-pointer"
+                className="px-3 py-1 rounded-full bg-[#E5EEE3] hover:bg-[#D5E4D2] text-xs font-semibold text-[#243825] cursor-pointer transition-colors"
               >
                 Tutup
               </button>
             </div>
-            <div className="p-4 bg-slate-900 flex items-center justify-center">
+            <div className="p-4 bg-[#1B271B] flex items-center justify-center">
               <img
                 src={previewImageFile.directImageUrl}
                 alt={previewImageFile.name}

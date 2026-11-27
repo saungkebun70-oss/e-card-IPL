@@ -59,28 +59,28 @@ export function UploadProgress({
             key={item.localId}
             className={`rounded-2xl border px-2.5 py-2 transition-colors min-w-0 ${
               isFailed
-                ? 'bg-rose-50/90 border-rose-200'
+                ? 'bg-[#C87058]/10 border-[#E2A898]'
                 : isCompleted
-                  ? 'bg-emerald-50/85 border-emerald-200'
-                  : 'bg-indigo-50/80 border-indigo-200/80'
+                  ? 'bg-[#E5EEE3]/90 border-[#C6D2BF]'
+                  : 'bg-[#FFFDF8] border-[#E6E2D6]'
             }`}
           >
             <div className="flex items-start gap-2 min-w-0">
               {item.attachmentType === 'photo' && item.localPreviewUrl ? (
-                <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 mt-0.5 border border-indigo-200 bg-white shadow-2xs">
+                <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 mt-0.5 border border-[#C6D2BF] bg-[#FFFDF8] shadow-2xs">
                   <img
                     src={item.localPreviewUrl}
                     alt={item.file.name}
                     className="w-full h-full object-cover"
                   />
                   {isUploading && (
-                    <span className="absolute inset-0 bg-slate-950/35 flex items-center justify-center">
-                      <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                    <span className="absolute inset-0 bg-[#1B271B]/35 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 text-[#FFFDF8] animate-spin" />
                     </span>
                   )}
                   {isFailed && (
-                    <span className="absolute inset-0 bg-rose-950/45 flex items-center justify-center">
-                      <AlertCircle className="w-3.5 h-3.5 text-white" />
+                    <span className="absolute inset-0 bg-[#7A311E]/50 flex items-center justify-center">
+                      <AlertCircle className="w-3.5 h-3.5 text-[#FFFDF8]" />
                     </span>
                   )}
                 </div>
@@ -88,10 +88,10 @@ export function UploadProgress({
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                     isFailed
-                      ? 'bg-rose-100 text-rose-700'
+                      ? 'bg-[#C87058]/15 text-[#7A311E]'
                       : isCompleted
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-white text-[#312E81] border border-indigo-100'
+                        ? 'bg-[#2B3F29] text-[#FFFDF8]'
+                        : 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
                   }`}
                 >
                   {isUploading ? (
@@ -106,23 +106,23 @@ export function UploadProgress({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 min-w-0">
-                  <p className="text-xs font-bold text-[#0F172A] truncate min-w-0">
+                  <p className="text-xs font-bold text-[#1B271B] truncate min-w-0">
                     {item.file.name}
                   </p>
                   <span
                     className={`text-[11px] font-mono font-bold tabular-nums shrink-0 ${
                       isFailed
-                        ? 'text-rose-700'
+                        ? 'text-[#9A422B]'
                         : isCompleted
-                          ? 'text-emerald-700'
-                          : 'text-[#312E81]'
+                          ? 'text-[#243825]'
+                          : 'text-[#2B3F29]'
                     }`}
                   >
                     {clampedPercent}%
                   </span>
                 </div>
 
-                <p className="text-[10.5px] text-slate-600 truncate mt-0.5">
+                <p className="text-[10.5px] text-[#4A554A] truncate mt-0.5">
                   <span>{extLabel}</span>
                   <span> · </span>
                   <span className="tabular-nums">{formatFileSize(item.totalBytes)}</span>
@@ -130,10 +130,10 @@ export function UploadProgress({
                   <span
                     className={
                       isFailed
-                        ? 'text-rose-700 font-semibold'
+                        ? 'text-[#9A422B] font-semibold'
                         : isCompleted
-                          ? 'text-emerald-700 font-semibold'
-                          : 'text-[#3730A3] font-semibold'
+                          ? 'text-[#243825] font-semibold'
+                          : 'text-[#384E35] font-semibold'
                     }
                   >
                     {stageText}
@@ -145,21 +145,21 @@ export function UploadProgress({
                     value={clampedPercent}
                     max={100}
                     aria-label={`Progres unggah ${item.file.name}: ${clampedPercent}%`}
-                    className={`h-1.5 w-full flex-1 appearance-none rounded-full overflow-hidden bg-white/90 [&::-webkit-progress-bar]:bg-white/90 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:transition-all ${
+                    className={`h-1.5 w-full flex-1 appearance-none rounded-full overflow-hidden bg-[#F6F3EA] [&::-webkit-progress-bar]:bg-[#F6F3EA] [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:transition-all ${
                       isFailed
-                        ? '[&::-webkit-progress-value]:bg-rose-500 [&::-moz-progress-bar]:bg-rose-500'
+                        ? '[&::-webkit-progress-value]:bg-[#C87058] [&::-moz-progress-bar]:bg-[#C87058]'
                         : isCompleted
-                          ? '[&::-webkit-progress-value]:bg-emerald-600 [&::-moz-progress-bar]:bg-emerald-600'
-                          : '[&::-webkit-progress-value]:bg-[#312E81] [&::-moz-progress-bar]:bg-[#312E81]'
+                          ? '[&::-webkit-progress-value]:bg-[#2B3F29] [&::-moz-progress-bar]:bg-[#2B3F29]'
+                          : '[&::-webkit-progress-value]:bg-[#384E35] [&::-moz-progress-bar]:bg-[#384E35]'
                     }`}
                   />
                   {isCompleted && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
                   )}
                 </div>
 
                 {isUploading && item.phaseLabel && (
-                  <p className="text-[10px] text-slate-500 truncate mt-1">{item.phaseLabel}</p>
+                  <p className="text-[10px] text-[#6E786D] truncate mt-1">{item.phaseLabel}</p>
                 )}
               </div>
 
@@ -170,7 +170,7 @@ export function UploadProgress({
                     onClick={() => onCancel(item.localId)}
                     aria-label={`Batalkan unggah ${item.file.name}`}
                     title="Batalkan unggahan"
-                    className="min-h-[36px] min-w-[36px] px-2 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 text-[11px] font-semibold inline-flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                    className="min-h-[36px] min-w-[36px] px-2 rounded-xl border border-[#E2A898] bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#9A422B] text-[11px] font-semibold inline-flex items-center justify-center gap-1 cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5 shrink-0" />
                     <span className="hidden sm:inline">Batalkan</span>
@@ -184,7 +184,7 @@ export function UploadProgress({
                       onClick={() => onRetry(item.localId)}
                       aria-label={`Coba lagi unggah ${item.file.name}`}
                       title="Coba lagi"
-                      className="min-h-[36px] min-w-[36px] px-2 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 text-[#312E81] text-[11px] font-semibold inline-flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                      className="min-h-[36px] min-w-[36px] px-2 rounded-xl border border-[#C6D2BF] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] text-[11px] font-semibold inline-flex items-center justify-center gap-1 cursor-pointer shrink-0"
                     >
                       <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                       <span className="hidden sm:inline">Coba Lagi</span>
@@ -195,7 +195,7 @@ export function UploadProgress({
                         onClick={() => onRemove(item.localId)}
                         aria-label={`Hapus ${item.file.name} dari antrean`}
                         title="Hapus"
-                        className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center cursor-pointer shrink-0"
+                        className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4A554A] inline-flex items-center justify-center cursor-pointer shrink-0"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -209,7 +209,7 @@ export function UploadProgress({
                     onClick={() => onRemove(item.localId)}
                     aria-label={`Hapus lampiran ${item.file.name}`}
                     title="Hapus lampiran"
-                    className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-emerald-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-500 inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+                    className="min-h-[36px] min-w-[36px] p-1.5 rounded-xl border border-[#C6D2BF] bg-[#FFFDF8] hover:bg-[#C87058]/10 hover:text-[#9A422B] hover:border-[#E2A898] text-[#4A554A] inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -218,8 +218,8 @@ export function UploadProgress({
             </div>
 
             {isFailed && item.error && (
-              <div className="mt-2 pt-1.5 border-t border-rose-200/80 min-w-0">
-                <p className="text-[10.5px] text-rose-800 font-medium break-words leading-snug">
+              <div className="mt-2 pt-1.5 border-t border-[#E2A898]/70 min-w-0">
+                <p className="text-[10.5px] text-[#7A311E] font-medium break-words leading-snug">
                   {item.error}
                 </p>
               </div>

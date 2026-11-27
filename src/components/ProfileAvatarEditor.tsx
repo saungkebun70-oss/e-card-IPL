@@ -128,12 +128,12 @@ export function ProfileAvatarEditor({
             size={compact ? 'lg' : 'xl'}
             ringClassName={
               previewUrl
-                ? 'ring-4 ring-[#4C1D95]/30 border-[#4C1D95]'
-                : 'ring-2 ring-indigo-100'
+                ? 'ring-4 ring-[#2B3F29]/30 border-[#2B3F29]'
+                : 'ring-2 ring-[#C6D2BF]'
             }
           />
           {previewUrl && (
-            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#4C1D95] text-white text-[10px] font-semibold shadow-sm whitespace-nowrap">
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#243825] text-[#FFFDF8] text-[10px] font-semibold shadow-sm whitespace-nowrap">
               Pratinjau
             </span>
           )}
@@ -150,11 +150,11 @@ export function ProfileAvatarEditor({
         {/* Info Akun & Tombol Aksi */}
         <div className="min-w-0 flex-1 space-y-2.5">
           <div className="min-w-0">
-            <h3 className="text-base sm:text-lg font-bold text-[#0F172A] truncate">
+            <h3 className="text-base sm:text-lg font-bold text-[#1B271B] truncate">
               {session.nama_warga}
             </h3>
-            {subtitle && <p className="text-xs text-slate-500 truncate mt-0.5">{subtitle}</p>}
-            <p className="text-[11px] text-slate-500 mt-1">
+            {subtitle && <p className="text-xs text-[#6E786D] truncate mt-0.5">{subtitle}</p>}
+            <p className="text-[11px] text-[#6E786D] mt-1">
               Format JPG, JPEG, PNG, atau WebP · Maksimal 2 MB
             </p>
           </div>
@@ -166,7 +166,7 @@ export function ProfileAvatarEditor({
                 disabled={isBusy}
                 aria-busy={saving}
                 onClick={() => void handleSavePhoto()}
-                className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
+                className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
               >
                 {saving ? (
                   <LoadingSpinner size="xs" tone="white" label="Menyimpan foto profil" />
@@ -180,7 +180,7 @@ export function ProfileAvatarEditor({
                 type="button"
                 disabled={isBusy}
                 onClick={clearPendingSelection}
-                className="min-h-[40px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-[#0F172A] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                className="min-h-[40px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F7F4EC] text-[#1B271B] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
               >
                 <X className="w-3.5 h-3.5 shrink-0" />
                 <span>Batal</span>
@@ -192,7 +192,7 @@ export function ProfileAvatarEditor({
                 type="button"
                 disabled={isBusy}
                 onClick={() => fileInputRef.current?.click()}
-                className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
+                className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
               >
                 <Camera className="w-3.5 h-3.5 shrink-0" />
                 <span>Ganti Foto</span>
@@ -204,7 +204,7 @@ export function ProfileAvatarEditor({
                   disabled={isBusy}
                   aria-busy={removing}
                   onClick={() => void handleRemovePhoto()}
-                  className="min-h-[40px] px-3.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-60 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                  className="min-h-[40px] px-3.5 rounded-full border border-[#E2A898] bg-[#C87058]/12 hover:bg-[#C87058]/20 disabled:opacity-60 text-[#9A422B] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                 >
                   {removing ? (
                     <LoadingSpinner size="xs" tone="danger" label="Menghapus foto profil" />
@@ -222,9 +222,9 @@ export function ProfileAvatarEditor({
       {errorMsg && (
         <div
           role="alert"
-          className="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex items-start gap-2"
+          className="rounded-2xl bg-[#C87058]/12 border border-[#E2A898] px-3 py-2 text-xs text-[#7A311E] flex items-start gap-2"
         >
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#C87058]" />
           <span>{errorMsg}</span>
         </div>
       )}

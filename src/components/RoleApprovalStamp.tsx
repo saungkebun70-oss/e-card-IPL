@@ -8,7 +8,7 @@ export function RoleApprovalStamp({ role, className = '' }: RoleApprovalStampPro
   const topLabel = 'PENGURUS LINGKUNGAN';
   const mainLabel = isKetua ? 'KETUA' : 'BENDAHARA';
   const bottomLabel = isKetua ? 'SAUNG KEBUN · DISAHKAN' : 'SAUNG KEBUN · TERVERIFIKASI';
-  const colorClass = isKetua ? 'text-[#1D4ED8]' : 'text-[#047857]';
+  const colorClass = isKetua ? 'text-[#243825]' : 'text-[#384E35]';
   const tiltClass = isKetua ? '-rotate-[4deg]' : 'rotate-[3deg]';
 
   return (

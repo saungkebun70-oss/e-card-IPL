@@ -118,18 +118,18 @@ function getRoleBadgeStyle(role: UserRole, customLabel?: string): {
   if (role === 'admin') {
     return {
       label: customLabel || 'Pengurus',
-      badgeClass: 'bg-indigo-100 text-[#312E81] border-indigo-200',
+      badgeClass: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
     };
   }
   if (role === 'petugas') {
     return {
       label: customLabel || 'Keamanan',
-      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeClass: 'bg-[#384E35]/15 text-[#243825] border-[#C6D2BF]',
     };
   }
   return {
     label: customLabel || 'Warga',
-    badgeClass: 'bg-sky-100 text-sky-800 border-sky-200',
+    badgeClass: 'bg-[#F2D8A7]/45 text-[#4A3410] border-[#E2C285]',
   };
 }
 
@@ -1221,7 +1221,7 @@ export function CommunityChatSlide({
         className={
           isFloating
             ? 'flex-1 min-h-0 flex flex-col w-full max-w-full min-w-0 overflow-hidden bg-transparent'
-            : 'glass-card bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl overflow-hidden shadow-lg shadow-indigo-950/5 w-full max-w-full min-w-0'
+            : 'bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden shadow-[0_12px_32px_-10px_rgba(27,39,27,0.08)] w-full max-w-full min-w-0'
         }
       >
         <div
@@ -1237,22 +1237,22 @@ export function CommunityChatSlide({
               isFloating && floatingView === 'thread' ? 'hidden' : 'flex'
             } ${
               isFloating
-                ? 'flex-1 min-h-0 flex-col bg-white/60 w-full min-w-0 overflow-hidden'
-                : 'shrink-0 md:shrink md:min-h-0 border-b md:border-b-0 md:border-r border-indigo-100/80 bg-white/60 flex flex-col w-full min-w-0 overflow-hidden'
+                ? 'flex-1 min-h-0 flex-col bg-[#FFFDF8]/70 w-full min-w-0 overflow-hidden'
+                : 'shrink-0 md:shrink md:min-h-0 border-b md:border-b-0 md:border-r border-[#E6E2D6] bg-[#F6F3EA]/50 flex flex-col w-full min-w-0 overflow-hidden'
             }`}
           >
             {/* div:nth-of-type(1) — Header + Tab Utama: DM | Group */}
-            <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-indigo-100/70 space-y-2.5 shrink-0">
+            <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-[#E6E2D6] space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <div className="w-8 h-8 rounded-xl bg-[#2B3F29] text-[#FFFDF8] flex items-center justify-center shrink-0 shadow-xs">
                     <MessageSquare className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-xs sm:text-sm font-bold text-[#0F172A] leading-tight truncate">
+                    <h2 className="text-xs sm:text-sm font-bold text-[#1B271B] leading-tight truncate">
                       Pesan &amp; Koordinasi
                     </h2>
-                    <p className="text-[10.5px] text-slate-500 truncate">
+                    <p className="text-[10.5px] text-[#6E786D] truncate">
                       DM Langsung &amp; Group Peran Terisolasi
                     </p>
                   </div>
@@ -1264,27 +1264,27 @@ export function CommunityChatSlide({
                   onClick={() => void loadRoomMessages(activeRoomId, true)}
                   aria-label="Muat ulang percakapan"
                   title="Sinkronkan percakapan & kontak"
-                  className="h-8 w-8 rounded-xl border border-indigo-100 bg-white/90 hover:bg-indigo-50 text-[#4C1D95] flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  className="h-8 w-8 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] flex items-center justify-center cursor-pointer transition-colors shrink-0"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
               {/* Tab Utama 2 Pilihan: DM | Group */}
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-indigo-50/85 border border-indigo-100/80">
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F6F3EA] border border-[#E6E2D6]">
                 <button
                   type="button"
                   onClick={() => setPrimaryTab('dm')}
                   className={`py-1.5 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     primaryTab === 'dm'
-                      ? 'bg-white text-[#312E81] shadow-2xs ring-1 ring-indigo-100'
-                      : 'text-slate-600 hover:text-[#312E81]'
+                      ? 'bg-[#FFFDF8] text-[#243825] shadow-2xs ring-1 ring-[#C6D2BF]'
+                      : 'text-[#4A554A] hover:text-[#243825]'
                   }`}
                 >
                   <User className="w-3.5 h-3.5 shrink-0" />
                   <span>DM</span>
                   {totalPersonalUnread > 0 && (
-                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
+                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
                       {totalPersonalUnread > 99 ? '99+' : totalPersonalUnread}
                     </span>
                   )}
@@ -1295,14 +1295,14 @@ export function CommunityChatSlide({
                   onClick={() => setPrimaryTab('group')}
                   className={`py-1.5 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     primaryTab === 'group'
-                      ? 'bg-white text-[#312E81] shadow-2xs ring-1 ring-indigo-100'
-                      : 'text-slate-600 hover:text-[#312E81]'
+                      ? 'bg-[#FFFDF8] text-[#243825] shadow-2xs ring-1 ring-[#C6D2BF]'
+                      : 'text-[#4A554A] hover:text-[#243825]'
                   }`}
                 >
                   <Users className="w-3.5 h-3.5 shrink-0" />
                   <span>Group ({accessibleRooms.length})</span>
                   {totalGroupUnread > 0 && (
-                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
+                    <span className="min-w-[18px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[9.5px] font-mono font-bold inline-flex items-center justify-center tabular-nums shrink-0">
                       {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
                     </span>
                   )}
@@ -1317,13 +1317,13 @@ export function CommunityChatSlide({
                   {/* Pencarian & Filter Peran Penerima DM */}
                   <div className="space-y-2 shrink-0 min-w-0">
                     <div className="relative min-w-0">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-3.5 h-3.5 text-[#6E786D] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="search"
                         value={contactSearch}
                         onChange={(e) => setContactSearch(e.target.value)}
                         placeholder="Cari nama, blok B3/7, atau jabatan..."
-                        className="w-full min-h-[36px] rounded-xl border border-indigo-200/80 bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20"
+                        className="w-full min-h-[36px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] pl-8 pr-2.5 text-xs text-[#1B271B] placeholder:text-[#6E786D] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
                       />
                     </div>
 
@@ -1342,8 +1342,8 @@ export function CommunityChatSlide({
                           onClick={() => setContactRoleFilter(rf.id)}
                           className={`px-2 py-1 rounded-lg text-[10.5px] font-semibold cursor-pointer transition-colors ${
                             contactRoleFilter === rf.id
-                              ? 'bg-[#3730A3] text-white'
-                              : 'bg-white border border-indigo-100 text-slate-600 hover:bg-indigo-50'
+                              ? 'bg-[#2B3F29] text-[#FFFDF8]'
+                              : 'bg-[#FFFDF8] border border-[#E6E2D6] text-[#4A554A] hover:bg-[#E5EEE3]/60'
                           }`}
                         >
                           {rf.label}
@@ -1355,7 +1355,7 @@ export function CommunityChatSlide({
                   {/* Riwayat DM Aktif */}
                   {!contactSearch.trim() && contactRoleFilter === 'semua' && visibleDmThreads.length > 0 && (
                     <div className="space-y-1.5 min-w-0">
-                      <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
                         Percakapan DM Aktif
                       </p>
                       {visibleDmThreads.map((thread) => {
@@ -1378,8 +1378,8 @@ export function CommunityChatSlide({
                             }
                             className={`w-full text-left px-2.5 py-2 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
                               isActive
-                                ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
-                                : 'bg-white/90 hover:bg-white border-indigo-100/70 hover:border-indigo-200 text-slate-700'
+                                ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825] shadow-2xs'
+                                : 'bg-[#FFFDF8] hover:bg-[#F6F3EA] border-[#E6E2D6] hover:border-[#C6D2BF] text-[#1B271B]'
                             }`}
                           >
                             <UserAvatar
@@ -1390,16 +1390,16 @@ export function CommunityChatSlide({
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-1.5 min-w-0">
-                                <p className="text-xs font-bold leading-tight truncate text-[#0F172A]">
+                                <p className="text-xs font-bold leading-tight truncate text-[#1B271B]">
                                   {thread.peer_name}
                                 </p>
                                 {unread > 0 && !isActive && (
-                                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
+                                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
                                     {unread > 99 ? '99+' : unread}
                                   </span>
                                 )}
                               </div>
-                              <p className="flex items-center gap-1.5 text-[10.5px] text-slate-500 truncate mt-0.5">
+                              <p className="flex items-center gap-1.5 text-[10.5px] text-[#6E786D] truncate mt-0.5">
                                 <span
                                   className={`px-1.5 py-px rounded text-[9px] font-bold border leading-none shrink-0 ${badge.badgeClass}`}
                                 >
@@ -1416,11 +1416,11 @@ export function CommunityChatSlide({
 
                   {/* Semua Daftar Penerima DM (Pengurus, Keamanan, & Warga lengkap dengan Blok Rumah & Peran) */}
                   <div className="space-y-1.5 min-w-0">
-                    <p className="px-1 pt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <p className="px-1 pt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
                       Daftar Penerima DM ({filteredContacts.length})
                     </p>
                     {filteredContacts.length === 0 ? (
-                      <p className="text-xs text-slate-500 py-6 text-center">
+                      <p className="text-xs text-[#6E786D] py-6 text-center">
                         Kontak tidak ditemukan.
                       </p>
                     ) : (
@@ -1435,8 +1435,8 @@ export function CommunityChatSlide({
                             onClick={() => handleStartPersonalChat(contact)}
                             className={`w-full text-left px-2.5 py-2 rounded-2xl border flex items-center gap-2.5 transition-colors cursor-pointer min-w-0 ${
                               isActive
-                                ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80'
-                                : 'bg-white/90 hover:bg-indigo-50/75 border-indigo-100/75'
+                                ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
+                                : 'bg-[#FFFDF8] hover:bg-[#F6F3EA] border-[#E6E2D6]'
                             }`}
                           >
                             <UserAvatar
@@ -1447,11 +1447,11 @@ export function CommunityChatSlide({
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-1.5 min-w-0">
-                                <p className="text-xs font-bold text-[#0F172A] truncate">
+                                <p className="text-xs font-bold text-[#1B271B] truncate">
                                   {contact.display_name}
                                 </p>
                                 {contact.unit_label && (
-                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 font-mono text-[9.5px] font-bold text-slate-700 shrink-0 whitespace-nowrap">
+                                  <span className="px-1.5 py-0.5 rounded-md bg-[#F6F3EA] border border-[#E6E2D6] font-mono text-[9.5px] font-bold text-[#243825] shrink-0 whitespace-nowrap">
                                     {contact.unit_label}
                                   </span>
                                 )}
@@ -1462,7 +1462,7 @@ export function CommunityChatSlide({
                                 >
                                   {badge.label}
                                 </span>
-                                <span className="text-[10.5px] text-slate-500 truncate">
+                                <span className="text-[10.5px] text-[#6E786D] truncate">
                                   {contact.subtitle}
                                 </span>
                               </div>
@@ -1476,7 +1476,7 @@ export function CommunityChatSlide({
               ) : (
                 /* Tab Group — Keanggotaan Ketat Berdasarkan Peran */
                 <div className="space-y-2 min-w-0 shrink-0">
-                  <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
                     Grup Khusus Sesuai Peran ({accessibleRooms.length})
                   </p>
                   {accessibleRooms.map((room) => {
@@ -1491,35 +1491,35 @@ export function CommunityChatSlide({
                         onClick={() => handleSelectRoom(room.id)}
                         className={`w-full shrink-0 text-left px-3 py-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 cursor-pointer min-w-0 ${
                           isActive
-                            ? 'bg-gradient-to-r from-[#312E81]/12 via-[#1D4ED8]/10 to-[#0284C7]/12 border-sky-300/80 text-[#312E81] shadow-2xs'
-                            : 'bg-white/90 hover:bg-white border-indigo-100/70 hover:border-indigo-200 text-slate-700'
+                            ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825] shadow-2xs'
+                            : 'bg-[#FFFDF8] hover:bg-[#F6F3EA] border-[#E6E2D6] hover:border-[#C6D2BF] text-[#1B271B]'
                         }`}
                       >
                         <span
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isActive
-                              ? `bg-gradient-to-tr ${room.accentClass} text-white shadow-xs`
-                              : 'bg-indigo-50 text-[#4C1D95]'
+                              ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                              : 'bg-[#E5EEE3] text-[#243825]'
                           }`}
                         >
                           <RoomIcon className="w-4 h-4" />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2 min-w-0">
-                            <p className="text-xs font-bold leading-tight truncate text-[#0F172A]">
+                            <p className="text-xs font-bold leading-tight truncate text-[#1B271B]">
                               {room.label}
                             </p>
                             {unread > 0 && !isActive && (
-                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
+                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums shrink-0">
                                 {unread > 99 ? '99+' : unread}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center justify-between gap-1.5 mt-0.5 min-w-0">
-                            <p className="text-[10.5px] text-slate-500 truncate">
+                            <p className="text-[10.5px] text-[#6E786D] truncate">
                               {room.participantsLabel}
                             </p>
-                            <span className="text-[10px] font-mono font-semibold text-indigo-700/80 shrink-0 tabular-nums">
+                            <span className="text-[10px] font-mono font-semibold text-[#384E35] shrink-0 tabular-nums">
                               {memberCount} anggota
                             </span>
                           </div>
@@ -1536,10 +1536,10 @@ export function CommunityChatSlide({
           <div
             className={`${
               isFloating && floatingView === 'list' ? 'hidden' : 'flex'
-            } flex-1 flex-col min-w-0 min-h-0 overflow-hidden bg-gradient-to-b from-white/40 via-indigo-50/20 to-sky-50/25`}
+            } flex-1 flex-col min-w-0 min-h-0 overflow-hidden bg-[#F6F3EA]/45`}
           >
             {/* Header Ruang Group / DM Aktif */}
-            <div className="border-b border-indigo-100/70 bg-white/75 backdrop-blur-md shrink-0 min-w-0">
+            <div className="border-b border-[#E6E2D6] bg-[#FFFDF8]/90 backdrop-blur-md shrink-0 min-w-0">
               <div className="px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {isFloating && (
@@ -1547,7 +1547,7 @@ export function CommunityChatSlide({
                       type="button"
                       onClick={() => setFloatingView('list')}
                       aria-label="Kembali ke daftar chat"
-                      className="h-8 w-8 rounded-xl border border-indigo-100 bg-white hover:bg-indigo-50 text-[#312E81] flex items-center justify-center shrink-0 cursor-pointer"
+                      className="h-8 w-8 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0 cursor-pointer"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -1564,22 +1564,22 @@ export function CommunityChatSlide({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <h3 className="text-xs sm:text-sm font-bold text-[#0F172A] truncate">
+                      <h3 className="text-xs sm:text-sm font-bold text-[#1B271B] truncate">
                         {activeTitle}
                       </h3>
                       {activeDmPeer ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-semibold text-[#4C1D95] shrink-0">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[9.5px] font-semibold text-[#243825] shrink-0">
                           <Lock className="w-2.5 h-2.5" />
                           <span>DM</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[9.5px] font-semibold text-emerald-700 shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[9.5px] font-semibold text-[#243825] shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#2B3F29]" />
                           <span>Group</span>
                         </span>
                       )}
                     </div>
-                    <p className="text-[10.5px] sm:text-[11px] text-slate-500 truncate mt-0.5">
+                    <p className="text-[10.5px] sm:text-[11px] text-[#6E786D] truncate mt-0.5">
                       {activeSubtitle}
                     </p>
                   </div>
@@ -1593,8 +1593,8 @@ export function CommunityChatSlide({
                       title="Lihat daftar anggota sah grup ini"
                       className={`h-8 px-2 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0 transition-colors ${
                         showGroupMembers
-                          ? 'bg-[#312E81] text-white border-[#312E81]'
-                          : 'bg-white/90 hover:bg-indigo-50 text-[#312E81] border-indigo-100'
+                          ? 'bg-[#2B3F29] text-[#FFFDF8] border-[#2B3F29]'
+                          : 'bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] border-[#E6E2D6]'
                       }`}
                     >
                       <Users className="w-3.5 h-3.5 shrink-0" />
@@ -1611,8 +1611,8 @@ export function CommunityChatSlide({
                       title={`Bersihkan chat ${activeDmPeer ? 'individu' : 'group'}`}
                       className={`h-8 px-2.5 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 disabled:opacity-50 ${
                         confirmClearRoom
-                          ? 'bg-rose-600 text-white border-rose-600'
-                          : 'bg-white/90 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border-indigo-100 hover:border-rose-200'
+                          ? 'bg-[#C87058] text-white border-[#C87058]'
+                          : 'bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#4A554A] hover:text-[#9A422B] border-[#E6E2D6] hover:border-[#E2A898]'
                       }`}
                     >
                       <Eraser className="w-3.5 h-3.5 shrink-0" />
@@ -1624,15 +1624,15 @@ export function CommunityChatSlide({
 
               {/* Panel Daftar Anggota Grup (Verifikasi Keanggotaan Ketat) */}
               {activeGroupRoom && showGroupMembers && (
-                <div className="px-3 sm:px-4 py-2.5 border-t border-indigo-100 bg-indigo-50/70 max-h-44 overflow-y-auto space-y-1.5">
+                <div className="px-3 sm:px-4 py-2.5 border-t border-[#E6E2D6] bg-[#F6F3EA] max-h-44 overflow-y-auto space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10.5px] font-bold text-[#312E81]">
+                    <p className="text-[10.5px] font-bold text-[#243825]">
                       Anggota {activeGroupRoom.label} ({activeGroupRoom.participantsLabel})
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowGroupMembers(false)}
-                      className="text-[10.5px] font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                      className="text-[10.5px] font-semibold text-[#6E786D] hover:text-[#1B271B] cursor-pointer"
                     >
                       Tutup
                     </button>
@@ -1643,7 +1643,7 @@ export function CommunityChatSlide({
                       return (
                         <div
                           key={`gm:${member.dedup_key || member.participant_id}`}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-white/90 border border-indigo-100/80 min-w-0"
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-[#FFFDF8] border border-[#E6E2D6] min-w-0"
                         >
                           <UserAvatar
                             name={member.display_name}
@@ -1652,11 +1652,11 @@ export function CommunityChatSlide({
                             className="shrink-0"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold text-[#0F172A] truncate">
+                            <p className="text-[11px] font-bold text-[#1B271B] truncate">
                               {member.display_name}
                               {member.isSelf ? ' (Anda)' : ''}
                             </p>
-                            <p className="text-[9.5px] text-slate-500 truncate">
+                            <p className="text-[9.5px] text-[#6E786D] truncate">
                               {mb.label}
                               {member.unit_label ? ` · ${member.unit_label}` : ''}
                             </p>
@@ -1669,8 +1669,8 @@ export function CommunityChatSlide({
               )}
 
               {confirmClearRoom && messages.length > 0 && (
-                <div className="px-3 sm:px-4 py-2 border-t border-rose-100 bg-rose-50/90 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <p className="text-[11px] sm:text-xs font-semibold text-rose-800">
+                <div className="px-3 sm:px-4 py-2 border-t border-[#E2A898] bg-[#C87058]/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <p className="text-[11px] sm:text-xs font-semibold text-[#7A311E]">
                     Bersihkan semua pesan di {activeDmPeer ? `DM dengan ${activeDmPeer.display_name}` : activeTitle}?
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 shrink-0">
@@ -1678,7 +1678,7 @@ export function CommunityChatSlide({
                       type="button"
                       disabled={clearingRoom}
                       onClick={() => void handleClearActiveRoom('local')}
-                      className="h-7 px-2.5 rounded-lg bg-white hover:bg-rose-100 border border-rose-200 text-[11px] font-semibold text-rose-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                      className="h-7 px-2.5 rounded-lg bg-[#FFFDF8] hover:bg-[#C87058]/15 border border-[#E2A898] text-[11px] font-semibold text-[#9A422B] inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
                     >
                       {clearingRoom && <Loader2 className="w-3 h-3 animate-spin" />}
                       <span>{session.role === 'admin' ? 'Untuk Saya' : 'Ya, Bersihkan'}</span>
@@ -1689,7 +1689,7 @@ export function CommunityChatSlide({
                         type="button"
                         disabled={clearingRoom}
                         onClick={() => void handleClearActiveRoom('server')}
-                        className="h-7 px-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-[11px] font-semibold text-white inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                        className="h-7 px-2.5 rounded-lg bg-[#C87058] hover:bg-[#B25C45] text-[11px] font-semibold text-white inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
                       >
                         {clearingRoom && <Loader2 className="w-3 h-3 animate-spin" />}
                         <span>Hapus Semua</span>
@@ -1700,7 +1700,7 @@ export function CommunityChatSlide({
                       type="button"
                       disabled={clearingRoom}
                       onClick={() => setConfirmClearRoom(false)}
-                      className="h-7 px-2.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 cursor-pointer"
+                      className="h-7 px-2.5 rounded-lg bg-[#FFFDF8] hover:bg-[#F6F3EA] border border-[#E6E2D6] text-[11px] font-semibold text-[#4A554A] cursor-pointer"
                     >
                       Batal
                     </button>
@@ -1712,19 +1712,19 @@ export function CommunityChatSlide({
             {/* Daftar Pesan */}
             <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3.5 space-y-3 overscroll-contain">
               {loading ? (
-                <div className="h-full flex flex-col items-center justify-center py-10 text-slate-500 gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#4C1D95]" />
+                <div className="h-full flex flex-col items-center justify-center py-10 text-[#6E786D] gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#2B3F29]" />
                   <p className="text-xs font-medium">Memuat percakapan...</p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-8 text-center px-4">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#4C1D95]">
+                  <div className="w-11 h-11 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] flex items-center justify-center text-[#243825]">
                     {activeDmPeer ? <User className="w-5 h-5" /> : <Users className="w-5 h-5" />}
                   </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-[#0F172A] mt-3">
+                  <h4 className="text-xs sm:text-sm font-bold text-[#1B271B] mt-3">
                     Belum Ada Pesan {activeDmPeer ? `dengan ${activeDmPeer.display_name}` : `di ${activeTitle}`}
                   </h4>
-                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
+                  <p className="text-[11px] sm:text-xs text-[#6E786D] mt-1 max-w-sm leading-relaxed">
                     {activeDmPeer
                       ? `Pesan langsung 1-on-1 (${activeDmPeer.subtitle}) bersifat privat dan real-time.`
                       : `Anggota grup ini terbatas hanya untuk ${activeGroupRoom?.participantsLabel.toLowerCase() || 'peran terkait'}.`}
@@ -1764,7 +1764,7 @@ export function CommunityChatSlide({
                             isMine ? 'justify-end' : 'justify-start'
                           }`}
                         >
-                          <span className="text-[11px] font-bold text-slate-700">
+                          <span className="text-[11px] font-bold text-[#1B271B]">
                             {isMine ? 'Anda' : msg.sender_name}
                           </span>
                           <span
@@ -1773,7 +1773,7 @@ export function CommunityChatSlide({
                             {roleBadge.label}
                           </span>
                           {!isMine && msg.sender_subtitle && (
-                            <span className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                            <span className="text-[10px] text-[#6E786D] truncate max-w-[140px]">
                               {msg.sender_subtitle}
                             </span>
                           )}
@@ -1782,18 +1782,18 @@ export function CommunityChatSlide({
                         <div
                           className={`group relative rounded-2xl px-3 py-2 text-xs sm:text-[13px] leading-relaxed shadow-xs border max-w-full min-w-0 overflow-hidden transition-shadow ${
                             isMine
-                              ? 'bg-gradient-to-tr from-[#312E81] via-[#3730A3] to-[#0284C7] text-white border-indigo-700/30 rounded-br-md'
-                              : 'bg-white/95 text-[#0F172A] border-indigo-100/90 rounded-bl-md'
+                              ? 'bg-gradient-to-tr from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] border-[#243825]/30 rounded-br-md'
+                              : 'bg-[#FFFDF8] text-[#1B271B] border-[#E6E2D6] rounded-bl-md'
                           } ${
-                            editingTarget?.id === msg.id ? 'ring-2 ring-amber-400/90' : ''
+                            editingTarget?.id === msg.id ? 'ring-2 ring-[#F2D8A7]' : ''
                           }`}
                         >
                           {msg.reply_preview && (
                             <div
                               className={`mb-1.5 px-2.5 py-1.5 rounded-xl text-[11px] border leading-snug ${
                                 isMine
-                                  ? 'bg-white/15 border-sky-200/40 text-sky-50'
-                                  : 'bg-indigo-50/80 border-indigo-200 text-slate-600'
+                                  ? 'bg-white/15 border-[#E5EEE3]/35 text-[#FFFDF8]'
+                                  : 'bg-[#F6F3EA] border-[#E6E2D6] text-[#4A554A]'
                               }`}
                             >
                               {msg.reply_preview}
@@ -1833,13 +1833,13 @@ export function CommunityChatSlide({
                               <div
                                 className={`mt-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] leading-snug space-y-0.5 ${
                                   isMine
-                                    ? 'bg-white/12 border-white/25 text-sky-50'
-                                    : 'bg-slate-50 border-indigo-100 text-slate-600'
+                                    ? 'bg-white/12 border-white/25 text-[#FFFDF8]'
+                                    : 'bg-[#F6F3EA] border-[#E6E2D6] text-[#4A554A]'
                                 }`}
                               >
                                 <p
                                   className={`text-[10px] font-semibold ${
-                                    isMine ? 'text-sky-100/90' : 'text-slate-500'
+                                    isMine ? 'text-[#E5EEE3]/90' : 'text-[#6E786D]'
                                   }`}
                                 >
                                   Pesan asli sebelum diedit
@@ -1855,7 +1855,7 @@ export function CommunityChatSlide({
 
                           <div
                             className={`mt-1 flex items-center justify-between gap-3 text-[10px] ${
-                              isMine ? 'text-sky-100/85' : 'text-slate-400'
+                              isMine ? 'text-[#E5EEE3]/85' : 'text-[#6E786D]'
                             }`}
                           >
                             <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -1879,8 +1879,8 @@ export function CommunityChatSlide({
                                       title="Lihat isi pesan asli sebelum diedit"
                                       className={`font-medium underline decoration-dotted underline-offset-2 cursor-pointer transition-opacity hover:opacity-100 ${
                                         isMine
-                                          ? 'text-sky-100'
-                                          : 'text-slate-500 hover:text-[#312E81]'
+                                          ? 'text-[#E5EEE3]'
+                                          : 'text-[#6E786D] hover:text-[#243825]'
                                       }`}
                                     >
                                       {expandedOriginalIds[msg.id] ? 'Tutup riwayat' : 'Diedit'}
@@ -1908,8 +1908,8 @@ export function CommunityChatSlide({
                                 title="Balas pesan ini"
                                 className={`p-1 rounded-md transition-colors cursor-pointer ${
                                   isMine
-                                    ? 'hover:bg-white/15 text-sky-100'
-                                    : 'hover:bg-indigo-50 text-slate-400 hover:text-[#4C1D95]'
+                                    ? 'hover:bg-white/15 text-[#E5EEE3]'
+                                    : 'hover:bg-[#E5EEE3] text-[#6E786D] hover:text-[#243825]'
                                 }`}
                               >
                                 <CornerUpLeft className="w-3 h-3" />
@@ -1924,8 +1924,8 @@ export function CommunityChatSlide({
                                   title="Edit pesan ini"
                                   className={`p-1 rounded-md transition-colors cursor-pointer ${
                                     editingTarget?.id === msg.id
-                                      ? 'bg-white/25 text-white'
-                                      : 'hover:bg-white/15 text-sky-100'
+                                      ? 'bg-white/25 text-[#FFFDF8]'
+                                      : 'hover:bg-white/15 text-[#E5EEE3]'
                                   }`}
                                 >
                                   <Pencil className="w-3 h-3" />
@@ -1945,8 +1945,8 @@ export function CommunityChatSlide({
                                   }
                                   className={`p-1 rounded-md transition-colors cursor-pointer ${
                                     isMine
-                                      ? 'hover:bg-white/15 text-sky-100 hover:text-rose-200'
-                                      : 'hover:bg-rose-50 text-slate-400 hover:text-rose-600'
+                                      ? 'hover:bg-white/15 text-[#E5EEE3] hover:text-[#F2D8A7]'
+                                      : 'hover:bg-[#C87058]/10 text-[#6E786D] hover:text-[#9A422B]'
                                   }`}
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -1958,12 +1958,12 @@ export function CommunityChatSlide({
                           {isConfirming && (
                             <div
                               className={`mt-2 pt-2 border-t flex flex-wrap items-center justify-end gap-1.5 text-[10.5px] ${
-                                isMine ? 'border-white/20' : 'border-indigo-100'
+                                isMine ? 'border-white/20' : 'border-[#E6E2D6]'
                               }`}
                             >
                               <span
                                 className={`w-full text-right text-[10px] font-semibold ${
-                                  isMine ? 'text-sky-100' : 'text-slate-600'
+                                  isMine ? 'text-[#E5EEE3]' : 'text-[#4A554A]'
                                 }`}
                               >
                                 {canDeleteForEveryone
@@ -1977,8 +1977,8 @@ export function CommunityChatSlide({
                                 onClick={() => void handleHideMessageForMe(msg)}
                                 className={`px-2.5 py-1 rounded-lg font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 transition-colors ${
                                   isMine
-                                    ? 'bg-white/95 hover:bg-white text-[#312E81]'
-                                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                                    ? 'bg-[#FFFDF8] hover:bg-white text-[#243825]'
+                                    : 'bg-[#C87058] hover:bg-[#B25C45] text-white'
                                 }`}
                               >
                                 {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
@@ -1990,7 +1990,7 @@ export function CommunityChatSlide({
                                   type="button"
                                   disabled={isDeletingThis}
                                   onClick={() => void handleDeleteMessageForEveryone(msg)}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 transition-colors"
+                                  className="px-2.5 py-1 rounded-lg bg-[#C87058] hover:bg-[#B25C45] text-white font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 transition-colors"
                                 >
                                   {isDeletingThis && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                                   <span>Hapus untuk Semua</span>
@@ -2001,7 +2001,7 @@ export function CommunityChatSlide({
                                 type="button"
                                 disabled={isDeletingThis}
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-1 rounded-lg bg-white text-slate-700 font-semibold border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                                className="px-2 py-1 rounded-lg bg-[#FFFDF8] text-[#4A554A] font-semibold border border-[#E6E2D6] hover:bg-[#F6F3EA] cursor-pointer"
                               >
                                 Batal
                               </button>
@@ -2019,23 +2019,23 @@ export function CommunityChatSlide({
             {/* Composer Input Pesan */}
             <form
               onSubmit={handleSendMessage}
-              className="p-2.5 sm:p-3.5 border-t border-indigo-100/80 bg-white/85 backdrop-blur-md space-y-2 shrink-0 min-w-0"
+              className="p-2.5 sm:p-3.5 border-t border-[#E6E2D6] bg-[#FFFDF8]/95 backdrop-blur-md space-y-2 shrink-0 min-w-0"
             >
               {editingTarget && (
-                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-50/95 border border-amber-200/80 text-xs min-w-0">
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#F2D8A7]/40 border border-[#E2C285] text-xs min-w-0">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10.5px] font-bold text-amber-900 truncate flex items-center gap-1.5">
+                    <p className="text-[10.5px] font-bold text-[#4A3410] truncate flex items-center gap-1.5">
                       <Pencil className="w-3 h-3 shrink-0" />
                       <span>Mengedit pesan</span>
                     </p>
-                    <p className="text-[11px] text-amber-800/85 truncate">{editingTarget.message}</p>
+                    <p className="text-[11px] text-[#6E4D12] truncate">{editingTarget.message}</p>
                   </div>
                   <button
                     type="button"
                     disabled={savingEdit}
                     onClick={cancelEditingMessage}
                     aria-label="Batalkan edit pesan"
-                    className="p-1.5 rounded-lg text-amber-700 hover:text-amber-950 hover:bg-amber-100/80 cursor-pointer shrink-0 disabled:opacity-50"
+                    className="p-1.5 rounded-lg text-[#6E4D12] hover:text-[#4A3410] hover:bg-[#F2D8A7]/60 cursor-pointer shrink-0 disabled:opacity-50"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -2043,18 +2043,18 @@ export function CommunityChatSlide({
               )}
 
               {replyTarget && !editingTarget && (
-                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/70 text-xs min-w-0">
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#E5EEE3]/70 border border-[#C6D2BF] text-xs min-w-0">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10.5px] font-bold text-[#4C1D95] truncate">
+                    <p className="text-[10.5px] font-bold text-[#243825] truncate">
                       Membalas {replyTarget.sender_name}
                     </p>
-                    <p className="text-[11px] text-slate-600 truncate">{replyTarget.message}</p>
+                    <p className="text-[11px] text-[#4A554A] truncate">{replyTarget.message}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setReplyTarget(null)}
                     aria-label="Batalkan balasan"
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white cursor-pointer shrink-0"
+                    className="p-1 rounded-lg text-[#6E786D] hover:text-[#1B271B] hover:bg-[#FFFDF8] cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -2065,19 +2065,19 @@ export function CommunityChatSlide({
               {typingUsers.length > 0 && (
                 <div
                   aria-live="polite"
-                  className="flex items-center gap-2 px-2 py-0.5 text-[11px] font-medium text-[#3730A3] min-w-0"
+                  className="flex items-center gap-2 px-2 py-0.5 text-[11px] font-medium text-[#2B3F29] min-w-0"
                 >
                   <span className="inline-flex items-center gap-1 shrink-0" aria-hidden="true">
                     <span
-                      className="w-1.5 h-1.5 rounded-full bg-[#312E81] animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full bg-[#243825] animate-bounce"
                       style={{ animationDelay: '0ms' }}
                     />
                     <span
-                      className="w-1.5 h-1.5 rounded-full bg-[#0284C7] animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full bg-[#384E35] animate-bounce"
                       style={{ animationDelay: '150ms' }}
                     />
                     <span
-                      className="w-1.5 h-1.5 rounded-full bg-[#312E81] animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full bg-[#243825] animate-bounce"
                       style={{ animationDelay: '300ms' }}
                     />
                   </span>
@@ -2105,7 +2105,7 @@ export function CommunityChatSlide({
               {(hasUploadingAttachments || hasFailedAttachments) && (
                 <p
                   className={`text-[10.5px] font-medium px-1 ${
-                    hasFailedAttachments ? 'text-rose-700' : 'text-[#3730A3]'
+                    hasFailedAttachments ? 'text-[#9A422B]' : 'text-[#2B3F29]'
                   }`}
                 >
                   {hasFailedAttachments
@@ -2141,7 +2141,7 @@ export function CommunityChatSlide({
                         ? 'Tambah keterangan lampiran (opsional)...'
                         : `Tulis pesan ke ${activeTitle}...`
                   }
-                  className="flex-1 min-w-0 min-h-[44px] max-h-24 resize-none rounded-2xl border border-indigo-200/80 bg-white/95 px-3 py-2.5 text-xs sm:text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
+                  className="flex-1 min-w-0 min-h-[44px] max-h-24 resize-none rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 py-2.5 text-xs sm:text-sm text-[#1B271B] placeholder:text-[#6E786D] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20 focus:border-[#2B3F29]"
                 />
                 <button
                   type="submit"
@@ -2153,7 +2153,7 @@ export function CommunityChatSlide({
                         (!draft.trim() && completedAttachments.length === 0 && !hasUploadingAttachments)
                   }
                   aria-label={editingTarget ? 'Simpan perubahan pesan' : 'Kirim pesan'}
-                  className="h-11 min-h-[44px] px-3.5 sm:px-4 rounded-2xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] hover:brightness-105 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+                  className="h-11 min-h-[44px] px-3.5 sm:px-4 rounded-2xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
                 >
                   {sending || savingEdit ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

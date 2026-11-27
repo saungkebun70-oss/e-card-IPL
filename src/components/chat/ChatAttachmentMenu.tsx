@@ -27,28 +27,28 @@ const ATTACHMENT_OPTIONS: AttachmentOptionMeta[] = [
     label: 'Kamera',
     subtitle: 'Ambil foto langsung',
     icon: Camera,
-    iconWrapClass: 'bg-indigo-100 text-[#312E81]',
+    iconWrapClass: 'bg-[#2B3F29] text-[#FFFDF8]',
   },
   {
     kind: 'photo',
     label: 'Galeri Foto',
     subtitle: 'JPG, PNG, WEBP · Maks 20 MB',
     icon: ImageIcon,
-    iconWrapClass: 'bg-sky-100 text-sky-700',
+    iconWrapClass: 'bg-[#E5EEE3] text-[#243825]',
   },
   {
     kind: 'document',
     label: 'Dokumen',
     subtitle: 'PDF, Excel, Word · Maks 20 MB',
     icon: FileText,
-    iconWrapClass: 'bg-amber-100 text-amber-800',
+    iconWrapClass: 'bg-[#F2D8A7]/50 text-[#4A3410]',
   },
   {
     kind: 'video',
     label: 'Video Semua Ukuran',
     subtitle: 'Semua ukuran · Kirim langsung',
     icon: Film,
-    iconWrapClass: 'bg-emerald-100 text-emerald-800',
+    iconWrapClass: 'bg-[#384E35]/15 text-[#243825]',
   },
 ];
 
@@ -219,8 +219,8 @@ export function ChatAttachmentMenu({
         title="Lampirkan foto, dokumen, atau video"
         className={`h-11 w-11 min-h-[44px] min-w-[44px] rounded-2xl border inline-flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ${
           open
-            ? 'bg-[#312E81] text-white border-[#312E81] shadow-xs'
-            : 'bg-white/95 hover:bg-indigo-50 text-[#312E81] border-indigo-200/90'
+            ? 'bg-[#2B3F29] text-[#FFFDF8] border-[#2B3F29] shadow-xs'
+            : 'bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
         }`}
       >
         {open ? <X className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
@@ -230,11 +230,11 @@ export function ChatAttachmentMenu({
         <div
           role="menu"
           aria-label="Menu lampiran Chat Cepat"
-          className="absolute left-0 bottom-14 z-40 w-[min(296px,calc(100vw-2.75rem))] sm:w-[328px] rounded-2xl bg-white/98 backdrop-blur-xl border border-indigo-200/90 shadow-xl shadow-indigo-950/15 p-2 space-y-1"
+          className="absolute left-0 bottom-14 z-40 w-[min(296px,calc(100vw-2.75rem))] sm:w-[328px] rounded-2xl bg-[#FFFDF8]/98 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_20px_50px_-12px_rgba(27,39,27,0.22)] p-2 space-y-1"
         >
-          <div className="px-2 pt-0.5 pb-1 flex items-center justify-between gap-2 border-b border-indigo-100/80">
-            <span className="text-[11px] font-bold text-[#312E81]">Kirim Lampiran</span>
-            <span className="text-[10px] text-slate-500">Pilih Jenis Berkas</span>
+          <div className="px-2 pt-0.5 pb-1 flex items-center justify-between gap-2 border-b border-[#E6E2D6]">
+            <span className="text-[11px] font-bold text-[#243825]">Kirim Lampiran</span>
+            <span className="text-[10px] text-[#6E786D]">Pilih Jenis Berkas</span>
           </div>
 
           <div className="grid grid-cols-1 gap-1 pt-0.5">
@@ -246,7 +246,7 @@ export function ChatAttachmentMenu({
                   type="button"
                   role="menuitem"
                   onClick={() => handleOpenPicker(opt.kind)}
-                  className="w-full min-h-[46px] px-2.5 py-2 rounded-xl text-left flex items-center gap-2.5 hover:bg-indigo-50/85 active:bg-indigo-100/70 transition-colors cursor-pointer min-w-0"
+                  className="w-full min-h-[46px] px-2.5 py-2 rounded-xl text-left flex items-center gap-2.5 hover:bg-[#E5EEE3]/65 active:bg-[#E5EEE3] transition-colors cursor-pointer min-w-0"
                 >
                   <span
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${opt.iconWrapClass}`}
@@ -254,10 +254,10 @@ export function ChatAttachmentMenu({
                     <Icon className="w-4 h-4" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-bold text-[#0F172A] leading-tight truncate">
+                    <span className="block text-xs font-bold text-[#1B271B] leading-tight truncate">
                       {opt.label}
                     </span>
-                    <span className="block text-[10.5px] text-slate-500 leading-tight truncate mt-0.5">
+                    <span className="block text-[10.5px] text-[#6E786D] leading-tight truncate mt-0.5">
                       {opt.subtitle}
                     </span>
                   </span>

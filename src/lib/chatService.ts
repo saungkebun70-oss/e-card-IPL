@@ -148,7 +148,7 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     shortLabel: 'Pengurus',
     description: 'Khusus Pengurus Lingkungan (Ketua, Bendahara, Pembina, Humas & Seksi Olahraga)',
     participantsLabel: 'Hanya Pengurus / Admin',
-    accentClass: 'from-[#4C1D95] to-[#7C3AED]',
+    accentClass: 'from-[#243825] to-[#384E35]',
     allowedRoles: ['admin'],
   },
   {
@@ -157,7 +157,7 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     shortLabel: 'Pengurus & Keamanan',
     description: 'Khusus Pengurus dan Petugas Keamanan / Patroli (koordinasi pos & patroli NFC)',
     participantsLabel: 'Hanya Pengurus & Keamanan',
-    accentClass: 'from-amber-600 to-orange-600',
+    accentClass: 'from-[#B5653B] to-[#C87058]',
     allowedRoles: ['admin', 'petugas'],
   },
   {
@@ -166,7 +166,7 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     shortLabel: 'Pengurus & Warga',
     description: 'Khusus Pengurus dan Warga (iuran IPL, pengumuman & aspirasi lingkungan)',
     participantsLabel: 'Hanya Pengurus & Warga',
-    accentClass: 'from-[#3730A3] to-[#6D28D9]',
+    accentClass: 'from-[#2B3F29] to-[#466143]',
     allowedRoles: ['admin', 'warga'],
   },
   {
@@ -175,7 +175,7 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     shortLabel: 'Warga & Keamanan',
     description: 'Khusus Warga dan Petugas Keamanan (laporan tamu, gerbang & bantuan darurat)',
     participantsLabel: 'Hanya Warga & Keamanan',
-    accentClass: 'from-emerald-600 to-teal-600',
+    accentClass: 'from-[#2F5E4E] to-[#3E7662]',
     allowedRoles: ['warga', 'petugas'],
   },
   {
@@ -184,7 +184,7 @@ export const CHAT_ROOMS: ChatRoomMeta[] = [
     shortLabel: 'Forum',
     description: 'Forum bersama Pengurus, Warga & Keamanan Perumahan Saung Kebun',
     participantsLabel: 'Pengurus · Warga · Keamanan',
-    accentClass: 'from-[#312E81] to-[#0284C7]',
+    accentClass: 'from-[#243825] to-[#2B3F29]',
     allowedRoles: ['admin', 'warga', 'petugas'],
   },
 ];

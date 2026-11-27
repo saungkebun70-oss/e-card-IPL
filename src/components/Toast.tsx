@@ -31,18 +31,18 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               className={`pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-xl ${
                 isSuccess
-                  ? 'bg-[#064E3B]/95 text-emerald-50 border-emerald-400/35'
+                  ? 'bg-[#243825]/95 text-[#FFFDF8] border-[#C6D2BF]/35'
                   : isError
-                    ? 'bg-red-950/95 text-red-50 border-red-400/35'
-                    : 'bg-[#3b0764]/95 text-indigo-50 border-indigo-400/30'
+                    ? 'bg-[#7E2B1C]/95 text-[#FFFDF8] border-[#C87058]/45'
+                    : 'bg-[#2B3F29]/95 text-[#FFFDF8] border-[#C6D2BF]/35'
               }`}
             >
               {isSuccess ? (
-                <CheckCircle2 className="w-5 h-5 text-[#A7F3D0] shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-[#E5EEE3] shrink-0 mt-0.5" />
               ) : isError ? (
-                <AlertCircle className="w-5 h-5 text-red-300 shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-[#F2D8A7] shrink-0 mt-0.5" />
               ) : (
-                <Info className="w-5 h-5 text-[#A7F3D0] shrink-0 mt-0.5" />
+                <Info className="w-5 h-5 text-[#E5EEE3] shrink-0 mt-0.5" />
               )}
               <p className="text-sm leading-snug flex-1">{toast.message}</p>
               <button

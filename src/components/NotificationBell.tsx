@@ -87,31 +87,31 @@ function getCategoryVisual(category: ActivityNotificationCategory) {
     case 'ipl':
       return {
         icon: CreditCard,
-        bg: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        bg: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
         label: 'IPL',
       };
     case 'finance':
       return {
         icon: Wallet,
-        bg: 'bg-teal-100 text-teal-700 border-teal-200',
+        bg: 'bg-[#E5EEE3] text-[#2B3F29] border-[#C6D2BF]',
         label: 'Kas',
       };
     case 'patrol':
       return {
         icon: ShieldAlert,
-        bg: 'bg-amber-100 text-amber-700 border-amber-200',
+        bg: 'bg-[#F2D8A7]/50 text-[#4A3410] border-[#E2C285]',
         label: 'Patroli',
       };
     case 'announcement':
       return {
         icon: Megaphone,
-        bg: 'bg-sky-100 text-sky-700 border-sky-200',
+        bg: 'bg-[#E5EEE3]/75 text-[#384E35] border-[#C6D2BF]',
         label: 'Pengumuman',
       };
     default:
       return {
         icon: Settings,
-        bg: 'bg-indigo-50 text-[#4C1D95] border-indigo-200',
+        bg: 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]',
         label: 'Sistem',
       };
   }
@@ -338,7 +338,7 @@ function SwipeableNotificationItem({
       {/* Lapisan Latar Belakang Merah Hapus — Tepat di Belakang Kartu */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-red-500 text-white flex items-center justify-between px-4 pointer-events-none"
+        className="absolute inset-0 bg-[#C87058] text-white flex items-center justify-between px-4 pointer-events-none"
       >
         <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wide">
           <Trash2 className="w-4 h-4 shrink-0" />
@@ -368,13 +368,13 @@ function SwipeableNotificationItem({
           transition: isSwiping ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
           willChange: isSwiping || dismissDirection ? 'transform, opacity' : 'auto',
         }}
-        className="relative z-10 w-full text-left px-4 py-3 flex items-start gap-3 cursor-pointer bg-white hover:bg-indigo-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4C1D95]"
+        className="relative z-10 w-full text-left px-4 py-3 flex items-start gap-3 cursor-pointer bg-[#FFFDF8] hover:bg-[#E5EEE3]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2B3F29]"
       >
-        {/* Tint lembut untuk notifikasi belum dibaca di atas dasar solid agar warna merah belakang tidak tembus */}
+        {/* Tint lembut untuk notifikasi belum dibaca di atas dasar solid */}
         {!notif.is_read && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-indigo-50/60"
+            className="pointer-events-none absolute inset-0 bg-[#E5EEE3]/50"
           />
         )}
 
@@ -400,26 +400,26 @@ function SwipeableNotificationItem({
           <div className="flex items-start justify-between gap-2">
             <p
               className={`text-xs leading-snug ${
-                notif.is_read ? 'font-semibold text-slate-800' : 'font-bold text-[#0F172A]'
+                notif.is_read ? 'font-semibold text-[#1B271B]/85' : 'font-bold text-[#1B271B]'
               }`}
             >
               {notif.title}
             </p>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap tabular-nums">
+              <span className="text-[10px] font-mono text-[#6E786D] whitespace-nowrap tabular-nums">
                 {formatRelativeTimeId(notif.created_at)}
               </span>
               {!notif.is_read && (
                 <span
                   aria-label="Belum dibaca"
-                  className="w-2 h-2 rounded-full bg-[#4C1D95] shrink-0"
+                  className="w-2 h-2 rounded-full bg-[#2B3F29] shrink-0"
                 />
               )}
             </div>
           </div>
 
           <div className="flex items-end justify-between gap-2 mt-0.5">
-            <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2 flex-1 min-w-0">
+            <p className="text-[11px] text-[#4A554A] leading-relaxed line-clamp-2 flex-1 min-w-0">
               {notif.message}
             </p>
 
@@ -436,7 +436,7 @@ function SwipeableNotificationItem({
                 e.stopPropagation();
                 triggerDismiss('left');
               }}
-              className="shrink-0 w-7 h-7 -mr-1 -mb-1 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 active:scale-[0.93] transition-all duration-150 cursor-pointer disabled:opacity-50"
+              className="shrink-0 w-7 h-7 -mr-1 -mb-1 rounded-lg flex items-center justify-center text-[#6E786D] hover:text-[#C87058] hover:bg-[#C87058]/10 active:scale-[0.93] transition-all duration-150 cursor-pointer disabled:opacity-50"
             >
               {deleting ? (
                 <LoadingSpinner size="xs" tone="danger" />
@@ -895,8 +895,8 @@ export function NotificationBell({
 
   const buttonTheme =
     variant === 'dark'
-      ? 'bg-white/10 hover:bg-white/20 text-white border-white/15'
-      : 'bg-white/90 hover:bg-indigo-50/90 hover:border-indigo-200 text-[#0F172A] border-indigo-100 shadow-xs';
+      ? 'bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] border-white/25 rounded-full'
+      : 'bg-[#FFFDF8] hover:bg-[#E5EEE3] hover:border-[#C6D2BF] text-[#243825] border-[#E6E2D6] rounded-full shadow-xs';
 
   return (
     <div
@@ -909,12 +909,12 @@ export function NotificationBell({
         aria-label={`Notifikasi aktivitas${displayUnreadCount > 0 ? ` (${displayUnreadCount} belum dibaca)` : ''}`}
         aria-expanded={open}
         data-testid="header-notification-bell"
-        className={`relative w-10 h-10 rounded-2xl border inline-flex items-center justify-center visible opacity-100 transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
+        className={`relative w-10 h-10 border inline-flex items-center justify-center visible opacity-100 transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
       >
         {bellShaking ? (
           <BellRing
             className={`w-[18px] h-[18px] animate-bell-shake ${
-              variant === 'dark' ? 'text-[#A7F3D0]' : 'text-[#4C1D95]'
+              variant === 'dark' ? 'text-[#F2D8A7]' : 'text-[#2B3F29]'
             }`}
           />
         ) : (
@@ -924,12 +924,12 @@ export function NotificationBell({
           <span
             data-testid="notification-unread-badge"
             aria-live="polite"
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold font-mono leading-none flex items-center justify-center shadow-xs ring-2 ring-white tabular-nums"
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#C87058] text-white text-[10px] font-bold font-mono leading-none flex items-center justify-center shadow-xs ring-2 ring-white tabular-nums"
           >
             {bellShaking && (
               <span
                 aria-hidden="true"
-                className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"
+                className="absolute inset-0 rounded-full bg-[#C87058] animate-ping opacity-75"
               />
             )}
             <span className="relative z-10">
@@ -939,7 +939,7 @@ export function NotificationBell({
         )}
       </button>
 
-      {/* Banner Izin Notifikasi Sopan Saat Pertama Kali Login (Dirender via Portal agar tidak terpotong backdrop-filter header) */}
+      {/* Banner Izin Notifikasi Sopan Saat Pertama Kali Login */}
       {showFloatingPrompt &&
         !open &&
         osPermission === 'prompt' &&
@@ -954,15 +954,15 @@ export function NotificationBell({
                 ? { top: desktopAnchor.top, right: desktopAnchor.right }
                 : undefined
             }
-            className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] sm:left-auto sm:w-[348px] max-w-[calc(100vw-1.5rem)] z-[72] rounded-3xl border border-indigo-200/80 bg-[var(--theme-surface-solid)] shadow-2xl p-4 text-left animate-dropdown-pop"
+            className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] sm:left-auto sm:w-[348px] max-w-[calc(100vw-1.5rem)] z-[72] rounded-3xl border border-[#C6D2BF] bg-[#FFFDF8] shadow-2xl p-4 text-left animate-dropdown-pop"
           >
             <div className="flex items-start gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 text-[#312E81] flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 mt-0.5">
                 <BellRing className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[#0F172A]">Aktifkan Notifikasi HP?</p>
-                <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                <p className="text-xs font-bold text-[#1B271B]">Aktifkan Notifikasi HP?</p>
+                <p className="text-[11px] text-[#4A554A] leading-relaxed mt-0.5">
                   Dapatkan pop-up status bar, bunyi lonceng, dan getaran saat ada info IPL, kas, atau
                   patroli baru.
                 </p>
@@ -971,7 +971,7 @@ export function NotificationBell({
                     type="button"
                     disabled={requestingPerm}
                     onClick={() => void handleAllowOsNotifications()}
-                    className="min-h-[34px] px-3.5 rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
+                    className="min-h-[34px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
                   >
                     {requestingPerm && <LoadingSpinner size="xs" tone="white" />}
                     <span>{requestingPerm ? 'Meminta izin...' : 'Aktifkan'}</span>
@@ -979,7 +979,7 @@ export function NotificationBell({
                   <button
                     type="button"
                     onClick={handleDismissPrompt}
-                    className="min-h-[34px] px-3 rounded-full bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                    className="min-h-[34px] px-3 rounded-full bg-[#F1ECE0] hover:bg-[#E6E2D6] text-[#1B271B] text-[11px] font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                   >
                     Nanti Saja
                   </button>
@@ -989,7 +989,7 @@ export function NotificationBell({
                 type="button"
                 onClick={handleDismissPrompt}
                 aria-label="Tutup tawaran izin notifikasi"
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-[#F1ECE0] cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1007,7 +1007,7 @@ export function NotificationBell({
             <div
               aria-hidden="true"
               onClick={() => setOpen(false)}
-              className="sm:hidden fixed inset-0 z-[70] bg-slate-950/50 backdrop-blur-sm animate-modal-backdrop"
+              className="sm:hidden fixed inset-0 z-[70] bg-[#1B271B]/50 backdrop-blur-sm animate-modal-backdrop"
             />
 
             <section
@@ -1019,21 +1019,20 @@ export function NotificationBell({
                   ? { top: desktopAnchor.top, right: desktopAnchor.right }
                   : undefined
               }
-              className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] max-w-[420px] mx-auto sm:mx-0 sm:left-auto sm:w-[400px] z-[75] bg-[var(--theme-surface-solid)] border border-indigo-100/90 rounded-3xl shadow-[0_24px_60px_-14px_rgba(15,23,42,0.34),0_8px_20px_-8px_rgba(49,46,129,0.16)] overflow-hidden flex flex-col max-h-[min(76dvh,560px)] animate-dropdown-pop"
+              className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] max-w-[420px] mx-auto sm:mx-0 sm:left-auto sm:w-[400px] z-[75] bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl shadow-[0_24px_60px_-14px_rgba(27,39,27,0.34)] overflow-hidden flex flex-col max-h-[min(76dvh,560px)] animate-dropdown-pop"
             >
-              {/* Header Panel Notifikasi — 2 Baris Rapi & Bebas Terpotong */}
-              <div className="px-4 pt-3.5 pb-3 border-b border-indigo-100/80 bg-gradient-to-b from-indigo-50/70 to-transparent shrink-0 space-y-2.5">
-                {/* Baris 1: Judul Penuh + Badge + Tombol Tutup */}
+              {/* Header Panel Notifikasi */}
+              <div className="px-4 pt-3.5 pb-3 border-b border-[#E6E2D6] bg-gradient-to-b from-[#E5EEE3]/50 to-transparent shrink-0 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-[#312E81] to-[#0284C7] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="w-7 h-7 rounded-xl bg-[#2B3F29] text-[#FFFDF8] flex items-center justify-center shrink-0 shadow-xs">
                       <Bell className="w-3.5 h-3.5" />
                     </span>
-                    <h2 className="text-sm font-extrabold tracking-tight text-[#0F172A] leading-none">
+                    <h2 className="text-sm font-extrabold tracking-tight text-[#1B271B] leading-none">
                       Notifikasi
                     </h2>
                     {displayUnreadCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-mono font-bold tabular-nums shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-[#C87058]/15 text-[#A44831] text-[10px] font-mono font-bold tabular-nums shrink-0">
                         {displayUnreadCount} baru
                       </span>
                     )}
@@ -1043,13 +1042,13 @@ export function NotificationBell({
                     type="button"
                     onClick={() => setOpen(false)}
                     aria-label="Tutup panel notifikasi"
-                    className="w-8 h-8 rounded-full bg-slate-100/90 hover:bg-slate-200/80 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+                    className="w-8 h-8 rounded-full bg-[#F1ECE0] hover:bg-[#E6E2D6] text-[#4A554A] hover:text-[#1B271B] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Baris 2: Aksi Cepat (Tandai Dibaca & Hapus Semua) */}
+                {/* Baris 2: Aksi Cepat */}
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
@@ -1057,7 +1056,7 @@ export function NotificationBell({
                     aria-busy={markingAll}
                     onClick={() => void handleMarkAllRead()}
                     title="Tandai semua sudah dibaca"
-                    className="px-2.5 py-1.5 rounded-xl bg-indigo-50/90 hover:bg-indigo-100/80 border border-indigo-100 text-[11px] font-semibold text-[#312E81] disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                    className="px-2.5 py-1.5 rounded-xl bg-[#E5EEE3] hover:bg-[#D3E3D0] border border-[#C6D2BF] text-[11px] font-semibold text-[#243825] disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                   >
                     {markingAll ? (
                       <LoadingSpinner size="xs" tone="theme" />
@@ -1073,7 +1072,7 @@ export function NotificationBell({
                     aria-busy={deletingAll}
                     onClick={() => void handleDeleteAll()}
                     title="Hapus semua notifikasi"
-                    className="px-2.5 py-1.5 rounded-xl bg-rose-50/90 hover:bg-rose-100/80 border border-rose-100 text-[11px] font-semibold text-rose-600 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
+                    className="px-2.5 py-1.5 rounded-xl bg-[#C87058]/10 hover:bg-[#C87058]/20 border border-[#C87058]/25 text-[11px] font-semibold text-[#A44831] disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] cursor-pointer whitespace-nowrap"
                   >
                     {deletingAll ? (
                       <LoadingSpinner size="xs" tone="danger" />
@@ -1085,12 +1084,12 @@ export function NotificationBell({
                 </div>
               </div>
 
-              {/* Strip Aktivasi Pop-up Notifikasi HP bila izin belum diberikan */}
+              {/* Strip Aktivasi Pop-up Notifikasi HP */}
               {osPermission === 'prompt' && (
-                <div className="px-4 py-2.5 border-b border-indigo-100/80 bg-indigo-50/70 flex items-center justify-between gap-2 shrink-0">
+                <div className="px-4 py-2.5 border-b border-[#E6E2D6] bg-[#E5EEE3]/50 flex items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <BellRing className="w-4 h-4 text-[#312E81] shrink-0" />
-                    <p className="text-[11px] font-medium text-[#0F172A] leading-snug">
+                    <BellRing className="w-4 h-4 text-[#243825] shrink-0" />
+                    <p className="text-[11px] font-medium text-[#1B271B] leading-snug">
                       Izinkan pop-up HP agar notifikasi muncul di status bar.
                     </p>
                   </div>
@@ -1098,15 +1097,15 @@ export function NotificationBell({
                     type="button"
                     disabled={requestingPerm}
                     onClick={() => void handleAllowOsNotifications()}
-                    className="px-3 py-1 rounded-full bg-gradient-to-r from-[#312E81] to-[#0284C7] hover:opacity-95 text-white text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap"
+                    className="px-3 py-1 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-white text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap"
                   >
                     {requestingPerm ? '...' : 'Izinkan'}
                   </button>
                 </div>
               )}
 
-              {/* Filter Kategori Cepat — Grid 4 Kolom Simetris Tanpa Scrollbar & Tanpa Terpotong */}
-              <div className="px-3.5 py-2.5 border-b border-indigo-100/70 bg-slate-50/70 shrink-0">
+              {/* Filter Kategori Cepat */}
+              <div className="px-3.5 py-2.5 border-b border-[#E6E2D6] bg-[#F6F3EA] shrink-0">
                 <div className="grid grid-cols-4 gap-1.5">
                   {FILTER_TABS.map((tab) => {
                     const isActive = filter === tab.id;
@@ -1118,8 +1117,8 @@ export function NotificationBell({
                         title={tab.label}
                         className={`px-2 py-1.5 rounded-full text-[11px] font-semibold text-center whitespace-nowrap truncate transition-all duration-150 active:scale-[0.97] cursor-pointer ${
                           isActive
-                            ? 'bg-gradient-to-r from-[#312E81] to-[#0284C7] text-white shadow-xs'
-                            : 'bg-white text-slate-600 border border-slate-200/80 hover:border-indigo-200 hover:text-[#312E81]'
+                            ? 'bg-[#2B3F29] text-white shadow-xs'
+                            : 'bg-[#FFFDF8] text-[#4A554A] border border-[#E6E2D6] hover:border-[#C6D2BF] hover:text-[#243825]'
                         }`}
                       >
                         {tab.shortLabel}
@@ -1132,22 +1131,22 @@ export function NotificationBell({
               {/* Daftar Aktivitas */}
               <div
                 key={filter}
-                className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-indigo-100/60 animate-page-enter"
+                className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-[#E6E2D6] animate-page-enter"
               >
                 {loading ? (
-                  <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-500">
+                  <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-[#6E786D]">
                     <LoadingSpinner size="md" tone="theme" label="Memuat aktivitas terbaru" />
                     <span className="text-xs">Memuat aktivitas terbaru...</span>
                   </div>
                 ) : filteredItems.length === 0 ? (
                   <div className="py-12 px-6 text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 border border-indigo-100 text-[#312E81]/75 flex items-center justify-center mx-auto shadow-2xs">
+                    <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center mx-auto shadow-2xs">
                       <Inbox className="w-5 h-5" />
                     </div>
-                    <p className="text-sm font-bold text-[#0F172A]">
+                    <p className="text-sm font-bold text-[#1B271B]">
                       Belum ada aktivitas terbaru
                     </p>
-                    <p className="text-xs text-slate-500 leading-relaxed max-w-[260px] mx-auto">
+                    <p className="text-xs text-[#6E786D] leading-relaxed max-w-[260px] mx-auto">
                       Notifikasi pembayaran IPL, kas, patroli, dan pengumuman akan muncul otomatis di
                       sini.
                     </p>
@@ -1165,9 +1164,9 @@ export function NotificationBell({
                 )}
               </div>
 
-              {/* Petunjuk Swipe-to-Delete di Bagian Bawah Daftar */}
-              <div className="px-4 py-2.5 border-t border-indigo-100/70 bg-slate-50/75 text-center shrink-0">
-                <p className="text-[11px] font-medium text-slate-500">
+              {/* Petunjuk Swipe-to-Delete */}
+              <div className="px-4 py-2.5 border-t border-[#E6E2D6] bg-[#F6F3EA] text-center shrink-0">
+                <p className="text-[11px] font-medium text-[#6E786D]">
                   ← Geser pesan ke kiri atau kanan untuk menghapus →
                 </p>
               </div>

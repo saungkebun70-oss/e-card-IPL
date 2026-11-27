@@ -564,8 +564,8 @@ export function AdminSecurityManagePanel({
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {!canEdit && (
-        <div className="flex items-start gap-2.5 rounded-2xl bg-[#FEF3C7]/90 border border-amber-200 px-4 py-3 text-xs text-amber-900">
-          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 rounded-2xl bg-[#F2D8A7]/45 border border-[#E2C285] px-4 py-3 text-xs text-[#4A3410]">
+          <ShieldAlert className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
           <span>
             Mode lihat saja ({session.jabatan || 'Pengurus'}). Pembuatan akun Petugas Keamanan &amp;
             pendaftaran titik RFID/NFC khusus akun <strong>Bendahara</strong>.
@@ -576,21 +576,21 @@ export function AdminSecurityManagePanel({
       {/* Tautan Khusus Portal Petugas Keamanan */}
       <div className="glass-hero text-white rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-emerald-300 inline-flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-[#E5EEE3] inline-flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5" />
             <span>Tautan Portal Khusus Petugas Keamanan (Terisolasi)</span>
           </p>
           <p className="text-sm font-mono font-bold text-white mt-1 truncate">
             {APP_PETUGAS_PORTAL_URL}
           </p>
-          <p className="text-[11px] text-purple-100/80 mt-0.5">
+          <p className="text-[11px] text-[#F6F3EA]/80 mt-0.5">
             Bagikan link ini ke petugas keamanan. Petugas tidak dapat mengakses data kas atau warga.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void handleCopyPortalLink()}
-          className="min-h-[42px] px-4 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap transition-colors shadow-sm"
+          className="min-h-[42px] px-4 rounded-full bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap transition-colors shadow-sm"
         >
           <Copy className="w-3.5 h-3.5" />
           <span>Salin Link /petugas</span>
@@ -599,28 +599,28 @@ export function AdminSecurityManagePanel({
 
       {/* BAGIAN A: KELOLA AKUN PETUGAS KEAMANAN */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40">
-          <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-[#4C1D95]" />
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80">
+          <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-[#243825]" />
             <span>Kelola Akun Petugas Keamanan ({petugasList.length})</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#6E786D] mt-0.5">
             Nomor HP/WA aktif petugas otomatis tampil pada widget Kontak Darurat Keamanan (24 Jam)
             di portal Warga &amp; Admin.
           </p>
         </div>
 
         {canEdit && (
-          <form onSubmit={handleSavePetugas} className="p-4 sm:p-5 bg-indigo-50/30 border-b border-indigo-100/70 space-y-3">
+          <form onSubmit={handleSavePetugas} className="p-4 sm:p-5 bg-[#F6F3EA]/65 border-b border-[#E6E2D6] space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold text-[#0F172A]">
+              <p className="text-xs font-bold text-[#1B271B]">
                 {editPetugasId ? 'Edit Akun Petugas Keamanan' : 'Tambah Petugas Keamanan Baru'}
               </p>
               {editPetugasId && (
                 <button
                   type="button"
                   onClick={resetPetugasForm}
-                  className="text-xs font-semibold text-slate-500 hover:text-[#4C1D95] cursor-pointer"
+                  className="text-xs font-semibold text-[#6E786D] hover:text-[#243825] cursor-pointer"
                 >
                   Batal Edit
                 </button>
@@ -629,7 +629,7 @@ export function AdminSecurityManagePanel({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Nama Petugas
                 </label>
                 <input
@@ -638,11 +638,11 @@ export function AdminSecurityManagePanel({
                   value={nama}
                   onChange={(e) => setNama(e.target.value)}
                   placeholder="Contoh: Pak Asep"
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Username Login
                 </label>
                 <input
@@ -651,11 +651,11 @@ export function AdminSecurityManagePanel({
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
                   placeholder="Contoh: asep"
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   No. HP / WhatsApp Aktif
                 </label>
                 <input
@@ -664,17 +664,17 @@ export function AdminSecurityManagePanel({
                   value={noHp}
                   onChange={(e) => setNoHp(e.target.value)}
                   placeholder="0812xxxxxxxx"
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Jadwal Shift
                 </label>
                 <select
                   value={shift}
                   onChange={(e) => setShift(e.target.value)}
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 >
                   {SHIFT_PETUGAS_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -684,7 +684,7 @@ export function AdminSecurityManagePanel({
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   PIN Akses (6 Digit)
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -695,13 +695,13 @@ export function AdminSecurityManagePanel({
                     required
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="flex-1 min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono font-bold tracking-widest text-[#0F172A]"
+                    className="flex-1 min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono font-bold tracking-widest text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => setPin(generateRandomPin())}
                     title="Acak PIN 6 Digit"
-                    className="min-h-[42px] min-w-[42px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 flex items-center justify-center text-slate-600 cursor-pointer"
+                    className="min-h-[42px] min-w-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 flex items-center justify-center text-[#4A554A] cursor-pointer transition-colors"
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
@@ -711,7 +711,7 @@ export function AdminSecurityManagePanel({
                 <button
                   type="submit"
                   disabled={savingPetugas}
-                  className="w-full min-h-[42px] rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                  className="w-full min-h-[42px] rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
                 >
                   {savingPetugas ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -725,9 +725,9 @@ export function AdminSecurityManagePanel({
           </form>
         )}
 
-        <div className="divide-y divide-indigo-100/60">
+        <div className="divide-y divide-[#E6E2D6]/70">
           {petugasList.length === 0 ? (
-            <p className="p-6 text-center text-xs text-slate-500">
+            <p className="p-6 text-center text-xs text-[#6E786D]">
               Belum ada akun petugas keamanan terdaftar.
             </p>
           ) : (
@@ -739,7 +739,7 @@ export function AdminSecurityManagePanel({
               return (
                 <div
                   key={p.id}
-                  className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-indigo-50/30 transition-colors"
+                  className="px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7F4EC]/70 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <UserAvatar
@@ -754,24 +754,24 @@ export function AdminSecurityManagePanel({
                     />
                     <div className="min-w-0 space-y-0.5">
                       <div className="flex flex-wrap items-center gap-x-2">
-                        <p className="text-sm font-bold text-[#0F172A]">{p.nama}</p>
-                        <span className="text-xs font-mono text-slate-500">@{p.username}</span>
+                        <p className="text-sm font-bold text-[#1B271B]">{p.nama}</p>
+                        <span className="text-xs font-mono text-[#6E786D]">@{p.username}</span>
                         <span
                           className={`text-[11px] font-semibold ${
-                            p.aktif ? 'text-[#047857]' : 'text-slate-400'
+                            p.aktif ? 'text-[#243825]' : 'text-[#6E786D]'
                           }`}
                         >
                           · {p.aktif ? 'Aktif' : 'Nonaktif'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2">
+                      <p className="text-xs text-[#6E786D] flex flex-wrap items-center gap-x-2">
                         <span>{p.shift}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="font-mono text-slate-600">+{cleanWa}</span>
+                        <span className="font-mono text-[#4A554A]">+{cleanWa}</span>
                         {canEdit && p.pin && (
                           <>
                             <span aria-hidden="true">·</span>
-                            <span className="font-mono text-[#4C1D95] font-semibold">
+                            <span className="font-mono text-[#243825] font-semibold">
                               PIN: {p.pin}
                             </span>
                           </>
@@ -786,7 +786,7 @@ export function AdminSecurityManagePanel({
                         href={`https://wa.me/${cleanWa}?text=${shareText}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="min-h-[36px] px-3 rounded-full bg-[#A7F3D0] hover:bg-[#6EE7B7] text-[#064E3B] text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                        className="min-h-[36px] px-3 rounded-full bg-[#E5EEE3] hover:bg-[#D5E4D2] border border-[#C6D2BF] text-[#243825] text-xs font-semibold inline-flex items-center gap-1 transition-colors"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span>Kirim Akses WA</span>
@@ -802,7 +802,7 @@ export function AdminSecurityManagePanel({
                           setPin(p.pin || generateRandomPin());
                           setAktif(p.aktif);
                         }}
-                        className="min-h-[36px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        className="min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Edit</span>
@@ -810,7 +810,7 @@ export function AdminSecurityManagePanel({
                       <button
                         type="button"
                         onClick={() => void handleDeletePetugas(p)}
-                        className="min-h-[36px] min-w-[36px] rounded-full border border-red-200 bg-white hover:bg-red-50 text-red-600 inline-flex items-center justify-center cursor-pointer transition-colors"
+                        className="min-h-[36px] min-w-[36px] rounded-full border border-[#E2A898] bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#9A422B] inline-flex items-center justify-center cursor-pointer transition-colors"
                         aria-label={`Hapus petugas ${p.nama}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -826,27 +826,27 @@ export function AdminSecurityManagePanel({
 
       {/* BAGIAN B: KELOLA TITIK CHECKPOINT RFID / NFC */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40">
-          <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-            <Radio className="w-4 h-4 text-[#4C1D95]" />
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80">
+          <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+            <Radio className="w-4 h-4 text-[#243825]" />
             <span>Titik Checkpoint Patroli RFID / NFC ({titikPatroliList.length})</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#6E786D] mt-0.5">
             Daftarkan lokasi pos &amp; kode UID stiker RFID/NFC yang ditempel di area perumahan.
           </p>
         </div>
 
         {canEdit && (
-          <form onSubmit={handleSaveTitik} className="p-4 sm:p-5 bg-indigo-50/30 border-b border-indigo-100/70 space-y-3">
+          <form onSubmit={handleSaveTitik} className="p-4 sm:p-5 bg-[#F6F3EA]/65 border-b border-[#E6E2D6] space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold text-[#0F172A]">
+              <p className="text-xs font-bold text-[#1B271B]">
                 {editTitikId ? 'Edit Titik Checkpoint' : 'Tambah Titik Checkpoint Baru'}
               </p>
               {editTitikId && (
                 <button
                   type="button"
                   onClick={resetTitikForm}
-                  className="text-xs font-semibold text-slate-500 hover:text-[#4C1D95] cursor-pointer"
+                  className="text-xs font-semibold text-[#6E786D] hover:text-[#243825] cursor-pointer"
                 >
                   Batal Edit
                 </button>
@@ -855,7 +855,7 @@ export function AdminSecurityManagePanel({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Nama Titik Lokasi
                 </label>
                 <input
@@ -864,11 +864,11 @@ export function AdminSecurityManagePanel({
                   value={namaLokasi}
                   onChange={(e) => setNamaLokasi(e.target.value)}
                   placeholder="Contoh: Pos Gerbang Utama"
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[#4A554A] mb-1">
                   Keterangan (Opsional)
                 </label>
                 <input
@@ -876,12 +876,12 @@ export function AdminSecurityManagePanel({
                   value={keteranganTitik}
                   onChange={(e) => setKeteranganTitik(e.target.value)}
                   placeholder="Area gerbang / sudut blok..."
-                  className="w-full min-h-[42px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-[#0F172A]"
+                  className="w-full min-h-[42px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
 
               <div className="sm:col-span-2 space-y-2">
-                <label className="block text-[11px] font-semibold text-slate-700">
+                <label className="block text-[11px] font-semibold text-[#4A554A]">
                   Kode UID Tag RFID / NFC
                 </label>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -891,7 +891,7 @@ export function AdminSecurityManagePanel({
                     value={rfidUid}
                     onChange={(e) => setRfidUid(normalizeNfcUid(e.target.value))}
                     placeholder="Contoh: 04A1B2C3"
-                    className="flex-1 min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-mono font-bold tracking-wider uppercase text-[#0F172A]"
+                    className="flex-1 min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3 text-sm font-mono font-bold tracking-wider uppercase text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
@@ -900,8 +900,8 @@ export function AdminSecurityManagePanel({
                       onClick={() => void handleScanUidFromNfc()}
                       className={`flex-1 sm:flex-initial min-h-[44px] px-4 rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 ${
                         readingNfcUid
-                          ? 'bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-300'
-                          : 'bg-[#3730A3] hover:bg-[#312E81] text-white'
+                          ? 'bg-[#C87058] hover:bg-[#B25C45] text-white ring-2 ring-[#F2D8A7]'
+                          : 'bg-[#2B3F29] hover:bg-[#243825] text-white'
                       }`}
                     >
                       {readingNfcUid ? (
@@ -925,11 +925,11 @@ export function AdminSecurityManagePanel({
                         title="Format stiker NTAG kosong ke NDEF agar tidak memicu pop-up e-Wallet di Android"
                         className={`min-h-[44px] px-3.5 rounded-full border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 ${
                           writingNfcTag
-                            ? 'border-amber-500 bg-[#FEF3C7] text-amber-800'
-                            : 'border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700'
+                            ? 'border-[#E2C285] bg-[#F2D8A7]/60 text-[#4A3410]'
+                            : 'border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B]'
                         }`}
                       >
-                        <Radio className={`w-3.5 h-3.5 shrink-0 ${writingNfcTag ? 'animate-pulse text-amber-600' : 'text-[#4C1D95]'}`} />
+                        <Radio className={`w-3.5 h-3.5 shrink-0 ${writingNfcTag ? 'animate-pulse text-[#8A5F16]' : 'text-[#243825]'}`} />
                         <span>{writingNfcTag ? 'Batal Tulis' : 'Format NDEF'}</span>
                       </button>
                     )}
@@ -942,23 +942,23 @@ export function AdminSecurityManagePanel({
                     role="status"
                     className={`rounded-2xl px-3.5 py-2.5 text-xs flex items-start justify-between gap-2.5 border ${
                       nfcFeedback.type === 'scanning'
-                        ? 'glass-hero text-emerald-200'
+                        ? 'glass-hero text-[#E5EEE3]'
                         : nfcFeedback.type === 'success'
-                          ? 'bg-[#D1FAE5]/90 border-emerald-200 text-[#047857]'
-                          : 'bg-[#FEF3C7]/90 border-amber-200 text-amber-900'
+                          ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
+                          : 'bg-[#F2D8A7]/45 border-[#E2C285] text-[#4A3410]'
                     }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       {nfcFeedback.type === 'scanning' ? (
                         <span className="relative flex h-4 w-4 mt-0.5 shrink-0 items-center justify-center">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-300 opacity-60 [animation-delay:250ms]" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C6D2BF] opacity-75" />
+                          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-[#E5EEE3] opacity-60 [animation-delay:250ms]" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E5EEE3]" />
                         </span>
                       ) : nfcFeedback.type === 'error' ? (
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
                       ) : (
-                        <Radio className="w-4 h-4 text-[#047857] shrink-0 mt-0.5" />
+                        <Radio className="w-4 h-4 text-[#243825] shrink-0 mt-0.5" />
                       )}
                       <span className="leading-relaxed font-medium">{nfcFeedback.text}</span>
                     </div>
@@ -976,7 +976,7 @@ export function AdminSecurityManagePanel({
                   </div>
                 )}
 
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-[11px] text-[#6E786D] leading-relaxed">
                   Tekan <strong>Tap / Scan Stiker NFC</strong> terlebih dahulu sebelum menempelkan
                   stiker agar Chrome Android mengambil alih sensor NFC (mencegah pop-up
                   DANA/GoPay/OVO). Gunakan stiker NFC tipe <strong>NTAG213/215/216</strong>; kartu
@@ -989,7 +989,7 @@ export function AdminSecurityManagePanel({
               <button
                 type="submit"
                 disabled={savingTitik}
-                className="min-h-[42px] px-5 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                className="min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
               >
                 {savingTitik ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1002,19 +1002,19 @@ export function AdminSecurityManagePanel({
           </form>
         )}
 
-        <div className="divide-y divide-indigo-100/60">
+        <div className="divide-y divide-[#E6E2D6]/70">
           {titikPatroliList.map((t) => (
             <div
               key={t.id}
-              className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-indigo-50/30 transition-colors"
+              className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-[#F7F4EC]/70 transition-colors"
             >
               <div className="min-w-0">
-                <p className="text-sm font-bold text-[#0F172A] inline-flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
+                <p className="text-sm font-bold text-[#1B271B] inline-flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#243825] shrink-0" />
                   <span>{t.nama_lokasi}</span>
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
-                  <span className="font-mono font-semibold text-slate-700">UID: {t.rfid_uid}</span>
+                <p className="text-xs text-[#6E786D] mt-0.5 flex flex-wrap items-center gap-x-2">
+                  <span className="font-mono font-semibold text-[#4A554A]">UID: {t.rfid_uid}</span>
                   {t.keterangan && (
                     <>
                       <span aria-hidden="true">·</span>
@@ -1033,7 +1033,7 @@ export function AdminSecurityManagePanel({
                       setRfidUid(t.rfid_uid);
                       setKeteranganTitik(t.keterangan || '');
                     }}
-                    className="min-h-[34px] px-3 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    className="min-h-[34px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -1041,7 +1041,7 @@ export function AdminSecurityManagePanel({
                   <button
                     type="button"
                     onClick={() => void handleDeleteTitik(t)}
-                    className="min-h-[34px] min-w-[34px] rounded-full border border-red-200 bg-white hover:bg-red-50 text-red-600 inline-flex items-center justify-center cursor-pointer transition-colors"
+                    className="min-h-[34px] min-w-[34px] rounded-full border border-[#E2A898] bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#9A422B] inline-flex items-center justify-center cursor-pointer transition-colors"
                     aria-label={`Hapus titik ${t.nama_lokasi}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -1055,13 +1055,13 @@ export function AdminSecurityManagePanel({
 
       {/* BAGIAN C: PETA MAPPING RUTE PATROLI & PENEMPATAN PIN INTERAKTIF */}
       <section className="glass-card rounded-3xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <ImagePlus className="w-4 h-4 text-[#4C1D95]" />
+            <h3 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <ImagePlus className="w-4 h-4 text-[#243825]" />
               <span>Peta Mapping Rute Patroli</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Unggah denah/foto peta Perumahan Saung Kebun (JPG/PNG/WebP), lalu pilih titik
               checkpoint dan klik pada peta untuk menyimpan posisi pin real-time.
             </p>
@@ -1080,7 +1080,7 @@ export function AdminSecurityManagePanel({
                 type="button"
                 disabled={uploadingMap}
                 onClick={() => mapFileInputRef.current?.click()}
-                className="min-h-[40px] px-4 rounded-full bg-[#3730A3] hover:bg-[#312E81] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors shadow-sm"
+                className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors shadow-sm"
               >
                 {uploadingMap ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1101,7 +1101,7 @@ export function AdminSecurityManagePanel({
                   type="button"
                   disabled={uploadingMap}
                   onClick={() => void handleClearCustomMap()}
-                  className="min-h-[40px] px-3.5 rounded-full border border-indigo-100 bg-white/95 hover:bg-indigo-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors"
+                  className="min-h-[40px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Denah Bawaan</span>
@@ -1116,11 +1116,11 @@ export function AdminSecurityManagePanel({
           {activeTitikList.length > 0 ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#6E786D]">
                   1. Pilih Checkpoint (Atur Pin X%, Y%) &amp; Kunci GPS Asli di Lapangan:
                 </p>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#047857] bg-[#D1FAE5] border border-emerald-200 rounded-full px-3 py-1 tabular-nums">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#047857]" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#243825] bg-[#E5EEE3] border border-[#C6D2BF] rounded-full px-3 py-1 tabular-nums">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#243825]" />
                   <span>
                     GPS Terkalibrasi:{' '}
                     {activeTitikList.filter((t) => Boolean(gpsCalibrations[t.id])).length} /{' '}
@@ -1149,8 +1149,8 @@ export function AdminSecurityManagePanel({
                       key={titik.id}
                       className={`rounded-2xl border p-2.5 transition flex flex-wrap items-center justify-between gap-2 ${
                         isSelected
-                          ? 'bg-[#EDE9FE]/85 border-[#4C1D95] shadow-xs'
-                          : 'bg-white/90 border-indigo-100 hover:border-indigo-300'
+                          ? 'bg-[#E5EEE3]/75 border-[#2B3F29] shadow-xs'
+                          : 'bg-[#FFFDF8] border-[#E6E2D6] hover:border-[#C6D2BF]'
                       }`}
                     >
                       <button
@@ -1161,19 +1161,19 @@ export function AdminSecurityManagePanel({
                         <span
                           className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
                             isSelected
-                              ? 'bg-[#4C1D95] text-white'
-                              : 'bg-indigo-50 text-[#4C1D95]'
+                              ? 'bg-[#2B3F29] text-white'
+                              : 'bg-[#E5EEE3] text-[#243825]'
                           }`}
                         >
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-slate-900 truncate">
+                            <span className="text-xs font-bold text-[#1B271B] truncate">
                               {titik.nama_lokasi}
                             </span>
                             {typeof posX === 'number' && typeof posY === 'number' && (
-                              <span className="text-[10px] font-mono tabular-nums text-slate-400">
+                              <span className="text-[10px] font-mono tabular-nums text-[#6E786D]">
                                 ({Math.round(posX)}%,{Math.round(posY)}%)
                               </span>
                             )}
@@ -1181,16 +1181,16 @@ export function AdminSecurityManagePanel({
                           {cal ? (
                             <span
                               title={`Koordinat GPS tersimpan: ${cal.lat.toFixed(6)}, ${cal.lng.toFixed(6)}`}
-                              className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-[#047857]"
+                              className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-[#243825]"
                             >
-                              <CheckCircle2 className="w-3 h-3 text-[#047857] shrink-0" />
+                              <CheckCircle2 className="w-3 h-3 text-[#243825] shrink-0" />
                               <span>GPS Terkalibrasi</span>
-                              <span className="font-mono text-slate-400 hidden sm:inline tabular-nums">
+                              <span className="font-mono text-[#6E786D] hidden sm:inline tabular-nums">
                                 · {cal.lat.toFixed(5)}, {cal.lng.toFixed(5)}
                               </span>
                             </span>
                           ) : (
-                            <span className="mt-0.5 block text-[10px] text-slate-400">
+                            <span className="mt-0.5 block text-[10px] text-[#6E786D]">
                               Belum kunci GPS asli
                             </span>
                           )}
@@ -1204,8 +1204,8 @@ export function AdminSecurityManagePanel({
                           onClick={() => handleLockGpsForPos(titik)}
                           className={`min-h-[34px] px-3 py-1.5 rounded-full border text-[11px] font-semibold inline-flex items-center gap-1.5 transition shrink-0 cursor-pointer disabled:opacity-60 ${
                             cal
-                              ? 'bg-[#D1FAE5] border-emerald-200 text-[#047857] hover:bg-[#A7F3D0]'
-                              : 'bg-indigo-50 border-indigo-200 text-[#3730A3] hover:bg-indigo-100'
+                              ? 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825] hover:bg-[#D5E4D2]'
+                              : 'bg-[#F7F4EC] border-[#E6E2D6] text-[#2B3F29] hover:bg-[#E5EEE3]'
                           }`}
                           title="Berdiri di lokasi Pos ini lalu klik untuk mengambil koordinat GPS asli HP Anda"
                         >
@@ -1222,7 +1222,7 @@ export function AdminSecurityManagePanel({
                 })}
               </div>
 
-              <p className="text-[11px] text-slate-600 bg-indigo-50/45 border border-indigo-100/80 rounded-2xl px-3.5 py-2.5">
+              <p className="text-[11px] text-[#4A554A] bg-[#F7F4EC]/80 border border-[#E6E2D6] rounded-2xl px-3.5 py-2.5">
                 <strong>Tips Kalibrasi GPS 3D:</strong> Berdirilah di lokasi Pos 1 s/d Pos 5 sambil
                 membuka halaman ini, lalu klik <strong>Kunci GPS Asli</strong>. Kunci minimal{' '}
                 <strong>2 pos</strong> (ideal <strong>≥ 3 pos</strong>) agar pergerakan Live
@@ -1230,7 +1230,7 @@ export function AdminSecurityManagePanel({
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl bg-indigo-50/40 border border-dashed border-indigo-200 px-4 py-3 text-xs text-slate-500">
+            <div className="rounded-2xl bg-[#F7F4EC]/80 border border-dashed border-[#C6D2BF] px-4 py-3 text-xs text-[#6E786D]">
               Tambahkan minimal 1 Titik Checkpoint RFID / NFC di atas untuk mulai memetakan pin di
               denah perumahan.
             </div>

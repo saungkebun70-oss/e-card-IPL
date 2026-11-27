@@ -238,19 +238,19 @@ export function AdminDelegationPermissionsPanel({
   return (
     <div className="space-y-6 max-w-5xl mx-auto min-w-0">
       {/* Header Status Kepemilikan Hak Pengaturan Terpusat */}
-      <section className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 space-y-3">
+      <section className="rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] p-4 sm:p-5 space-y-3 shadow-xs">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-emerald-300 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#243825] text-[#E5EEE3] flex items-center justify-center shrink-0">
               <KeyRound className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm sm:text-base font-bold text-[#0F172A] leading-snug">
+              <h3 className="text-sm sm:text-base font-bold text-[#1B271B] leading-snug">
                 {isBendaharaOwner
                   ? 'Pusat Delegasi Hak & Eksklusivitas Akun Pengurus'
                   : 'Status Hak Pengaturan Sistem Terpusat'}
               </h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
                 {isBendaharaOwner
                   ? 'Pemilik default penuh seluruh pengaturan sistem adalah Bendahara (Andriansyah). Atur modul yang diizinkan untuk Pengurus lain serta kelola pemulihan otomatis akun Warga/Blok saat status Pengurus dicabut.'
                   : 'Pemilik penuh Pengaturan Sistem Terpusat adalah Bendahara. Anda hanya dapat membuka dan mengubah modul yang statusnya Diizinkan oleh Bendahara.'}
@@ -262,9 +262,9 @@ export function AdminDelegationPermissionsPanel({
             type="button"
             disabled={loadingPermissions}
             onClick={() => void refreshPermissions()}
-            className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-60"
+            className="min-h-[40px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-60 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingPermissions ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#2B3F29] ${loadingPermissions ? 'animate-spin' : ''}`} />
             <span>Segarkan Status</span>
           </button>
         </div>
@@ -272,9 +272,9 @@ export function AdminDelegationPermissionsPanel({
         {permissionsError && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2.5 text-xs text-rose-800"
+            className="flex items-start gap-2 rounded-xl bg-[#C87058]/10 border border-[#E2A898] px-3.5 py-2.5 text-xs text-[#7A311E]"
           >
-            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <ShieldAlert className="w-4 h-4 text-[#C87058] shrink-0 mt-0.5" />
             <span>{permissionsError}</span>
           </div>
         )}
@@ -283,10 +283,10 @@ export function AdminDelegationPermissionsPanel({
       {/* Ringkasan 6 Modul Pengaturan Terpusat Untuk Caller */}
       <section className="space-y-3 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#6E786D]">
             Ringkasan 6 Modul Pengaturan Terpusat ({session.jabatan || 'Pengurus'})
           </h4>
-          <span className="text-xs font-semibold text-slate-600 tabular-nums">
+          <span className="text-xs font-semibold text-[#4A554A] tabular-nums">
             {accessControl.grantedKeys.length} dari {CENTRAL_SETTING_DEFINITIONS.length} modul terbuka
           </span>
         </div>
@@ -299,27 +299,29 @@ export function AdminDelegationPermissionsPanel({
             return (
               <div
                 key={def.key}
-                className={`rounded-2xl border p-4 flex flex-col justify-between gap-3 bg-white ${
-                  granted ? 'border-emerald-200' : 'border-slate-200 bg-slate-50/70'
+                className={`rounded-2xl border p-4 flex flex-col justify-between gap-3 ${
+                  granted
+                    ? 'border-[#C6D2BF] bg-[#FFFDF8] shadow-2xs'
+                    : 'border-[#E6E2D6] bg-[#F7F4EC]/75'
                 }`}
               >
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-bold text-[#0F172A] leading-snug">{def.label}</p>
+                    <p className="text-sm font-bold text-[#1B271B] leading-snug">{def.label}</p>
                     {granted ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-4 h-4 text-[#2B3F29] shrink-0 mt-0.5" />
                     ) : (
-                      <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      <Lock className="w-4 h-4 text-[#6E786D] shrink-0 mt-0.5" />
                     )}
                   </div>
-                  <p className="text-[11px] font-mono text-slate-400 truncate">{def.key}</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">{def.description}</p>
+                  <p className="text-[11px] font-mono text-[#6E786D] truncate">{def.key}</p>
+                  <p className="text-xs text-[#4A554A] leading-relaxed">{def.description}</p>
                 </div>
 
-                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="pt-2.5 border-t border-[#E6E2D6] flex items-center justify-between gap-2">
                   <span
                     className={`text-xs font-semibold ${
-                      granted ? 'text-emerald-700' : 'text-slate-500'
+                      granted ? 'text-[#243825]' : 'text-[#6E786D]'
                     }`}
                   >
                     {isBendaharaOwner
@@ -333,7 +335,7 @@ export function AdminDelegationPermissionsPanel({
                     <button
                       type="button"
                       onClick={() => onNavigateTab(linkedTab.tab)}
-                      className="min-h-[36px] px-2.5 rounded-lg text-xs font-semibold text-indigo-700 hover:bg-indigo-50 inline-flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
+                      className="min-h-[36px] px-2.5 rounded-lg text-xs font-semibold text-[#2B3F29] hover:bg-[#E5EEE3] inline-flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap transition-colors"
                     >
                       <span>{linkedTab.label}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -347,21 +349,21 @@ export function AdminDelegationPermissionsPanel({
       </section>
 
       {/* Matriks Delegasi Hak Pengaturan (Khusus Bendahara) */}
-      <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden min-w-0">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+      <section className="rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] overflow-hidden min-w-0 shadow-xs">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-indigo-700 shrink-0" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#2B3F29] shrink-0" />
               <span>Matriks Delegasi Hak Pengaturan Pengurus</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               {isBendaharaOwner
                 ? 'Aktifkan atau cabut izin modul per pengurus secara langsung (tersimpan ke pengurus_settings_permissions & audit_logs).'
                 : 'Hanya Bendahara (Andriansyah) yang dapat mengubah status delegasi hak pengaturan.'}
             </p>
           </div>
           {!isBendaharaOwner && (
-            <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-[#6E786D] inline-flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" />
               <span>Khusus Bendahara</span>
             </span>
@@ -369,8 +371,8 @@ export function AdminDelegationPermissionsPanel({
         </div>
 
         {!isBendaharaOwner ? (
-          <div className="p-4 sm:p-5 text-xs text-slate-600 flex items-start gap-2.5 bg-slate-50/70">
-            <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+          <div className="p-4 sm:p-5 text-xs text-[#4A554A] flex items-start gap-2.5 bg-[#F7F4EC]/70">
+            <Lock className="w-4 h-4 text-[#6E786D] shrink-0 mt-0.5" />
             <span>
               Panel pengendali delegasi dikunci karena Anda bukan Bendahara aktif. Hubungi{' '}
               <strong>Andriansyah (Bendahara)</strong> bila memerlukan akses sementara pada modul
@@ -384,7 +386,7 @@ export function AdminDelegationPermissionsPanel({
               <div className="space-y-1.5">
                 <label
                   htmlFor="delegation-pengurus-select"
-                  className="block text-xs font-semibold text-slate-700"
+                  className="block text-xs font-semibold text-[#1B271B]"
                 >
                   Pilih Pengurus untuk Diatur Izinnya
                 </label>
@@ -392,7 +394,7 @@ export function AdminDelegationPermissionsPanel({
                   id="delegation-pengurus-select"
                   value={selectedMobilePengurus?.username || ''}
                   onChange={(e) => setSelectedMobileUsername(e.target.value)}
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-[#0F172A] focus:border-indigo-700 focus:outline-none"
+                  className="w-full min-h-[44px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-sm font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 >
                   {delegablePengurus.map((acc) => (
                     <option key={acc.username} value={acc.username}>
@@ -405,7 +407,7 @@ export function AdminDelegationPermissionsPanel({
 
               {selectedMobilePengurus && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#E6E2D6]">
                     <div className="flex items-center gap-3 min-w-0">
                       <UserAvatar
                         name={selectedMobilePengurus.nama}
@@ -417,20 +419,20 @@ export function AdminDelegationPermissionsPanel({
                         size="sm"
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-[#0F172A] truncate">
+                        <p className="text-sm font-bold text-[#1B271B] truncate">
                           {selectedMobilePengurus.nama}
                         </p>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="text-xs text-[#6E786D] truncate">
                           {selectedMobilePengurus.jabatan} · Blok {selectedMobilePengurus.blokRumah} ·{' '}
                           <span className="font-mono">@{selectedMobilePengurus.username}</span>
                         </p>
                       </div>
                     </div>
                     <span
-                      className={`text-xs font-semibold shrink-0 ${
+                      className={`text-xs font-semibold shrink-0 px-2.5 py-0.5 rounded-full border ${
                         selectedMobilePengurus.is_active_pengurus === false
-                          ? 'text-amber-700'
-                          : 'text-emerald-700'
+                          ? 'bg-[#F2D8A7]/45 border-[#E2C285] text-[#4A3410]'
+                          : 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]'
                       }`}
                     >
                       {selectedMobilePengurus.is_active_pengurus === false ? 'Nonaktif' : 'Aktif'}
@@ -438,13 +440,13 @@ export function AdminDelegationPermissionsPanel({
                   </div>
 
                   {selectedMobilePengurus.is_active_pengurus === false && (
-                    <div className="rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-xs text-amber-900">
+                    <div className="rounded-xl bg-[#F2D8A7]/45 border border-[#E2C285] px-3.5 py-2.5 text-xs text-[#4A3410]">
                       Status Pengurus {selectedMobilePengurus.nama} sedang dinonaktifkan sehingga
                       seluruh izin pengaturan terpusat otomatis dicabut.
                     </div>
                   )}
 
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="divide-y divide-[#E6E2D6] border border-[#E6E2D6] rounded-xl overflow-hidden">
                     {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => {
                       const status = getPermissionStatus(selectedMobilePengurus.username, def.key);
                       const isGranted = status === 'granted';
@@ -456,16 +458,16 @@ export function AdminDelegationPermissionsPanel({
                       return (
                         <div
                           key={def.key}
-                          className="p-3.5 flex items-center justify-between gap-3 bg-white"
+                          className="p-3.5 flex items-center justify-between gap-3 bg-[#FFFDF8]"
                         >
                           <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-semibold text-[#0F172A]">
+                            <p className="text-xs sm:text-sm font-semibold text-[#1B271B]">
                               {def.label}
                             </p>
-                            <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                            <p className="text-[11px] font-mono text-[#6E786D] truncate mt-0.5">
                               {def.key}
                             </p>
-                            <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                            <p className="text-[11px] text-[#4A554A] mt-0.5 leading-snug">
                               {def.description}
                             </p>
                           </div>
@@ -480,7 +482,7 @@ export function AdminDelegationPermissionsPanel({
                               void handleToggleCell(selectedMobilePengurus, def.key, status)
                             }
                             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors shrink-0 ${
-                              isGranted ? 'bg-indigo-700' : 'bg-slate-300'
+                              isGranted ? 'bg-[#2B3F29]' : 'bg-[#C6D2BF]'
                             } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             {isBusy ? (
@@ -505,31 +507,31 @@ export function AdminDelegationPermissionsPanel({
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <tr className="bg-[#F6F3EA] border-b border-[#E6E2D6] text-[11px] font-bold uppercase tracking-wider text-[#6E786D]">
                     <th className="py-3 px-4 min-w-[210px]">Pengurus</th>
                     {CENTRAL_SETTING_DEFINITIONS.map((def: CentralSettingDefinition) => (
                       <th key={def.key} className="py-3 px-2.5 text-center">
-                        <span className="block text-slate-700">{SHORT_SETTING_LABELS[def.key]}</span>
-                        <span className="block font-mono font-normal text-[10px] text-slate-400 normal-case mt-0.5">
+                        <span className="block text-[#1B271B]">{SHORT_SETTING_LABELS[def.key]}</span>
+                        <span className="block font-mono font-normal text-[10px] text-[#6E786D] normal-case mt-0.5">
                           {def.key.replace('settings.', '')}
                         </span>
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-[#E6E2D6] text-xs">
                   {delegablePengurus.map((acc) => {
                     const accAvatar =
                       acc.avatar_url || avatarMap[buildAvatarKey('admin', acc.username)] || null;
                     const isInactive = acc.is_active_pengurus === false;
                     return (
-                      <tr key={acc.username} className="hover:bg-slate-50/70 transition-colors">
+                      <tr key={acc.username} className="hover:bg-[#F7F4EC]/70 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <UserAvatar name={acc.nama} src={accAvatar} size="xs" />
                             <div className="min-w-0">
-                              <p className="font-bold text-[#0F172A] truncate">{acc.nama}</p>
-                              <p className="text-[11px] text-slate-500 truncate">
+                              <p className="font-bold text-[#1B271B] truncate">{acc.nama}</p>
+                              <p className="text-[11px] text-[#6E786D] truncate">
                                 {acc.jabatan} · <span className="font-mono">@{acc.username}</span>
                                 {isInactive ? ' · Nonaktif' : ''}
                               </p>
@@ -554,7 +556,7 @@ export function AdminDelegationPermissionsPanel({
                                   disabled={disabled}
                                   onClick={() => void handleToggleCell(acc, def.key, status)}
                                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                    isGranted ? 'bg-indigo-700' : 'bg-slate-300'
+                                    isGranted ? 'bg-[#2B3F29]' : 'bg-[#C6D2BF]'
                                   } ${disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                   {isBusy ? (
@@ -570,10 +572,10 @@ export function AdminDelegationPermissionsPanel({
                                 <span
                                   className={`text-[10px] font-semibold ${
                                     isInactive
-                                      ? 'text-slate-400'
+                                      ? 'text-[#6E786D]'
                                       : isGranted
-                                        ? 'text-emerald-700'
-                                        : 'text-slate-400'
+                                        ? 'text-[#243825]'
+                                        : 'text-[#6E786D]'
                                   }`}
                                 >
                                   {isInactive ? 'Dicabut' : isGranted ? 'Diizinkan' : 'Terkunci'}
@@ -593,20 +595,20 @@ export function AdminDelegationPermissionsPanel({
       </section>
 
       {/* Panel Eksklusivitas Akun Pengurus <-> Pemulihan Otomatis Akun Warga/Blok */}
-      <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden min-w-0">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+      <section className="rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] overflow-hidden min-w-0 shadow-xs">
+        <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-[#2B3F29] shrink-0" />
               <span>Eksklusivitas Akun Pengurus &amp; Pemulihan Otomatis Akun Warga</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Pengurus aktif diblokir dari jalur login Warga/Blok. Bila status Pengurus dicabut,
               akun Warga/Blok miliknya otomatis dipulihkan dan seluruh hak Pengurus langsung dicabut.
             </p>
           </div>
           {!canManageResidentSync && (
-            <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-[#6E786D] inline-flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" />
               <span>Butuh izin settings.residents_blocks</span>
             </span>
@@ -616,17 +618,17 @@ export function AdminDelegationPermissionsPanel({
         {pendingSyncTarget && (
           <form
             onSubmit={handleConfirmSyncStatus}
-            className="p-4 sm:p-5 bg-amber-50 border-b border-amber-200 space-y-3"
+            className="p-4 sm:p-5 bg-[#F2D8A7]/35 border-b border-[#E2C285] space-y-3"
           >
             <div className="flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <ShieldAlert className="w-4 h-4 text-[#8A5F16] shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-bold text-amber-950">
+                <p className="text-xs sm:text-sm font-bold text-[#4A3410]">
                   {pendingSyncTarget.nextActivePengurus
                     ? `Aktifkan kembali ${pendingSyncTarget.account.nama} (@${pendingSyncTarget.account.username}) sebagai Pengurus eksklusif?`
                     : `Nonaktifkan status Pengurus ${pendingSyncTarget.account.nama} (@${pendingSyncTarget.account.username}) & pulihkan akun Warga Blok ${pendingSyncTarget.account.blokRumah}?`}
                 </p>
-                <p className="text-xs text-amber-900 mt-0.5 leading-relaxed">
+                <p className="text-xs text-[#4A3410] mt-0.5 leading-relaxed">
                   {pendingSyncTarget.nextActivePengurus
                     ? `Akun Warga Blok ${pendingSyncTarget.account.blokRumah} akan ditangguhkan sehingga tidak bisa masuk lewat Portal Warga.`
                     : `Akun Warga Blok ${pendingSyncTarget.account.blokRumah} akan langsung berstatus aktif kembali dan seluruh izin pengaturan Pengurus akan otomatis dicabut.`}
@@ -640,7 +642,7 @@ export function AdminDelegationPermissionsPanel({
                 value={syncReason}
                 onChange={(e) => setSyncReason(e.target.value)}
                 placeholder="Catatan alasan perubahan (opsional, tercatat di audit log)"
-                className="flex-1 min-h-[42px] rounded-xl border border-amber-300 bg-white px-3 text-xs text-[#0F172A] focus:border-indigo-700 focus:outline-none"
+                className="flex-1 min-h-[42px] rounded-xl border border-[#E2C285] bg-[#FFFFFF] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
               />
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -649,17 +651,17 @@ export function AdminDelegationPermissionsPanel({
                     setPendingSyncTarget(null);
                     setSyncReason('');
                   }}
-                  className="min-h-[42px] px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  className="min-h-[42px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F7F4EC] text-xs font-semibold text-[#1B271B] cursor-pointer transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={Boolean(mutatingKey)}
-                  className={`min-h-[42px] px-4 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ${
+                  className={`min-h-[42px] px-4 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors ${
                     pendingSyncTarget.nextActivePengurus
-                      ? 'bg-emerald-700 hover:bg-emerald-800'
-                      : 'bg-rose-700 hover:bg-rose-800'
+                      ? 'bg-[#2B3F29] hover:bg-[#243825]'
+                      : 'bg-[#C87058] hover:bg-[#B25C45]'
                   }`}
                 >
                   {mutatingKey?.startsWith('sync:') && (
@@ -676,7 +678,7 @@ export function AdminDelegationPermissionsPanel({
           </form>
         )}
 
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-[#E6E2D6]">
           {pengurusAccounts.map((acc) => {
             const normUser = normalizePengurusUsername(acc.username);
             const isTargetBendahara =
@@ -694,16 +696,16 @@ export function AdminDelegationPermissionsPanel({
                 <div className="flex items-start sm:items-center gap-3 min-w-0">
                   <UserAvatar name={acc.nama} src={accAvatar} size="sm" />
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#0F172A] truncate">
-                      {acc.nama} · <span className="font-semibold text-slate-600">{acc.jabatan}</span>
+                    <p className="text-sm font-bold text-[#1B271B] truncate">
+                      {acc.nama} · <span className="font-semibold text-[#4A554A]">{acc.jabatan}</span>
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5 break-words">
+                    <p className="text-xs text-[#6E786D] mt-0.5 break-words">
                       <span className="font-mono">@{acc.username}</span> · Blok{' '}
-                      <span className="font-mono font-semibold text-slate-700">{acc.blokRumah}</span>{' '}
+                      <span className="font-mono font-semibold text-[#1B271B]">{acc.blokRumah}</span>{' '}
                       ·{' '}
                       <span
                         className={`font-semibold ${
-                          isActivePengurus ? 'text-emerald-700' : 'text-amber-700'
+                          isActivePengurus ? 'text-[#243825]' : 'text-[#8A5F16]'
                         }`}
                       >
                         {isActivePengurus
@@ -716,11 +718,11 @@ export function AdminDelegationPermissionsPanel({
 
                 <div className="flex items-center justify-end shrink-0">
                   {isTargetBendahara ? (
-                    <span className="text-xs font-semibold text-slate-500">
+                    <span className="text-xs font-semibold text-[#6E786D]">
                       Bendahara Utama (Wajib Aktif)
                     </span>
                   ) : !canManageResidentSync ? (
-                    <span className="text-xs text-slate-400 inline-flex items-center gap-1">
+                    <span className="text-xs text-[#6E786D] inline-flex items-center gap-1">
                       <Lock className="w-3.5 h-3.5" />
                       <span>Terkunci — Atur oleh Bendahara</span>
                     </span>
@@ -737,8 +739,8 @@ export function AdminDelegationPermissionsPanel({
                       }}
                       className={`min-h-[40px] px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap ${
                         isActivePengurus
-                          ? 'border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800'
-                          : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                          ? 'border-[#E2A898] bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E]'
+                          : 'border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825]'
                       }`}
                     >
                       {isSyncingThis ? (
@@ -763,14 +765,14 @@ export function AdminDelegationPermissionsPanel({
       </section>
 
       {/* Riwayat Audit Delegasi & Status Pengurus */}
-      <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden min-w-0">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+      <section className="rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] overflow-hidden min-w-0 shadow-xs">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 flex items-center justify-between gap-2">
           <div>
-            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-              <History className="w-4 h-4 text-indigo-700 shrink-0" />
+            <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+              <History className="w-4 h-4 text-[#2B3F29] shrink-0" />
               <span>Riwayat Audit Delegasi &amp; Status Pengurus</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6E786D] mt-0.5">
               Rekam jejak perubahan hak oleh Bendahara, sinkronisasi status Pengurus/Warga, dan
               blokir login eksklusif.
             </p>
@@ -780,42 +782,42 @@ export function AdminDelegationPermissionsPanel({
               type="button"
               disabled={loadingAudit}
               onClick={() => void loadDelegationAudit()}
-              className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="min-h-[36px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingAudit ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-[#2B3F29] ${loadingAudit ? 'animate-spin' : ''}`} />
               <span>Muat Ulang</span>
             </button>
           )}
         </div>
 
         {!canViewAuditLogs ? (
-          <div className="p-4 sm:p-5 text-xs text-slate-500 flex items-center gap-2">
-            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+          <div className="p-4 sm:p-5 text-xs text-[#6E786D] flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[#6E786D] shrink-0" />
             <span>Terkunci — Atur oleh Bendahara (butuh izin settings.reports_audit).</span>
           </div>
         ) : loadingAudit ? (
-          <div className="p-6 text-center text-xs text-slate-500">
+          <div className="p-6 text-center text-xs text-[#6E786D]">
             Memuat riwayat audit delegasi...
           </div>
         ) : auditEntries.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500">
+          <div className="p-6 text-center text-xs text-[#6E786D]">
             Belum ada catatan perubahan delegasi izin atau status Pengurus.
           </div>
         ) : (
-          <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+          <div className="max-h-72 overflow-y-auto divide-y divide-[#E6E2D6]">
             {auditEntries.map((log) => (
               <div key={log.id} className="px-4 sm:px-5 py-3 text-xs space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-[#0F172A]">
+                  <span className="font-semibold text-[#1B271B]">
                     {log.actor_name}{' '}
-                    <span className="font-mono font-normal text-slate-500">({log.actor_id})</span>
+                    <span className="font-mono font-normal text-[#6E786D]">({log.actor_id})</span>
                   </span>
-                  <span className="font-mono text-[11px] text-slate-400 tabular-nums">
+                  <span className="font-mono text-[11px] text-[#6E786D] tabular-nums">
                     {formatTanggalWaktu(log.timestamp)}
                   </span>
                 </div>
-                <p className="text-slate-700 leading-relaxed">{log.summary}</p>
-                <p className="text-[11px] font-mono text-indigo-700">
+                <p className="text-[#4A554A] leading-relaxed">{log.summary}</p>
+                <p className="text-[11px] font-mono text-[#384E35]">
                   {log.action} · {log.entity}
                 </p>
               </div>

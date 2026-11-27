@@ -348,18 +348,18 @@ export function AdminCentralSettingsPanel({
   return (
     <div className="space-y-5 max-w-4xl mx-auto min-w-0">
       {/* Header Status Kepemilikan Pengaturan Terpusat */}
-      <section className="rounded-2xl border border-indigo-100/80 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+      <section className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-4 sm:p-5 space-y-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3.5">
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-xs font-semibold text-[#4A583E]">
+            <p className="text-xs font-semibold text-[#384E35]">
               {isBendahara
                 ? 'Otoritas Penuh Bendahara · Pemilik Pengaturan Terpusat'
                 : `${session.jabatan || 'Pengurus'} · Akses Pengaturan Terdelegasi`}
             </p>
-            <h3 className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight leading-snug">
+            <h3 className="text-base sm:text-lg font-bold text-[#1B271B] tracking-tight leading-snug">
               Pusat Pengaturan &amp; Delegasi Hak Pengurus
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-[#4A554A] leading-relaxed">
               {isBendahara
                 ? 'Kelola seluruh 6 modul pengaturan sistem, delegasikan hak modul ke Pengurus lain, serta sinkronkan pemulihan otomatis akun Warga.'
                 : 'Hanya modul yang diberi status Diizinkan (granted) oleh Bendahara yang dapat diakses dan diubah pada sesi Anda.'}
@@ -367,9 +367,9 @@ export function AdminCentralSettingsPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3.5 py-2 text-left sm:text-right">
-              <p className="text-[11px] font-medium text-slate-500">Modul Aktif</p>
-              <p className="text-sm font-bold font-mono tabular-nums text-[#0F172A]">
+            <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/55 px-3.5 py-2 text-left sm:text-right">
+              <p className="text-[11px] font-medium text-[#4A554A]">Modul Aktif</p>
+              <p className="text-sm font-bold font-mono tabular-nums text-[#243825]">
                 {myGrantedCount} / {CENTRAL_SETTING_MODULES.length}
               </p>
             </div>
@@ -378,10 +378,10 @@ export function AdminCentralSettingsPanel({
                 type="button"
                 onClick={() => void loadBendaharaData()}
                 disabled={loadingPerms || loadingSync}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-xs sm:text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                className="min-h-[42px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-xs sm:text-sm font-medium text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 shrink-0 ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
+                  className={`w-3.5 h-3.5 shrink-0 text-[#2B3F29] ${loadingPerms || loadingSync ? 'animate-spin' : ''}`}
                 />
                 <span className="whitespace-nowrap">Sinkronkan</span>
               </button>
@@ -429,13 +429,13 @@ export function AdminCentralSettingsPanel({
                   onClick={() => setSubView(item.id)}
                   className={`min-w-0 min-h-[42px] rounded-xl border px-3.5 py-2.5 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 whitespace-normal sm:whitespace-nowrap text-center leading-snug transition-all cursor-pointer ${item.spanClass} ${
                     active
-                      ? 'bg-[#4C1D95] border-[#4C1D95] text-white shadow-xs'
-                      : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-indigo-50/60 hover:border-indigo-200 hover:text-[#4C1D95]'
+                      ? 'bg-[#2B3F29] border-[#2B3F29] text-white shadow-xs'
+                      : 'border-[#E6E2D6] bg-[#F7F4EC] text-[#4A554A] hover:bg-[#E5EEE3] hover:border-[#C6D2BF] hover:text-[#243825]'
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 shrink-0 ${
-                      active ? 'text-emerald-300' : 'text-[#4C1D95]/75'
+                      active ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'
                     }`}
                   />
                   <span>{item.label}</span>
@@ -464,8 +464,8 @@ export function AdminCentralSettingsPanel({
                   key={mod.key}
                   className={`rounded-2xl border p-4 sm:p-5 flex flex-col justify-between gap-3.5 transition-colors ${
                     isGranted
-                      ? 'border-indigo-100/90 bg-white shadow-2xs'
-                      : 'border-slate-200/80 bg-slate-50/85'
+                      ? 'border-[#C6D2BF] bg-[#FFFDF8] shadow-xs'
+                      : 'border-[#E6E2D6] bg-[#F7F4EC]/85'
                   }`}
                 >
                   <div className="space-y-3.5 min-w-0">
@@ -474,17 +474,17 @@ export function AdminCentralSettingsPanel({
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isGranted
-                              ? 'bg-indigo-50 text-[#4C1D95] border border-indigo-100'
-                              : 'bg-slate-200/70 text-slate-500 border border-slate-200'
+                              ? 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
+                              : 'bg-[#F6F3EA] text-[#6E786D] border border-[#E6E2D6]'
                           }`}
                         >
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-bold text-[#0F172A] leading-snug">
+                          <h4 className="text-sm font-bold text-[#1B271B] leading-snug">
                             {mod.label}
                           </h4>
-                          <p className="text-[11px] font-mono text-slate-500 break-all mt-0.5 leading-snug">
+                          <p className="text-[11px] font-mono text-[#6E786D] break-all mt-0.5 leading-snug">
                             {mod.key}
                           </p>
                         </div>
@@ -493,8 +493,8 @@ export function AdminCentralSettingsPanel({
                       <span
                         className={`shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[11px] font-semibold inline-flex items-center gap-1 ${
                           isGranted
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-slate-200 bg-slate-100 text-slate-600'
+                            ? 'border-[#C6D2BF] bg-[#E5EEE3] text-[#243825]'
+                            : 'border-[#E6E2D6] bg-[#F6F3EA] text-[#6E786D]'
                         }`}
                       >
                         {isGranted ? (
@@ -506,11 +506,11 @@ export function AdminCentralSettingsPanel({
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed">{mod.description}</p>
+                    <p className="text-xs text-[#4A554A] leading-relaxed">{mod.description}</p>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <span className="text-[11px] text-slate-500 leading-snug min-w-0">
+                  <div className="pt-3 border-t border-[#E6E2D6] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <span className="text-[11px] text-[#6E786D] leading-snug min-w-0">
                       {isGranted
                         ? `${mod.scopeNote} · ${
                             isBendahara ? 'Otoritas Bendahara' : 'Delegasi Bendahara'
@@ -523,7 +523,7 @@ export function AdminCentralSettingsPanel({
                         <button
                           type="button"
                           onClick={() => setChatModExpanded((prev) => !prev)}
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                          className="min-h-[38px] px-3.5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
                         >
                           <span>{chatModExpanded ? 'Tutup Kebijakan' : 'Atur Moderasi'}</span>
                         </button>
@@ -532,7 +532,7 @@ export function AdminCentralSettingsPanel({
                           <button
                             type="button"
                             onClick={() => onNavigateTab('bot_wa')}
-                            className="min-h-[38px] px-3 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            className="min-h-[38px] px-3 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Bot className="w-3.5 h-3.5 shrink-0" />
                             <span>Bot WA</span>
@@ -540,7 +540,7 @@ export function AdminCentralSettingsPanel({
                           <button
                             type="button"
                             onClick={() => onNavigateTab('arsip_drive')}
-                            className="min-h-[38px] px-3 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-[#4C1D95] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            className="min-h-[38px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] text-[#243825] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <HardDrive className="w-3.5 h-3.5 shrink-0" />
                             <span>Arsip Drive</span>
@@ -550,14 +550,14 @@ export function AdminCentralSettingsPanel({
                         <button
                           type="button"
                           onClick={() => onNavigateTab(mod.drawerTab)}
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                          className="min-h-[38px] px-3.5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
                         >
                           <span>Buka Modul</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                         </button>
                       )
                     ) : (
-                      <span className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0">
+                      <span className="min-h-[36px] px-3 rounded-xl border border-[#E6E2D6] bg-[#F6F3EA] text-[#6E786D] text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0">
                         <Lock className="w-3.5 h-3.5 shrink-0" />
                         <span>Terkunci</span>
                       </span>
@@ -572,27 +572,27 @@ export function AdminCentralSettingsPanel({
           {chatModExpanded && (isBendahara || myPermissions['settings.chat_moderation'] === 'granted') && (
             <form
               onSubmit={handleSaveChatModeration}
-              className="rounded-2xl border border-indigo-200/80 bg-white p-4 sm:p-5 space-y-4"
+              className="rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] p-4 sm:p-5 space-y-4 shadow-xs"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-[#4C1D95]" />
+                  <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-[#2B3F29]" />
                     <span>Pengaturan Modul Moderasi Chat (`settings.chat_moderation`)</span>
                   </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-[#6E786D] mt-0.5">
                     Berlaku untuk ruang obrolan Pengurus, Pengurus &amp; Keamanan, serta Pengurus &amp; Warga.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 p-3.5 cursor-pointer hover:bg-slate-50/70">
+                <label className="flex items-start justify-between gap-3 rounded-xl border border-[#E6E2D6] p-3.5 cursor-pointer hover:bg-[#F7F4EC] transition-colors">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-[#0F172A]">
+                    <p className="text-xs font-semibold text-[#1B271B]">
                       Izinkan Lampiran Media di Chat Warga
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-[#6E786D] mt-0.5">
                       Warga dapat mengirim foto bukti/laporan di ruang Pengurus &amp; Warga.
                     </p>
                   </div>
@@ -605,16 +605,16 @@ export function AdminCentralSettingsPanel({
                         allow_warga_attachments: e.target.checked,
                       }))
                     }
-                    className="mt-1 h-4 w-4 rounded accent-[#4C1D95] cursor-pointer shrink-0"
+                    className="mt-1 h-4 w-4 rounded accent-[#2B3F29] cursor-pointer shrink-0"
                   />
                 </label>
 
-                <label className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 p-3.5 cursor-pointer hover:bg-slate-50/70">
+                <label className="flex items-start justify-between gap-3 rounded-xl border border-[#E6E2D6] p-3.5 cursor-pointer hover:bg-[#F7F4EC] transition-colors">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-[#0F172A]">
+                    <p className="text-xs font-semibold text-[#1B271B]">
                       Pengumuman Resmi Khusus Pengurus
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-[#6E786D] mt-0.5">
                       Hanya Pengurus aktif yang dapat menyematkan pengumuman lingkungan.
                     </p>
                   </div>
@@ -627,7 +627,7 @@ export function AdminCentralSettingsPanel({
                         pengurus_only_announcements: e.target.checked,
                       }))
                     }
-                    className="mt-1 h-4 w-4 rounded accent-[#4C1D95] cursor-pointer shrink-0"
+                    className="mt-1 h-4 w-4 rounded accent-[#2B3F29] cursor-pointer shrink-0"
                   />
                 </label>
               </div>
@@ -636,7 +636,7 @@ export function AdminCentralSettingsPanel({
                 <div className="flex items-center gap-2.5">
                   <label
                     htmlFor="chat-retention-days"
-                    className="text-xs font-semibold text-[#0F172A] whitespace-nowrap"
+                    className="text-xs font-semibold text-[#1B271B] whitespace-nowrap"
                   >
                     Retensi Riwayat Chat (Hari)
                   </label>
@@ -652,14 +652,14 @@ export function AdminCentralSettingsPanel({
                         retention_days: Math.max(7, Math.min(365, Number(e.target.value) || 90)),
                       }))
                     }
-                    className="w-24 min-h-[38px] rounded-xl border border-slate-300 px-3 text-xs font-mono font-semibold tabular-nums text-[#0F172A]"
+                    className="w-24 min-h-[38px] rounded-xl border border-[#C6D2BF] bg-[#FFFFFF] px-3 text-xs font-mono font-semibold tabular-nums text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={savingChatPolicy}
-                  className="min-h-[40px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  className="min-h-[40px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                 >
                   {savingChatPolicy ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -679,39 +679,39 @@ export function AdminCentralSettingsPanel({
       {/* ================================================================= */}
       {subView === 'delegation' && isBendahara && (
         <section aria-label="Delegasi Hak Pengaturan Pengurus" className="space-y-4">
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-3">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-4 space-y-3 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h4 className="text-sm font-bold text-[#0F172A]">
+                <h4 className="text-sm font-bold text-[#1B271B]">
                   Delegasi Hak Modul Pengaturan per Pengurus
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Bendahara (<span className="font-semibold text-slate-700">Bp. Andriansyah</span>)
+                <p className="text-xs text-[#6E786D] mt-0.5">
+                  Bendahara (<span className="font-semibold text-[#1B271B]">Bp. Andriansyah</span>)
                   selalu memiliki akses penuh 6/6 modul. Atur izin modul{' '}
-                  <span className="font-mono text-slate-700">granted</span> /{' '}
-                  <span className="font-mono text-slate-700">revoked</span> untuk Pengurus lainnya.
+                  <span className="font-mono text-[#1B271B]">granted</span> /{' '}
+                  <span className="font-mono text-[#1B271B]">revoked</span> untuk Pengurus lainnya.
                 </p>
               </div>
               <div className="relative w-full sm:w-64 shrink-0">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Cari nama, jabatan, atau blok..."
-                  className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-slate-50 focus:bg-white pl-9 pr-3 text-xs text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                  className="w-full min-h-[40px] rounded-xl border border-[#C6D2BF] bg-[#F7F4EC] focus:bg-[#FFFFFF] pl-9 pr-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
           {loadingPerms && Object.keys(allPermMap).length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+            <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-8 text-center text-xs text-[#6E786D] flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
               <span>Memuat matriks delegasi hak pengaturan...</span>
             </div>
           ) : filteredPengurus.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
+            <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] p-8 text-center text-xs text-[#6E786D]">
               Tidak ada pengurus yang cocok dengan pencarian &ldquo;{searchQuery}&rdquo;.
             </div>
           ) : (
@@ -731,19 +731,19 @@ export function AdminCentralSettingsPanel({
                 return (
                   <article
                     key={uname}
-                    className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden"
+                    className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] overflow-hidden shadow-xs"
                   >
-                    <div className="px-4 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="px-4 py-3.5 bg-[#F7F4EC] border-b border-[#E6E2D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <UserAvatar name={pengurus.nama} src={avatarSrc} size="sm" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-[#0F172A] leading-snug">
+                          <p className="text-sm font-bold text-[#1B271B] leading-snug">
                             {pengurus.nama}
                           </p>
-                          <p className="text-xs text-slate-500 leading-relaxed">
+                          <p className="text-xs text-[#6E786D] leading-relaxed">
                             {pengurus.jabatan} · Blok {formatBlokRumah(pengurus.blokRumah) || pengurus.blokRumah} ·{' '}
                             <span className="font-mono">@{pengurus.username}</span> ·{' '}
-                            <span className="font-mono font-semibold tabular-nums text-[#4C1D95]">
+                            <span className="font-mono font-semibold tabular-nums text-[#2B3F29]">
                               {grantedCount}/{CENTRAL_SETTING_MODULES.length} modul
                             </span>
                           </p>
@@ -755,7 +755,7 @@ export function AdminCentralSettingsPanel({
                           type="button"
                           disabled={isBatchBusy || grantedCount === CENTRAL_SETTING_MODULES.length}
                           onClick={() => void handleBatchPermission(uname, 'granted')}
-                          className="min-h-[36px] px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-45 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          className="min-h-[36px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#D5E4D2] disabled:opacity-45 text-[#243825] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           {isBatchBusy ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -768,7 +768,7 @@ export function AdminCentralSettingsPanel({
                           type="button"
                           disabled={isBatchBusy || grantedCount === 0}
                           onClick={() => void handleBatchPermission(uname, 'revoked')}
-                          className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 disabled:opacity-45 text-slate-600 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          className="min-h-[36px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#C87058]/10 hover:border-[#E2A898] hover:text-[#7A311E] disabled:opacity-45 text-[#4A554A] text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Lock className="w-3.5 h-3.5" />
                           <span>Cabut Semua</span>
@@ -787,15 +787,15 @@ export function AdminCentralSettingsPanel({
                             key={mod.key}
                             className={`rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2.5 transition-colors ${
                               isGranted
-                                ? 'border-emerald-200/90 bg-emerald-50/40'
-                                : 'border-slate-200/80 bg-white'
+                                ? 'border-[#C6D2BF] bg-[#E5EEE3]/45'
+                                : 'border-[#E6E2D6] bg-[#FFFFFF]'
                             }`}
                           >
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-[#0F172A] leading-snug">
+                              <p className="text-xs font-semibold text-[#1B271B] leading-snug">
                                 {mod.label}
                               </p>
-                              <p className="text-[11px] font-mono text-slate-500 break-all leading-snug">
+                              <p className="text-[11px] font-mono text-[#6E786D] break-all leading-snug">
                                 {mod.key}
                               </p>
                             </div>
@@ -811,8 +811,8 @@ export function AdminCentralSettingsPanel({
                               }
                               className={`min-h-[36px] px-3 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer disabled:opacity-50 ${
                                 isGranted
-                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                  ? 'bg-[#2B3F29] hover:bg-[#243825] text-white'
+                                  : 'bg-[#F6F3EA] hover:bg-[#E6E2D6] text-[#4A554A] border border-[#E6E2D6]'
                               }`}
                             >
                               {isBusy ? (
@@ -842,29 +842,29 @@ export function AdminCentralSettingsPanel({
       {subView === 'sync_audit' && isBendahara && (
         <section aria-label="Sinkronisasi Status Pengurus ke Warga dan Audit Log" className="space-y-4">
           {/* Sinkronisasi Status Pengurus <-> Pemulihan Akun Warga */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden">
-            <div className="px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] overflow-hidden shadow-xs">
+            <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 flex flex-wrap items-center justify-between gap-2.5">
               <div className="min-w-0">
-                <h4 className="text-sm font-bold text-[#0F172A]">
+                <h4 className="text-sm font-bold text-[#1B271B]">
                   Sinkronisasi Status Pengurus ↔ Pemulihan Akun Warga
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                <p className="text-xs text-[#6E786D] mt-0.5 leading-relaxed">
                   Menonaktifkan akun Pengurus akan otomatis mengaktifkan kembali akun Warga / Blok
-                  terkait melalui <span className="font-mono text-slate-700">sync_pengurus_to_warga_status</span>.
+                  terkait melalui <span className="font-mono text-[#1B271B]">sync_pengurus_to_warga_status</span>.
                 </p>
               </div>
               <button
                 type="button"
                 disabled={loadingSync}
                 onClick={() => void loadBendaharaData()}
-                className="min-h-[38px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="min-h-[38px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingSync ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-[#2B3F29] ${loadingSync ? 'animate-spin' : ''}`} />
                 <span>Perbarui</span>
               </button>
             </div>
 
-            <div className="divide-y divide-slate-200/70">
+            <div className="divide-y divide-[#E6E2D6]">
               {syncList.map((item) => {
                 const isSelfBendahara =
                   item.jabatan === 'Bendahara' || item.pengurus_username === 'andriansyah';
@@ -883,11 +883,11 @@ export function AdminCentralSettingsPanel({
                       <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <UserAvatar name={item.pengurus_nama} src={avatarSrc} size="sm" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-[#0F172A] leading-snug">
+                          <p className="text-sm font-bold text-[#1B271B] leading-snug">
                             {item.pengurus_nama}{' '}
-                            <span className="font-normal text-slate-500">· {item.jabatan}</span>
+                            <span className="font-normal text-[#6E786D]">· {item.jabatan}</span>
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <p className="text-xs text-[#6E786D] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono">@{item.pengurus_username}</span>
                             <span>·</span>
                             <span className="font-mono">Blok {formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah}</span>
@@ -895,15 +895,15 @@ export function AdminCentralSettingsPanel({
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold">
                             <span
                               className={
-                                item.is_active_pengurus ? 'text-emerald-700' : 'text-rose-700'
+                                item.is_active_pengurus ? 'text-[#243825]' : 'text-[#7A311E]'
                               }
                             >
                               Pengurus: {item.is_active_pengurus ? 'Aktif' : 'Nonaktif / Dicabut'}
                             </span>
-                            <span className="text-slate-300">|</span>
+                            <span className="text-[#C6D2BF]">|</span>
                             <span
                               className={
-                                item.is_active_warga ? 'text-emerald-700' : 'text-amber-700'
+                                item.is_active_warga ? 'text-[#243825]' : 'text-[#8A5F16]'
                               }
                             >
                               Warga Blok {formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah}:{' '}
@@ -917,8 +917,8 @@ export function AdminCentralSettingsPanel({
 
                       <div className="shrink-0">
                         {isSelfBendahara ? (
-                          <span className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 text-[11px] font-semibold inline-flex items-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="min-h-[36px] px-3 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] text-[#243825] text-[11px] font-semibold inline-flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
                             <span>Bendahara Utama (Dilindungi)</span>
                           </span>
                         ) : item.is_active_pengurus ? (
@@ -932,7 +932,7 @@ export function AdminCentralSettingsPanel({
                               });
                               setSyncReason('');
                             }}
-                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
+                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl border border-[#E2C285] bg-[#F2D8A7]/45 hover:bg-[#F2D8A7]/70 text-[#4A3410] text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
                           >
                             <UserMinus className="w-3.5 h-3.5 shrink-0" />
                             <span>Nonaktifkan Pengurus → Pulihkan Warga</span>
@@ -948,7 +948,7 @@ export function AdminCentralSettingsPanel({
                               });
                               setSyncReason('');
                             }}
-                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
+                            className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 text-center whitespace-normal sm:whitespace-nowrap leading-snug cursor-pointer transition-colors disabled:opacity-50"
                           >
                             <UserCheck className="w-3.5 h-3.5 shrink-0" />
                             <span>Aktifkan Kembali Pengurus</span>
@@ -959,8 +959,8 @@ export function AdminCentralSettingsPanel({
 
                     {/* Konfirmasi Inline (Tanpa window.confirm) */}
                     {isConfirming && confirmSyncTarget && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 space-y-2.5">
-                        <p className="text-xs font-semibold text-amber-950 leading-relaxed">
+                      <div className="rounded-xl border border-[#E2C285] bg-[#F2D8A7]/35 p-3.5 space-y-2.5">
+                        <p className="text-xs font-semibold text-[#4A3410] leading-relaxed">
                           {confirmSyncTarget.nextActivePengurus
                             ? `Aktifkan kembali hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Login jalur Warga untuk Blok ${formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah} akan diblokir sesuai aturan eksklusivitas.`
                             : `Nonaktifkan hak Pengurus ${item.pengurus_nama} (@${item.pengurus_username})? Akun Warga Blok ${formatBlokRumah(item.linked_blok_rumah) || item.linked_blok_rumah} akan otomatis diaktifkan kembali agar dapat login via Portal Warga.`}
@@ -970,14 +970,14 @@ export function AdminCentralSettingsPanel({
                           value={syncReason}
                           onChange={(e) => setSyncReason(e.target.value)}
                           placeholder="Catatan/alasan perubahan status (opsional, mis. pergantian kepengurusan)"
-                          className="w-full min-h-[38px] rounded-xl border border-amber-200 bg-white px-3 text-xs text-[#0F172A] focus:border-[#4C1D95] focus:outline-none"
+                          className="w-full min-h-[38px] rounded-xl border border-[#E2C285] bg-[#FFFFFF] px-3 text-xs text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
                         />
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
                             type="button"
                             disabled={isBusy}
                             onClick={() => setConfirmSyncTarget(null)}
-                            className="min-h-[36px] px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                            className="min-h-[36px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#F7F4EC] text-xs font-semibold text-[#4A554A] cursor-pointer transition-colors"
                           >
                             Batal
                           </button>
@@ -990,7 +990,7 @@ export function AdminCentralSettingsPanel({
                                 confirmSyncTarget.nextActivePengurus
                               )
                             }
-                            className="min-h-[36px] px-4 rounded-xl bg-[#4C1D95] hover:bg-[#3B0764] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            className="min-h-[36px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
                           >
                             {isBusy ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1015,30 +1015,30 @@ export function AdminCentralSettingsPanel({
           </div>
 
           {/* Log Audit Delegasi & Sinkronisasi (audit_logs) */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] overflow-hidden shadow-xs">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC]/50 flex flex-wrap items-center justify-between gap-2.5">
               <div className="min-w-0">
-                <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                  <History className="w-4 h-4 text-[#4C1D95]" />
+                <h4 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
+                  <History className="w-4 h-4 text-[#2B3F29]" />
                   <span>Riwayat Audit (`audit_logs`)</span>
-                  <span className="text-xs font-mono font-semibold tabular-nums text-slate-500">
+                  <span className="text-xs font-mono font-semibold tabular-nums text-[#6E786D]">
                     ({visibleAuditLogs.length})
                   </span>
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-[#6E786D] mt-0.5">
                   Catatan perubahan delegasi hak pengaturan, sinkronisasi status Pengurus ↔ Warga, dan blokir eksklusivitas login.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5">
+                <div className="inline-flex rounded-xl border border-[#E6E2D6] bg-[#F6F3EA] p-0.5">
                   <button
                     type="button"
                     onClick={() => setAuditFilter('delegation')}
                     className={`min-h-[32px] px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${
                       auditFilter === 'delegation'
-                        ? 'bg-white text-[#0F172A] shadow-2xs'
-                        : 'text-slate-600 hover:text-[#0F172A]'
+                        ? 'bg-[#FFFDF8] text-[#1B271B] shadow-2xs'
+                        : 'text-[#6E786D] hover:text-[#1B271B]'
                     }`}
                   >
                     Delegasi &amp; Status
@@ -1048,8 +1048,8 @@ export function AdminCentralSettingsPanel({
                     onClick={() => setAuditFilter('all')}
                     className={`min-h-[32px] px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${
                       auditFilter === 'all'
-                        ? 'bg-white text-[#0F172A] shadow-2xs'
-                        : 'text-slate-600 hover:text-[#0F172A]'
+                        ? 'bg-[#FFFDF8] text-[#1B271B] shadow-2xs'
+                        : 'text-[#6E786D] hover:text-[#1B271B]'
                     }`}
                   >
                     Semua Audit
@@ -1058,35 +1058,35 @@ export function AdminCentralSettingsPanel({
               </div>
             </div>
 
-            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+            <div className="max-h-80 overflow-y-auto divide-y divide-[#E6E2D6]">
               {loadingLogs ? (
-                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
+                <div className="p-6 text-center text-xs text-[#6E786D] flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#2B3F29]" />
                   <span>Memuat riwayat audit_logs...</span>
                 </div>
               ) : visibleAuditLogs.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-500">
+                <div className="p-6 text-center text-xs text-[#6E786D]">
                   Belum ada catatan audit delegasi atau sinkronisasi status pada filter ini.
                 </div>
               ) : (
                 visibleAuditLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="px-4 sm:px-5 py-3 text-xs hover:bg-slate-50/70 transition-colors"
+                    className="px-4 sm:px-5 py-3 text-xs hover:bg-[#F7F4EC]/70 transition-colors"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-[#0F172A]">
+                      <span className="font-semibold text-[#1B271B]">
                         {log.actor_name}{' '}
-                        <span className="font-mono font-normal text-slate-500">
+                        <span className="font-mono font-normal text-[#6E786D]">
                           ({log.actor_id})
                         </span>
                       </span>
-                      <span className="font-mono text-[11px] tabular-nums text-slate-400">
+                      <span className="font-mono text-[11px] tabular-nums text-[#6E786D]">
                         {formatTanggalWaktu(log.timestamp)}
                       </span>
                     </div>
-                    <p className="text-slate-600 mt-0.5 leading-relaxed">{log.summary}</p>
-                    <p className="text-[10px] font-mono text-[#4C1D95] mt-0.5">
+                    <p className="text-[#4A554A] mt-0.5 leading-relaxed">{log.summary}</p>
+                    <p className="text-[10px] font-mono text-[#384E35] mt-0.5">
                       {log.action} · {log.entity}
                     </p>
                   </div>
