@@ -12,8 +12,139 @@ import {
 } from './googleDriveAuth';
 
 const EDGE_REFRESH_FUNCTION_NAME = 'drive-oauth-refresh';
-const DEFAULT_REFRESH_BUFFER_MS = 3 * 60 * 1000; // Refresh otomatis 3 menit sebelum kedaluwarsa
+export const DRIVE_OAUTH_REFRESH_BUFFER_MS = 3 * 60 * 1000; // Refresh otomatis 3 menit sebelum kedaluwarsa
+const DEFAULT_REFRESH_BUFFER_MS = DRIVE_OAUTH_REFRESH_BUFFER_MS;
 const DEFAULT_WATCHER_INTERVAL_MS = 60 * 1000; // Cek setiap 60 detik saat drawer aktif
+
+export type DriveOAuthHealthState = 'connected' | 'needs_refresh' | 'expired';
+
+export interface DriveOAuthHealthSnapshot {
+  state: DriveOAuthHealthState;
+  label: 'Terhubung' | 'Perlu Refresh' | 'Kedaluwarsa';
+  description: string;
+  remainingMs: number | null;
+  expiresAt: number | null;
+  source: string | null;
+  needsResync: boolean;
+}
+
+export function getDriveOAuthHealthSnapshot(params: {
+  accessToken: string | null;
+  account: DriveConnectedAccount | null;
+  tokenInvalidReason?: string | null;
+  isRefreshing?: boolean;
+  now?: number;
+}): DriveOAuthHealthSnapshot {
+  const now = params.now ?? Date.now();
+  const expiresAt = params.account?.expiresAt ?? getGoogleDriveTokenExpiresAt();
+  const remainingMs = expiresAt !== null ? expiresAt - now : null;
+  const source = params.account?.source ?? null;
+
+  if (params.tokenInvalidReason) {
+    return {
+      state: 'expired',
+      label: 'Kedaluwarsa',
+      description: params.tokenInvalidReason,
+      remainingMs,
+      expiresAt,
+      source,
+      needsResync: true,
+    };
+  }
+
+  if (params.isRefreshing) {
+    return {
+      state: 'needs_refresh',
+      label: 'Perlu Refresh',
+      description: 'Sedang menyinkronkan ulang token OAuth Google Drive melalui server...',
+      remainingMs,
+      expiresAt,
+      source,
+      needsResync: true,
+    };
+  }
+
+  if (!params.accessToken) {
+    if (hasExplicitGoogleDriveLogout()) {
+      return {
+        state: 'expired',
+        label: 'Kedaluwarsa',
+        description:
+          'Sesi Google Drive telah keluar atau tidak aktif. Klik "Sinkronisasi Ulang" untuk menyambungkan token kembali.',
+        remainingMs: null,
+        expiresAt: null,
+        source: null,
+        needsResync: true,
+      };
+    }
+
+    if (expiresAt !== null && expiresAt <= now) {
+      return {
+        state: 'expired',
+        label: 'Kedaluwarsa',
+        description:
+          'Masa berlaku access token OAuth Google Drive telah habis. Klik "Sinkronisasi Ulang" untuk memperbarui sesi.',
+        remainingMs,
+        expiresAt,
+        source,
+        needsResync: true,
+      };
+    }
+
+    return {
+      state: 'needs_refresh',
+      label: 'Perlu Refresh',
+      description:
+        'Token akses Google Drive belum termuat pada sesi ini. Klik "Sinkronisasi Ulang" untuk memuat token terbaru.',
+      remainingMs,
+      expiresAt,
+      source,
+      needsResync: true,
+    };
+  }
+
+  if (remainingMs !== null && remainingMs <= 0) {
+    return {
+      state: 'expired',
+      label: 'Kedaluwarsa',
+      description:
+        'Token akses OAuth sudah melewati batas masa berlaku. Klik "Sinkronisasi Ulang" untuk memperbarui token.',
+      remainingMs,
+      expiresAt,
+      source,
+      needsResync: true,
+    };
+  }
+
+  if (remainingMs !== null && remainingMs <= DRIVE_OAUTH_REFRESH_BUFFER_MS) {
+    const secs = Math.max(1, Math.ceil(remainingMs / 1000));
+    const timeLabel = secs >= 60 ? `~${Math.ceil(secs / 60)} menit` : `${secs} detik`;
+    return {
+      state: 'needs_refresh',
+      label: 'Perlu Refresh',
+      description: `Masa berlaku token tersisa ${timeLabel}. Sistem akan refresh otomatis atau klik "Sinkronisasi Ulang".`,
+      remainingMs,
+      expiresAt,
+      source,
+      needsResync: true,
+    };
+  }
+
+  const validMinutes =
+    remainingMs !== null ? Math.max(1, Math.floor(remainingMs / 60000)) : null;
+  return {
+    state: 'connected',
+    label: 'Terhubung',
+    description:
+      validMinutes !== null
+        ? `Token OAuth Google Drive sehat & aktif (berlaku ~${validMinutes} menit lagi).`
+        : 'Token OAuth Google Drive sehat & aktif pada sesi ini.',
+    remainingMs,
+    expiresAt,
+    source,
+    needsResync: false,
+  };
+}
 
 interface CapacitorAppPluginLike {
   addListener?: (

@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Archive,
   CheckCircle2,
+  Clock,
   Copy,
   DatabaseBackup,
   ExternalLink,
@@ -36,6 +37,7 @@ import {
 } from '../../lib/googleDriveAuth';
 import {
   ensureFreshGoogleDriveToken,
+  getDriveOAuthHealthSnapshot,
   refreshGoogleDriveTokenViaEdge,
   setDriveAutoRefreshSession,
 } from '../../lib/googleDriveAutoRefresh';
@@ -111,6 +113,10 @@ export function AdminHybridDrivePanel({
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [connectingServer, setConnectingServer] = useState(false);
+  const [resyncingOAuth, setResyncingOAuth] = useState(false);
+  const [tokenInvalidReason, setTokenInvalidReason] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [healthTick, setHealthTick] = useState(() => Date.now());
   const [waitingExternalBrowser, setWaitingExternalBrowser] = useState(false);
   const [signInErrorMsg, setSignInErrorMsg] = useState<string | null>(null);
   const [domainStatus, setDomainStatus] = useState<DomainAuthCheckResult | null>(null);
@@ -218,9 +224,16 @@ export function AdminHybridDrivePanel({
         setDriveAbout(about);
         const files = await listHybridDriveFiles(token, filter, 50);
         setDriveFiles(files);
+        setTokenInvalidReason(null);
+        setLastSyncedAt((prev) => prev || new Date().toISOString());
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Gagal memuat status Google Drive.';
-        if (allowAutoRefreshRetry && canManage && msg.includes('Sesi Google Drive telah berakhir')) {
+        const isAuthFailure =
+          msg.includes('Sesi Google Drive telah berakhir') ||
+          msg.includes('401') ||
+          /invalid|expired|kedaluwarsa|unauthorized/i.test(msg);
+
+        if (allowAutoRefreshRetry && canManage && isAuthFailure) {
           const refreshedToken = await ensureFreshGoogleDriveToken(session, {
             force: true,
             respectExplicitLogout: true,
@@ -230,12 +243,15 @@ export function AdminHybridDrivePanel({
             setConnectedAccount(getGoogleDriveConnectedAccount());
             setAccessToken(refreshedToken);
             setNeedsAuth(false);
+            setTokenInvalidReason(null);
+            setLastSyncedAt(new Date().toISOString());
             await loadDriveWorkspace(refreshedToken, filter, false);
             return;
           }
         }
         onToast('error', msg);
-        if (msg.includes('Sesi Google Drive telah berakhir')) {
+        if (isAuthFailure) {
+          setTokenInvalidReason(msg);
           setAccessToken(null);
           setNeedsAuth(true);
         }
@@ -252,12 +268,22 @@ export function AdminHybridDrivePanel({
   }, [session]);
 
   useEffect(() => {
+    const id = window.setInterval(() => {
+      setHealthTick(Date.now());
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     const unsub = initGoogleDriveAuth(
       (user, token, account) => {
         setGoogleUser(user);
         setConnectedAccount(account ?? getGoogleDriveConnectedAccount());
         setAccessToken(token);
         setNeedsAuth(false);
+        setTokenInvalidReason(null);
+        setSignInErrorMsg(null);
+        setLastSyncedAt(new Date().toISOString());
       },
       (user) => {
         setGoogleUser(user);
@@ -362,9 +388,10 @@ export function AdminHybridDrivePanel({
   };
 
   const handleConnectViaServer = async () => {
-    if (connectingServer || signingIn || !canManage) return;
+    if (connectingServer || signingIn || resyncingOAuth || !canManage) return;
     setConnectingServer(true);
     setSignInErrorMsg(null);
+    setTokenInvalidReason(null);
     try {
       const { account, accessToken: token } = await refreshGoogleDriveTokenViaEdge(session, {
         force: true,
@@ -375,6 +402,8 @@ export function AdminHybridDrivePanel({
       setAccessToken(token);
       setNeedsAuth(false);
       setSignInErrorMsg(null);
+      setTokenInvalidReason(null);
+      setLastSyncedAt(new Date().toISOString());
       await loadDriveWorkspace(token, folderFilter);
       onToast(
         'success',
@@ -384,17 +413,52 @@ export function AdminHybridDrivePanel({
       const msg =
         err instanceof Error ? err.message : 'Gagal menghubungkan Google Drive via server.';
       setSignInErrorMsg(msg);
+      setTokenInvalidReason(msg);
       onToast('error', msg);
     } finally {
       setConnectingServer(false);
     }
   };
 
+  const handleResyncOAuth = async () => {
+    if (resyncingOAuth || connectingServer || signingIn || !canManage) return;
+    setResyncingOAuth(true);
+    setSignInErrorMsg(null);
+    try {
+      const { account, accessToken: token } = await refreshGoogleDriveTokenViaEdge(session, {
+        force: true,
+        reason: 'manual_resync_button',
+      });
+      setGoogleUser(null);
+      setConnectedAccount(account);
+      setAccessToken(token);
+      setNeedsAuth(false);
+      setTokenInvalidReason(null);
+      setSignInErrorMsg(null);
+      setLastSyncedAt(new Date().toISOString());
+      await loadDriveWorkspace(token, folderFilter, false);
+      onToast('success', 'Sesi token OAuth Google Drive berhasil disinkronkan ulang.');
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Gagal melakukan sinkronisasi ulang token OAuth Google Drive.';
+      setTokenInvalidReason(msg);
+      setSignInErrorMsg(msg);
+      setAccessToken(null);
+      setNeedsAuth(true);
+      onToast('error', msg);
+    } finally {
+      setResyncingOAuth(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
-    if (signingIn || connectingServer) return;
+    if (signingIn || connectingServer || resyncingOAuth) return;
     setSigningIn(true);
     setWaitingExternalBrowser(embeddedMode);
     setSignInErrorMsg(null);
+    setTokenInvalidReason(null);
     try {
       const { user, account, accessToken: token } = await signInGoogleDrive(session);
       setGoogleUser(user);
@@ -402,6 +466,8 @@ export function AdminHybridDrivePanel({
       setAccessToken(token);
       setNeedsAuth(false);
       setSignInErrorMsg(null);
+      setTokenInvalidReason(null);
+      setLastSyncedAt(new Date().toISOString());
       await loadDriveWorkspace(token, folderFilter);
 
       const signedEmail = (account?.email || user?.email || '').toLowerCase();
@@ -416,6 +482,7 @@ export function AdminHybridDrivePanel({
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Login Google Drive dibatalkan atau gagal.';
       setSignInErrorMsg(msg);
+      setTokenInvalidReason(msg);
       onToast('error', msg);
     } finally {
       setWaitingExternalBrowser(false);
@@ -436,6 +503,7 @@ export function AdminHybridDrivePanel({
     setConnectedAccount(null);
     setDriveAbout(null);
     setDriveFiles([]);
+    setTokenInvalidReason(null);
     setNeedsAuth(true);
     onToast('info', 'Koneksi Google Drive telah diputuskan dari sesi ini.');
   };
@@ -555,6 +623,14 @@ export function AdminHybridDrivePanel({
     }
   };
 
+  const oauthHealth = getDriveOAuthHealthSnapshot({
+    accessToken,
+    account: connectedAccount,
+    tokenInvalidReason,
+    isRefreshing: resyncingOAuth || connectingServer,
+    now: healthTick,
+  });
+
   const activeEmail =
     driveAbout?.emailAddress || connectedAccount?.email || googleUser?.email || '';
   const isTargetEmailMatched =
@@ -641,28 +717,108 @@ export function AdminHybridDrivePanel({
           )}
         </div>
 
+        {/* Indikator Kesehatan Koneksi OAuth (Terhubung / Perlu Refresh / Kedaluwarsa) */}
+        <div
+          data-testid="drive-oauth-health-indicator"
+          className={`rounded-2xl border p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
+            oauthHealth.state === 'connected'
+              ? 'border-emerald-200 bg-emerald-50/75 text-emerald-950'
+              : oauthHealth.state === 'needs_refresh'
+                ? 'border-amber-200 bg-amber-50/85 text-amber-950'
+                : 'border-rose-200 bg-rose-50/85 text-rose-950'
+          }`}
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                oauthHealth.state === 'connected'
+                  ? 'bg-emerald-600 text-white'
+                  : oauthHealth.state === 'needs_refresh'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-rose-600 text-white'
+              }`}
+            >
+              {oauthHealth.state === 'connected' ? (
+                <ShieldCheck className="w-4 h-4" />
+              ) : oauthHealth.state === 'needs_refresh' ? (
+                <Clock className="w-4 h-4" />
+              ) : (
+                <ShieldAlert className="w-4 h-4" />
+              )}
+            </div>
+
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold">Status Kesehatan OAuth:</span>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    oauthHealth.state === 'connected'
+                      ? 'bg-emerald-600 text-white'
+                      : oauthHealth.state === 'needs_refresh'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-rose-600 text-white'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full bg-white ${
+                      oauthHealth.state !== 'connected' ? 'animate-pulse' : ''
+                    }`}
+                  />
+                  <span>{oauthHealth.label}</span>
+                </span>
+                {lastSyncedAt && oauthHealth.state === 'connected' && (
+                  <span className="text-[11px] text-emerald-800/80">
+                    Disinkronkan: {formatTanggalWaktu(lastSyncedAt)}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] leading-relaxed opacity-90">{oauthHealth.description}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+            {canManage && oauthHealth.needsResync && (
+              <button
+                type="button"
+                disabled={resyncingOAuth || connectingServer || signingIn}
+                onClick={() => void handleResyncOAuth()}
+                className={`min-h-[38px] px-4 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 shadow-sm cursor-pointer transition-colors disabled:opacity-50 ${
+                  oauthHealth.state === 'expired'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resyncingOAuth ? 'animate-spin' : ''}`} />
+                <span>{resyncingOAuth ? 'Menyinkronkan...' : 'Sinkronisasi Ulang'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {needsAuth || !accessToken ? (
           <div className="space-y-3">
-            {/* Status Koneksi Otomatis Server OAuth2 (Web, Android APK, iOS) */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Informasi Jalur OAuth2 Server (Web, Android APK, iOS) */}
+            <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-full bg-[#4C1D95] text-emerald-300 flex items-center justify-center shrink-0">
+                  <Server className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-bold text-emerald-950">
-                    Terhubung Otomatis (Server Aktif)
+                  <p className="text-sm font-bold text-[#0F172A]">
+                    Jalur OAuth2 Server (Web, APK Android &amp; iOS)
                   </p>
-                  <p className="text-xs text-emerald-900/85 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     Penyimpanan arsip &amp; lampiran ke{' '}
-                    <span className="font-mono font-semibold">{DRIVE_TARGET_EMAIL}</span> berjalan
-                    otomatis melalui OAuth2 Server di Web, APK Android, maupun iOS tanpa perlu
-                    login Google di perangkat.
+                    <span className="font-mono font-semibold text-slate-800">
+                      {DRIVE_TARGET_EMAIL}
+                    </span>{' '}
+                    didukung otomatis oleh Supabase Edge Function &amp; Server OAuth2 tanpa perlu
+                    login ulang di perangkat.
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-600 text-white shrink-0 self-start sm:self-center">
-                OAuth2 Server Aktif
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-100 text-[#4C1D95] border border-indigo-200 shrink-0 self-start sm:self-center">
+                Edge Refresh Siap
               </span>
             </div>
 
