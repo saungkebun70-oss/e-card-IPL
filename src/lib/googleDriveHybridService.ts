@@ -121,6 +121,8 @@ export interface DriveManagedFile {
   directImageUrl: string;
   parentId: string | null;
   folderKey: HybridFolderKey | 'root' | 'other';
+  archiveYear: string;
+  yearFolderName: string | null;
 }
 
 export type HybridMediaSourceTable =
@@ -490,68 +492,253 @@ export async function uploadBlobToHybridDrive(params: {
   };
 }
 
+const YEAR_FOLDER_REGEX = /^(19|20)\d{2}$/;
+
+function extractArchiveYear(
+  createdTime?: string | null,
+  fileName?: string | null,
+  yearFolderName?: string | null
+): string {
+  if (yearFolderName && YEAR_FOLDER_REGEX.test(yearFolderName.trim())) {
+    return yearFolderName.trim();
+  }
+  if (createdTime) {
+    const parsed = new Date(createdTime);
+    if (!Number.isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      if (y >= 2000 && y <= 2099) {
+        return String(y);
+      }
+    }
+  }
+  if (fileName) {
+    const match = fileName.match(/(?:^|[-_\s])(20\d{2})(?:[-_\s.]|$)/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return 'Lainnya';
+}
+
+interface YearSubfolderMeta {
+  id: string;
+  year: string;
+  folderKey: HybridFolderKey | 'root';
+  baseFolderId: string;
+}
+
+async function discoverYearSubfolders(
+  accessToken: string,
+  baseFolders: Array<{ id: string; folderKey: HybridFolderKey | 'root' }>
+): Promise<Map<string, YearSubfolderMeta>> {
+  const result = new Map<string, YearSubfolderMeta>();
+  if (baseFolders.length === 0) return result;
+
+  const baseIdToKey = new Map<string, HybridFolderKey | 'root'>();
+  for (const item of baseFolders) {
+    if (item.id) baseIdToKey.set(item.id, item.folderKey);
+  }
+
+  const parentClauses = baseFolders
+    .filter((item) => Boolean(item.id))
+    .map((item) => `'${item.id}' in parents`);
+  if (parentClauses.length === 0) return result;
+
+  const q = `(${parentClauses.join(' or ')}) and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const params = new URLSearchParams({
+    q,
+    pageSize: '100',
+    fields: 'files(id,name,parents)',
+  });
+
+  const data = await driveFetchJson<{
+    files?: Array<{ id: string; name: string; parents?: string[] }>;
+  }>(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, accessToken);
+
+  for (const f of data.files || []) {
+    const cleanName = String(f.name || '').trim();
+    if (!YEAR_FOLDER_REGEX.test(cleanName)) continue;
+    const baseFolderId = f.parents?.[0] || '';
+    const folderKey = baseIdToKey.get(baseFolderId);
+    if (!baseFolderId || !folderKey) continue;
+    result.set(f.id, {
+      id: f.id,
+      year: cleanName,
+      folderKey,
+      baseFolderId,
+    });
+  }
+
+  return result;
+}
+
 export async function listHybridDriveFiles(
   accessToken: string,
   filterKey: HybridFolderKey | 'all' = 'all',
-  pageSize = 40
+  pageSize = 100
 ): Promise<DriveManagedFile[]> {
-  const { subFolderIds } = await ensureHybridFolderStructure(accessToken);
+  const { rootFolderId, subFolderIds } = await ensureHybridFolderStructure(accessToken);
 
   const folderIdToKey = new Map<string, HybridFolderKey>();
   (Object.keys(subFolderIds) as HybridFolderKey[]).forEach((key) => {
     folderIdToKey.set(subFolderIds[key], key);
   });
 
-  let parentQuery = '';
+  const baseTargets: Array<{ id: string; folderKey: HybridFolderKey | 'root' }> = [];
   if (filterKey === 'all') {
-    const clauses = (Object.values(subFolderIds) as string[])
-      .filter(Boolean)
-      .map((id) => `'${id}' in parents`);
-    if (clauses.length === 0) return [];
-    parentQuery = `(${clauses.join(' or ')})`;
+    if (rootFolderId) {
+      baseTargets.push({ id: rootFolderId, folderKey: 'root' });
+    }
+    (Object.keys(subFolderIds) as HybridFolderKey[]).forEach((key) => {
+      if (subFolderIds[key]) {
+        baseTargets.push({ id: subFolderIds[key], folderKey: key });
+      }
+    });
   } else {
     const targetId = subFolderIds[filterKey];
     if (!targetId) return [];
-    parentQuery = `'${targetId}' in parents`;
+    baseTargets.push({ id: targetId, folderKey: filterKey });
   }
 
-  const q = `${parentQuery} and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
-  const params = new URLSearchParams({
-    q,
-    orderBy: 'createdTime desc',
-    pageSize: String(Math.min(Math.max(pageSize, 1), 100)),
-    fields: 'files(id,name,mimeType,size,createdTime,webViewLink,thumbnailLink,parents)',
-  });
+  if (baseTargets.length === 0) return [];
 
-  const data = await driveFetchJson<{
-    files?: Array<{
-      id: string;
-      name: string;
-      mimeType: string;
-      size?: string;
-      createdTime?: string;
-      webViewLink?: string;
-      thumbnailLink?: string;
-      parents?: string[];
-    }>;
-  }>(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, accessToken);
+  const yearFolderMap = await discoverYearSubfolders(accessToken, baseTargets);
 
-  return (data.files || []).map((f) => {
+  // Kumpulkan seluruh folder ID yang perlu dipindai (folder kategori + subfolder tahunan)
+  const searchFolderIds = [
+    ...baseTargets.filter((b) => filterKey !== 'all' || b.folderKey !== 'root').map((b) => b.id),
+    ...Array.from(yearFolderMap.keys()),
+  ];
+
+  if (searchFolderIds.length === 0) return [];
+
+  // Pecah query menjadi beberapa chunk aman agar tidak melebihi batas panjang query Google Drive API
+  const CHUNK_SIZE = 18;
+  const rawFiles: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    size?: string;
+    createdTime?: string;
+    webViewLink?: string;
+    thumbnailLink?: string;
+    parents?: string[];
+  }> = [];
+
+  for (let i = 0; i < searchFolderIds.length; i += CHUNK_SIZE) {
+    const chunk = searchFolderIds.slice(i, i + CHUNK_SIZE);
+    const parentQuery =
+      chunk.length === 1
+        ? `'${chunk[0]}' in parents`
+        : `(${chunk.map((id) => `'${id}' in parents`).join(' or ')})`;
+
+    const q = `${parentQuery} and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
+    const params = new URLSearchParams({
+      q,
+      orderBy: 'createdTime desc',
+      pageSize: String(Math.min(Math.max(pageSize, 1), 100)),
+      fields: 'files(id,name,mimeType,size,createdTime,webViewLink,thumbnailLink,parents)',
+    });
+
+    const data = await driveFetchJson<{
+      files?: typeof rawFiles;
+    }>(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, accessToken);
+
+    if (Array.isArray(data.files)) {
+      rawFiles.push(...data.files);
+    }
+  }
+
+  const seenIds = new Set<string>();
+  const mapped: DriveManagedFile[] = [];
+
+  for (const f of rawFiles) {
+    if (seenIds.has(f.id)) continue;
+    seenIds.add(f.id);
+
     const parentId = f.parents?.[0] || null;
-    const folderKey = (parentId && folderIdToKey.get(parentId)) || 'other';
-    return {
+    const yearMeta = parentId ? yearFolderMap.get(parentId) : undefined;
+    const folderKey: HybridFolderKey | 'root' | 'other' = yearMeta
+      ? yearMeta.folderKey
+      : (parentId && folderIdToKey.get(parentId)) || 'other';
+    const yearFolderName = yearMeta ? yearMeta.year : null;
+    const createdTime = f.createdTime || new Date().toISOString();
+
+    mapped.push({
       id: f.id,
       name: f.name,
       mimeType: f.mimeType,
       sizeBytes: Number(f.size || 0),
-      createdTime: f.createdTime || new Date().toISOString(),
+      createdTime,
       webViewLink: f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`,
       thumbnailLink: f.thumbnailLink || null,
       directImageUrl: buildDriveDirectImageUrl(f.id),
       parentId,
       folderKey,
-    };
-  });
+      yearFolderName,
+      archiveYear: extractArchiveYear(createdTime, f.name, yearFolderName),
+    });
+  }
+
+  mapped.sort(
+    (a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime()
+  );
+
+  return mapped.slice(0, Math.min(Math.max(pageSize, 1), 200));
+}
+
+export async function organizeDriveFilesIntoYearFolders(
+  accessToken: string,
+  files: DriveManagedFile[]
+): Promise<{ movedCount: number; createdFolders: string[] }> {
+  const candidates = files.filter(
+    (file) =>
+      !file.yearFolderName &&
+      Boolean(file.parentId) &&
+      YEAR_FOLDER_REGEX.test(file.archiveYear)
+  );
+
+  if (candidates.length === 0) {
+    return { movedCount: 0, createdFolders: [] };
+  }
+
+  const resolvedYearFolderCache = new Map<string, string>();
+  const createdFolders: string[] = [];
+  let movedCount = 0;
+
+  for (const file of candidates) {
+    const oldParentId = file.parentId as string;
+    const yearName = file.archiveYear;
+    const cacheKey = `${oldParentId}::${yearName}`;
+
+    let targetYearFolderId = resolvedYearFolderCache.get(cacheKey) || null;
+    if (!targetYearFolderId) {
+      targetYearFolderId = await findFolderByName(accessToken, yearName, oldParentId);
+      if (!targetYearFolderId) {
+        targetYearFolderId = await createDriveFolder(accessToken, yearName, oldParentId);
+        createdFolders.push(yearName);
+      }
+      resolvedYearFolderCache.set(cacheKey, targetYearFolderId);
+    }
+
+    const patchParams = new URLSearchParams({
+      addParents: targetYearFolderId,
+      removeParents: oldParentId,
+      fields: 'id,parents',
+    });
+
+    await driveFetchJson(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?${patchParams.toString()}`,
+      accessToken,
+      { method: 'PATCH' }
+    );
+    movedCount += 1;
+  }
+
+  return {
+    movedCount,
+    createdFolders: Array.from(new Set(createdFolders)).sort(),
+  };
 }
 
 export async function deleteHybridDriveFile(

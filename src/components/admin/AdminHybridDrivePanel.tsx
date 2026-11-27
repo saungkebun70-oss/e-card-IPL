@@ -1,15 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Archive,
+  Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Copy,
   DatabaseBackup,
   ExternalLink,
+  Folder,
   FolderOpen,
+  FolderTree,
   HardDrive,
   Image as ImageIcon,
+  Layers,
   Loader2,
   LogOut,
   RefreshCw,
@@ -52,6 +58,7 @@ import {
   HYBRID_SUBFOLDER_NAMES,
   listHybridDriveFiles,
   loadHybridDriveConfig,
+  organizeDriveFilesIntoYearFolders,
   runHybridArchiveBatch,
   saveHybridDriveConfig,
   scanHybridMediaInventory,
@@ -135,6 +142,10 @@ export function AdminHybridDrivePanel({
   const [driveFiles, setDriveFiles] = useState<DriveManagedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [folderFilter, setFolderFilter] = useState<HybridFolderKey | 'all'>('all');
+  const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
+  const [explorerViewMode, setExplorerViewMode] = useState<'yearly' | 'flat'>('yearly');
+  const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
+  const [organizingYearFolders, setOrganizingYearFolders] = useState(false);
 
   const [archiving, setArchiving] = useState(false);
   const [archiveProgress, setArchiveProgress] = useState<{
@@ -222,7 +233,7 @@ export function AdminHybridDrivePanel({
           ensureHybridFolderStructure(token),
         ]);
         setDriveAbout(about);
-        const files = await listHybridDriveFiles(token, filter, 50);
+        const files = await listHybridDriveFiles(token, filter, 100);
         setDriveFiles(files);
         setTokenInvalidReason(null);
         setLastSyncedAt((prev) => prev || new Date().toISOString());
@@ -510,10 +521,11 @@ export function AdminHybridDrivePanel({
 
   const handleFilterChange = async (nextFilter: HybridFolderKey | 'all') => {
     setFolderFilter(nextFilter);
+    setSelectedYearFilter('all');
     if (!accessToken) return;
     setLoadingFiles(true);
     try {
-      const files = await listHybridDriveFiles(accessToken, nextFilter, 50);
+      const files = await listHybridDriveFiles(accessToken, nextFilter, 100);
       setDriveFiles(files);
     } catch (err) {
       onToast(
@@ -522,6 +534,33 @@ export function AdminHybridDrivePanel({
       );
     } finally {
       setLoadingFiles(false);
+    }
+  };
+
+  const handleOrganizeIntoYearFolders = async () => {
+    if (!accessToken || !canManage || organizingYearFolders) return;
+    setOrganizingYearFolders(true);
+    try {
+      const res = await organizeDriveFilesIntoYearFolders(accessToken, driveFiles);
+      if (res.movedCount === 0) {
+        onToast('info', 'Semua file arsip sudah berada di dalam folder tahunannya.');
+      } else {
+        onToast(
+          'success',
+          `${res.movedCount} file berhasil disusun ke folder tahunan (${res.createdFolders.length > 0 ? `folder baru: ${res.createdFolders.join(', ')}` : 'folder tahun siap'}).`
+        );
+      }
+      const updated = await listHybridDriveFiles(accessToken, folderFilter, 100);
+      setDriveFiles(updated);
+    } catch (err) {
+      onToast(
+        'error',
+        err instanceof Error
+          ? err.message
+          : 'Gagal mengelompokkan file ke subfolder tahunan di Google Drive.'
+      );
+    } finally {
+      setOrganizingYearFolders(false);
     }
   };
 
@@ -621,6 +660,70 @@ export function AdminHybridDrivePanel({
     } finally {
       setDeletingFileId(null);
     }
+  };
+
+  const availableYears = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const file of driveFiles) {
+      const y = file.archiveYear || 'Lainnya';
+      counts.set(y, (counts.get(y) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort(([a], [b]) => {
+        if (a === 'Lainnya') return 1;
+        if (b === 'Lainnya') return -1;
+        return Number(b) - Number(a);
+      })
+      .map(([year, count]) => ({ year, count }));
+  }, [driveFiles]);
+
+  const filteredDriveFiles = useMemo(() => {
+    if (selectedYearFilter === 'all') return driveFiles;
+    return driveFiles.filter((file) => file.archiveYear === selectedYearFilter);
+  }, [driveFiles, selectedYearFilter]);
+
+  const yearlyGroupedFolders = useMemo(() => {
+    const groups = new Map<
+      string,
+      { year: string; files: DriveManagedFile[]; totalBytes: number; physicalCount: number }
+    >();
+
+    for (const file of filteredDriveFiles) {
+      const year = file.archiveYear || 'Lainnya';
+      const existing = groups.get(year) || {
+        year,
+        files: [],
+        totalBytes: 0,
+        physicalCount: 0,
+      };
+      existing.files.push(file);
+      existing.totalBytes += file.sizeBytes || 0;
+      if (file.yearFolderName) {
+        existing.physicalCount += 1;
+      }
+      groups.set(year, existing);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.year === 'Lainnya') return 1;
+      if (b.year === 'Lainnya') return -1;
+      return Number(b.year) - Number(a.year);
+    });
+  }, [filteredDriveFiles]);
+
+  const flatFilesNeedingYearFolderCount = useMemo(
+    () =>
+      driveFiles.filter(
+        (f) => !f.yearFolderName && Boolean(f.parentId) && /^(19|20)\d{2}$/.test(f.archiveYear)
+      ).length,
+    [driveFiles]
+  );
+
+  const toggleYearExpanded = (year: string) => {
+    setExpandedYears((prev) => {
+      const currentlyOpen = prev[year] !== false;
+      return { ...prev, [year]: !currentlyOpen };
+    });
   };
 
   const oauthHealth = getDriveOAuthHealthSnapshot({
@@ -1473,19 +1576,77 @@ export function AdminHybridDrivePanel({
         </div>
       </div>
 
-      {/* Daftar File Tersimpan di Folder Hybrid Google Drive */}
+      {/* Penjelajah Folder Manual — Dikelompokkan Berdasarkan Folder Tahunan */}
       {accessToken && !needsAuth && (
         <div className="glass-card rounded-3xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-[#4C1D95]" />
-                <span>Isi Folder Google Drive ({HYBRID_ROOT_FOLDER_NAME})</span>
-              </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Menampilkan file arsip media dan cadangan database yang dikelola aplikasi.
-              </p>
+          <div className="px-5 py-4 border-b border-indigo-100/70 bg-indigo-50/40 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-[#4C1D95]" />
+                  <span>Penjelajah Folder Manual ({HYBRID_ROOT_FOLDER_NAME})</span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  File arsip otomatis dikelompokkan berdasarkan folder tahunan (mis.{' '}
+                  <span className="font-mono font-semibold text-slate-700">2023</span>,{' '}
+                  <span className="font-mono font-semibold text-slate-700">2024</span>,{' '}
+                  <span className="font-mono font-semibold text-slate-700">2026</span>) agar mudah
+                  ditelusuri.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {canManage && flatFilesNeedingYearFolderCount > 0 && (
+                  <button
+                    type="button"
+                    disabled={organizingYearFolders || loadingFiles}
+                    onClick={() => void handleOrganizeIntoYearFolders()}
+                    className="min-h-[34px] px-3 rounded-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                    title="Pindahkan file lama di Drive ke dalam subfolder tahunan (2023, 2024, dst.)"
+                  >
+                    {organizingYearFolders ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FolderTree className="w-3.5 h-3.5" />
+                    )}
+                    <span>
+                      {organizingYearFolders
+                        ? 'Menyusun Folder...'
+                        : `Susun ke Folder Tahun (${flatFilesNeedingYearFolderCount})`}
+                    </span>
+                  </button>
+                )}
+
+                <div className="inline-flex rounded-full bg-white border border-indigo-100 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setExplorerViewMode('yearly')}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                      explorerViewMode === 'yearly'
+                        ? 'bg-[#4C1D95] text-white'
+                        : 'text-slate-600 hover:text-[#4C1D95]'
+                    }`}
+                  >
+                    <Calendar className="w-3 h-3" />
+                    <span>Per Tahun</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExplorerViewMode('flat')}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                      explorerViewMode === 'flat'
+                        ? 'bg-[#4C1D95] text-white'
+                        : 'text-slate-600 hover:text-[#4C1D95]'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3" />
+                    <span>Daftar Semua</span>
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Filter Kategori Folder */}
             <div className="flex flex-wrap gap-1.5">
               {FOLDER_FILTER_LABELS.map((item) => {
                 const active = folderFilter === item.key;
@@ -1505,96 +1666,305 @@ export function AdminHybridDrivePanel({
                 );
               })}
             </div>
+
+            {/* Filter Pill Folder Tahunan */}
+            {availableYears.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-indigo-100/70">
+                <span className="text-[11px] font-semibold text-slate-500 mr-1 inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#4C1D95]" />
+                  <span>Tahun Arsip:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedYearFilter('all')}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                    selectedYearFilter === 'all'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-white border border-indigo-100 text-slate-600 hover:bg-emerald-50'
+                  }`}
+                >
+                  Semua ({driveFiles.length})
+                </button>
+                {availableYears.map(({ year, count }) => {
+                  const active = selectedYearFilter === year;
+                  return (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => setSelectedYearFilter(year)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                        active
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white border border-indigo-100 text-slate-700 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <span>{year}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          active ? 'bg-white/20 text-white' : 'bg-indigo-50 text-[#4C1D95]'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto divide-y divide-indigo-100/60">
+          <div className="max-h-[460px] overflow-y-auto">
             {loadingFiles ? (
               <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-[#4C1D95]" />
-                <span>Memuat file dari Google Drive...</span>
+                <span>Memuat file dan struktur folder tahunan Google Drive...</span>
               </div>
-            ) : driveFiles.length === 0 ? (
+            ) : filteredDriveFiles.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500">
-                Belum ada file arsip di folder ini.
+                Belum ada file arsip pada filter kategori/tahun ini.
               </div>
-            ) : (
-              driveFiles.map((file) => {
-                const isImage = file.mimeType.startsWith('image/');
-                const folderLabel =
-                  file.folderKey !== 'root' && file.folderKey !== 'other'
-                    ? HYBRID_SUBFOLDER_NAMES[file.folderKey]
-                    : 'root';
-                return (
-                  <div
-                    key={file.id}
-                    className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-indigo-50/30"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {isImage ? (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImageFile(file)}
-                          className="w-11 h-11 rounded-xl border border-indigo-100 bg-white overflow-hidden shrink-0 cursor-pointer"
-                          title="Pratinjau gambar"
+            ) : explorerViewMode === 'yearly' ? (
+              <div className="p-3.5 space-y-3">
+                {yearlyGroupedFolders.map((group) => {
+                  const isExpanded = expandedYears[group.year] !== false;
+                  const allInPhysicalYearFolder =
+                    group.physicalCount > 0 && group.physicalCount === group.files.length;
+
+                  return (
+                    <div
+                      key={group.year}
+                      className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-2xs"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleYearExpanded(group.year)}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50/80 via-white to-emerald-50/40 hover:from-indigo-100/70 flex items-center justify-between gap-3 text-left cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-[#4C1D95] shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                          )}
+                          <div className="w-8 h-8 rounded-xl bg-[#4C1D95] text-amber-300 flex items-center justify-center shrink-0">
+                            {isExpanded ? (
+                              <FolderOpen className="w-4 h-4" />
+                            ) : (
+                              <Folder className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs sm:text-sm font-bold text-[#0F172A] font-mono">
+                                Folder Tahun {group.year}
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-[#4C1D95]">
+                                {group.files.length} file
+                              </span>
+                              <span className="text-[10px] font-semibold text-slate-500 tabular-nums">
+                                {formatBytesCompact(group.totalBytes)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {allInPhysicalYearFolder
+                                ? `Tersimpan rapi di subfolder Drive /${group.year}`
+                                : group.physicalCount > 0
+                                  ? `${group.physicalCount} di subfolder /${group.year} · ${group.files.length - group.physicalCount} di folder kategori`
+                                  : `Dikelompokkan berdasarkan tahun arsip ${group.year}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 hidden sm:inline-flex ${
+                            allInPhysicalYearFolder
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}
                         >
-                          <img
-                            src={file.directImageUrl}
-                            alt={file.name}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ) : (
-                        <div className="w-11 h-11 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-[#4C1D95]">
-                          <DatabaseBackup className="w-5 h-5" />
+                          /{group.year}
+                        </span>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="divide-y divide-indigo-100/60 border-t border-indigo-100/70">
+                          {group.files.map((file) => {
+                            const isImage = file.mimeType.startsWith('image/');
+                            const folderLabel =
+                              file.folderKey !== 'root' && file.folderKey !== 'other'
+                                ? HYBRID_SUBFOLDER_NAMES[file.folderKey]
+                                : 'root';
+                            const displayPath = file.yearFolderName
+                              ? `${folderLabel}/${file.yearFolderName}`
+                              : folderLabel;
+
+                            return (
+                              <div
+                                key={file.id}
+                                className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-indigo-50/30"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {isImage ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewImageFile(file)}
+                                      className="w-11 h-11 rounded-xl border border-indigo-100 bg-white overflow-hidden shrink-0 cursor-pointer"
+                                      title="Pratinjau gambar"
+                                    >
+                                      <img
+                                        src={file.directImageUrl}
+                                        alt={file.name}
+                                        referrerPolicy="no-referrer"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <div className="w-11 h-11 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-[#4C1D95]">
+                                      <DatabaseBackup className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-[#0F172A] truncate">
+                                      {file.name}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 truncate">
+                                      <span className="font-mono text-[#4C1D95]">{displayPath}</span>{' '}
+                                      · {formatBytesCompact(file.sizeBytes)} ·{' '}
+                                      {formatTanggalWaktu(file.createdTime)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {isImage && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewImageFile(file)}
+                                      className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600 cursor-pointer"
+                                      title="Lihat Gambar"
+                                    >
+                                      <ImageIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {file.webViewLink && (
+                                    <a
+                                      href={file.webViewLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600"
+                                      title="Buka di Google Drive"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                  {canManage && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDeleteFile(file)}
+                                      className="p-2 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                      title="Hapus file dari Google Drive"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-[#0F172A] truncate">{file.name}</p>
-                        <p className="text-[11px] text-slate-500 truncate">
-                          <span className="font-mono text-[#4C1D95]">{folderLabel}</span> ·{' '}
-                          {formatBytesCompact(file.sizeBytes)} ·{' '}
-                          {formatTanggalWaktu(file.createdTime)}
-                        </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="divide-y divide-indigo-100/60">
+                {filteredDriveFiles.map((file) => {
+                  const isImage = file.mimeType.startsWith('image/');
+                  const folderLabel =
+                    file.folderKey !== 'root' && file.folderKey !== 'other'
+                      ? HYBRID_SUBFOLDER_NAMES[file.folderKey]
+                      : 'root';
+                  const displayPath = file.yearFolderName
+                    ? `${folderLabel}/${file.yearFolderName}`
+                    : folderLabel;
+                  return (
+                    <div
+                      key={file.id}
+                      className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-indigo-50/30"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {isImage ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageFile(file)}
+                            className="w-11 h-11 rounded-xl border border-indigo-100 bg-white overflow-hidden shrink-0 cursor-pointer"
+                            title="Pratinjau gambar"
+                          >
+                            <img
+                              src={file.directImageUrl}
+                              alt={file.name}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-11 h-11 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-[#4C1D95]">
+                            <DatabaseBackup className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-xs font-bold text-[#0F172A] truncate">{file.name}</p>
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-[#4C1D95] shrink-0">
+                              {file.archiveYear}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            <span className="font-mono text-[#4C1D95]">{displayPath}</span> ·{' '}
+                            {formatBytesCompact(file.sizeBytes)} ·{' '}
+                            {formatTanggalWaktu(file.createdTime)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isImage && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageFile(file)}
+                            className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600 cursor-pointer"
+                            title="Lihat Gambar"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {file.webViewLink && (
+                          <a
+                            href={file.webViewLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600"
+                            title="Buka di Google Drive"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteFile(file)}
+                            className="p-2 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                            title="Hapus file dari Google Drive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isImage && (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImageFile(file)}
-                          className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600 cursor-pointer"
-                          title="Lihat Gambar"
-                        >
-                          <ImageIcon className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {file.webViewLink && (
-                        <a
-                          href={file.webViewLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-full border border-indigo-100 bg-white hover:bg-indigo-50 text-slate-600"
-                          title="Buka di Google Drive"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteFile(file)}
-                          className="p-2 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
-                          title="Hapus file dari Google Drive"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
