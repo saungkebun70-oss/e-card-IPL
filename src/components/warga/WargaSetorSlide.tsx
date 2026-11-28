@@ -22,14 +22,19 @@ import {
   type PaymentConfig,
   type SessionUser,
   type StatusEcardBulanan,
+  type TransaksiIPL,
   type Warga,
 } from '../../types';
 import {
   copyToClipboard,
   formatBlokRumah,
   formatRupiah,
-  resolveEffectiveMonthStatus,
 } from '../../lib/format';
+import {
+  buildBillingCellKey,
+  buildPaidAmountLookup,
+  resolveUnitMonthBillingStatus,
+} from '../../lib/billingStatus';
 import { useAppBrand } from '../../lib/brandContext';
 import { submitSetoranWarga, type SetorSubmitStage } from '../../lib/dataService';
 import { compressProofImage, formatFileSize } from '../../lib/imageCompressor';
@@ -52,6 +57,7 @@ interface WargaSetorSlideProps {
   session: SessionUser;
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
+  riwayat?: TransaksiIPL[];
   paymentConfig: PaymentConfig;
   preselectedMonth: number | null;
   onClearPreselected: () => void;
@@ -65,6 +71,7 @@ export function WargaSetorSlide({
   session,
   profil,
   statusBulanan,
+  riwayat = [],
   paymentConfig,
   preselectedMonth,
   onClearPreselected,
@@ -75,6 +82,7 @@ export function WargaSetorSlide({
 }: WargaSetorSlideProps) {
   const { brand } = useAppBrand();
   const nominalUnit = profil.nominal_iuran || NOMINAL_IPL_STANDAR;
+  const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(riwayat, statusBulanan);
 
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [metodeBayar, setMetodeBayar] = useState<MetodeBayar>('Transfer Bank');
@@ -95,20 +103,27 @@ export function WargaSetorSlide({
   // Terapkan preselectedMonth jika warga datang dari klik kotak matriks
   useEffect(() => {
     if (preselectedMonth !== null) {
-      const st = statusBulanan.find((s) => s.bulan === preselectedMonth);
-      const effective = resolveEffectiveMonthStatus({
-        dbStatus: st?.status,
-        tahun: TAHUN_AKTIF,
-        bulan: preselectedMonth,
+      const cellKey = buildBillingCellKey(profil.blok_rumah, TAHUN_AKTIF, preselectedMonth);
+      const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+      const cellStatus = resolveUnitMonthBillingStatus({
+        warga: profil,
+        targetYear: TAHUN_AKTIF,
+        targetMonth: preselectedMonth,
+        paidAmount,
         billingStart: brand,
       });
-      if (effective !== 'Lunas' && effective !== 'Menunggu Verifikasi' && effective !== 'Pra-Rilis') {
+      const isPending =
+        paidAmount === 0 &&
+        cellStatus !== 'KOSONG' &&
+        cellStatus !== 'PRA_RILIS' &&
+        pendingKeys.has(cellKey);
+      if (cellStatus !== 'LUNAS' && cellStatus !== 'PRA_RILIS' && cellStatus !== 'KOSONG' && !isPending) {
         setSelectedMonths([preselectedMonth]);
         setManualNominalEdited(false);
       }
       onClearPreselected();
     }
-  }, [preselectedMonth, statusBulanan, onClearPreselected, brand]);
+  }, [preselectedMonth, profil, paidAmountByKey, pendingKeys, onClearPreselected, brand]);
 
   // Terapkan preselectedPetugas jika warga datang dari Profil Lingkungan
   useEffect(() => {
@@ -318,17 +333,25 @@ export function WargaSetorSlide({
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
             {BULAN_LIST.map((b) => {
-              const st = statusBulanan.find((s) => s.bulan === b.angka)?.status;
-              const effectiveSt = resolveEffectiveMonthStatus({
-                dbStatus: st,
-                tahun: TAHUN_AKTIF,
-                bulan: b.angka,
+              const cellKey = buildBillingCellKey(profil.blok_rumah, TAHUN_AKTIF, b.angka);
+              const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+              const cellStatus = resolveUnitMonthBillingStatus({
+                warga: profil,
+                targetYear: TAHUN_AKTIF,
+                targetMonth: b.angka,
+                paidAmount,
                 billingStart: brand,
               });
+              const isPending =
+                paidAmount === 0 &&
+                cellStatus !== 'KOSONG' &&
+                cellStatus !== 'PRA_RILIS' &&
+                pendingKeys.has(cellKey);
               const isLocked =
-                effectiveSt === 'Lunas' ||
-                effectiveSt === 'Menunggu Verifikasi' ||
-                effectiveSt === 'Pra-Rilis';
+                cellStatus === 'LUNAS' ||
+                cellStatus === 'PRA_RILIS' ||
+                cellStatus === 'KOSONG' ||
+                isPending;
               const isChecked = selectedMonths.includes(b.angka);
 
               return (
@@ -339,7 +362,9 @@ export function WargaSetorSlide({
                       ? 'bg-[#EFECE2] border-[#E0DCCE] text-[#6E786D] cursor-not-allowed'
                       : isChecked
                         ? 'bg-[#E5EEE3] border-[#2B3F29] text-[#243825] cursor-pointer ring-1 ring-[#2B3F29]'
-                        : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:border-[#C6D2BF] cursor-pointer'
+                        : cellStatus === 'DANA_DARURAT'
+                          ? 'bg-purple-50 border-purple-300 text-purple-900 hover:border-purple-400 cursor-pointer'
+                          : 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:border-[#C6D2BF] cursor-pointer'
                   }`}
                 >
                   <input
@@ -358,13 +383,15 @@ export function WargaSetorSlide({
                     )}
                   </div>
                   <span className="text-[11px] mt-1 leading-tight">
-                    {effectiveSt === 'Lunas'
+                    {cellStatus === 'LUNAS'
                       ? 'Lunas'
-                      : effectiveSt === 'Menunggu Verifikasi'
+                      : isPending
                         ? 'Pending'
-                        : effectiveSt === 'Pra-Rilis'
+                        : cellStatus === 'PRA_RILIS'
                           ? 'Pra-Rilis'
-                          : b.nama}
+                          : cellStatus === 'DANA_DARURAT'
+                            ? 'Darurat'
+                            : b.nama}
                   </span>
                 </label>
               );

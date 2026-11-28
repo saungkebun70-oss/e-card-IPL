@@ -12,10 +12,14 @@ import {
   formatBlokRumah,
   formatDaftarBulan,
   formatTanggal,
-  isSameBlockCode,
-  resolveEffectiveMonthStatus,
   type BillingStartPeriod,
 } from './format';
+import {
+  buildBillingCellKey,
+  buildPaidAmountLookup,
+  getStatusBadgeStyle,
+  resolveUnitMonthBillingStatus,
+} from './billingStatus';
 
 export interface CashAllocationSummary {
   totalTerverifikasi: number;
@@ -54,9 +58,12 @@ export function calculateCashAllocation(transaksiList: TransaksiIPL[]): CashAllo
 function buildMatrixRows(
   wargaList: Warga[],
   statusList: StatusEcardBulanan[],
+  transaksiList: TransaksiIPL[],
   billingStart?: BillingStartPeriod | null
 ) {
   const sortedWarga = [...wargaList].sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
+  const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(transaksiList, statusList);
+
   return sortedWarga.map((w) => {
     const row: Record<string, string | number> = {
       'Blok / No. Rumah': formatBlokRumah(w.blok_rumah) || w.blok_rumah,
@@ -67,17 +74,24 @@ function buildMatrixRows(
     };
     let totalLunas = 0;
     for (const b of BULAN_LIST) {
-      const st = statusList.find(
-        (s) => isSameBlockCode(s.blok_rumah, w.blok_rumah) && s.tahun === TAHUN_AKTIF && s.bulan === b.angka
-      );
-      const label = resolveEffectiveMonthStatus({
-        dbStatus: st?.status,
-        tahun: TAHUN_AKTIF,
-        bulan: b.angka,
+      const cellKey = buildBillingCellKey(w.blok_rumah, TAHUN_AKTIF, b.angka);
+      const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+      const cellStatus = resolveUnitMonthBillingStatus({
+        warga: w,
+        targetYear: TAHUN_AKTIF,
+        targetMonth: b.angka,
+        paidAmount,
         billingStart,
       });
-      row[b.singkat] = label;
-      if (label === 'Lunas') totalLunas += 1;
+
+      const isPending =
+        paidAmount === 0 &&
+        cellStatus !== 'KOSONG' &&
+        cellStatus !== 'PRA_RILIS' &&
+        pendingKeys.has(cellKey);
+
+      row[b.singkat] = isPending ? 'Pending' : getStatusBadgeStyle(cellStatus).label;
+      if (cellStatus === 'LUNAS') totalLunas += 1;
     }
     row['Total Bulan Lunas'] = totalLunas;
     return row;
@@ -118,7 +132,7 @@ export function exportLaporanExcel(
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Rekap Matriks 12 Bulan
-  const matrixRows = buildMatrixRows(wargaList, statusList, billingStart);
+  const matrixRows = buildMatrixRows(wargaList, statusList, transaksiList, billingStart);
   const wsMatrix = XLSX.utils.json_to_sheet(matrixRows);
   XLSX.utils.book_append_sheet(wb, wsMatrix, `Rekap Matriks ${TAHUN_AKTIF}`);
 
@@ -155,7 +169,7 @@ export function exportLaporanCsv(
   transaksiList: TransaksiIPL[],
   billingStart?: BillingStartPeriod | null
 ) {
-  const matrixRows = buildMatrixRows(wargaList, statusList, billingStart);
+  const matrixRows = buildMatrixRows(wargaList, statusList, transaksiList, billingStart);
   const summary = calculateCashAllocation(transaksiList);
 
   const headers = Object.keys(matrixRows[0] || { 'Blok / No. Rumah': '' });

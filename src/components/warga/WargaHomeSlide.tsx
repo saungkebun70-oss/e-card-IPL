@@ -16,7 +16,6 @@ import {
   TAHUN_AKTIF,
   TANGGAL_JATUH_TEMPO,
   TANGGAL_TERBIT_TAGIHAN,
-  type EffectiveStatusBulanEcard,
   type StatusEcardBulanan,
   type SystemNotification,
   type TransaksiIPL,
@@ -29,9 +28,14 @@ import {
   formatTanggalWaktu,
   getCurrentBillingMonth,
   getNamaBulan,
-  isCountableUnpaidStatus,
-  resolveEffectiveMonthStatus,
 } from '../../lib/format';
+import {
+  buildBillingCellKey,
+  buildPaidAmountLookup,
+  getStatusBadgeStyle,
+  resolveUnitMonthBillingStatus,
+  type CellStatus,
+} from '../../lib/billingStatus';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
@@ -56,42 +60,72 @@ function loadReadNotificationIds(blokRumah: string): string[] {
   }
 }
 
-function getMonthCellStyles(status: EffectiveStatusBulanEcard) {
+function getMonthCellStyles(status: CellStatus, isPending: boolean) {
+  if (
+    isPending &&
+    status !== 'LUNAS' &&
+    status !== 'DANA_DARURAT' &&
+    status !== 'KOSONG' &&
+    status !== 'PRA_RILIS'
+  ) {
+    return {
+      box: 'bg-amber-50 border-amber-300 text-amber-900',
+      label: 'Menunggu',
+      labelColor: 'text-amber-800',
+      icon: Clock,
+    };
+  }
+
+  const badge = getStatusBadgeStyle(status);
+
   switch (status) {
-    case 'Lunas':
+    case 'LUNAS':
       return {
-        box: 'bg-[#E5EEE3] border-[#C6D2BF] text-[#243825]',
-        label: 'Lunas',
-        labelColor: 'text-[#243825]',
+        box: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+        label: badge.label,
+        labelColor: 'text-emerald-800',
         icon: CheckCircle2,
       };
-    case 'Menunggu Verifikasi':
+    case 'DANA_DARURAT':
       return {
-        box: 'bg-[#F2D8A7]/45 border-[#E2C285] text-[#4A3410]',
-        label: 'Menunggu',
-        labelColor: 'text-[#6E4D12]',
+        box: 'bg-purple-50 border-purple-300 text-purple-900 hover:border-purple-400',
+        label: badge.label,
+        labelColor: 'text-purple-800',
+        icon: ShieldCheck,
+      };
+    case 'BERJALAN':
+      return {
+        box: 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300',
+        label: badge.label,
+        labelColor: 'text-slate-600',
         icon: Clock,
       };
-    case 'Jatuh Tempo':
-    case 'Belum Bayar':
+    case 'MASA_TAGIH':
       return {
-        box: 'bg-[#C87058]/15 border-[#E2A898] text-[#7A311E] hover:border-[#C87058]',
-        label: status === 'Jatuh Tempo' ? 'Jatuh Tempo' : 'Belum Bayar',
-        labelColor: 'text-[#A44831]',
+        box: 'bg-amber-50 border-amber-300 text-amber-900 hover:border-amber-400',
+        label: badge.label,
+        labelColor: 'text-amber-800',
+        icon: Clock,
+      };
+    case 'TUNGGAK':
+      return {
+        box: 'bg-rose-50 border-rose-300 text-rose-900 hover:border-rose-400',
+        label: badge.label,
+        labelColor: 'text-rose-800',
         icon: AlertTriangle,
       };
-    case 'Pra-Rilis':
+    case 'PRA_RILIS':
       return {
-        box: 'bg-[#EFECE2] border-[#E0DCCE] text-[#6E786D]',
-        label: 'Pra-Rilis',
-        labelColor: 'text-[#6E786D]',
+        box: 'bg-stone-100 border-stone-200 text-stone-500',
+        label: badge.label,
+        labelColor: 'text-stone-500',
         icon: Calendar,
       };
     default:
       return {
-        box: 'bg-[#FFFDF8] border-[#E6E2D6] text-[#4A554A] hover:border-[#C6D2BF]',
-        label: 'Belum Tagihan',
-        labelColor: 'text-[#6E786D]',
+        box: 'bg-[#FFFDF8] border-[#E6E2D6] text-slate-500 hover:border-[#C6D2BF]',
+        label: badge.label,
+        labelColor: 'text-slate-400',
         icon: Calendar,
       };
   }
@@ -134,13 +168,23 @@ export function WargaHomeSlide({
   const currentMonth = getCurrentBillingMonth();
   const currentMonthName = getNamaBulan(currentMonth);
 
-  const currentStatusObj = statusBulanan.find((s) => s.bulan === currentMonth);
-  const rawCurrentStatus = resolveEffectiveMonthStatus({
-    dbStatus: currentStatusObj?.status,
-    tahun: TAHUN_AKTIF,
-    bulan: currentMonth,
+  const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(riwayat, statusBulanan);
+
+  const currentCellKey = buildBillingCellKey(profil.blok_rumah, TAHUN_AKTIF, currentMonth);
+  const currentPaidAmount = paidAmountByKey.get(currentCellKey) ?? 0;
+  const currentCellStatus = resolveUnitMonthBillingStatus({
+    warga: profil,
+    targetYear: TAHUN_AKTIF,
+    targetMonth: currentMonth,
+    paidAmount: currentPaidAmount,
     billingStart: brand,
   });
+  const isCurrentPending =
+    currentPaidAmount === 0 &&
+    currentCellStatus !== 'KOSONG' &&
+    currentCellStatus !== 'PRA_RILIS' &&
+    pendingKeys.has(currentCellKey);
+
   const currentMonthTrx = riwayat.find(
     (t) =>
       t.tahun === TAHUN_AKTIF &&
@@ -149,49 +193,88 @@ export function WargaHomeSlide({
   );
 
   const ecardBadge =
-    rawCurrentStatus === 'Lunas'
+    currentCellStatus === 'LUNAS'
       ? {
           text: 'LUNAS · SAH BEND & KETUA',
-          bg: 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]',
+          bg: 'bg-emerald-100 text-emerald-900 border border-emerald-300',
           icon: CheckCircle2,
         }
-      : rawCurrentStatus === 'Menunggu Verifikasi'
-        ? currentMonthTrx?.status_verifikasi === 'ACC Bendahara'
-          ? {
-              text: 'ACC BENDAHARA · MENUNGGU KETUA',
-              bg: 'bg-[#F2D8A7] text-[#4A3410]',
-              icon: ShieldCheck,
-            }
-          : {
-              text: 'MENUNGGU BENDAHARA',
-              bg: 'bg-[#F2D8A7] text-[#4A3410]',
-              icon: Clock,
-            }
-        : rawCurrentStatus === 'Pra-Rilis'
-          ? {
-              text: 'PRA-RILIS · BELUM BERLAKU',
-              bg: 'bg-[#384E35] text-[#E5EEE3] border border-[#C6D2BF]/30',
-              icon: Calendar,
-            }
-          : {
-              text: 'BELUM BAYAR',
-              bg: 'bg-[#C87058] text-[#FFFDF8]',
-              icon: AlertTriangle,
-            };
+      : currentCellStatus === 'DANA_DARURAT'
+        ? {
+            text: 'ALOKASI DANA DARURAT',
+            bg: 'bg-purple-100 text-purple-900 border border-purple-300',
+            icon: ShieldCheck,
+          }
+        : isCurrentPending
+          ? currentMonthTrx?.status_verifikasi === 'ACC Bendahara'
+            ? {
+                text: 'ACC BENDAHARA · MENUNGGU KETUA',
+                bg: 'bg-amber-100 text-amber-900 border border-amber-300',
+                icon: ShieldCheck,
+              }
+            : {
+                text: 'MENUNGGU BENDAHARA',
+                bg: 'bg-amber-100 text-amber-900 border border-amber-300',
+                icon: Clock,
+              }
+          : currentCellStatus === 'PRA_RILIS'
+            ? {
+                text: 'PRA-RILIS · BELUM BERLAKU',
+                bg: 'bg-[#384E35] text-[#E5EEE3] border border-[#C6D2BF]/30',
+                icon: Calendar,
+              }
+            : currentCellStatus === 'KOSONG'
+              ? {
+                  text: 'UNIT KOSONG',
+                  bg: 'bg-stone-100 text-stone-700 border border-stone-300',
+                  icon: Calendar,
+                }
+              : currentCellStatus === 'BERJALAN'
+                ? {
+                    text: 'BULAN BERJALAN · BELUM BAYAR',
+                    bg: 'bg-slate-100 text-slate-800 border border-slate-300',
+                    icon: Clock,
+                  }
+                : currentCellStatus === 'MASA_TAGIH'
+                  ? {
+                      text: 'MASA TAGIH · TGL 1–7',
+                      bg: 'bg-amber-100 text-amber-900 border border-amber-300',
+                      icon: Clock,
+                    }
+                  : {
+                      text: 'TUNGGAK · LEWAT JATUH TEMPO',
+                      bg: 'bg-rose-600 text-white border border-rose-400',
+                      icon: AlertTriangle,
+                    };
 
   const BadgeIcon = ecardBadge.icon;
-  const jumlahLunas = statusBulanan.filter((s) => s.status === 'Lunas').length;
-  const jumlahTunggakan = BULAN_LIST.filter((b) => b.angka <= currentMonth).filter((b) => {
-    const st = statusBulanan.find((s) => s.bulan === b.angka)?.status;
-    return isCountableUnpaidStatus(
-      resolveEffectiveMonthStatus({
-        dbStatus: st,
-        tahun: TAHUN_AKTIF,
-        bulan: b.angka,
-        billingStart: brand,
-      })
-    );
-  }).length;
+  const monthStatuses = BULAN_LIST.map((b) => {
+    const key = buildBillingCellKey(profil.blok_rumah, TAHUN_AKTIF, b.angka);
+    const paid = paidAmountByKey.get(key) ?? 0;
+    const cellStatus = resolveUnitMonthBillingStatus({
+      warga: profil,
+      targetYear: TAHUN_AKTIF,
+      targetMonth: b.angka,
+      paidAmount: paid,
+      billingStart: brand,
+    });
+    const pending =
+      paid === 0 &&
+      cellStatus !== 'KOSONG' &&
+      cellStatus !== 'PRA_RILIS' &&
+      pendingKeys.has(key);
+    return { bulan: b.angka, cellStatus, pending };
+  });
+
+  const jumlahLunas = monthStatuses.filter((m) => m.cellStatus === 'LUNAS').length;
+  const jumlahDarurat = monthStatuses.filter((m) => m.cellStatus === 'DANA_DARURAT').length;
+  const jumlahTunggakan = monthStatuses.filter(
+    (m) =>
+      !m.pending &&
+      (m.cellStatus === 'TUNGGAK' ||
+        m.cellStatus === 'MASA_TAGIH' ||
+        m.cellStatus === 'BERJALAN')
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -374,13 +457,18 @@ export function WargaHomeSlide({
               <div className="py-2.5 flex items-center justify-between gap-3">
                 <dt className="text-[#4A554A] shrink-0">Rekap {TAHUN_AKTIF}</dt>
                 <dd className="flex items-center justify-end gap-1.5 font-mono text-[11px] sm:text-xs font-semibold tabular-nums whitespace-nowrap">
-                  <span className="px-2 py-0.5 rounded-full bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                     {jumlahLunas} Lunas
                   </span>
+                  {jumlahDarurat > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                      {jumlahDarurat} Darurat
+                    </span>
+                  )}
                   <span
                     className={`px-2 py-0.5 rounded-full border ${
                       jumlahTunggakan > 0
-                        ? 'bg-[#C87058]/15 text-[#A44831] border-[#E2A898]'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
                         : 'bg-[#F7F4EC] text-[#6E786D] border-[#E6E2D6]'
                     }`}
                   >
@@ -392,9 +480,10 @@ export function WargaHomeSlide({
           </div>
 
           <div className="mt-5 space-y-2.5">
-            {rawCurrentStatus !== 'Lunas' &&
-              rawCurrentStatus !== 'Menunggu Verifikasi' &&
-              rawCurrentStatus !== 'Pra-Rilis' && (
+            {currentCellStatus !== 'LUNAS' &&
+              currentCellStatus !== 'PRA_RILIS' &&
+              currentCellStatus !== 'KOSONG' &&
+              !isCurrentPending && (
               <button
                 type="button"
                 onClick={() => onQuickPayMonth(currentMonth)}
@@ -404,7 +493,7 @@ export function WargaHomeSlide({
                 <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             )}
-            {rawCurrentStatus === 'Pra-Rilis' && (
+            {currentCellStatus === 'PRA_RILIS' && (
               <div className="rounded-2xl bg-[#F7F4EC] border border-[#E6E2D6] px-3.5 py-2.5 text-xs text-[#4A554A] text-center">
                 Penagihan aktif dimulai{' '}
                 <strong className="text-[#1B271B]">{formatBillingStartLabel(brand)}</strong>.
@@ -437,39 +526,46 @@ export function WargaHomeSlide({
           </div>
 
           {/* Legenda Status (warna + teks eksplisit) */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#4A554A]">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#2B3F29]" />
-              Lunas
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#E8CE9B] border border-[#B5924C]" />
-              Menunggu Verifikasi
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#C87058]" />
-              Jatuh Tempo / Belum Bayar
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#C6C2B5]" />
-              Pra-Rilis / Belum Berlaku
-            </span>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[#4A554A]">
+            {(
+              ['LUNAS', 'DANA_DARURAT', 'BERJALAN', 'MASA_TAGIH', 'TUNGGAK', 'PRA_RILIS'] as const
+            ).map((stKey) => {
+              const b = getStatusBadgeStyle(stKey);
+              return (
+                <span
+                  key={stKey}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold ${b.className}`}
+                >
+                  {b.label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {BULAN_LIST.map((b) => {
-            const stObj = statusBulanan.find((s) => s.bulan === b.angka);
-            const status = resolveEffectiveMonthStatus({
-              dbStatus: stObj?.status,
-              tahun: TAHUN_AKTIF,
-              bulan: b.angka,
+            const cellKey = buildBillingCellKey(profil.blok_rumah, TAHUN_AKTIF, b.angka);
+            const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+            const status = resolveUnitMonthBillingStatus({
+              warga: profil,
+              targetYear: TAHUN_AKTIF,
+              targetMonth: b.angka,
+              paidAmount,
               billingStart: brand,
             });
-            const style = getMonthCellStyles(status);
+            const isPending =
+              paidAmount === 0 &&
+              status !== 'KOSONG' &&
+              status !== 'PRA_RILIS' &&
+              pendingKeys.has(cellKey);
+            const style = getMonthCellStyles(status, isPending);
             const CellIcon = style.icon;
             const canClick =
-              status !== 'Lunas' && status !== 'Menunggu Verifikasi' && status !== 'Pra-Rilis';
+              status !== 'LUNAS' &&
+              status !== 'PRA_RILIS' &&
+              status !== 'KOSONG' &&
+              !isPending;
             const isCurrent = b.angka === currentMonth;
 
             return (

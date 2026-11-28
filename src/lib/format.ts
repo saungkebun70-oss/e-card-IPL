@@ -102,17 +102,29 @@ export function formatBillingStartLabel(period?: BillingStartPeriod | null): str
   return `${getNamaBulan(startMonth)} ${startYear}`;
 }
 
-export function getDefaultUnpaidStatusForMonth(bulan: number): StatusBulanEcard {
-  const now = new Date();
-  const currentMonth = getCurrentBillingMonth();
-  if (bulan > currentMonth) {
+export function getDefaultUnpaidStatusForMonth(
+  bulan: number,
+  tahun: number = TAHUN_AKTIF,
+  now: Date = new Date()
+): StatusBulanEcard {
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+
+  if (tahun > currentYear || (tahun === currentYear && bulan > currentMonth)) {
     return 'Belum Tagihan';
   }
-  if (bulan < currentMonth) {
-    return 'Jatuh Tempo';
+  if (tahun === currentYear && bulan === currentMonth) {
+    return 'Belum Bayar';
   }
-  // Bulan berjalan: jatuh tempo setelah tanggal 7
-  return now.getDate() > 7 ? 'Jatuh Tempo' : 'Belum Bayar';
+
+  const billingYear = bulan === 12 ? tahun + 1 : tahun;
+  const billingMonth = bulan === 12 ? 1 : bulan + 1;
+  if (currentYear === billingYear && currentMonth === billingMonth) {
+    return currentDay <= 7 ? 'Belum Bayar' : 'Jatuh Tempo';
+  }
+
+  return 'Jatuh Tempo';
 }
 
 export function resolveEffectiveMonthStatus(params: {
@@ -128,7 +140,7 @@ export function resolveEffectiveMonthStatus(params: {
   if (isBeforeBillingStart(tahun, bulan, billingStart)) {
     return 'Pra-Rilis';
   }
-  return dbStatus || getDefaultUnpaidStatusForMonth(bulan);
+  return dbStatus || getDefaultUnpaidStatusForMonth(bulan, tahun);
 }
 
 export function isCountableUnpaidStatus(

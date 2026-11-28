@@ -1080,6 +1080,7 @@ export default function App() {
               session={session}
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
+              riwayat={wargaData.riwayat}
               paymentConfig={wargaData.paymentConfig}
               preselectedMonth={preselectedMonth}
               onClearPreselected={() => setPreselectedMonth(null)}
