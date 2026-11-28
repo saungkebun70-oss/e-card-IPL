@@ -4,7 +4,6 @@ import {
   ChevronRight,
   FileSpreadsheet,
   LogOut,
-  Menu,
   MessageCircle,
   PhoneCall,
   ReceiptText,
@@ -21,7 +20,7 @@ import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
 import type { Icon3DName } from './Icon3D';
 import { Navbar3D } from './Navbar3D';
-import { NotificationBell } from './NotificationBell';
+import { PortalHeader } from './PortalHeader';
 import { UserAvatar } from './UserAvatar';
 import bgHeaderAsset from '../assets/bg-header.jpg';
 
@@ -114,7 +113,6 @@ export function AppShell({
   const isWarga = session.role === 'warga';
   const isPetugas = session.role === 'petugas';
   const canAccessBotWa = isBendaharaOnly(session);
-  const adminIdentityLabel = `${session.nama_warga} — ${session.jabatan || 'Pengurus'}`;
   const isLpjActive = activeTab === 'lpj';
   const isBugReportsActive = activeTab === 'laporan_bug';
   const isProfilActive = activeTab === 'profil';
@@ -213,14 +211,6 @@ export function AppShell({
       unsub();
     };
   }, [sessionKey]);
-
-  const activePageTitle = isLpjActive
-    ? 'Laporan Pertanggungjawaban (LPJ)'
-    : isBugReportsActive
-      ? 'Laporan Bug'
-      : isProfilActive
-        ? 'Profil & Akun Warga'
-        : navItems.find((item) => item.id === activeTab)?.label || navItems[0]?.label || '';
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -705,161 +695,34 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      {/* HEADER COMPACT MOBILE/TABLET DENGAN FOTO LINGKUNGAN + PIL KACA MENGAMBANG */}
-      <div className="lg:hidden relative z-30 no-print">
-        <header className="relative overflow-hidden rounded-b-[28px] shadow-[0_10px_26px_-12px_rgba(27,39,27,0.35)] pt-[calc(max(env(safe-area-inset-top,0px),14px)+0.55rem)] pb-9 px-3.5 sm:px-5">
-          {/* Foto Latar Jalan Rindang Saung Kebun */}
-          <img
-            src={HEADER_BG_SRC}
-            alt="Suasana Perumahan Saung Kebun"
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/66 to-[#243825]/86"
-          />
-
-          {/* Bar Atas Header */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            {/* Tombol Hamburger Kaca Bulat (Kiri) */}
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Buka Menu Sidebar"
-              title="Menu Profil, Layanan & Keluar"
-              className="relative h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
-            >
-              <Menu className="w-4.5 h-4.5" />
-              {isAdmin && pendingBugCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#243825]">
-                  {pendingBugCount > 9 ? '9+' : pendingBugCount}
-                </span>
-              )}
-            </button>
-
-            {/* Logo Transparan + Judul Tengah */}
-            <button
-              type="button"
-              onClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
-              className="flex items-center gap-2 min-w-0 text-left cursor-pointer"
-            >
-              <BrandLogo size="xs" variant="dark" className="shrink-0" />
-              <div className="min-w-0">
-                <p className="font-serif-brand text-[15px] font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
-                  {brand.app_name || 'e-Card Verifikasi'}
-                </p>
-                <p className="text-[10.5px] font-medium text-[#E5EEE3]/90 leading-tight truncate">
-                  {brand.app_subtitle || 'Perumahan Saung Kebun'}
-                </p>
-              </div>
-            </button>
-
-            {/* Lonceng Notifikasi + Aksi Kanan */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {headerAction && <div className="shrink-0">{headerAction}</div>}
-              {isAdmin && onOpenSettings && (
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  aria-label="Pengaturan Sistem"
-                  title="Pengaturan Sistem Terpusat"
-                  className="hidden sm:inline-flex h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] items-center justify-center transition-colors cursor-pointer shrink-0"
-                >
-                  <Settings className="w-4.5 h-4.5" />
-                </button>
-              )}
-              <NotificationBell
-                session={session}
-                variant="dark"
-                externalUnreadCount={unreadNotificationCount}
-                onUnreadCountChange={setUnreadNotificationCount}
-                onNavigateTarget={onNavigateTarget}
-              />
-            </div>
-          </div>
-        </header>
-
-        {/* Pil Kaca Mengambang di Bawah Header Compact */}
-        <div className="relative z-20 -mt-5 px-3.5 sm:px-5">
-          <div className="max-w-3xl mx-auto rounded-full bg-[#FFFDF8]/95 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_10px_24px_-10px_rgba(36,56,37,0.20)] px-2.5 py-1.5 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
-            >
-              <UserAvatar
-                name={session.nama_warga}
-                src={effectiveAvatarUrl}
-                size="xs"
-                className="shrink-0 ring-1 ring-[#C6D2BF]"
-              />
-              <span className="text-xs font-bold text-[#1B271B] truncate">
-                {compactIdentityLabel}
-              </span>
-            </button>
-            <span className="shrink-0 px-3 py-1 rounded-full bg-[#2B3F29] text-[#FFFDF8] text-[11px] font-bold tracking-tight whitespace-nowrap">
-              {currentMonthBadge}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* HEADER DESKTOP BERSIH (lg+, sejajar konten di kanan sidebar w-72) */}
-      <div className="hidden lg:block fixed top-0 left-72 right-0 z-30 px-8 pt-3 pointer-events-none no-print">
-        <header className="max-w-7xl mx-auto rounded-2xl bg-[#FFFDF8]/92 backdrop-blur-xl border border-[#E6E2D6] shadow-[0_8px_24px_-10px_rgba(36,56,37,0.12)] px-5 py-2.5 flex items-center justify-between gap-4 pointer-events-auto">
-          <div className="min-w-0">
-            <p className="font-serif-brand text-base font-bold text-[#1B271B] leading-tight truncate">
-              {activePageTitle}
-            </p>
-            <p className="text-[11px] font-medium text-[#6E786D] truncate">
-              {isAdmin ? adminIdentityLabel : `Rumah Blok ${displayWargaBlok} · ${session.nama_warga}`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            {headerAction && <div className="shrink-0">{headerAction}</div>}
-
-            <span className="px-3 py-1.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-bold whitespace-nowrap">
-              {currentMonthBadge}
-            </span>
-
-            <NotificationBell
-              session={session}
-              variant="light"
-              externalUnreadCount={unreadNotificationCount}
-              onUnreadCountChange={setUnreadNotificationCount}
-              onNavigateTarget={onNavigateTarget}
-            />
-
-            {isAdmin && onOpenSettings && (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                aria-label="Pengaturan Sistem"
-                title="Pengaturan Sistem Terpusat"
-                className="h-10 w-10 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
-              >
-                <Settings className="w-4.5 h-4.5" />
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleOpenProfileFromSidebar}
-              aria-label={`Profil ${session.nama_warga}`}
-              className="flex items-center gap-2 p-1 pr-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 transition-colors cursor-pointer shrink-0"
-            >
-              <UserAvatar name={session.nama_warga} src={effectiveAvatarUrl} size="sm" />
-              <span className="text-xs font-bold text-[#1B271B] max-w-[120px] truncate">
-                {session.nama_warga}
-              </span>
-            </button>
-          </div>
-        </header>
+      {/* HEADER IDENTIK SCENIC SAUNG KEBUN + PIL PROFIL KACA MENGAMBANG */}
+      <div className="lg:pl-72 relative z-30 no-print">
+        <PortalHeader
+          session={session}
+          appTitle={brand.app_name || 'e-Card Verifikasi'}
+          appSubtitle="Perumahan Saung Kebun"
+          displayName={session.nama_warga}
+          identityLabel={compactIdentityLabel}
+          avatarUrl={effectiveAvatarUrl}
+          activePeriodLabel={currentMonthBadge}
+          menuBadgeCount={isAdmin ? pendingBugCount : 0}
+          externalUnreadCount={unreadNotificationCount}
+          onUnreadCountChange={setUnreadNotificationCount}
+          onOpenMenu={() => setDrawerOpen(true)}
+          onLogoClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
+          onProfileClick={() => {
+            if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+              handleOpenProfileFromSidebar();
+            } else {
+              setDrawerOpen(true);
+            }
+          }}
+          onNavigateTarget={onNavigateTarget}
+        />
       </div>
 
       {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[5.5rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 lg:pl-72 pt-3 px-4 sm:px-6 lg:px-8 pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

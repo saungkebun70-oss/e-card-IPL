@@ -11,7 +11,6 @@ import {
   LogOut,
   Map as MapIcon,
   MapPin,
-  Menu,
   MessageCircle,
   Navigation,
   PhoneCall,
@@ -89,12 +88,11 @@ import {
   normalizeNfcUid,
 } from '../../lib/webNfc';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
-import bgHeaderAsset from '../../assets/bg-header.jpg';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { PatrolInteractiveMap } from '../PatrolInteractiveMap';
 import { PetugasAttendanceCard } from './PetugasAttendanceCard';
 import { PetugasHonorTab } from './PetugasHonorTab';
-import { NotificationBell } from '../NotificationBell';
+import { PortalHeader } from '../PortalHeader';
 import { UserAvatar } from '../UserAvatar';
 import { ProfileAvatarEditor } from '../ProfileAvatarEditor';
 import { ThemePicker } from '../ThemePicker';
@@ -119,6 +117,8 @@ interface PetugasPortalPageProps {
 }
 
 type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta';
+
+const SHORT_MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 function isSameLocalDay(isoDate: string): boolean {
   const d = new Date(isoDate);
@@ -1374,79 +1374,31 @@ export function PetugasPortalPage({
         )}
       </AnimatePresence>
 
-      {/* Header Tetap & Anti-Geser Khusus Petugas (Offset lg:left-[260px] pada Desktop) */}
-      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#243825] text-[#FFFDF8] border-b border-[#384E35]/60 flex items-center shadow-md">
-        <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img
-            src={bgHeaderAsset}
-            alt=""
-            className="w-full h-full object-cover object-center opacity-45"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/72 to-[#243825]/88" />
-        </div>
-        <div className="relative z-10 max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
-          <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Buka Menu Sidebar Petugas"
-              title="Menu Profil & Navigasi"
-              className="lg:hidden h-10 w-10 rounded-xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/22 border border-[#FFFDF8]/20 text-[#FFFDF8] flex items-center justify-center cursor-pointer shrink-0 transition-colors active:scale-95"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+      {/* HEADER IDENTIK SCENIC SAUNG KEBUN + PIL PROFIL KACA MENGAMBANG */}
+      <div className="lg:pl-[260px] relative z-30 no-print">
+        <PortalHeader
+          session={session}
+          appTitle={brand.app_name || 'e-Card Verifikasi'}
+          appSubtitle="Perumahan Saung Kebun"
+          displayName={profil.nama}
+          identityLabel={`${profil.nama} · Keamanan (${effectiveShiftLabel})`}
+          avatarUrl={effectiveAvatarUrl}
+          activePeriodLabel={`${SHORT_MONTHS_ID[new Date().getMonth()]} ${new Date().getFullYear()}`}
+          onOpenMenu={() => setSidebarOpen(true)}
+          onLogoClick={() => handleSelectTab('scan')}
+          onProfileClick={() => {
+            if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+              setSidebarOpen(true);
+            } else {
+              setProfileModalOpen(true);
+            }
+          }}
+          onNavigateTarget={handleNotificationNavigate}
+        />
+      </div>
 
-            <BrandLogo size="xs" variant="dark" className="shrink-0 lg:hidden" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
-                {profil.nama}
-              </p>
-              <p className="text-[11px] text-[#E5EEE3]/85 font-medium truncate">
-                Keamanan · {effectiveShiftLabel}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-nowrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={refreshing}
-              onClick={() => void loadData(true)}
-              aria-label="Muat ulang data petugas"
-              className="h-10 w-10 rounded-full bg-[#FFFDF8]/10 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/15 text-[#E5EEE3] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </button>
-
-            <div className="inline-flex items-center visible opacity-100 shrink-0">
-              <NotificationBell
-                session={session}
-                variant="dark"
-                onNavigateTarget={handleNotificationNavigate}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (window.innerWidth < 1024) {
-                  setSidebarOpen(true);
-                } else {
-                  setProfileModalOpen(true);
-                }
-              }}
-              aria-label="Profil & Menu Petugas"
-              title="Profil & Pengaturan Petugas"
-              className="p-0.5 rounded-full border border-[#FFFDF8]/25 bg-[#FFFDF8]/10 hover:border-[#E5EEE3] transition-colors cursor-pointer shrink-0"
-            >
-              <UserAvatar name={profil.nama} src={effectiveAvatarUrl} size="sm" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
-        <div className="max-w-3xl mx-auto px-3 py-3 sm:px-4 space-y-4 w-full min-w-0">
+      <main className="lg:pl-[260px] pt-3 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+        <div className="max-w-3xl mx-auto space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState
             message="Memuat Portal Keamanan..."
@@ -1464,20 +1416,32 @@ export function PetugasPortalPage({
               {TAB_TITLES[activeTab].subtitle}
             </p>
           </div>
-          {activeTab !== 'peta' && (
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => handleSelectTab('peta')}
-              className="shrink-0 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-3 py-1.5 text-right cursor-pointer hover:bg-[#D6E4D3] transition-all duration-200 active:scale-[0.97]"
+              disabled={refreshing}
+              onClick={() => void loadData(true)}
+              aria-label="Muat ulang data petugas"
+              title="Muat ulang data"
+              className="h-9 w-9 rounded-full bg-[#FFFDF8] hover:bg-[#E5EEE3] border border-[#E6E2D6] text-[#243825] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
-              <p className="text-[10px] font-semibold text-[#243825] leading-none">
-                {activeLiveSession?.status === 'active' ? 'LIVE Aktif' : 'Siklus Aktif'}
-              </p>
-              <p className="text-xs font-mono font-bold text-[#2B3F29] tabular-nums mt-0.5">
-                {activeCycleProgress.scanned}/{activeCycleProgress.total} Pos
-              </p>
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-          )}
+            {activeTab !== 'peta' && (
+              <button
+                type="button"
+                onClick={() => handleSelectTab('peta')}
+                className="shrink-0 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] px-3 py-1.5 text-right cursor-pointer hover:bg-[#D6E4D3] transition-all duration-200 active:scale-[0.97]"
+              >
+                <p className="text-[10px] font-semibold text-[#243825] leading-none">
+                  {activeLiveSession?.status === 'active' ? 'LIVE Aktif' : 'Siklus Aktif'}
+                </p>
+                <p className="text-xs font-mono font-bold text-[#2B3F29] tabular-nums mt-0.5">
+                  {activeCycleProgress.scanned}/{activeCycleProgress.total} Pos
+                </p>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* KARTU ABSENSI JAGA & FOTO PROFIL — TAB INFO & SHIFT */}

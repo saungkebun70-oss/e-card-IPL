@@ -7,7 +7,7 @@ export const LOGO_SAUNG_KEBUN_SRC = watermarkMossAsset;
 
 interface BrandLogoProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  variant?: 'light' | 'dark' | 'transparent';
+  variant?: 'light' | 'dark' | 'transparent' | 'cream';
   className?: string;
   srcOverride?: string | null;
   altOverride?: string;
@@ -22,27 +22,44 @@ const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
   xl: 'w-24 h-28 sm:w-28 sm:h-32',
 };
 
+const ICON_ONLY_SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
+  xs: 'w-8 h-8',
+  sm: 'w-9 h-9',
+  md: 'w-10 h-10',
+  lg: 'w-12 h-12',
+  xl: 'w-16 h-16',
+};
+
 /**
  * Logo SVG transparan resmi Saung Kebun (100% tanpa background & tanpa kotak pembungkus):
- * - Siluet rumah hijau tua (#105C2B) dengan potongan dua helai daun kecil di dalam rumah
- * - Siluet daun hijau daun (#598226) melengkung di sisi kiri beserta 3 helai tunas & tulang daun
- * - Teks "SAUNG" dan "KEBUN" berwarna hijau daun (#496E24) di bawah emblem
+ * - Siluet rumah dengan potongan dua helai daun kecil di dalam rumah
+ * - Siluet daun melengkung di sisi kiri beserta 3 helai tunas & tulang daun
+ * - Mendukung mode ikon saja (showWordmark=false) & varian krem hangat untuk header scenic
  */
 export function SaungKebunEmblem({
   className = 'w-11 h-12',
+  tone = 'moss',
+  showWordmark = true,
   ariaLabel,
 }: {
   className?: string;
   tone?: 'cream' | 'moss';
+  showWordmark?: boolean;
   ariaLabel?: string;
 }) {
   const uid = useId().replace(/:/g, '');
   const veinMaskId = `sk-vein-${uid}`;
   const houseLeavesMaskId = `sk-house-leaves-${uid}`;
 
+  const isCream = tone === 'cream';
+  const houseFill = isCream ? '#F1EADA' : '#105C2B';
+  const leafFill = isCream ? '#D2CAAF' : '#598226';
+  const wordmarkFill = isCream ? '#F6F3EA' : '#496E24';
+  const viewBox = showWordmark ? '0 0 220 296' : '0 0 220 176';
+
   return (
     <svg
-      viewBox="0 0 220 296"
+      viewBox={viewBox}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role={ariaLabel ? 'img' : undefined}
@@ -78,61 +95,65 @@ export function SaungKebunEmblem({
       {/* Daun kecil melengkung di kiri puncak atap */}
       <path
         d="M 79 44 C 72 34 75 21 89 19 C 85 26 83 34 83 41 C 86 38 92 31 99 27 C 90 36 85 43 79 44 Z"
-        fill="#105C2B"
+        fill={houseFill}
       />
 
-      {/* Siluet rumah hijau tua + potongan dua helai daun kecil di dalam rumah */}
+      {/* Siluet rumah + potongan dua helai daun kecil di dalam rumah */}
       <path
         mask={`url(#${houseLeavesMaskId})`}
         d="M 73 48 C 77 52 84 52 91 46 L 122 22 L 210 93 L 176 93 L 176 164 L 116 164 L 110 160 C 127 153 135 136 128 119 C 120 100 94 84 78 65 C 73 59 71 53 73 48 Z"
-        fill="#105C2B"
+        fill={houseFill}
       />
 
       {/* Tunas 3 helai daun atas & daun utama melengkung di sisi kiri */}
       <g mask={`url(#${veinMaskId})`}>
         <path
           d="M 65 44 C 55 31 50 16 52 3 C 62 12 68 26 67 42 Z"
-          fill="#598226"
+          fill={leafFill}
         />
         <path
           d="M 61 48 C 46 47 34 40 27 30 C 40 31 53 37 63 46 Z"
-          fill="#598226"
+          fill={leafFill}
         />
         <path
           d="M 68 43 C 69 32 74 22 81 16 C 78 26 75 35 70 44 Z"
-          fill="#598226"
+          fill={leafFill}
         />
         <path
           d="M 68 44 C 66 56 76 74 93 92 C 113 113 128 130 123 149 C 120 158 112 162 104 164 C 76 158 55 137 52 108 C 50 85 57 62 68 44 Z"
-          fill="#598226"
+          fill={leafFill}
         />
       </g>
 
       {/* Teks SAUNG dan KEBUN */}
-      <text
-        x="110"
-        y="218"
-        textAnchor="middle"
-        fill="#496E24"
-        fontFamily="'Optima', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif"
-        fontSize="40"
-        fontWeight="500"
-        letterSpacing="3.2"
-      >
-        SAUNG
-      </text>
-      <text
-        x="110"
-        y="274"
-        textAnchor="middle"
-        fill="#496E24"
-        fontFamily="'Optima', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif"
-        fontSize="40"
-        fontWeight="500"
-        letterSpacing="3.2"
-      >
-        KEBUN
-      </text>
+      {showWordmark && (
+        <>
+          <text
+            x="110"
+            y="218"
+            textAnchor="middle"
+            fill={wordmarkFill}
+            fontFamily="'Optima', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif"
+            fontSize="40"
+            fontWeight="500"
+            letterSpacing="3.2"
+          >
+            SAUNG
+          </text>
+          <text
+            x="110"
+            y="274"
+            textAnchor="middle"
+            fill={wordmarkFill}
+            fontFamily="'Optima', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif"
+            fontSize="40"
+            fontWeight="500"
+            letterSpacing="3.2"
+          >
+            KEBUN
+          </text>
+        </>
+      )}
     </svg>
   );
 }
@@ -179,12 +200,15 @@ export function BrandLogo({
   className = '',
   srcOverride,
   altOverride,
+  showWordmark = true,
 }: BrandLogoProps) {
   const { brand } = useAppBrand();
   const hasCustomOverride = srcOverride !== undefined;
   const customSrc = hasCustomOverride ? srcOverride : null;
+  const isCream = variant === 'cream';
   const isDarkSurface = variant === 'dark' || variant === 'transparent';
   const resolvedAlt = altOverride || `Logo ${brand.app_name || 'Saung Kebun'}`;
+  const sizeClass = showWordmark ? SIZE_CLASSES[size] : ICON_ONLY_SIZE_CLASSES[size];
 
   const [failed, setFailed] = useState(false);
 
@@ -192,9 +216,11 @@ export function BrandLogo({
     setFailed(false);
   }, [customSrc]);
 
-  const contrastFilter = isDarkSurface
-    ? 'drop-shadow-sm [filter:drop-shadow(0_0_2.5px_rgba(255,253,248,0.88))_drop-shadow(0_1px_2px_rgba(0,0,0,0.28))]'
-    : '';
+  const contrastFilter = isCream
+    ? 'drop-shadow-sm'
+    : isDarkSurface
+      ? 'drop-shadow-sm [filter:drop-shadow(0_0_2.5px_rgba(255,253,248,0.88))_drop-shadow(0_1px_2px_rgba(0,0,0,0.28))]'
+      : '';
 
   if (customSrc && !failed) {
     return (
@@ -204,15 +230,17 @@ export function BrandLogo({
         referrerPolicy="no-referrer"
         decoding="async"
         onError={() => setFailed(true)}
-        className={`shrink-0 object-contain select-none ${SIZE_CLASSES[size]} ${contrastFilter} ${className}`.trim()}
+        className={`shrink-0 object-contain select-none ${sizeClass} ${contrastFilter} ${className}`.trim()}
       />
     );
   }
 
   return (
     <SaungKebunEmblem
+      tone={isCream ? 'cream' : 'moss'}
+      showWordmark={showWordmark}
       ariaLabel={resolvedAlt}
-      className={`shrink-0 select-none ${SIZE_CLASSES[size]} ${contrastFilter} ${className}`.trim()}
+      className={`shrink-0 select-none ${sizeClass} ${contrastFilter} ${className}`.trim()}
     />
   );
 }

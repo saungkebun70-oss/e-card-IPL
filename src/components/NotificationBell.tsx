@@ -910,7 +910,7 @@ export function NotificationBell({
 
   const buttonTheme =
     variant === 'dark'
-      ? 'bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] border-white/25 rounded-full'
+      ? 'bg-white/18 backdrop-blur-md hover:bg-white/25 text-white border-white/25 rounded-full shadow-sm'
       : 'bg-[#FFFDF8] hover:bg-[#E5EEE3] hover:border-[#C6D2BF] text-[#243825] border-[#E6E2D6] rounded-full shadow-xs';
 
   return (
@@ -926,7 +926,7 @@ export function NotificationBell({
         data-testid="header-notification-bell"
         className={`relative w-10 h-10 border inline-flex items-center justify-center visible opacity-100 transition-all duration-200 active:scale-[0.95] cursor-pointer shrink-0 ${buttonTheme}`}
       >
-        <Bell className={`w-5 h-5 transition-transform ${bellShaking ? 'animate-bell-shake' : ''}`} />
+        <Bell className={`w-[18px] h-[18px] transition-transform ${bellShaking ? 'animate-bell-shake' : ''}`} />
         {displayUnreadCount > 0 && (
           <span
             data-testid="notification-unread-badge"

@@ -6,6 +6,7 @@ export interface UserAvatarProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   ringClassName?: string;
+  fallbackClassName?: string;
 }
 
 const SIZE_MAP: Record<NonNullable<UserAvatarProps['size']>, string> = {
@@ -50,6 +51,7 @@ export function UserAvatar({
   size = 'md',
   className = '',
   ringClassName = '',
+  fallbackClassName,
 }: UserAvatarProps) {
   const [imgError, setImgError] = useState(false);
 
@@ -59,13 +61,17 @@ export function UserAvatar({
 
   const cleanSrc = typeof src === 'string' && src.trim() ? src.trim() : null;
   const initials = computeInitials(name);
-  const palette = pickPalette(name);
+  const palette = fallbackClassName || pickPalette(name);
   const sizeCls = SIZE_MAP[size];
+
+  const hasCustomBorderColor = /\bborder-(?!\d)/.test(className);
 
   if (cleanSrc && !imgError) {
     return (
       <div
-        className={`relative rounded-full overflow-hidden shrink-0 border border-emerald-200/80 bg-[#F5F3E7] ${sizeCls} ${ringClassName} ${className}`}
+        className={`relative rounded-full overflow-hidden shrink-0 border ${
+          hasCustomBorderColor ? '' : 'border-emerald-200/80'
+        } bg-[#F5F3E7] ${sizeCls} ${ringClassName} ${className}`}
       >
         <img
           src={cleanSrc}
