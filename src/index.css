@@ -905,8 +905,46 @@ html[data-theme="midnight"] #printable-report .border-slate-200 {
   }
 }
 
+@keyframes glass-card-flip-right {
+  0% {
+    opacity: 0.01;
+    transform: perspective(1200px) rotateY(14deg) scale(0.96) translate3d(10px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(0deg) scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes glass-card-flip-left {
+  0% {
+    opacity: 0.01;
+    transform: perspective(1200px) rotateY(-14deg) scale(0.96) translate3d(-10px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(0deg) scale(1) translate3d(0, 0, 0);
+  }
+}
+
 .animate-page-enter {
   animation: page-enter-smooth 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.animate-glass-flip-right {
+  animation: glass-card-flip-right 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.animate-glass-flip-left {
+  animation: glass-card-flip-left 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
 }
 
 .animate-modal-backdrop {
@@ -926,6 +964,8 @@ html[data-theme="midnight"] #printable-report .border-slate-200 {
 /* Hormati pengaturan Reduce Motion perangkat pengguna */
 @media (prefers-reduced-motion: reduce) {
   .animate-page-enter,
+  .animate-glass-flip-right,
+  .animate-glass-flip-left,
   .animate-modal-backdrop,
   .animate-modal-pop,
   .animate-dropdown-pop,

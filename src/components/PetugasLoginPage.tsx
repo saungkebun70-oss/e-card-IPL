@@ -39,9 +39,14 @@ const LOGIN_BG_SRC = bgLoginAsset;
 interface PetugasLoginPageProps {
   onLoginSuccess: (session: SessionUser) => void;
   onSwitchPortal?: (route: 'warga' | 'admin' | 'petugas') => void;
+  embeddedInShell?: boolean;
 }
 
-export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLoginPageProps) {
+export function PetugasLoginPage({
+  onLoginSuccess,
+  onSwitchPortal,
+  embeddedInShell = false,
+}: PetugasLoginPageProps) {
   const { brand } = useAppBrand();
   const { currentVersion, updateAvailable, checking, updating, checkForUpdate, applyUpdate } =
     useAppUpdate();
@@ -231,6 +236,201 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
         .join('')
     : '';
 
+  const accountCardAndForm = (
+    <div className="w-full space-y-5 transform-gpu will-change-[transform,opacity]">
+      {/* Kartu Profil Frosted Glass Hijau Lumut Ber-Watermark */}
+      <section
+        aria-label="Profil Akses Keamanan"
+        className="relative overflow-hidden rounded-3xl bg-[#243825]/68 backdrop-blur-md border border-white/20 p-4 shadow-2xl"
+      >
+        <SaungKebunWatermark className="absolute -right-5 -bottom-4 w-32 h-24" tone="cream" />
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="w-13 h-13 rounded-full bg-[#FFFDF8]/18 border-2 border-[#E5EEE3]/60 flex items-center justify-center text-base font-bold text-[#FFFDF8] shrink-0 shadow-inner">
+            {profileInitials || <Shield className="w-6 h-6 text-[#FFFDF8]" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-serif-brand text-lg sm:text-xl font-bold text-[#FFFDF8] leading-tight truncate">
+              {profileCardName}
+            </p>
+            <p className="text-xs font-medium text-[#E5EEE3]/90 truncate mt-0.5">
+              {profileCardSub}
+            </p>
+          </div>
+          {canQuickUnlock && enrolledProfile && (
+            <button
+              type="button"
+              onClick={handleClearBiometricProfile}
+              title="Hapus akses biometrik di perangkat ini"
+              aria-label="Hapus akses biometrik di perangkat ini"
+              className="h-9 w-9 rounded-full bg-white/10 hover:bg-[#C87058]/80 text-[#E5EEE3] hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Form Langsung di Atas Background */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {errorMsg && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-2xl bg-[#7E2B1C]/90 backdrop-blur-md border border-[#C87058]/60 px-4 py-3 text-xs sm:text-sm text-[#FFFDF8] shadow-lg"
+          >
+            <AlertCircle className="w-4 h-4 text-[#F2D8A7] shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {infoMsg && !errorMsg && (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 rounded-2xl bg-[#243825]/85 backdrop-blur-md border border-[#C6D2BF]/40 px-4 py-3 text-xs text-[#E5EEE3] shadow-lg"
+          >
+            {isFaceBiometry ? (
+              <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
+            ) : (
+              <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
+            )}
+            <span>{infoMsg}</span>
+          </div>
+        )}
+
+        <div>
+          <label
+            htmlFor="petugas-username"
+            className="block text-xs font-bold tracking-wide text-[#FFFDF8] mb-1.5 px-1 drop-shadow-xs"
+          >
+            Username / Nama Petugas
+          </label>
+          <div className="relative">
+            <UserCheck className="w-4 h-4 text-[#4A554A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="petugas-username"
+              type="text"
+              autoComplete="username"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Contoh: asep"
+              className="w-full min-h-[50px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] pl-11 pr-4 text-base text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#C6D2BF] focus:outline-none focus:ring-4 focus:ring-[#E5EEE3]/35 shadow-md transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="petugas-pin"
+            className="block text-xs font-bold tracking-wide text-[#FFFDF8] mb-1.5 px-1 drop-shadow-xs"
+          >
+            PIN 6 Digit
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-[#4A554A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="petugas-pin"
+              type={showPin ? 'text' : 'password'}
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="current-password"
+              required
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="••••••"
+              className="w-full min-h-[50px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] pl-11 pr-12 text-base text-[#1B271B] placeholder:text-[#6E786D] tracking-[0.28em] font-mono focus:border-[#C6D2BF] focus:outline-none focus:ring-4 focus:ring-[#E5EEE3]/35 shadow-md transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPin((prev) => !prev)}
+              aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/60 transition-colors cursor-pointer"
+            >
+              {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Toggle Masuk cepat Sidik Jari */}
+        <label className="flex items-center justify-between gap-3 rounded-2xl bg-[#243825]/55 backdrop-blur-md border border-white/15 px-4 py-2.5 cursor-pointer">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {isFaceBiometry ? (
+              <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0" />
+            ) : (
+              <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0" />
+            )}
+            <span className="text-xs font-semibold text-[#FFFDF8] truncate">
+              Masuk cepat {biometryLabel}
+            </span>
+          </div>
+          <div className="relative inline-flex items-center shrink-0">
+            <input
+              type="checkbox"
+              checked={enableBiometricAfterPin}
+              onChange={(e) => setEnableBiometricAfterPin(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-6 rounded-full bg-white/25 peer-checked:bg-[#E5EEE3] transition-colors relative after:content-[''] after:absolute after:top-1 after:left-1 after:w-4 after:h-4 after:rounded-full after:bg-[#FFFDF8] peer-checked:after:bg-[#243825] peer-checked:after:translate-x-4 after:transition-transform" />
+          </div>
+        </label>
+
+        {/* Baris Aksi Utama */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="submit"
+            disabled={loading || biometricLoading}
+            aria-busy={loading}
+            className="flex-1 min-h-[52px] px-6 rounded-full bg-[#2B3F29] hover:bg-[#384E35] border border-white/20 active:scale-[0.99] disabled:opacity-70 text-[#FFFDF8] font-bold text-sm inline-flex items-center justify-center gap-2 shadow-xl transition cursor-pointer"
+          >
+            {loading && (
+              <LoadingSpinner size="sm" tone="white" label="Memverifikasi akun petugas" />
+            )}
+            <span>{loading ? 'Memverifikasi...' : 'Masuk Portal'}</span>
+            {!loading && <ArrowRight className="w-4 h-4" />}
+          </button>
+
+          <button
+            type="button"
+            disabled={biometricLoading || loading}
+            onClick={() => {
+              if (canQuickUnlock) {
+                void handleBiometricLogin();
+              } else {
+                setInfoMsg(
+                  biometryAvailability?.isAvailable
+                    ? `Masuk dengan PIN 6 digit satu kali untuk mengaktifkan akses cepat ${biometryLabel}.`
+                    : `Perangkat ini belum mengaktifkan ${biometryLabel}. Masuk menggunakan PIN 6 digit.`
+                );
+              }
+            }}
+            aria-label={`Masuk dengan ${biometryLabel}`}
+            title={
+              canQuickUnlock
+                ? `Masuk cepat ${biometryLabel}`
+                : `Aktifkan ${biometryLabel} setelah login PIN`
+            }
+            className="w-[52px] h-[52px] rounded-full bg-[#FFFDF8] hover:bg-[#E5EEE3] border border-[#E6E2D6] text-[#243825] flex items-center justify-center shadow-xl transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-60"
+          >
+            {biometricLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-[#2B3F29]" />
+            ) : isFaceBiometry ? (
+              <ScanFace className="w-6 h-6 text-[#243825]" />
+            ) : (
+              <Fingerprint className="w-6 h-6 text-[#243825]" />
+            )}
+          </button>
+        </div>
+
+        <p className="text-[11px] text-[#E5EEE3]/85 text-center leading-relaxed px-2">
+          Lupa PIN atau belum memiliki akun petugas? Hubungi Ketua atau Bendahara Lingkungan.
+        </p>
+      </form>
+    </div>
+  );
+
+  if (embeddedInShell) {
+    return accountCardAndForm;
+  }
+
   return (
     <div className="relative isolate z-0 min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto bg-[#243825] text-[#FFFDF8]">
       {/* Background Foto Penuh Fasad Rumah Saung Kebun + Overlay Hijau Lumut */}
@@ -295,193 +495,8 @@ export function PetugasLoginPage({ onLoginSuccess, onSwitchPortal }: PetugasLogi
       </header>
 
       {/* Konten Utama Login */}
-      <main className="relative z-10 w-full max-w-md mx-auto px-4 sm:px-6 py-5 flex-1 flex flex-col justify-center gap-5 animate-page-enter">
-        {/* Kartu Profil Frosted Glass Hijau Lumut Ber-Watermark */}
-        <section
-          aria-label="Profil Akses Keamanan"
-          className="relative overflow-hidden rounded-3xl bg-[#243825]/68 backdrop-blur-md border border-white/20 p-4 shadow-2xl"
-        >
-          <SaungKebunWatermark className="absolute -right-5 -bottom-4 w-32 h-24" tone="cream" />
-          <div className="relative z-10 flex items-center gap-3.5">
-            <div className="w-13 h-13 rounded-full bg-[#FFFDF8]/18 border-2 border-[#E5EEE3]/60 flex items-center justify-center text-base font-bold text-[#FFFDF8] shrink-0 shadow-inner">
-              {profileInitials || <Shield className="w-6 h-6 text-[#FFFDF8]" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-serif-brand text-lg sm:text-xl font-bold text-[#FFFDF8] leading-tight truncate">
-                {profileCardName}
-              </p>
-              <p className="text-xs font-medium text-[#E5EEE3]/90 truncate mt-0.5">
-                {profileCardSub}
-              </p>
-            </div>
-            {canQuickUnlock && enrolledProfile && (
-              <button
-                type="button"
-                onClick={handleClearBiometricProfile}
-                title="Hapus akses biometrik di perangkat ini"
-                aria-label="Hapus akses biometrik di perangkat ini"
-                className="h-9 w-9 rounded-full bg-white/10 hover:bg-[#C87058]/80 text-[#E5EEE3] hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </section>
-
-        {/* Form Langsung di Atas Background */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {errorMsg && (
-            <div
-              role="alert"
-              className="flex items-start gap-2.5 rounded-2xl bg-[#7E2B1C]/90 backdrop-blur-md border border-[#C87058]/60 px-4 py-3 text-xs sm:text-sm text-[#FFFDF8] shadow-lg"
-            >
-              <AlertCircle className="w-4 h-4 text-[#F2D8A7] shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {infoMsg && !errorMsg && (
-            <div
-              role="status"
-              className="flex items-start gap-2.5 rounded-2xl bg-[#243825]/85 backdrop-blur-md border border-[#C6D2BF]/40 px-4 py-3 text-xs text-[#E5EEE3] shadow-lg"
-            >
-              {isFaceBiometry ? (
-                <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
-              ) : (
-                <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
-              )}
-              <span>{infoMsg}</span>
-            </div>
-          )}
-
-          <div>
-            <label
-              htmlFor="petugas-username"
-              className="block text-xs font-bold tracking-wide text-[#FFFDF8] mb-1.5 px-1 drop-shadow-xs"
-            >
-              Username / Nama Petugas
-            </label>
-            <div className="relative">
-              <UserCheck className="w-4 h-4 text-[#4A554A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                id="petugas-username"
-                type="text"
-                autoComplete="username"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Contoh: asep"
-                className="w-full min-h-[50px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] pl-11 pr-4 text-base text-[#1B271B] placeholder:text-[#6E786D] focus:border-[#C6D2BF] focus:outline-none focus:ring-4 focus:ring-[#E5EEE3]/35 shadow-md transition"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="petugas-pin"
-              className="block text-xs font-bold tracking-wide text-[#FFFDF8] mb-1.5 px-1 drop-shadow-xs"
-            >
-              PIN 6 Digit
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-[#4A554A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                id="petugas-pin"
-                type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
-                maxLength={6}
-                autoComplete="current-password"
-                required
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="••••••"
-                className="w-full min-h-[50px] rounded-full border border-[#E6E2D6] bg-[#FFFDF8] pl-11 pr-12 text-base text-[#1B271B] placeholder:text-[#6E786D] tracking-[0.28em] font-mono focus:border-[#C6D2BF] focus:outline-none focus:ring-4 focus:ring-[#E5EEE3]/35 shadow-md transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPin((prev) => !prev)}
-                aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
-                className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full text-[#4A554A] hover:text-[#243825] hover:bg-[#E5EEE3]/60 transition-colors cursor-pointer"
-              >
-                {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Toggle Masuk cepat Sidik Jari */}
-          <label className="flex items-center justify-between gap-3 rounded-2xl bg-[#243825]/55 backdrop-blur-md border border-white/15 px-4 py-2.5 cursor-pointer">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {isFaceBiometry ? (
-                <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0" />
-              ) : (
-                <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0" />
-              )}
-              <span className="text-xs font-semibold text-[#FFFDF8] truncate">
-                Masuk cepat {biometryLabel}
-              </span>
-            </div>
-            <div className="relative inline-flex items-center shrink-0">
-              <input
-                type="checkbox"
-                checked={enableBiometricAfterPin}
-                onChange={(e) => setEnableBiometricAfterPin(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-10 h-6 rounded-full bg-white/25 peer-checked:bg-[#E5EEE3] transition-colors relative after:content-[''] after:absolute after:top-1 after:left-1 after:w-4 after:h-4 after:rounded-full after:bg-[#FFFDF8] peer-checked:after:bg-[#243825] peer-checked:after:translate-x-4 after:transition-transform" />
-            </div>
-          </label>
-
-          {/* Baris Aksi Utama */}
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={loading || biometricLoading}
-              aria-busy={loading}
-              className="flex-1 min-h-[52px] px-6 rounded-full bg-[#2B3F29] hover:bg-[#384E35] border border-white/20 active:scale-[0.99] disabled:opacity-70 text-[#FFFDF8] font-bold text-sm inline-flex items-center justify-center gap-2 shadow-xl transition cursor-pointer"
-            >
-              {loading && (
-                <LoadingSpinner size="sm" tone="white" label="Memverifikasi akun petugas" />
-              )}
-              <span>{loading ? 'Memverifikasi...' : 'Masuk Portal'}</span>
-              {!loading && <ArrowRight className="w-4 h-4" />}
-            </button>
-
-            <button
-              type="button"
-              disabled={biometricLoading || loading}
-              onClick={() => {
-                if (canQuickUnlock) {
-                  void handleBiometricLogin();
-                } else {
-                  setInfoMsg(
-                    biometryAvailability?.isAvailable
-                      ? `Masuk dengan PIN 6 digit satu kali untuk mengaktifkan akses cepat ${biometryLabel}.`
-                      : `Perangkat ini belum mengaktifkan ${biometryLabel}. Masuk menggunakan PIN 6 digit.`
-                  );
-                }
-              }}
-              aria-label={`Masuk dengan ${biometryLabel}`}
-              title={
-                canQuickUnlock
-                  ? `Masuk cepat ${biometryLabel}`
-                  : `Aktifkan ${biometryLabel} setelah login PIN`
-              }
-              className="w-[52px] h-[52px] rounded-full bg-[#FFFDF8] hover:bg-[#E5EEE3] border border-[#E6E2D6] text-[#243825] flex items-center justify-center shadow-xl transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-60"
-            >
-              {biometricLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-[#2B3F29]" />
-              ) : isFaceBiometry ? (
-                <ScanFace className="w-6 h-6 text-[#243825]" />
-              ) : (
-                <Fingerprint className="w-6 h-6 text-[#243825]" />
-              )}
-            </button>
-          </div>
-
-          <p className="text-[11px] text-[#E5EEE3]/85 text-center leading-relaxed px-2">
-            Lupa PIN atau belum memiliki akun petugas? Hubungi Ketua atau Bendahara Lingkungan.
-          </p>
-        </form>
+      <main className="relative z-10 w-full max-w-md mx-auto px-4 sm:px-6 py-5 flex-1 flex flex-col justify-center animate-page-enter">
+        {accountCardAndForm}
       </main>
 
       {/* Bar Bawah Pemindah Peran */}

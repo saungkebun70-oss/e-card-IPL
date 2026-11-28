@@ -37,9 +37,7 @@ import {
   subscribePatroliRealtime,
   type AdminSnapshot,
 } from './lib/dataService';
-import { WargaLoginPage } from './components/WargaLoginPage';
-import { AdminLoginPage } from './components/AdminLoginPage';
-import { PetugasLoginPage } from './components/PetugasLoginPage';
+import { LoginPortalShell } from './components/LoginPortalShell';
 import { PetugasPortalPage } from './components/petugas/PetugasPortalPage';
 import { AppShell, type NavItem } from './components/AppShell';
 import { ToastContainer, type ToastMessage } from './components/Toast';
@@ -954,7 +952,7 @@ export default function App() {
     setWargaData(null);
     setAdminData(null);
     setDataError(null);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.scrollY > 8) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, []);
@@ -963,24 +961,11 @@ export default function App() {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        <div key={`login-${portalRoute}`} className="animate-page-enter">
-          {portalRoute === 'admin' ? (
-            <AdminLoginPage
-              onLoginSuccess={handleLoginSuccess}
-              onSwitchPortal={navigatePortalRoute}
-            />
-          ) : portalRoute === 'petugas' ? (
-            <PetugasLoginPage
-              onLoginSuccess={handleLoginSuccess}
-              onSwitchPortal={navigatePortalRoute}
-            />
-          ) : (
-            <WargaLoginPage
-              onLoginSuccess={handleLoginSuccess}
-              onSwitchPortal={navigatePortalRoute}
-            />
-          )}
-        </div>
+        <LoginPortalShell
+          portalRoute={portalRoute}
+          onLoginSuccess={handleLoginSuccess}
+          onSwitchPortal={navigatePortalRoute}
+        />
       </>
     );
   }
