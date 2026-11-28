@@ -32,6 +32,7 @@ import { downloadChairmanMonthlySummaryPdf } from '../../lib/pdfGenerator';
 import { recordAuditLog } from '../../lib/auditLogger';
 import { useAppBrand } from '../../lib/brandContext';
 import { useSimulation } from '../../lib/simulationContext';
+import { parseSimDateToLocalNoon } from '../../lib/simulationStore';
 
 interface ChairmanMonthlyReportPanelProps {
   session: SessionUser;
@@ -76,10 +77,11 @@ export function ChairmanMonthlyReportPanel({
 
   useEffect(() => {
     if (isSimulation && bulanOverride === undefined) {
-      setInternalBulan(getCurrentBillingMonth(simNow));
-      setInternalTahun(simNow.getFullYear());
+      const parsed = parseSimDateToLocalNoon(simDateIso);
+      setInternalBulan(getCurrentBillingMonth(parsed));
+      setInternalTahun(parsed.getFullYear());
     }
-  }, [isSimulation, simDateIso, simNow, bulanOverride]);
+  }, [isSimulation, simDateIso, bulanOverride]);
 
   const selectedBulan = bulanOverride ?? internalBulan;
   const selectedTahun = tahunOverride ?? internalTahun;

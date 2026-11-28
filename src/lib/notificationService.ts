@@ -9,8 +9,10 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import {
   SIM_CHANGED_EVENT,
   isSimulationMode,
+  isSimulationSessionActive,
   readSimData,
   updateSimData,
+  type SimChangeKind,
 } from './simulationStore';
 import {
   safeCheckFirebaseMessagingSupported,
@@ -1267,18 +1269,30 @@ export function subscribeActivityNotificationsRealtime(
       }
     };
 
+    const onSimChanged = (ev: Event) => {
+      const kind = (ev as CustomEvent<{ kind?: SimChangeKind }>).detail?.kind;
+      if (!kind || kind === 'data' || kind === 'wipe') {
+        notifyChange();
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener(NOTIF_EVENT, onLocalEvent);
       window.addEventListener('storage', onStorage);
-      window.addEventListener(SIM_CHANGED_EVENT, notifyChange);
+      if (isSimulationMode(session) || isSimulationSessionActive()) {
+        window.addEventListener(SIM_CHANGED_EVENT, onSimChanged);
+      }
       cleanups.push(() => {
         window.removeEventListener(NOTIF_EVENT, onLocalEvent);
         window.removeEventListener('storage', onStorage);
-        window.removeEventListener(SIM_CHANGED_EVENT, notifyChange);
+        window.removeEventListener(SIM_CHANGED_EVENT, onSimChanged);
       });
     }
 
-    const supabase = getSupabaseClient(session);
+    const supabase =
+      isSimulationMode(session) || isSimulationSessionActive()
+        ? null
+        : getSupabaseClient(session);
     if (supabase && isSupabaseConfigured()) {
       try {
         const channelName = `notifications-hub-${sessionKey.replace(/[^a-z0-9]/gi, '_')}`;

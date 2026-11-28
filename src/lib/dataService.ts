@@ -105,6 +105,7 @@ import {
 } from './notificationService';
 import { buildAvatarKey, cacheAccountAvatars, getCachedAvatarUrl } from './avatarService';
 import {
+  buildSimHouseStatuses,
   clearSimulationSessionOnly,
   getSimulationNow,
   isSimulationMode,
@@ -1383,7 +1384,8 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     return { error: 'Sesi warga tidak valid.' };
   }
 
-  const supabase = getSupabaseClient(session);
+  const isSim = isSimulationMode(session);
+  const supabase = isSim ? null : getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
       const [
@@ -1482,22 +1484,31 @@ export async function fetchWargaOwnData(session: SessionUser): Promise<
     }
   }
 
-  // Fallback lokal — tetap isolasi ketat hanya blok milik session
+  // Fallback lokal & Mode Simulasi — baca murni tanpa memicu writeLocal / loop event
   const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA);
-  const profil = wargaList.find((w) => w.blok_rumah === session.blok_rumah);
-  if (!profil) {
+  const rawProfil = wargaList.find((w) => w.blok_rumah === session.blok_rumah);
+  if (!rawProfil) {
     return { error: 'Data profil rumah tidak ditemukan.' };
   }
-
-  syncLocalStatusForHouse(session.blok_rumah);
-  const statusBulanan = readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, [])
-    .filter((s) => s.blok_rumah === session.blok_rumah && s.tahun === TAHUN_AKTIF)
-    .sort((a, b) => a.bulan - b.bulan);
+  const profil = normalizeWargaRecord(rawProfil);
 
   const riwayat = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, [])
     .filter((t) => t.blok_rumah === session.blok_rumah)
     .map((t) => normalizeTransaksiRow(t as unknown as Record<string, unknown>))
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
+
+  let statusBulanan: StatusEcardBulanan[];
+  if (isSim || isSimulationSessionActive()) {
+    statusBulanan = reconcileStatusWithTransactions(
+      buildSimHouseStatuses([profil], riwayat, getSimulationNow()),
+      riwayat
+    );
+  } else {
+    syncLocalStatusForHouse(session.blok_rumah);
+    statusBulanan = readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, [])
+      .filter((s) => s.blok_rumah === session.blok_rumah && s.tahun === TAHUN_AKTIF)
+      .sort((a, b) => a.bulan - b.bulan);
+  }
 
   const [notifications, paymentConfig, petugasKontak, patroliFeed, titikPatroli, patrolMapConfig] =
     await Promise.all([
@@ -2533,7 +2544,8 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
     return { error: 'Akses ditolak: hanya untuk Pengurus / Admin.' };
   }
 
-  const supabase = getSupabaseClient(session);
+  const isSim = isSimulationMode(session);
+  const supabase = isSim ? null : getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
       const [
@@ -2650,21 +2662,30 @@ export async function fetchAdminSnapshot(session: SessionUser): Promise<ServiceR
     }
   }
 
-  ensureLocalStoreInitialized();
   const wargaList = readLocal<Warga[]>(STORAGE_KEYS.WARGA, SEED_WARGA)
     .map(normalizeWargaRecord)
     .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
-  for (const w of wargaList) {
-    syncLocalStatusForHouse(w.blok_rumah);
-  }
-
   const transaksiList = readLocal<TransaksiIPL[]>(STORAGE_KEYS.TRANSAKSI, SEED_TRANSAKSI)
     .map((t) => normalizeTransaksiRow(t as unknown as Record<string, unknown>))
     .sort((a, b) => new Date(b.tanggal_setor).getTime() - new Date(a.tanggal_setor).getTime());
-  const statusList = reconcileStatusWithTransactions(
-    readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, []),
-    transaksiList
-  );
+
+  let statusList: StatusEcardBulanan[];
+  if (isSim || isSimulationSessionActive()) {
+    // Baca murni di memori tanpa memanggil writeLocal/emitSimulationChanged agar bebas loop
+    statusList = reconcileStatusWithTransactions(
+      buildSimHouseStatuses(wargaList, transaksiList, getSimulationNow()),
+      transaksiList
+    );
+  } else {
+    ensureLocalStoreInitialized();
+    for (const w of wargaList) {
+      syncLocalStatusForHouse(w.blok_rumah);
+    }
+    statusList = reconcileStatusWithTransactions(
+      readLocal<StatusEcardBulanan[]>(STORAGE_KEYS.STATUS, []),
+      transaksiList
+    );
+  }
   const botConfig = readLocal<BotWaConfig>(STORAGE_KEYS.BOT_CONFIG, SEED_BOT_WA_CONFIG);
   const botLogs = readLocal<BotWaLog[]>(STORAGE_KEYS.BOT_LOGS, SEED_BOT_WA_LOGS).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -2863,10 +2884,8 @@ export function subscribeAdminRealtime(
   options?: RealtimeSyncOptions
 ): () => void {
   if (session.role !== 'admin') return () => {};
-  if (isSimulationMode(session)) {
-    return subscribeSimulationChanges(() => {
-      void onChange();
-    });
+  if (isSimulationMode(session) || isSimulationSessionActive()) {
+    return () => {};
   }
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) return () => {};
@@ -2957,9 +2976,11 @@ export function subscribePatroliRealtime(
   onChange: () => void | Promise<void>,
   options?: RealtimeSyncOptions
 ): () => void {
-  if (isSimulationMode(session)) {
-    return subscribeSimulationChanges(() => {
-      void onChange();
+  if (isSimulationMode(session) || isSimulationSessionActive()) {
+    return subscribeSimulationChanges((kind) => {
+      if (!kind || kind === 'data') {
+        void onChange();
+      }
     });
   }
   const supabase = getSupabaseClient(session);
@@ -6196,6 +6217,9 @@ function writeLocalAppBrandConfig(config: AppBrandConfig) {
 
 export async function fetchAppBrandConfig(session?: SessionUser | null): Promise<AppBrandConfig> {
   const localConfig = readLocalAppBrandConfig();
+  if (isSimulationMode(session) || isSimulationSessionActive()) {
+    return localConfig;
+  }
   const supabase = getSupabaseClient(session || null);
   if (supabase && isSupabaseConfigured()) {
     try {
@@ -9009,7 +9033,11 @@ export function subscribePetugasKeamananRealtime(
   window.addEventListener(PETUGAS_CHANGE_EVENT, onLocal);
 
   if (isSimulationMode(session) || isSimulationSessionActive()) {
-    const unsubSim = subscribeSimulationChanges(onChange);
+    const unsubSim = subscribeSimulationChanges((kind) => {
+      if (!kind || kind === 'data') {
+        onChange();
+      }
+    });
     return () => {
       window.removeEventListener(PETUGAS_CHANGE_EVENT, onLocal);
       unsubSim();

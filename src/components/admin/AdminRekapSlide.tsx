@@ -67,6 +67,7 @@ import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 import { useSimulation } from '../../lib/simulationContext';
+import { parseSimDateToLocalNoon } from '../../lib/simulationStore';
 import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
 interface AdminRekapSlideProps {
@@ -136,10 +137,11 @@ export function AdminRekapSlide({
 
   useEffect(() => {
     if (isSimulation) {
-      setSelectedBulan(getCurrentBillingMonth(simNow));
-      setSelectedTahun(simNow.getFullYear());
+      const parsed = parseSimDateToLocalNoon(simDateIso);
+      setSelectedBulan(getCurrentBillingMonth(parsed));
+      setSelectedTahun(parsed.getFullYear());
     }
-  }, [isSimulation, simDateIso, simNow]);
+  }, [isSimulation, simDateIso]);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [printingPdf, setPrintingPdf] = useState(false);
 

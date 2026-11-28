@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   CheckCircle2,
   Coins,
@@ -97,6 +97,18 @@ export const SimulationRoleModal: React.FC<SimulationRoleModalProps> = ({
   onSelectSession,
   currentSession,
 }) => {
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!open) {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const isCurrentPreset = (presetId: SimPresetRoleId): boolean => {
@@ -115,13 +127,21 @@ export const SimulationRoleModal: React.FC<SimulationRoleModalProps> = ({
     }
   };
 
+  const handleCloseModal = () => {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    }
+    onClose();
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm"
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60"
       role="dialog"
       aria-modal="true"
       aria-labelledby="sim-role-modal-title"
-      onClick={onClose}
+      onClick={handleCloseModal}
     >
       <div
         className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[#FAF9F5] border border-[#E2E6DC] shadow-2xl p-5 sm:p-6"
@@ -146,8 +166,8 @@ export const SimulationRoleModal: React.FC<SimulationRoleModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-[#EFECE3] text-[#3E4C3E] hover:bg-[#E4E0D4] flex items-center justify-center shrink-0 transition"
+            onClick={handleCloseModal}
+            className="w-10 h-10 rounded-full bg-[#EFECE3] text-[#3E4C3E] hover:bg-[#E4E0D4] flex items-center justify-center shrink-0 transition-colors cursor-pointer"
             aria-label="Tutup pilihan peran simulasi"
           >
             <X className="w-5 h-5" />
@@ -162,11 +182,15 @@ export const SimulationRoleModal: React.FC<SimulationRoleModalProps> = ({
                 key={preset.id}
                 type="button"
                 onClick={() => {
+                  if (typeof document !== 'undefined') {
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                  }
                   const nextSession = buildSimulationSession(preset.id);
-                  onSelectSession(nextSession);
                   onClose();
+                  onSelectSession(nextSession);
                 }}
-                className={`w-full text-left rounded-2xl border p-3.5 sm:p-4 transition active:scale-[0.99] ${
+                className={`w-full text-left rounded-2xl border p-3.5 sm:p-4 transition-colors cursor-pointer ${
                   preset.accentClass
                 } ${active ? 'ring-2 ring-[#2B3F29] ring-offset-1' : ''}`}
               >

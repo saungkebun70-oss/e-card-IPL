@@ -170,9 +170,11 @@ function simRemoveItem(key: string): void {
   }
 }
 
-export function emitSimulationChanged(): void {
+export type SimChangeKind = 'data' | 'session' | 'enabled' | 'wipe';
+
+export function emitSimulationChanged(kind: SimChangeKind = 'data'): void {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(SIM_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(SIM_CHANGED_EVENT, { detail: { kind } }));
   }
 }
 
@@ -194,7 +196,7 @@ export function isSimulationEnabled(): boolean {
 
 export function setSimulationEnabled(enabled: boolean): void {
   simSetItem(SIM_ENABLED_KEY, enabled ? 'true' : 'false');
-  emitSimulationChanged();
+  emitSimulationChanged('enabled');
 }
 
 export function loadSimulationSession(): SessionUser | null {
@@ -213,12 +215,12 @@ export function loadSimulationSession(): SessionUser | null {
 export function saveSimulationSession(session: SessionUser | null): void {
   if (!session) {
     simRemoveItem(SIM_SESSION_KEY);
-    emitSimulationChanged();
+    emitSimulationChanged('session');
     return;
   }
   const marked: SessionUser = { ...session, is_simulation: true };
   simSetItem(SIM_SESSION_KEY, JSON.stringify(marked));
-  emitSimulationChanged();
+  emitSimulationChanged('session');
 }
 
 export function clearSimulationSessionOnly(): void {
@@ -808,19 +810,24 @@ export function wipeSimulationDataAndDisable(): void {
   simRemoveItem(SIM_DATA_KEY);
   simRemoveItem(SIM_SESSION_KEY);
   simSetItem(SIM_ENABLED_KEY, 'false');
-  emitSimulationChanged();
+  emitSimulationChanged('wipe');
 }
 
-export function subscribeSimulationChanges(callback: () => void): () => void {
+export function subscribeSimulationChanges(
+  callback: (kind?: SimChangeKind) => void
+): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  const handler = () => callback();
+  const handler = (ev: Event) => {
+    const kind = (ev as CustomEvent<{ kind?: SimChangeKind }>).detail?.kind;
+    callback(kind);
+  };
   const storageHandler = (e: StorageEvent) => {
-    if (
-      e.key === SIM_DATA_KEY ||
-      e.key === SIM_ENABLED_KEY ||
-      e.key === SIM_SESSION_KEY
-    ) {
-      callback();
+    if (e.key === SIM_DATA_KEY) {
+      callback('data');
+    } else if (e.key === SIM_ENABLED_KEY) {
+      callback('enabled');
+    } else if (e.key === SIM_SESSION_KEY) {
+      callback('session');
     }
   };
   window.addEventListener(SIM_CHANGED_EVENT, handler);

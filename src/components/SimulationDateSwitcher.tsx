@@ -43,27 +43,25 @@ export const SimulationDateSwitcher: React.FC<SimulationDateSwitcherProps> = ({
 
   return (
     <div
-      className={`rounded-2xl border border-[#DCE3D7] bg-[#F4F6EF] p-3 sm:p-3.5 no-print ${className}`}
+      className={`rounded-2xl border border-[#DCE3D7] bg-[#F4F6EF] p-2.5 sm:p-3.5 no-print ${className}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#E4ECE1] text-[#243825] flex items-center justify-center shrink-0">
-            <CalendarClock className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-[#1B271B]">
-              Simulator Tanggal Tagihan (Demo Jatuh Tempo)
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-7 h-7 rounded-lg bg-[#E4ECE1] text-[#243825] flex items-center justify-center shrink-0">
+          <CalendarClock className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-[#1B271B] leading-tight">
+            Simulator Tanggal Tagihan (Demo Jatuh Tempo)
+          </p>
+          {!compact && (
+            <p className="text-[11px] text-[#5B685B] leading-snug mt-0.5">
+              Efek aktif: <span className="font-semibold text-[#243825]">{activeMeta.hint}</span>
             </p>
-            {!compact && (
-              <p className="text-[11px] text-[#5B685B]">
-                Efek aktif: <span className="font-semibold text-[#243825]">{activeMeta.hint}</span>
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
         {DATE_OPTIONS.map((opt) => {
           const isSelected = simDateIso === opt.iso;
           return (
@@ -71,7 +69,7 @@ export const SimulationDateSwitcher: React.FC<SimulationDateSwitcherProps> = ({
               key={opt.iso}
               type="button"
               onClick={() => setSimDateIso(opt.iso)}
-              className={`min-h-[40px] px-3 py-2 rounded-xl border text-xs font-bold transition text-left sm:text-center ${
+              className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors text-left sm:text-center cursor-pointer ${
                 isSelected
                   ? opt.activeClass
                   : 'bg-white text-[#2F3E2F] border-[#DDE3D7] hover:bg-[#EDF1E8]'

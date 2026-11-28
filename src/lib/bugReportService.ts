@@ -8,6 +8,7 @@ import {
   getAllAdminUserIds,
   getCanonicalUserId,
 } from './notificationService';
+import { isSimulationMode } from './simulationStore';
 
 export type BugReportCategory =
   | 'error_crash'
@@ -752,6 +753,12 @@ export async function fetchBugReports(session: SessionUser): Promise<BugReportRe
       ? localAll
       : localAll.filter((r) => r.reporter_id === reporterId || r.blok_rumah === session.blok_rumah);
 
+  if (isSimulationMode(session)) {
+    return localFiltered.sort(
+      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
+    );
+  }
+
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) {
     return localFiltered.sort(
@@ -967,10 +974,11 @@ export function subscribeBugReportsRealtime(
     });
   }
 
-  const supabase = getSupabaseClient(session);
-  if (supabase && isSupabaseConfigured()) {
-    try {
-      const channel = supabase
+  if (!isSimulationMode(session)) {
+    const supabase = getSupabaseClient(session);
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        const channel = supabase
         .channel(`bug-reports-${session.role}-${Date.now()}`)
         .on(
           'postgres_changes',
@@ -988,8 +996,9 @@ export function subscribeBugReportsRealtime(
           // Abaikan
         }
       });
-    } catch {
-      // Abaikan bila realtime WebSocket dibatasi
+      } catch {
+        // Abaikan bila realtime WebSocket dibatasi
+      }
     }
   }
 

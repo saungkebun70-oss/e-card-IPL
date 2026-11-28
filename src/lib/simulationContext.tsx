@@ -39,10 +39,14 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
   const [simVersion, setSimVersion] = useState<number>(0);
 
   useEffect(() => {
-    return subscribeSimulationChanges(() => {
-      setSimEnabledState(isSimulationEnabled());
-      setSimDateIsoState(getSimulationDateIso());
-      setSimVersion((v) => v + 1);
+    return subscribeSimulationChanges((kind) => {
+      const nextEnabled = isSimulationEnabled();
+      const nextDate = getSimulationDateIso();
+      setSimEnabledState((prev) => (prev === nextEnabled ? prev : nextEnabled));
+      setSimDateIsoState((prev) => (prev === nextDate ? prev : nextDate));
+      if (!kind || kind === 'data' || kind === 'wipe') {
+        setSimVersion((v) => v + 1);
+      }
     });
   }, []);
 

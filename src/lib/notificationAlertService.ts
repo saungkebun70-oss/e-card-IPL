@@ -1434,13 +1434,16 @@ export function installAggressiveNotificationWakeupSync(session?: SessionUser | 
   if (session) {
     activePushSession = session;
   }
+  if (isSimulationMode(session || activePushSession)) {
+    return;
+  }
   if (typeof window === 'undefined') return;
   if (wakeupSyncInstalled) return;
   wakeupSyncInstalled = true;
 
   const triggerWakeupCheck = (reason: 'visible' | 'focus' | 'online' | 'resume' | 'interval') => {
     const currentSession = activePushSession;
-    if (!currentSession) return;
+    if (!currentSession || isSimulationMode(currentSession)) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
 
     void pollUnreadNotificationsNow(currentSession, {
@@ -1485,7 +1488,7 @@ export function installAggressiveNotificationWakeupSync(session?: SessionUser | 
   }
   wakeupPollIntervalId = window.setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-    if (!activePushSession) return;
+    if (!activePushSession || isSimulationMode(activePushSession)) return;
     const intervalMs = fcmFallbackActive || isLikelyHuaweiDevice() ? 20000 : 45000;
     if (Date.now() - lastUnreadPollTriggeredAt >= intervalMs - 1000) {
       triggerWakeupCheck('interval');

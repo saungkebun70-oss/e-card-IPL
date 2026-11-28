@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   FlaskConical,
@@ -38,6 +38,18 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
   const [confirmWipeOpen, setConfirmWipeOpen] = useState(false);
   const isBendahara = isBendaharaOnly(session);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!confirmWipeOpen) {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    };
+  }, [confirmWipeOpen]);
+
   if (!session.is_simulation) return null;
 
   return (
@@ -45,14 +57,14 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
       <div
         role="region"
         aria-label="Status Mode Simulasi Aktif"
-        className="sticky top-0 z-[55] w-full bg-[#192B1B] text-[#FFFDF8] border-b border-white/15 shadow-md no-print"
+        className="sticky top-0 z-[55] w-full bg-[#192B1B] text-[#FFFDF8] border-b border-white/15 shadow-sm no-print"
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2 lg:py-0 lg:min-h-[48px] flex flex-wrap items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2 lg:py-0 lg:min-h-[48px] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-[#E5EEE3]/15 border border-white/20 text-[#D9F0D3] flex items-center justify-center shrink-0">
               <FlaskConical className="w-4 h-4" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-[11px] sm:text-xs font-extrabold tracking-tight text-[#FFFDF8] truncate">
                 MODE SIMULASI AKTIF (Data sementara, tidak masuk Supabase)
               </p>
@@ -65,11 +77,11 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto max-w-full">
             <button
               type="button"
               onClick={onOpenRolePicker}
-              className="min-h-[34px] px-2.5 sm:px-3 rounded-lg bg-white/14 hover:bg-white/22 border border-white/20 text-[#FFFDF8] text-[11px] font-bold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0"
+              className="min-h-[32px] px-2.5 sm:px-3 rounded-lg bg-white/14 hover:bg-white/22 border border-white/20 text-[#FFFDF8] text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <Users className="w-3.5 h-3.5 shrink-0" />
               <span>Ganti Peran</span>
@@ -80,7 +92,7 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
                 type="button"
                 onClick={onResetSimData}
                 title="Kembalikan data demo ke kondisi awal"
-                className="min-h-[34px] px-2.5 rounded-lg bg-white/10 hover:bg-white/18 border border-white/15 text-[#E5EEE3] text-[11px] font-semibold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[32px] px-2.5 rounded-lg bg-white/10 hover:bg-white/18 border border-white/15 text-[#E5EEE3] text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden md:inline">Reset Demo</span>
@@ -91,17 +103,18 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmWipeOpen(true)}
-                className="min-h-[34px] px-2.5 sm:px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[32px] px-2.5 sm:px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Hapus Data &amp; Tutup Mode Simulasi</span>
+                <span className="sm:hidden">Hapus &amp; Tutup Simulasi</span>
+                <span className="hidden sm:inline">Hapus Data &amp; Tutup Mode Simulasi</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onExitDemo}
-              className="min-h-[34px] px-2.5 sm:px-3 rounded-lg bg-[#E5EEE3] hover:bg-white text-[#1B271B] text-[11px] font-bold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0"
+              className="min-h-[32px] px-2.5 sm:px-3 rounded-lg bg-[#E5EEE3] hover:bg-white text-[#1B271B] text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" />
               <span>Keluar Demo</span>
@@ -112,7 +125,7 @@ export const SimulationTopBar: React.FC<SimulationTopBarProps> = ({
 
       {confirmWipeOpen && (
         <div
-          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-wipe-sim-title"

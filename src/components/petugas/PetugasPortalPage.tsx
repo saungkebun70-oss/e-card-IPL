@@ -163,6 +163,10 @@ export function PetugasPortalPage({
   const { brand } = useAppBrand();
   const { simNow } = useSimulation();
   const isSimulation = Boolean(session.is_simulation);
+  const activePeriodLabel = useMemo(() => {
+    const refDate = isSimulation ? simNow : new Date();
+    return `${SHORT_MONTHS_ID[refDate.getMonth()]} ${refDate.getFullYear()}`;
+  }, [isSimulation, simNow]);
   const [activeTab, setActiveTab] = useState<PetugasTab>('scan');
   const [data, setData] = useState<PetugasOwnData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1251,7 +1255,7 @@ export function PetugasPortalPage({
   );
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] glass-canvas bg-[#F6F3EA] text-[#1B271B] overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] glass-canvas bg-[#F6F3EA] text-[#1B271B] overflow-x-clip">
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
@@ -1430,7 +1434,7 @@ export function PetugasPortalPage({
           displayName={profil.nama}
           identityLabel={`${profil.nama} · Keamanan (${effectiveShiftLabel})`}
           avatarUrl={effectiveAvatarUrl}
-          activePeriodLabel={`${SHORT_MONTHS_ID[(isSimulation ? simNow : new Date()).getMonth()]} ${(isSimulation ? simNow : new Date()).getFullYear()}`}
+          activePeriodLabel={activePeriodLabel}
           onOpenMenu={() => setSidebarOpen(true)}
           onLogoClick={() => handleSelectTab('scan')}
           onProfileClick={() => {
@@ -1444,7 +1448,7 @@ export function PetugasPortalPage({
         />
       </div>
 
-      <main className="lg:pl-[260px] pt-3 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="lg:pl-[260px] pt-3 px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-clip">
         <div className="max-w-3xl mx-auto space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState

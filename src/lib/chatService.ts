@@ -1409,7 +1409,7 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
     (m) => canAccessChatRoom(session, m.room_id) && !isMessageHiddenForSession(session, m)
   );
 
-  const supabase = getSupabaseClient(session);
+  const supabase = isSimulationMode(session) ? null : getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     try {
       const primaryRes = await supabase
@@ -2238,7 +2238,7 @@ export function subscribeChatMessagesRealtime(
     });
   }
 
-  const supabase = getSupabaseClient(session);
+  const supabase = isSimulationMode(session) ? null : getSupabaseClient(session);
   if (supabase && isSupabaseConfigured()) {
     let disposed = false;
     const hydrateRealtimeRow = async (
@@ -2770,7 +2770,7 @@ export function subscribeChatTypingRoom(
   const myBadge = formatTypingSenderBadge(session);
   const myName = (session.nama_warga || myCtx.namaWarga || 'Pengguna').trim();
 
-  const supabase = getSupabaseClient(session);
+  const supabase = isSimulationMode(session) ? null : getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured() || !canAccessChatRoom(session, normalizedRoom)) {
     onTypingUsersChange([]);
     return {

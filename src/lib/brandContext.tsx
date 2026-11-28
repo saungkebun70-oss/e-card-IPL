@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { DEFAULT_APP_BRAND_CONFIG, type AppBrandConfig } from '../types';
 import { fetchAppBrandConfig, readLocalAppBrandConfig } from './dataService';
-import { subscribeSimulationChanges } from './simulationStore';
+import { isSimulationSessionActive, subscribeSimulationChanges } from './simulationStore';
 
 interface BrandContextValue {
   brand: AppBrandConfig;
@@ -42,16 +42,28 @@ function syncDocumentHead(brand: AppBrandConfig) {
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [brand, setBrandState] = useState<AppBrandConfig>(() => readLocalAppBrandConfig());
 
+  const applyBrandIfChanged = useCallback((next: AppBrandConfig) => {
+    setBrandState((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(next)) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
   const setBrand = useCallback((next: AppBrandConfig) => {
     setBrandState(next);
     syncDocumentHead(next);
   }, []);
 
   const refreshBrand = useCallback(async () => {
+    if (isSimulationSessionActive()) {
+      applyBrandIfChanged(readLocalAppBrandConfig());
+      return;
+    }
     const latest = await fetchAppBrandConfig(null);
-    setBrandState(latest);
-    syncDocumentHead(latest);
-  }, []);
+    applyBrandIfChanged(latest);
+  }, [applyBrandIfChanged]);
 
   useEffect(() => {
     syncDocumentHead(brand);
@@ -60,23 +72,29 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const syncBrand = () => {
+      if (isSimulationSessionActive()) {
+        applyBrandIfChanged(readLocalAppBrandConfig());
+        return;
+      }
       void fetchAppBrandConfig(null).then((latest) => {
         if (active) {
-          setBrandState(latest);
-          syncDocumentHead(latest);
+          applyBrandIfChanged(latest);
         }
       });
     };
     syncBrand();
     const unsub = subscribeSimulationChanges(() => {
-      setBrandState(readLocalAppBrandConfig());
-      syncBrand();
+      if (isSimulationSessionActive()) {
+        applyBrandIfChanged(readLocalAppBrandConfig());
+      } else {
+        syncBrand();
+      }
     });
     return () => {
       active = false;
       unsub();
     };
-  }, []);
+  }, [applyBrandIfChanged]);
 
   return (
     <BrandContext.Provider value={{ brand, setBrand, refreshBrand }}>

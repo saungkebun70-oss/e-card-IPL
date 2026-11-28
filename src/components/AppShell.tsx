@@ -146,6 +146,14 @@ export function AppShell({
     const unsub = subscribeActivityNotificationsRealtime(sessionRef.current, () => {
       void syncUnreadCount();
     });
+
+    if (session.is_simulation) {
+      return () => {
+        active = false;
+        unsub();
+      };
+    }
+
     const pollTimer = window.setInterval(() => {
       if (document.visibilityState !== 'hidden') {
         void syncUnreadCount();
@@ -166,7 +174,7 @@ export function AppShell({
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
-  }, [sessionKey]);
+  }, [sessionKey, session.is_simulation]);
 
   // Sinkronisasi jumlah Laporan Bug yang masih Pending khusus Admin
   useEffect(() => {
@@ -175,22 +183,23 @@ export function AppShell({
       return;
     }
     let active = true;
+    const activeSession = sessionRef.current;
     const syncBugCount = async () => {
-      const count = await fetchPendingBugReportCount(session);
+      const count = await fetchPendingBugReportCount(sessionRef.current);
       if (active) {
         setPendingBugCount(count);
       }
     };
 
     void syncBugCount();
-    const unsub = subscribeBugReportsRealtime(session, () => {
+    const unsub = subscribeBugReportsRealtime(activeSession, () => {
       void syncBugCount();
     });
     return () => {
       active = false;
       unsub();
     };
-  }, [isAdmin, session]);
+  }, [isAdmin, sessionKey, session.is_simulation]);
 
   // Sinkronisasi jumlah pesan belum dibaca untuk Chat Lingkungan
   useEffect(() => {
@@ -509,7 +518,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-clip">
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar w-72 / 288px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
@@ -611,7 +620,7 @@ export function AppShell({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={() => setDrawerOpen(false)}
-              className="fixed inset-0 bg-[#142015]/55 backdrop-blur-sm"
+              className="fixed inset-0 bg-[#142015]/55"
             />
 
             {/* Panel Drawer Kiri (~80% lebar viewport, sudut kanan membulat) */}
@@ -725,21 +734,12 @@ export function AppShell({
         />
       </div>
 
-      {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-72 pt-3 px-4 sm:px-6 lg:px-8 pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      {/* AREA KONTEN UTAMA (pb-32 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
+      <main className="flex-1 lg:pl-72 pt-3 px-4 sm:px-6 lg:px-8 pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] lg:pb-10 w-full max-w-full min-w-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full min-w-0">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full min-w-0"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          <div key={activeTab} className="w-full min-w-0 animate-page-enter">
+            {children}
+          </div>
         </div>
       </main>
 

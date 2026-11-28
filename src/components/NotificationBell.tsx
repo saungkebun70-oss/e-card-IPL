@@ -629,7 +629,7 @@ export function NotificationBell({
       const perm = await initNativeNotificationsOnLaunch(sessionRef.current);
       if (!mounted) return;
       setOsPermission(perm);
-      if (perm === 'prompt' && !prefs.permissionPromptDismissed) {
+      if (!sessionRef.current.is_simulation && perm === 'prompt' && !prefs.permissionPromptDismissed) {
         window.setTimeout(() => {
           if (mounted) setShowFloatingPrompt(true);
         }, 1600);
@@ -696,6 +696,12 @@ export function NotificationBell({
         }
       }
     );
+
+    if (currentSession.is_simulation) {
+      return () => {
+        unsub();
+      };
+    }
 
     const pollTimer = window.setInterval(() => {
       if (document.visibilityState !== 'hidden') {

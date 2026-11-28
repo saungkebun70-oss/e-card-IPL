@@ -319,6 +319,7 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const { simVersion, resetSimData, wipeAndDisableSim } = useSimulation();
   const [simRoleModalOpen, setSimRoleModalOpen] = useState(false);
+  const lastHandledSimVersionRef = useRef<number>(simVersion);
 
   const handleAttachmentPickingChange = useCallback((picking: boolean) => {
     isPickingAttachmentRef.current = picking;
@@ -621,8 +622,18 @@ export default function App() {
   // Inisialisasi audio unlock, Android Notification Channel, Service Worker Web Push & sinkronisasi FCM/APNs
   useEffect(() => {
     initNotificationAudioUnlock();
-    void initNativeNotificationsOnLaunch(session);
+    if (!session?.is_simulation) {
+      void initNativeNotificationsOnLaunch(session);
+    }
   }, [session]);
+
+  // Pastikan scroll body selalu aktif saat modal simulasi ditutup atau berpindah sesi
+  useEffect(() => {
+    if (typeof document !== 'undefined' && !simRoleModalOpen) {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    }
+  }, [simRoleModalOpen, session]);
 
   // Tampilkan toast in-app setiap kali push notification tiba saat aplikasi sedang dibuka (foreground)
   useEffect(() => {
@@ -644,14 +655,22 @@ export default function App() {
 
   useEffect(() => {
     if (!session?.is_simulation || session.role !== portalRoute || session.role === 'petugas') {
+      lastHandledSimVersionRef.current = simVersion;
       return;
     }
+    if (simVersion === 0 || simVersion === lastHandledSimVersionRef.current) {
+      return;
+    }
+    lastHandledSimVersionRef.current = simVersion;
     void loadPortalData(session, { silent: true, force: true });
   }, [simVersion, session, portalRoute, loadPortalData]);
 
   // Sinkronisasi realtime dengan debouncing (2 detik), throttling, dan deteksi perubahan signifikan
+  // Mode Simulasi sepenuhnya mem-bypass channel Supabase, polling interval, dan listener jaringan
   useEffect(() => {
-    if (!session || session.role !== portalRoute || session.role === 'petugas') return;
+    if (!session || session.is_simulation || session.role !== portalRoute || session.role === 'petugas') {
+      return;
+    }
 
     let debounceTimer: number | null = null;
     let throttleTimer: number | null = null;

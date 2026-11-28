@@ -131,7 +131,7 @@ export function LoginPortalShell({
     : 'animate-page-enter';
 
   return (
-    <div className="relative isolate z-0 min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto bg-[#162619] text-[#FFFDF8]">
+    <div className="relative isolate z-0 min-h-[100dvh] w-full flex flex-col justify-between overflow-x-clip bg-[#162619] text-[#FFFDF8]">
       {/* Layer Background Fasad Rumah Terkunci GPU (Anti-Flicker untuk backdrop-blur kartu kaca) */}
       <div
         aria-hidden="true"
