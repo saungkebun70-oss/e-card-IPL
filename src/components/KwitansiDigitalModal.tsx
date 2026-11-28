@@ -146,7 +146,8 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
                 <BrandLogo
                   size="md"
                   variant="light"
-                  className="shrink-0"
+                  srcOverride={null}
+                  className="shrink-0 !bg-transparent"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] sm:text-sm font-extrabold tracking-tight text-[#0F172A] leading-snug">

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import transparentLogoAsset from '../assets/saung-kebun-logo-transparent.png';
-import goldLogoAsset from '../assets/saung-kebun-logo-gold.png';
 import watermarkMossAsset from '../assets/saung-kebun-watermark-moss.png';
 import watermarkCreamAsset from '../assets/saung-kebun-watermark-cream.png';
 import { useAppBrand } from '../lib/brandContext';
@@ -34,8 +33,8 @@ export function SaungKebunEmblem({
   className?: string;
   tone?: 'cream' | 'moss';
 }) {
-  const fill = tone === 'cream' ? '#FFD200' : '#243825';
-  const leafHighlight = tone === 'cream' ? '#FFE44D' : '#384E35';
+  const fill = tone === 'cream' ? '#E5EEE3' : '#243825';
+  const leafHighlight = tone === 'cream' ? '#C6D2BF' : '#384E35';
 
   return (
     <svg
@@ -122,7 +121,7 @@ export function BrandLogo({
   const hasCustomOverride = srcOverride !== undefined;
   const rawCustomSrc = hasCustomOverride ? srcOverride : brand.logo_url;
   const isDarkGlass = variant === 'dark' || variant === 'transparent';
-  const defaultAsset = isDarkGlass ? goldLogoAsset : transparentLogoAsset;
+  const defaultAsset = transparentLogoAsset;
   const resolvedAlt = altOverride || `Logo ${brand.app_name || 'Saung Kebun'}`;
 
   const [failed, setFailed] = useState(false);
@@ -132,7 +131,7 @@ export function BrandLogo({
   }, [rawCustomSrc]);
 
   const containerGlassClasses = isDarkGlass
-    ? 'bg-white/15 backdrop-blur-md border border-white/35 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.5)]'
+    ? 'bg-white/20 backdrop-blur-md border border-white/35 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.5)]'
     : 'bg-white/60 backdrop-blur-md border border-[#243825]/15 shadow-sm';
 
   const activeSrc = !failed && rawCustomSrc ? rawCustomSrc : defaultAsset;
@@ -156,7 +155,9 @@ export function BrandLogo({
           if (!failed) setFailed(true);
         }}
         className={`relative z-10 w-full h-full object-contain ${
-          isDarkGlass ? 'drop-shadow-[0_2px_6px_rgba(10,22,12,0.38)]' : ''
+          isDarkGlass
+            ? '[filter:drop-shadow(0_0_4px_rgba(255,255,255,0.88))_drop-shadow(0_2px_6px_rgba(10,22,12,0.32))]'
+            : ''
         }`}
       />
     </div>
