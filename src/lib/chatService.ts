@@ -22,6 +22,12 @@ import type {
   ChatMediaUploadResult,
   UploadChatAttachmentParams,
 } from './chatMediaUpload';
+import {
+  isSimulationMode,
+  readSimData,
+  SIM_CHANGED_EVENT,
+  updateSimData,
+} from './simulationStore';
 
 export type GroupChatRoomId =
   | 'grup_pengurus'
@@ -381,7 +387,10 @@ function emitChatChanged(detail?: {
   }
 }
 
-function readLocalMessages(): ChatMessage[] {
+function readLocalMessages(session?: SessionUser | null): ChatMessage[] {
+  if (isSimulationMode(session)) {
+    return [...readSimData().chatMessages];
+  }
   try {
     if (typeof window === 'undefined') return [];
     const raw = window.localStorage.getItem(LOCAL_CHAT_MESSAGES_KEY);
@@ -393,7 +402,17 @@ function readLocalMessages(): ChatMessage[] {
   }
 }
 
-function writeLocalMessages(messages: ChatMessage[]): void {
+function writeLocalMessages(
+  messages: ChatMessage[],
+  session?: SessionUser | null
+): void {
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      chatMessages: messages.slice(-MAX_LOCAL_MESSAGES),
+    }));
+    return;
+  }
   try {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(
@@ -639,6 +658,17 @@ export function getChatReadStorageKey(session: SessionUser): string {
 }
 
 function readLastReadMap(session: SessionUser): Record<string, string> {
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    const prefix = `${pid}::`;
+    const map: Record<string, string> = {};
+    for (const [k, v] of Object.entries(readSimData().chatReadAt || {})) {
+      if (k.startsWith(prefix)) {
+        map[k.slice(prefix.length)] = v;
+      }
+    }
+    return map;
+  }
   try {
     if (typeof window === 'undefined') return {};
     const raw = window.localStorage.getItem(getChatReadStorageKey(session));
@@ -651,10 +681,22 @@ function readLastReadMap(session: SessionUser): Record<string, string> {
 }
 
 export function markChatRoomRead(session: SessionUser, roomId: ChatRoomId, latestIso?: string): void {
+  const stamp = latestIso && Date.parse(latestIso) > Date.now() ? latestIso : new Date().toISOString();
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    updateSimData((curr) => ({
+      ...curr,
+      chatReadAt: {
+        ...curr.chatReadAt,
+        [`${pid}::${roomId}`]: stamp,
+      },
+    }));
+    emitChatChanged({ type: 'read', room_id: roomId });
+    return;
+  }
   try {
     if (typeof window === 'undefined') return;
     const current = readLastReadMap(session);
-    const stamp = latestIso && Date.parse(latestIso) > Date.now() ? latestIso : new Date().toISOString();
     current[roomId] = stamp;
     window.localStorage.setItem(getChatReadStorageKey(session), JSON.stringify(current));
     emitChatChanged({ type: 'read', room_id: roomId });
@@ -668,6 +710,17 @@ export function getChatClearedStorageKey(session: SessionUser): string {
 }
 
 function readClearedMap(session: SessionUser): Record<string, string> {
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    const prefix = `cleared:${pid}::`;
+    const map: Record<string, string> = {};
+    for (const [k, v] of Object.entries(readSimData().chatReadAt || {})) {
+      if (k.startsWith(prefix)) {
+        map[k.slice(prefix.length)] = v;
+      }
+    }
+    return map;
+  }
   try {
     if (typeof window === 'undefined') return {};
     const raw = window.localStorage.getItem(getChatClearedStorageKey(session));
@@ -699,6 +752,11 @@ export function getChatHiddenStorageKey(session: SessionUser): string {
 }
 
 function readLocalHiddenMessageIds(session: SessionUser): Set<string> {
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    const list = readSimData().chatDeletedForMe?.[pid] || [];
+    return new Set(list.filter((v) => typeof v === 'string' && v.trim().length > 0));
+  }
   try {
     if (typeof window === 'undefined') return new Set();
     const raw = window.localStorage.getItem(getChatHiddenStorageKey(session));
@@ -712,6 +770,22 @@ function readLocalHiddenMessageIds(session: SessionUser): Set<string> {
 }
 
 function rememberLocalHiddenMessageId(session: SessionUser, messageId: string): void {
+  if (!messageId) return;
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    updateSimData((curr) => {
+      const existing = curr.chatDeletedForMe?.[pid] || [];
+      if (existing.includes(messageId)) return curr;
+      return {
+        ...curr,
+        chatDeletedForMe: {
+          ...curr.chatDeletedForMe,
+          [pid]: [...existing, messageId].slice(-600),
+        },
+      };
+    });
+    return;
+  }
   try {
     if (typeof window === 'undefined' || !messageId) return;
     const current = Array.from(readLocalHiddenMessageIds(session));
@@ -851,6 +925,51 @@ export async function fetchChatDirectory(session: SessionUser): Promise<ChatCont
       });
     }
   };
+
+  if (isSimulationMode(session)) {
+    const sim = readSimData();
+    for (const p of sim.pengurusList) {
+      if (!p.aktif) continue;
+      upsertContact({
+        participant_id: `admin:${canonicalAdminUsername(p.username)}`,
+        role: 'admin',
+        display_name: p.nama,
+        subtitle: p.jabatan,
+        blok_or_code: p.blok_rumah || p.username,
+        avatar_url: p.avatar_url || null,
+      });
+    }
+    for (const pet of sim.petugasList) {
+      if (!pet.aktif) continue;
+      upsertContact({
+        participant_id: `petugas:${normalizeToken(pet.id)}`,
+        role: 'petugas',
+        display_name: pet.nama,
+        subtitle: pet.shift || 'Petugas Keamanan',
+        blok_or_code: pet.username,
+        avatar_url: pet.avatar_url || null,
+      });
+    }
+    for (const w of sim.wargaList) {
+      if (!w.aktif || w.status_hunian === 'Kosong') continue;
+      upsertContact({
+        participant_id: `warga:${canonicalBlockKey(w.blok_rumah).toLowerCase()}`,
+        role: 'warga',
+        display_name: w.nama_warga,
+        subtitle: `Warga Blok ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`,
+        blok_or_code: formatBlokRumah(w.blok_rumah) || w.blok_rumah,
+        avatar_url: w.avatar_url || null,
+      });
+    }
+    const rolePriority: Record<UserRole, number> = { admin: 0, petugas: 1, warga: 2 };
+    return Array.from(contactMap.values()).sort((a, b) => {
+      const rp = rolePriority[a.role] - rolePriority[b.role];
+      if (rp !== 0) return rp;
+      const blokCmp = compareBlokRumah(a.blok_or_code, b.blok_or_code);
+      if (blokCmp !== 0) return blokCmp;
+      return a.display_name.localeCompare(b.display_name, 'id');
+    });
+  }
 
   // 1. Seed Pengurus & Petugas default agar selalu tersedia cepat
   for (const p of SUSUNAN_PENGURUS) {
@@ -1065,7 +1184,7 @@ export async function fetchChatMessages(
     return Number.isNaN(msgMs) ? true : msgMs > cutoffMs;
   };
 
-  const localRoomMessages = readLocalMessages().filter(
+  const localRoomMessages = readLocalMessages(session).filter(
     (m) =>
       normalizeRoomId(m.room_id) === normalizedRoom &&
       keepAfterClear(m) &&
@@ -1159,7 +1278,7 @@ export async function fetchDmConversations(
     return Number.isNaN(cutoffMs) || Number.isNaN(msgMs) ? true : msgMs > cutoffMs;
   };
 
-  const localDms = readLocalMessages().filter(
+  const localDms = readLocalMessages(session).filter(
     (m) =>
       isDmRoomId(m.room_id) &&
       canAccessChatRoom(session, m.room_id) &&
@@ -1286,7 +1405,7 @@ export async function fetchChatUnreadSummary(session: SessionUser): Promise<{
   const lastReadMap = readLastReadMap(session);
   const clearedMap = readClearedMap(session);
 
-  let messages: ChatMessage[] = readLocalMessages().filter(
+  let messages: ChatMessage[] = readLocalMessages(session).filter(
     (m) => canAccessChatRoom(session, m.room_id) && !isMessageHiddenForSession(session, m)
   );
 
@@ -1566,9 +1685,9 @@ export async function sendChatMessage(
 
   if (!savedRemote) {
     nextMessage.is_local_only = true;
-    const local = readLocalMessages();
+    const local = readLocalMessages(session);
     if (!local.some((m) => m.id === nextMessage.id)) {
-      writeLocalMessages([...local, nextMessage]);
+      writeLocalMessages([...local, nextMessage], session);
     }
   }
 
@@ -1777,10 +1896,11 @@ export async function editChatMessage(
     rememberLocalSentAttachment(updatedMessage);
   }
 
-  const localMsgs = readLocalMessages();
+  const localMsgs = readLocalMessages(session);
   if (localMsgs.some((item) => item.id === updatedMessage.id)) {
     writeLocalMessages(
-      localMsgs.map((item) => (item.id === updatedMessage.id ? updatedMessage : item))
+      localMsgs.map((item) => (item.id === updatedMessage.id ? updatedMessage : item)),
+      session
     );
   }
 
@@ -1875,8 +1995,8 @@ export async function deleteChatMessageForEveryone(
     }
   }
 
-  const remaining = readLocalMessages().filter((item) => item.id !== msg.id);
-  writeLocalMessages(remaining);
+  const remaining = readLocalMessages(session).filter((item) => item.id !== msg.id);
+  writeLocalMessages(remaining, session);
   emitChatChanged({ type: 'delete', room_id: msg.room_id, deletedId: msg.id });
 }
 
@@ -1927,20 +2047,31 @@ export async function clearChatRoom(
       }
       clearedRemote = true;
     }
-    const remaining = readLocalMessages().filter(
+    const remaining = readLocalMessages(session).filter(
       (item) => normalizeRoomId(item.room_id) !== normalizedRoom
     );
-    writeLocalMessages(remaining);
+    writeLocalMessages(remaining, session);
   }
 
-  try {
-    if (typeof window !== 'undefined') {
-      const current = readClearedMap(session);
-      current[normalizedRoom] = cutoffIso;
-      window.localStorage.setItem(getChatClearedStorageKey(session), JSON.stringify(current));
+  if (isSimulationMode(session)) {
+    const pid = getChatParticipantId(session);
+    updateSimData((curr) => ({
+      ...curr,
+      chatReadAt: {
+        ...curr.chatReadAt,
+        [`cleared:${pid}::${normalizedRoom}`]: cutoffIso,
+      },
+    }));
+  } else {
+    try {
+      if (typeof window !== 'undefined') {
+        const current = readClearedMap(session);
+        current[normalizedRoom] = cutoffIso;
+        window.localStorage.setItem(getChatClearedStorageKey(session), JSON.stringify(current));
+      }
+    } catch {
+      // Abaikan kuota storage
     }
-  } catch {
-    // Abaikan kuota storage
   }
 
   markChatRoomRead(session, normalizedRoom, cutoffIso);
@@ -2092,10 +2223,17 @@ export function subscribeChatMessagesRealtime(
         callbacks.onAnyChange?.();
       }
     };
+    const onSimChange = () => callbacks.onAnyChange?.();
     window.addEventListener(CHAT_CHANGED_EVENT, onLocal);
+    if (isSimulationMode(session)) {
+      window.addEventListener(SIM_CHANGED_EVENT, onSimChange);
+    }
     window.addEventListener('storage', onStorage);
     cleanups.push(() => {
       window.removeEventListener(CHAT_CHANGED_EVENT, onLocal);
+      if (isSimulationMode(session)) {
+        window.removeEventListener(SIM_CHANGED_EVENT, onSimChange);
+      }
       window.removeEventListener('storage', onStorage);
     });
   }
@@ -2346,6 +2484,51 @@ export async function resolveChatSupabaseAccessToken(
 export async function uploadChatAttachmentViaService(
   params: UploadChatAttachmentParams
 ): Promise<ChatMediaUploadResult> {
+  if (isSimulationMode(params.session)) {
+    const file = params.file;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const attachmentType: Exclude<ChatAttachmentType, 'none'> = isImage
+      ? 'photo'
+      : isVideo
+        ? 'video'
+        : 'document';
+    params.onProgress?.({
+      percent: 45,
+      phase: 'preparing',
+      bytesUploaded: Math.round(file.size * 0.45),
+      totalBytes: file.size,
+      label: 'Memproses lampiran simulasi di browser...',
+    });
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+    params.onProgress?.({
+      percent: 100,
+      phase: 'completed',
+      bytesUploaded: file.size,
+      totalBytes: file.size,
+      label: 'Lampiran simulasi siap dikirim.',
+    });
+    return {
+      ok: true,
+      storageProvider: 'google_drive',
+      attachmentType,
+      driveFileId: `sim-file-${Date.now()}`,
+      folderPath: 'Simulasi/Chat',
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      attachmentUrl: dataUrl,
+      thumbnailUrl: isImage ? dataUrl : null,
+      webViewLink: dataUrl,
+      transitDeleted: true,
+      messageUpdated: false,
+    };
+  }
   const safeSession = normalizeChatSessionForUpload(params.session);
   const { uploadChatAttachment } = await import('./chatMediaUpload');
   return uploadChatAttachment({

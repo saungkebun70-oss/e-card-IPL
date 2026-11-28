@@ -15,6 +15,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { isBendaharaOnly, type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
+import { useSimulation } from '../lib/simulationContext';
 import { formatBlokRumah } from '../lib/format';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
@@ -118,10 +119,11 @@ export function AppShell({
   const isProfilActive = activeTab === 'profil';
   const effectiveAvatarUrl = avatarUrl !== undefined ? avatarUrl : session.avatar_url || null;
 
+  const { simNow } = useSimulation();
   const currentMonthBadge = useMemo(() => {
-    const now = new Date();
+    const now = session.is_simulation ? simNow : new Date();
     return `${SHORT_MONTHS_ID[now.getMonth()]} ${now.getFullYear()}`;
-  }, []);
+  }, [session.is_simulation, simNow]);
 
   // Batasi dock bawah maksimal 5 ikon agar Floating Dock selalu simetris
   const bottomDockItems = navItems.slice(0, 5);
@@ -511,7 +513,9 @@ export function AppShell({
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar w-72 / 288px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-72 z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
+        className={`hidden lg:flex lg:flex-col fixed left-0 w-72 z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print ${
+          session.is_simulation ? 'top-[49px] bottom-0' : 'inset-y-0'
+        }`}
       >
         {/* Brand Header Sidebar Velvety Moss Green + Foto Lingkungan + Watermark */}
         <div className="relative overflow-hidden px-4 pt-5 pb-4 bg-[#243825] text-[#FFFDF8] shrink-0">

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, DownloadCloud, Loader2, RefreshCw } from 'lucide-react';
+import { Bell, CheckCircle2, DownloadCloud, FlaskConical, Loader2, RefreshCw } from 'lucide-react';
 import { type SessionUser } from '../types';
 import { useAppBrand } from '../lib/brandContext';
 import { useAppUpdate } from '../lib/appUpdate';
+import { useSimulation } from '../lib/simulationContext';
 import { BrandLogo } from './BrandLogo';
 import { WargaLoginPage } from './WargaLoginPage';
 import { AdminLoginPage } from './AdminLoginPage';
 import { PetugasLoginPage } from './PetugasLoginPage';
+import { SimulationRoleModal } from './SimulationRoleModal';
 import bgLoginAsset from '../assets/bg-login.jpg';
 
 export type LoginPortalRoute = 'warga' | 'admin' | 'petugas';
@@ -14,6 +16,7 @@ export type LoginPortalRoute = 'warga' | 'admin' | 'petugas';
 interface LoginPortalShellProps {
   portalRoute: LoginPortalRoute;
   onLoginSuccess: (session: SessionUser) => void;
+  onSimulationLogin?: (session: SessionUser) => void;
   onSwitchPortal: (route: LoginPortalRoute) => void;
 }
 
@@ -31,9 +34,12 @@ const FLIP_LOCK_DURATION_MS = 380;
 export function LoginPortalShell({
   portalRoute,
   onLoginSuccess,
+  onSimulationLogin,
   onSwitchPortal,
 }: LoginPortalShellProps) {
   const { brand } = useAppBrand();
+  const { simEnabled } = useSimulation();
+  const [simModalOpen, setSimModalOpen] = useState(false);
   const { currentVersion, updateAvailable, checking, updating, checkForUpdate, applyUpdate } =
     useAppUpdate();
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
@@ -250,6 +256,19 @@ export function LoginPortalShell({
 
       {/* Switcher Bawah 3 Peran dengan Kapsul Meluncur Halus */}
       <footer className="relative z-10 w-full max-w-md mx-auto px-4 sm:px-6 pb-[calc(max(env(safe-area-inset-bottom,0px),14px)+0.5rem)] space-y-3 text-center">
+        {simEnabled && (
+          <div className="w-full max-w-[380px] mx-auto">
+            <button
+              type="button"
+              onClick={() => setSimModalOpen(true)}
+              className="w-full min-h-[44px] px-4 py-2.5 rounded-2xl bg-[#E5EEE3]/18 hover:bg-[#E5EEE3]/28 backdrop-blur-md border border-[#E5EEE3]/40 text-[#FFFDF8] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98] cursor-pointer"
+            >
+              <FlaskConical className="w-4 h-4 text-[#C6E8BC] shrink-0" />
+              <span>Coba Mode Simulasi (Demo Tanpa Database)</span>
+            </button>
+          </div>
+        )}
+
         <nav
           aria-label="Pilih Portal Masuk"
           className="relative grid grid-cols-3 p-1 w-full max-w-[380px] mx-auto rounded-full bg-[#FFFDF8]/90 backdrop-blur-md border border-white/40 shadow-lg"
@@ -290,6 +309,18 @@ export function LoginPortalShell({
           {kopResmiText} · v{currentVersion}
         </p>
       </footer>
+
+      <SimulationRoleModal
+        open={simModalOpen}
+        onClose={() => setSimModalOpen(false)}
+        onSelectSession={(simSession) => {
+          if (onSimulationLogin) {
+            onSimulationLogin(simSession);
+          } else {
+            onLoginSuccess(simSession);
+          }
+        }}
+      />
     </div>
   );
 }

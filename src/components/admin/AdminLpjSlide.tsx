@@ -17,6 +17,7 @@ import {
   type Warga,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
+import { useSimulation } from '../../lib/simulationContext';
 import { buildQuarterlyLpjReport } from '../../lib/financeUtils';
 import { formatRupiah, formatTanggal } from '../../lib/format';
 import {
@@ -26,8 +27,10 @@ import {
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { LoadingSpinner } from '../LoadingSpinner';
+import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
 interface AdminLpjSlideProps {
+  isSimulation?: boolean;
   wargaList: Warga[];
   statusList: StatusEcardBulanan[];
   transaksiList: TransaksiIPL[];
@@ -47,6 +50,7 @@ function getCompactKopAlamat(kopResmi?: string): string {
 }
 
 export function AdminLpjSlide({
+  isSimulation = false,
   wargaList,
   statusList,
   transaksiList,
@@ -54,7 +58,9 @@ export function AdminLpjSlide({
   onToast,
 }: AdminLpjSlideProps) {
   const { brand } = useAppBrand();
-  const currentQuarter = (Math.floor(new Date().getMonth() / 3) + 1) as 1 | 2 | 3 | 4;
+  const { simNow } = useSimulation();
+  const effectiveNow = isSimulation ? simNow : undefined;
+  const currentQuarter = (Math.floor((effectiveNow || new Date()).getMonth() / 3) + 1) as 1 | 2 | 3 | 4;
   const [triwulanId, setTriwulanId] = useState<1 | 2 | 3 | 4>(currentQuarter);
   const [tahun, setTahun] = useState<number>(TAHUN_AKTIF);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -70,9 +76,10 @@ export function AdminLpjSlide({
         statusList,
         transaksiList,
         transaksiKasList,
-        brand
+        brand,
+        effectiveNow
       ),
-    [tahun, triwulanId, wargaList, statusList, transaksiList, transaksiKasList, brand]
+    [tahun, triwulanId, wargaList, statusList, transaksiList, transaksiKasList, brand, effectiveNow]
   );
 
   const kopAlamat = getCompactKopAlamat(brand.kop_resmi);
@@ -138,6 +145,7 @@ export function AdminLpjSlide({
 
   return (
     <div className="space-y-5">
+      {isSimulation && <SimulationDateSwitcher />}
       {/* Toolbar Kontrol Filter Triwulan & Tombol Ekspor PDF/Cetak A4 */}
       <section className="bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)] no-print">
         <div className="space-y-2">

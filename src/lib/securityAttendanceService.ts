@@ -8,6 +8,12 @@ import { compressProofImage } from './imageCompressor';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { routeNewMediaUploadAuto } from './googleDriveHybridService';
 import { dispatchActivityNotifications, getAllAdminUserIds } from './notificationService';
+import {
+  isSimulationMode,
+  readSimData,
+  SIM_CHANGED_EVENT,
+  updateSimData,
+} from './simulationStore';
 
 const LOCAL_STORAGE_KEY = 'skb_security_attendance_v1';
 const ATTENDANCE_CHANGE_EVENT = 'skb-security-attendance-changed';
@@ -526,7 +532,13 @@ function createId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function readLocalRecords(): SecurityAttendanceRecord[] {
+function readLocalRecords(session?: SessionUser | null): SecurityAttendanceRecord[] {
+  if (isSimulationMode(session)) {
+    return [...readSimData().attendance]
+      .map((item) => normalizeRow(item as unknown as Record<string, unknown>))
+      .filter((item): item is SecurityAttendanceRecord => item !== null)
+      .sort((a, b) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime());
+  }
   try {
     const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) return [];
@@ -541,11 +553,18 @@ function readLocalRecords(): SecurityAttendanceRecord[] {
   }
 }
 
-function writeLocalRecords(records: SecurityAttendanceRecord[]): void {
+function writeLocalRecords(
+  records: SecurityAttendanceRecord[],
+  session?: SessionUser | null
+): void {
+  const sorted = [...records]
+    .sort((a, b) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime())
+    .slice(0, 250);
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({ ...curr, attendance: sorted }));
+    return;
+  }
   try {
-    const sorted = [...records]
-      .sort((a, b) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime())
-      .slice(0, 250);
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sorted));
   } catch {
     // Abaikan jika penyimpanan lokal terbatas
@@ -621,18 +640,20 @@ async function uploadAttendancePhoto(
   const compressed = await compressProofImage(file, 960, 0.72);
   const uploadFile = compressed.file;
 
-  const routedDrive = await routeNewMediaUploadAuto({
-    session,
-    folderKey: 'absensi_keamanan',
-    file: uploadFile,
-    labelPrefix: `absen-${officerName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`,
-    description: `Foto absen masuk ${officerName}`,
-  });
-  if (routedDrive?.url && isSafeAttendanceImageUrl(routedDrive.url)) {
-    return routedDrive.url;
+  if (!isSimulationMode(session)) {
+    const routedDrive = await routeNewMediaUploadAuto({
+      session,
+      folderKey: 'absensi_keamanan',
+      file: uploadFile,
+      labelPrefix: `absen-${officerName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`,
+      description: `Foto absen masuk ${officerName}`,
+    });
+    if (routedDrive?.url && isSafeAttendanceImageUrl(routedDrive.url)) {
+      return routedDrive.url;
+    }
   }
 
-  if (isSupabaseConfigured()) {
+  if (!isSimulationMode(session) && isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
@@ -687,9 +708,9 @@ export async function fetchSecurityAttendance(
     return filtered.slice(0, limit);
   };
 
-  const localRows = readLocalRecords();
+  const localRows = readLocalRecords(session);
 
-  if (!isSupabaseConfigured()) {
+  if (isSimulationMode(session) || !isSupabaseConfigured()) {
     return filterLocal(localRows);
   }
 
@@ -767,7 +788,7 @@ export async function clockInSecurityOfficer(
   const cleanNotes = sanitizeNote(payload.initialNotes);
   const formattedInitialNote = cleanNotes ? `[Masuk] ${cleanNotes}` : null;
 
-  if (isSupabaseConfigured()) {
+  if (!isSimulationMode(session) && isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
@@ -840,7 +861,7 @@ export async function clockInSecurityOfficer(
     created_at: nowIso,
   };
 
-  writeLocalRecords([fallbackRecord, ...readLocalRecords()]);
+  writeLocalRecords([fallbackRecord, ...readLocalRecords(session)], session);
   emitAttendanceChangeEvent();
   const fallbackClockInTitle = 'Update dari Petugas Keamanan';
   const fallbackClockInBody = `${officerName} telah mengirim laporan keamanan (Absen Masuk ${shiftName} · ${formatWibTime(nowIso)}).`;
@@ -867,9 +888,11 @@ export async function clockInSecurityOfficer(
 
   return {
     ok: true,
-    message: `Absen Masuk tercatat (${formatWibTime(nowIso)}). Jalankan SQL migrasi v5 agar tersinkron realtime ke Supabase.`,
+    message: isSimulationMode(session)
+      ? `Absen Masuk simulasi tercatat (${formatWibTime(nowIso)}).`
+      : `Absen Masuk tercatat (${formatWibTime(nowIso)}). Jalankan SQL migrasi v5 agar tersinkron realtime ke Supabase.`,
     data: fallbackRecord,
-    usedFallback: true,
+    usedFallback: !isSimulationMode(session),
   };
 }
 
@@ -902,7 +925,7 @@ export async function clockOutSecurityOfficer(
     handover_notes: finalNotes,
   };
 
-  if (isSupabaseConfigured()) {
+  if (!isSimulationMode(session) && isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
@@ -959,11 +982,11 @@ export async function clockOutSecurityOfficer(
     }
   }
 
-  const existingLocal = readLocalRecords();
+  const existingLocal = readLocalRecords(session);
   const nextLocal = existingLocal.some((r) => r.id === record.id)
     ? existingLocal.map((r) => (r.id === record.id ? updatedLocal : r))
     : [updatedLocal, ...existingLocal];
-  writeLocalRecords(nextLocal);
+  writeLocalRecords(nextLocal, session);
   emitAttendanceChangeEvent();
 
   const evalRes = evaluateAttendance(updatedLocal);
@@ -993,7 +1016,7 @@ export async function clockOutSecurityOfficer(
     ok: true,
     message: `Absen Pulang tercatat (${formatWibTime(nowIso)}). Total durasi jaga: ${evalRes.durationLabel}.`,
     data: updatedLocal,
-    usedFallback: true,
+    usedFallback: !isSimulationMode(session),
   };
 }
 
@@ -1054,7 +1077,7 @@ export async function adminUpdateSecurityAttendance(
     updateBody.officer_name = updates.officer_name.trim();
   }
 
-  if (isSupabaseConfigured()) {
+  if (!isSimulationMode(session) && isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
@@ -1087,7 +1110,7 @@ export async function adminUpdateSecurityAttendance(
   }
 
   let updatedRecord: SecurityAttendanceRecord | undefined;
-  const nextLocal = readLocalRecords().map((r) => {
+  const nextLocal = readLocalRecords(session).map((r) => {
     if (r.id !== recordId) return r;
     updatedRecord = {
       ...r,
@@ -1106,14 +1129,16 @@ export async function adminUpdateSecurityAttendance(
     return { ok: false, message: 'Data absensi tidak ditemukan.' };
   }
 
-  writeLocalRecords(nextLocal);
+  writeLocalRecords(nextLocal, session);
   emitAttendanceChangeEvent();
 
   return {
     ok: true,
-    message: 'Koreksi absensi tersimpan secara lokal.',
+    message: isSimulationMode(session)
+      ? 'Koreksi absensi simulasi tersimpan.'
+      : 'Koreksi absensi tersimpan secara lokal.',
     data: updatedRecord,
-    usedFallback: true,
+    usedFallback: !isSimulationMode(session),
   };
 }
 
@@ -1128,7 +1153,7 @@ export async function adminDeleteSecurityAttendance(
     return { ok: false, message: 'Hanya Admin yang dapat menghapus data absensi.' };
   }
 
-  if (isSupabaseConfigured()) {
+  if (!isSimulationMode(session) && isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseClient(session);
       if (supabase) {
@@ -1144,9 +1169,16 @@ export async function adminDeleteSecurityAttendance(
     }
   }
 
-  writeLocalRecords(readLocalRecords().filter((r) => r.id !== recordId));
+  writeLocalRecords(
+    readLocalRecords(session).filter((r) => r.id !== recordId),
+    session
+  );
   emitAttendanceChangeEvent();
-  return { ok: true, message: 'Data absensi dihapus.', usedFallback: true };
+  return {
+    ok: true,
+    message: 'Data absensi dihapus.',
+    usedFallback: !isSimulationMode(session),
+  };
 }
 
 /**
@@ -1164,11 +1196,13 @@ export function subscribeSecurityAttendance(
   };
 
   window.addEventListener(ATTENDANCE_CHANGE_EVENT, onLocalEvent);
+  window.addEventListener(SIM_CHANGED_EVENT, onLocalEvent);
   window.addEventListener('storage', onStorage);
 
-  if (!isSupabaseConfigured()) {
+  if (isSimulationMode(session) || !isSupabaseConfigured()) {
     return () => {
       window.removeEventListener(ATTENDANCE_CHANGE_EVENT, onLocalEvent);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
     };
   }
@@ -1177,6 +1211,7 @@ export function subscribeSecurityAttendance(
   if (!supabase) {
     return () => {
       window.removeEventListener(ATTENDANCE_CHANGE_EVENT, onLocalEvent);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
     };
   }
@@ -1195,6 +1230,7 @@ export function subscribeSecurityAttendance(
 
   return () => {
     window.removeEventListener(ATTENDANCE_CHANGE_EVENT, onLocalEvent);
+    window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     window.removeEventListener('storage', onStorage);
     try {
       void supabase.removeChannel(channel);

@@ -69,6 +69,7 @@ import {
   subscribeShiftOverrides,
 } from '../lib/securityShiftOvertimeService';
 import { SaungKebunWatermark } from './BrandLogo';
+import { SIM_SHIFT_SCHEDULE } from '../lib/simulationStore';
 
 interface KeamananSlideProps {
   role: 'warga' | 'admin';
@@ -666,6 +667,42 @@ export function KeamananSlide({
         />
       ) : (
         <>
+          {/* JADWAL SHIFT KEAMANAN (MODE SIMULASI) */}
+          {session?.is_simulation && (
+            <section className="glass-card bg-[#FFFDF8] border border-purple-200 rounded-3xl p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-purple-800">
+                    Jadwal Shift Keamanan (Mode Simulasi)
+                  </p>
+                  <h2 className="text-sm font-bold text-[#1B271B]">
+                    Daftar Petugas &amp; Rute 5 Titik Patroli
+                  </h2>
+                </div>
+                <span className="px-2.5 py-1 rounded-md bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-semibold">
+                  3 Regu Aktif · 5 Checkpoint
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {SIM_SHIFT_SCHEDULE.map((item) => (
+                  <div
+                    key={item.nama}
+                    className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3 space-y-1"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <p className="text-xs font-bold text-[#1B271B]">{item.nama}</p>
+                      <span className="px-2 py-0.5 rounded-md bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF] text-[10px] font-semibold">
+                        {item.shift}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-[#4A554A] tabular-nums">{item.jam}</p>
+                    <p className="text-[10.5px] text-[#6E786D]">{item.keterangan}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* MONITORING REAL-TIME PETUGAS JAGA AKTIF (AKUN WARGA READ-ONLY) */}
           {role === 'warga' && <WargaActiveGuardCard session={session} />}
 

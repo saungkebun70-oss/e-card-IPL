@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { DEFAULT_APP_BRAND_CONFIG, type AppBrandConfig } from '../types';
 import { fetchAppBrandConfig, readLocalAppBrandConfig } from './dataService';
+import { subscribeSimulationChanges } from './simulationStore';
 
 interface BrandContextValue {
   brand: AppBrandConfig;
@@ -58,14 +59,22 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    void fetchAppBrandConfig(null).then((latest) => {
-      if (active) {
-        setBrandState(latest);
-        syncDocumentHead(latest);
-      }
+    const syncBrand = () => {
+      void fetchAppBrandConfig(null).then((latest) => {
+        if (active) {
+          setBrandState(latest);
+          syncDocumentHead(latest);
+        }
+      });
+    };
+    syncBrand();
+    const unsub = subscribeSimulationChanges(() => {
+      setBrandState(readLocalAppBrandConfig());
+      syncBrand();
     });
     return () => {
       active = false;
+      unsub();
     };
   }, []);
 

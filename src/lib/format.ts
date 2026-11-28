@@ -58,8 +58,7 @@ export function formatDaftarBulan(bulanList: number[], singkat = false): string 
   return sorted.map((b) => (singkat ? getSingkatBulan(b) : getNamaBulan(b))).join(', ');
 }
 
-export function getCurrentBillingMonth(): number {
-  const now = new Date();
+export function getCurrentBillingMonth(now: Date = new Date()): number {
   if (now.getFullYear() === TAHUN_AKTIF) {
     return now.getMonth() + 1;
   }
@@ -132,15 +131,19 @@ export function resolveEffectiveMonthStatus(params: {
   tahun: number;
   bulan: number;
   billingStart?: BillingStartPeriod | null;
+  now?: Date;
 }): EffectiveStatusBulanEcard {
-  const { dbStatus, tahun, bulan, billingStart } = params;
+  const { dbStatus, tahun, bulan, billingStart, now } = params;
   if (dbStatus === 'Lunas' || dbStatus === 'Menunggu Verifikasi') {
     return dbStatus;
   }
   if (isBeforeBillingStart(tahun, bulan, billingStart)) {
     return 'Pra-Rilis';
   }
-  return dbStatus || getDefaultUnpaidStatusForMonth(bulan, tahun);
+  if (now) {
+    return getDefaultUnpaidStatusForMonth(bulan, tahun, now);
+  }
+  return dbStatus || getDefaultUnpaidStatusForMonth(bulan, tahun, now);
 }
 
 export function isCountableUnpaidStatus(

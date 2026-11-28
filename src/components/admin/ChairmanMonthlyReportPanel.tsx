@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -31,6 +31,7 @@ import { buildChairmanMonthlySummaryReport } from '../../lib/financeUtils';
 import { downloadChairmanMonthlySummaryPdf } from '../../lib/pdfGenerator';
 import { recordAuditLog } from '../../lib/auditLogger';
 import { useAppBrand } from '../../lib/brandContext';
+import { useSimulation } from '../../lib/simulationContext';
 
 interface ChairmanMonthlyReportPanelProps {
   session: SessionUser;
@@ -58,13 +59,27 @@ export function ChairmanMonthlyReportPanel({
   onPeriodChange,
 }: ChairmanMonthlyReportPanelProps) {
   const { brand } = useAppBrand();
+  const { simNow, simDateIso } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
+  const effectiveNow = useMemo(
+    () => (isSimulation ? simNow : undefined),
+    [isSimulation, simDateIso, simNow]
+  );
   const isKetua = isKetuaRole(session);
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(effectiveNow);
+  const activeYear = effectiveNow ? effectiveNow.getFullYear() : TAHUN_AKTIF;
 
   const [internalBulan, setInternalBulan] = useState<number>(currentMonth);
-  const [internalTahun, setInternalTahun] = useState<number>(TAHUN_AKTIF);
+  const [internalTahun, setInternalTahun] = useState<number>(activeYear);
   const [expanded, setExpanded] = useState<boolean>(mode === 'full');
   const [generatingPdf, setGeneratingPdf] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isSimulation && bulanOverride === undefined) {
+      setInternalBulan(getCurrentBillingMonth(simNow));
+      setInternalTahun(simNow.getFullYear());
+    }
+  }, [isSimulation, simDateIso, simNow, bulanOverride]);
 
   const selectedBulan = bulanOverride ?? internalBulan;
   const selectedTahun = tahunOverride ?? internalTahun;
@@ -84,9 +99,10 @@ export function ChairmanMonthlyReportPanel({
         statusList,
         transaksiList,
         transaksiKasList,
-        brand
+        brand,
+        effectiveNow
       ),
-    [selectedTahun, selectedBulan, wargaList, statusList, transaksiList, transaksiKasList, brand]
+    [selectedTahun, selectedBulan, wargaList, statusList, transaksiList, transaksiKasList, brand, effectiveNow]
   );
 
   // Eksklusif untuk Ketua Lingkungan
@@ -95,14 +111,14 @@ export function ChairmanMonthlyReportPanel({
   }
 
   const handleSelectCurrentMonth = () => {
-    updatePeriod(currentMonth, TAHUN_AKTIF);
+    updatePeriod(currentMonth, activeYear);
   };
 
   const handleSelectPrevMonth = () => {
     if (currentMonth === 1) {
-      updatePeriod(12, TAHUN_AKTIF - 1);
+      updatePeriod(12, activeYear - 1);
     } else {
-      updatePeriod(currentMonth - 1, TAHUN_AKTIF);
+      updatePeriod(currentMonth - 1, activeYear);
     }
   };
 

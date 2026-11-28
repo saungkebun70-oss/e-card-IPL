@@ -79,6 +79,8 @@ import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { SaungKebunWatermark } from '../BrandLogo';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 import { AdminStorageUsageWidget } from './AdminStorageUsageWidget';
+import { useSimulation } from '../../lib/simulationContext';
+import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
 const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Perawatan & Fasilitas',
@@ -117,6 +119,12 @@ export function AdminDashboardSlide({
   onOpenDriveSettings,
 }: AdminDashboardSlideProps) {
   const { brand } = useAppBrand();
+  const { simNow, simDateIso } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
+  const effectiveNow = useMemo(
+    () => (isSimulation ? simNow : undefined),
+    [isSimulation, simDateIso, simNow]
+  );
   const canManageFull = isBendaharaFullAccess(session);
   const canAccessBotWa = isBendaharaOnly(session);
   const isKetua = isKetuaRole(session);
@@ -154,7 +162,7 @@ export function AdminDashboardSlide({
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [deletingNotifId, setDeletingNotifId] = useState<string | null>(null);
 
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(effectiveNow);
   const currentMonthName = getNamaBulan(currentMonth);
 
   // Saldo Kas Real-Time (IPL Terverifikasi + Pemasukan Lain - Pengeluaran Anggaran)
@@ -186,6 +194,7 @@ export function AdminDashboardSlide({
           targetMonth: currentMonth,
           paidAmount: paid,
           billingStart: brand,
+          now: effectiveNow,
         });
 
         if (st === 'LUNAS') {
@@ -203,6 +212,7 @@ export function AdminDashboardSlide({
           paidAmountByKey,
           pendingKeys,
           billingStart: brand,
+          now: effectiveNow,
         });
         if (delinquentMonths.length >= 1) {
           menunggak += 1;
@@ -215,7 +225,7 @@ export function AdminDashboardSlide({
         rumahDaruratBulanIni: darurat,
         rumahMenunggakCount: menunggak,
       };
-    }, [activeWarga, paidAmountByKey, pendingKeys, currentMonth, brand]);
+    }, [activeWarga, paidAmountByKey, pendingKeys, currentMonth, brand, effectiveNow]);
 
   const pemasukanBulanIni = transaksiList
     .filter(
@@ -629,6 +639,7 @@ export function AdminDashboardSlide({
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      {isSimulation && <SimulationDateSwitcher />}
       {/* Hero Card Saldo Kas Lingkungan — Velvety Moss Green */}
       <section className="glass-hero bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] shadow-xl shadow-[#243825]/15 rounded-3xl text-[#FFFDF8] p-4 sm:px-8 sm:py-8 relative overflow-hidden">
         <SaungKebunWatermark className="right-[-18px] bottom-[-22px] w-44 h-44 sm:w-52 sm:h-52 text-[#FFFDF8] opacity-[0.10]" />

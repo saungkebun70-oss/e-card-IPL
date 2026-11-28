@@ -14,6 +14,12 @@ import {
   shiftWibDateStr,
 } from './securityAttendanceService';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import {
+  SIM_CHANGED_EVENT,
+  isSimulationSessionActive,
+  readSimData,
+  updateSimData,
+} from './simulationStore';
 
 const LOCAL_OVERRIDES_KEY = 'skb_security_shift_overrides_v1';
 const DEFAULT_OVERTIME_AMOUNT_KEY = 'skb_default_overtime_amount_v1';
@@ -139,6 +145,13 @@ function normalizeOverrideRow(row: Record<string, unknown>): SecurityShiftOverri
 }
 
 function readLocalOverrides(): SecurityShiftOverride[] {
+  if (isSimulationSessionActive()) {
+    return [...readSimData().shiftOverrides].sort(
+      (a, b) =>
+        b.shift_date.localeCompare(a.shift_date) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
   try {
     const raw = window.localStorage.getItem(LOCAL_OVERRIDES_KEY);
     if (!raw) return [];
@@ -158,14 +171,21 @@ function readLocalOverrides(): SecurityShiftOverride[] {
 }
 
 function writeLocalOverrides(list: SecurityShiftOverride[]): void {
+  const sorted = [...list]
+    .sort(
+      (a, b) =>
+        b.shift_date.localeCompare(a.shift_date) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, 250);
+  if (isSimulationSessionActive()) {
+    updateSimData((curr) => ({
+      ...curr,
+      shiftOverrides: sorted,
+    }));
+    return;
+  }
   try {
-    const sorted = [...list]
-      .sort(
-        (a, b) =>
-          b.shift_date.localeCompare(a.shift_date) ||
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-      .slice(0, 250);
     window.localStorage.setItem(LOCAL_OVERRIDES_KEY, JSON.stringify(sorted));
   } catch {
     // Abaikan
@@ -959,11 +979,13 @@ export function subscribeShiftOverrides(
 
   window.addEventListener(SHIFT_OVERRIDES_EVENT, onLocalEvent);
   window.addEventListener('storage', onStorage);
+  window.addEventListener(SIM_CHANGED_EVENT, onLocalEvent);
 
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseConfigured() || isSimulationSessionActive()) {
     return () => {
       window.removeEventListener(SHIFT_OVERRIDES_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     };
   }
 
@@ -972,6 +994,7 @@ export function subscribeShiftOverrides(
     return () => {
       window.removeEventListener(SHIFT_OVERRIDES_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     };
   }
 
@@ -990,6 +1013,7 @@ export function subscribeShiftOverrides(
   return () => {
     window.removeEventListener(SHIFT_OVERRIDES_EVENT, onLocalEvent);
     window.removeEventListener('storage', onStorage);
+    window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     try {
       void supabase.removeChannel(channel);
     } catch {

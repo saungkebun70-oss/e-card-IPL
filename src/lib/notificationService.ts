@@ -7,6 +7,12 @@ import {
 } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import {
+  SIM_CHANGED_EVENT,
+  isSimulationMode,
+  readSimData,
+  updateSimData,
+} from './simulationStore';
+import {
   safeCheckFirebaseMessagingSupported,
   syncNativePushTokenForSession,
 } from './notificationAlertService';
@@ -499,6 +505,14 @@ function normalizeNotificationRow(
 export async function fetchActivityNotifications(
   session: SessionUser
 ): Promise<ActivityNotification[]> {
+  if (isSimulationMode(session)) {
+    const allowedIds = new Set(getUserNotificationMatchIds(session));
+    const simItems = readSimData().activityNotifications.filter((n) =>
+      allowedIds.has(normalizeIdToken(n.user_id))
+    );
+    return deduplicateNotifications(simItems).slice(0, 80);
+  }
+
   const allowedIds = new Set(getUserNotificationMatchIds(session));
   const broadcastReadSet = getBroadcastReadSet(session);
   const dismissedSet = getDismissedNotificationSet(session);
@@ -573,6 +587,14 @@ export async function fetchActivityNotifications(
  * dengan deduplikasi yang identik dengan daftar notifikasi agar badge selalu sinkron 1:1.
  */
 export async function fetchUnreadNotificationCount(session: SessionUser): Promise<number> {
+  if (isSimulationMode(session)) {
+    const allowedIds = new Set(getUserNotificationMatchIds(session));
+    const simUnread = readSimData().activityNotifications.filter(
+      (n) => allowedIds.has(normalizeIdToken(n.user_id)) && !n.is_read
+    );
+    return deduplicateNotifications(simUnread).length;
+  }
+
   const allowedIds = new Set(getUserNotificationMatchIds(session));
   const broadcastReadSet = getBroadcastReadSet(session);
   const dismissedSet = getDismissedNotificationSet(session);
@@ -772,6 +794,15 @@ export async function dispatchActivityNotifications(
     return;
   }
 
+  if (isSimulationMode(actorSession)) {
+    updateSimData((curr) => ({
+      ...curr,
+      activityNotifications: deduplicateNotifications([...rows, ...curr.activityNotifications]),
+    }));
+    emitNotificationsChanged(rows);
+    return;
+  }
+
   // Langkah (a): Simpan baris ke tabel `notifications` Supabase dengan menyertakan `id` UUID klien
   // agar event lokal & Postgres Realtime `INSERT` memiliki ID identik 100% (TANPA .select() karena RLS).
   let savedToRemote = false;
@@ -860,6 +891,17 @@ export async function markActivityNotificationRead(
 ): Promise<void> {
   if (!notif || notif.is_read) return;
 
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      activityNotifications: curr.activityNotifications.map((item) =>
+        item.id === notif.id ? { ...item, is_read: true } : item
+      ),
+    }));
+    emitNotificationsChanged();
+    return;
+  }
+
   const isBroadcast = notif.user_id.toLowerCase().startsWith('broadcast:');
   if (isBroadcast) {
     addBroadcastReadIds(session, [notif.id]);
@@ -920,6 +962,18 @@ export async function markAllActivityNotificationsRead(
   session: SessionUser,
   currentList: ActivityNotification[]
 ): Promise<void> {
+  if (isSimulationMode(session)) {
+    const idSet = new Set(currentList.map((n) => n.id));
+    updateSimData((curr) => ({
+      ...curr,
+      activityNotifications: curr.activityNotifications.map((item) =>
+        idSet.has(item.id) ? { ...item, is_read: true } : item
+      ),
+    }));
+    emitNotificationsChanged();
+    return;
+  }
+
   const unread = currentList.filter((n) => !n.is_read);
 
   const broadcastIds = unread
@@ -982,6 +1036,15 @@ export async function deleteNotification(
   const id = typeof notifOrId === 'string' ? notifOrId : notifOrId?.id;
   if (!id) return;
 
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      activityNotifications: curr.activityNotifications.filter((item) => item.id !== id),
+    }));
+    emitNotificationsChanged();
+    return;
+  }
+
   const isBroadcast =
     typeof notifOrId !== 'string' && notifOrId.user_id.toLowerCase().startsWith('broadcast:');
   const dedupKey = typeof notifOrId !== 'string' ? notifOrId.dedup_key : null;
@@ -1030,6 +1093,16 @@ export async function deleteAllNotifications(
   currentList: ActivityNotification[]
 ): Promise<void> {
   if (!currentList || currentList.length === 0) return;
+
+  if (isSimulationMode(session)) {
+    const idSet = new Set(currentList.map((n) => n.id));
+    updateSimData((curr) => ({
+      ...curr,
+      activityNotifications: curr.activityNotifications.filter((item) => !idSet.has(item.id)),
+    }));
+    emitNotificationsChanged();
+    return;
+  }
 
   const allIds = currentList.map((n) => n.id);
   addDismissedNotificationIds(session, allIds);
@@ -1197,9 +1270,11 @@ export function subscribeActivityNotificationsRealtime(
     if (typeof window !== 'undefined') {
       window.addEventListener(NOTIF_EVENT, onLocalEvent);
       window.addEventListener('storage', onStorage);
+      window.addEventListener(SIM_CHANGED_EVENT, notifyChange);
       cleanups.push(() => {
         window.removeEventListener(NOTIF_EVENT, onLocalEvent);
         window.removeEventListener('storage', onStorage);
+        window.removeEventListener(SIM_CHANGED_EVENT, notifyChange);
       });
     }
 

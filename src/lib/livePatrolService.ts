@@ -7,6 +7,12 @@ import type {
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { clampMapPercent } from './patrolGpsUtils';
 import { dispatchActivityNotifications, getAllAdminUserIds } from './notificationService';
+import {
+  SIM_CHANGED_EVENT,
+  isSimulationSessionActive,
+  readSimData,
+  updateSimData,
+} from './simulationStore';
 
 const LOCAL_KEYS = {
   CALIBRATION: 'skb_patrol_gps_calibration_v1',
@@ -24,6 +30,19 @@ export interface LivePatrolResult<T = unknown> {
 }
 
 function readLocalJson<T>(key: string, fallback: T): T {
+  if (isSimulationSessionActive()) {
+    const sim = readSimData();
+    if (key === LOCAL_KEYS.CALIBRATION) {
+      const map: Record<string, PatrolGpsCalibration> = {};
+      for (const item of sim.gpsCalibrations) {
+        if (item?.pos_id) map[item.pos_id] = item;
+      }
+      return map as unknown as T;
+    }
+    if (key === LOCAL_KEYS.SESSIONS) {
+      return sim.liveSessions as unknown as T;
+    }
+  }
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return fallback;
@@ -35,6 +54,24 @@ function readLocalJson<T>(key: string, fallback: T): T {
 }
 
 function writeLocalJson<T>(key: string, value: T): void {
+  if (isSimulationSessionActive()) {
+    if (key === LOCAL_KEYS.CALIBRATION) {
+      const map = (value || {}) as Record<string, PatrolGpsCalibration>;
+      updateSimData((curr) => ({
+        ...curr,
+        gpsCalibrations: Object.values(map),
+      }));
+      return;
+    }
+    if (key === LOCAL_KEYS.SESSIONS) {
+      const list = Array.isArray(value) ? (value as PatrolLiveSession[]) : [];
+      updateSimData((curr) => ({
+        ...curr,
+        liveSessions: list,
+      }));
+      return;
+    }
+  }
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -623,11 +660,13 @@ export function subscribeLivePatrolSessions(
 
   window.addEventListener(LIVE_PATROL_EVENT, onLocalEvent);
   window.addEventListener('storage', onStorage);
+  window.addEventListener(SIM_CHANGED_EVENT, onLocalEvent);
 
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseConfigured() || isSimulationSessionActive()) {
     return () => {
       window.removeEventListener(LIVE_PATROL_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     };
   }
 
@@ -636,6 +675,7 @@ export function subscribeLivePatrolSessions(
     return () => {
       window.removeEventListener(LIVE_PATROL_EVENT, onLocalEvent);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     };
   }
   const channelName = `live-patrol-3d-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -661,6 +701,7 @@ export function subscribeLivePatrolSessions(
   return () => {
     window.removeEventListener(LIVE_PATROL_EVENT, onLocalEvent);
     window.removeEventListener('storage', onStorage);
+    window.removeEventListener(SIM_CHANGED_EVENT, onLocalEvent);
     try {
       void supabase.removeChannel(channel);
     } catch {

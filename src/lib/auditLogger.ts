@@ -1,5 +1,6 @@
 import type { AuditLogEntry, SessionUser } from '../types';
 import { canAccessCentralSetting, readLocalCentralPermissions } from './centralSettingsPermissions';
+import { isSimulationMode, readSimData, updateSimData } from './simulationStore';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 const LOCAL_AUDIT_KEY = 'saungkebun_audit_logs_v1';
@@ -46,6 +47,14 @@ export async function recordAuditLog(params: {
     metadata: params.metadata,
   };
 
+  if (isSimulationMode(params.session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      auditLogs: [entry, ...curr.auditLogs].slice(0, 200),
+    }));
+    return;
+  }
+
   saveLocalAuditLog(entry);
 
   // 1. Jika Supabase terhubung (termasuk di produksi Vercel), catat langsung ke tabel audit_logs
@@ -86,6 +95,10 @@ export async function recordAuditLog(params: {
 
 export async function fetchAuditLogs(session: SessionUser): Promise<AuditLogEntry[]> {
   if (session.role !== 'admin') return [];
+
+  if (isSimulationMode(session)) {
+    return readSimData().auditLogs;
+  }
 
   // 1. Prioritaskan Supabase audit_logs saat terhubung (konsisten di Vercel & semua perangkat)
   const supabase = getSupabaseClient(session);
@@ -152,6 +165,14 @@ export async function deleteAuditLogEntry(
     };
   }
 
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      auditLogs: curr.auditLogs.filter((entry) => entry.id !== logId),
+    }));
+    return { ok: true };
+  }
+
   const supabase = getSupabaseClient(session);
   if (supabase && isSupabaseConfigured() && !logId.startsWith('LOG-')) {
     try {
@@ -193,6 +214,14 @@ export async function deleteAllAuditLogs(
       error:
         'Akses ditolak: pengosongan log audit khusus Bendahara atau Pengurus berizin settings.reports_audit.',
     };
+  }
+
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      auditLogs: [],
+    }));
+    return { ok: true };
   }
 
   const supabase = getSupabaseClient(session);

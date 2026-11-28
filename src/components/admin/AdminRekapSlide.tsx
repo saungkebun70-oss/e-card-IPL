@@ -66,6 +66,8 @@ import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { OfficialStamp } from '../OfficialStamp';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
+import { useSimulation } from '../../lib/simulationContext';
+import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
 interface AdminRekapSlideProps {
   session: SessionUser;
@@ -117,14 +119,27 @@ export function AdminRekapSlide({
   onToast,
 }: AdminRekapSlideProps) {
   const { brand } = useAppBrand();
+  const { simNow, simDateIso } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
+  const effectiveNow = useMemo(
+    () => (isSimulation ? simNow : undefined),
+    [isSimulation, simDateIso, simNow]
+  );
   const isKetua = isKetuaRole(session);
   const PAGE_SIZE = 20;
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(effectiveNow);
 
   // Sub-tab Rekap Bulanan (Buku Kas Umum), Laporan Otomatis Ketua, vs Matriks 12 Bulan
   const [subTab, setSubTab] = useState<RekapSubTab>('bulanan');
   const [selectedBulan, setSelectedBulan] = useState<number>(currentMonth);
   const [selectedTahun, setSelectedTahun] = useState<number>(TAHUN_AKTIF);
+
+  useEffect(() => {
+    if (isSimulation) {
+      setSelectedBulan(getCurrentBillingMonth(simNow));
+      setSelectedTahun(simNow.getFullYear());
+    }
+  }, [isSimulation, simDateIso, simNow]);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [printingPdf, setPrintingPdf] = useState(false);
 
@@ -152,8 +167,9 @@ export function AdminRekapSlide({
         wargaList,
         statusList,
         billingStart: brand,
+        now: effectiveNow,
       }),
-    [selectedTahun, selectedBulan, transaksiList, transaksiKasList, wargaList, statusList, brand]
+    [selectedTahun, selectedBulan, transaksiList, transaksiKasList, wargaList, statusList, brand, effectiveNow]
   );
 
   const sortedWargaList = useMemo(
@@ -202,6 +218,7 @@ export function AdminRekapSlide({
         targetMonth: currentMonth,
         paidAmount: currentPaid,
         billingStart: brand,
+        now: effectiveNow,
       });
       const currentPending =
         currentPaid === 0 &&
@@ -229,6 +246,7 @@ export function AdminRekapSlide({
         paidAmountByKey,
         pendingKeys,
         billingStart: brand,
+        now: effectiveNow,
       });
       const tunggakMonths = delinquentMonths.length;
 
@@ -258,7 +276,7 @@ export function AdminRekapSlide({
       menunggakTotal,
       unpaidMonthsByWargaId,
     };
-  }, [sortedWargaList, paidAmountByKey, pendingKeys, currentMonth, brand]);
+  }, [sortedWargaList, paidAmountByKey, pendingKeys, currentMonth, brand, effectiveNow]);
 
   const blokOptions = useMemo(() => {
     const prefixes = new Set<string>(['B03', 'B05', 'B06', 'B07', 'B08']);
@@ -296,6 +314,7 @@ export function AdminRekapSlide({
           targetMonth: currentMonth,
           paidAmount: currentPaid,
           billingStart: brand,
+          now: effectiveNow,
         });
         const currentPending = currentPaid === 0 && pendingKeys.has(currentCellKey);
         const tunggakCount = matrixSummary.unpaidMonthsByWargaId.get(w.id) ?? 0;
@@ -322,6 +341,7 @@ export function AdminRekapSlide({
     search,
     currentMonth,
     brand,
+    effectiveNow,
   ]);
 
   useEffect(() => {
@@ -464,6 +484,11 @@ export function AdminRekapSlide({
 
   return (
     <div className="space-y-5 pb-28 print:pb-0 overflow-x-hidden">
+      {isSimulation && (
+        <div className="no-print">
+          <SimulationDateSwitcher />
+        </div>
+      )}
       {/* Sub-Tab Switcher & Quick Action Input Tunai */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div
@@ -991,7 +1016,7 @@ export function AdminRekapSlide({
             {/* Blok Tanda Tangan & Stempel Pengurus — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
             <footer className="relative z-10 pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break">
               <p className="text-xs print:text-[10px] text-[#4A554A] text-right mb-3">
-                Karawang, {formatTanggal(new Date().toISOString())}
+                Karawang, {formatTanggal((effectiveNow ?? new Date()).toISOString())}
               </p>
               <div className="relative grid grid-cols-2 gap-4 sm:gap-6 text-center text-xs print:text-[10px] items-end">
                 <div className="signature-center-stamp pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] z-10 opacity-35 mix-blend-multiply">
@@ -1380,6 +1405,7 @@ export function AdminRekapSlide({
                               targetMonth: b.angka,
                               paidAmount,
                               billingStart: brand,
+                              now: effectiveNow,
                             });
                             const isPending = paidAmount === 0 && pendingKeys.has(cellKey);
                             const badge = getMatrixBadgeDisplay(cellStatus, isPending, paidAmount);

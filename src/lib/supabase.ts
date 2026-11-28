@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { SessionUser } from '../types';
+import { isSimulationSessionActive } from './simulationStore';
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || '';
@@ -19,8 +20,12 @@ const clientCache = new Map<string, SupabaseClient>();
  * Menghasilkan instance Supabase client terisolasi per (role, blok, permission)
  * dengan custom headers `x-blok-rumah` dan `x-user-role` agar panggilan anon (mis. BrandProvider)
  * tidak pernah menimpa header sesi Admin atau Warga.
+ * Pada Mode Simulasi, selalu mengembalikan null agar tidak ada data menyentuh Supabase.
  */
 export function getSupabaseClient(session?: SessionUser | null): SupabaseClient | null {
+  if (session?.is_simulation || isSimulationSessionActive()) {
+    return null;
+  }
   if (!isSupabaseConfigured()) {
     return null;
   }
@@ -73,6 +78,9 @@ export interface SupabaseProbeHeaders {
  * agar kebijakan RLS dan fungsi RPC berbasis header selalu menerima konteks yang konsisten.
  */
 export function getSupabaseProbeClient(probe?: SupabaseProbeHeaders | null): SupabaseClient | null {
+  if (isSimulationSessionActive()) {
+    return null;
+  }
   if (!isSupabaseConfigured()) {
     return null;
   }

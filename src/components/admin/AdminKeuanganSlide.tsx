@@ -70,6 +70,7 @@ import {
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { SaungKebunWatermark } from '../BrandLogo';
 import { AdminShiftOvertimePanel } from './AdminShiftOvertimePanel';
+import { useSimulation } from '../../lib/simulationContext';
 
 function isHonorKeamananPos(kat: string): boolean {
   return (
@@ -101,10 +102,12 @@ export function AdminKeuanganSlide({
   onOptimisticMutate,
   onToast,
 }: AdminKeuanganSlideProps) {
+  const { simDateIso } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
   const canEditDelete = isBendaharaFullAccess(session);
   const isBendahara = isBendaharaOnly(session);
   const isKetua = isKetuaRole(session);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = isSimulation ? simDateIso : new Date().toISOString().slice(0, 10);
 
   // Form Pengeluaran / Pemasukan Lain
   const [formJenis, setFormJenis] = useState<JenisTransaksiKas>('pengeluaran');
@@ -112,6 +115,12 @@ export function AdminKeuanganSlide({
   const [kategori, setKategori] = useState<string>(DEFAULT_NON_HONOR_PENGELUARAN);
   const [termin, setTermin] = useState<string>(TERMIN_PENGELUARAN_LIST[0]);
   const [tanggal, setTanggal] = useState<string>(todayIso);
+
+  useEffect(() => {
+    if (isSimulation && !editingItem) {
+      setTanggal(simDateIso);
+    }
+  }, [isSimulation, simDateIso, editingItem]);
   const [nominalStr, setNominalStr] = useState<string>('');
   const [penerimaAtauSumber, setPenerimaAtauSumber] = useState<string>('');
   const [keterangan, setKeterangan] = useState<string>('');

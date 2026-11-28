@@ -122,6 +122,7 @@ export interface SessionUser {
   shift?: string;
   avatar_url?: string | null;
   login_at: string;
+  is_simulation?: boolean;
 }
 
 export function isBendaharaFullAccess(session?: SessionUser | null): boolean {

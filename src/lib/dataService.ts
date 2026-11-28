@@ -104,6 +104,16 @@ import {
   getKetuaUserIds,
 } from './notificationService';
 import { buildAvatarKey, cacheAccountAvatars, getCachedAvatarUrl } from './avatarService';
+import {
+  clearSimulationSessionOnly,
+  getSimulationNow,
+  isSimulationMode,
+  isSimulationSessionActive,
+  readSimData,
+  saveSimulationSession,
+  subscribeSimulationChanges,
+  updateSimData,
+} from './simulationStore';
 
 const STORAGE_KEYS = {
   SESSION_LEGACY: 'saungkebun_session_v1',
@@ -266,6 +276,7 @@ function parseFriendlyError(err: unknown, fallbackMessage: string): string {
 // =========================================================================
 
 function ensureLocalStoreInitialized() {
+  if (isSimulationSessionActive()) return;
   if (!safeStorageGet(STORAGE_KEYS.WARGA)) {
     safeStorageSet(STORAGE_KEYS.WARGA, JSON.stringify(SEED_WARGA));
   }
@@ -286,6 +297,25 @@ function ensureLocalStoreInitialized() {
 }
 
 function readLocal<T>(key: string, fallback: T): T {
+  if (isSimulationSessionActive()) {
+    const sim = readSimData();
+    switch (key) {
+      case STORAGE_KEYS.WARGA:
+        return sim.wargaList as unknown as T;
+      case STORAGE_KEYS.TRANSAKSI:
+        return sim.transaksiList as unknown as T;
+      case STORAGE_KEYS.STATUS:
+        return sim.statusList as unknown as T;
+      case STORAGE_KEYS.BOT_CONFIG:
+        return sim.botConfig as unknown as T;
+      case STORAGE_KEYS.BOT_LOGS:
+        return sim.botLogs as unknown as T;
+      case STORAGE_KEYS.PENGURUS_LINGKUNGAN:
+        return sim.pengurusList as unknown as T;
+      default:
+        return fallback;
+    }
+  }
   ensureLocalStoreInitialized();
   try {
     const raw = safeStorageGet(key);
@@ -296,6 +326,27 @@ function readLocal<T>(key: string, fallback: T): T {
 }
 
 function writeLocal<T>(key: string, value: T) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => {
+      switch (key) {
+        case STORAGE_KEYS.WARGA:
+          return { ...sim, wargaList: value as unknown as Warga[] };
+        case STORAGE_KEYS.TRANSAKSI:
+          return { ...sim, transaksiList: value as unknown as TransaksiIPL[] };
+        case STORAGE_KEYS.STATUS:
+          return { ...sim, statusList: value as unknown as StatusEcardBulanan[] };
+        case STORAGE_KEYS.BOT_CONFIG:
+          return { ...sim, botConfig: value as unknown as BotWaConfig };
+        case STORAGE_KEYS.BOT_LOGS:
+          return { ...sim, botLogs: value as unknown as BotWaLog[] };
+        case STORAGE_KEYS.PENGURUS_LINGKUNGAN:
+          return { ...sim, pengurusList: value as unknown as PengurusLingkunganRecord[] };
+        default:
+          return sim;
+      }
+    });
+    return;
+  }
   safeStorageSet(key, JSON.stringify(value));
 }
 
@@ -379,6 +430,7 @@ function syncLocalStatusForHouse(blokRumah: string) {
     (t) => t.blok_rumah === blokRumah && t.tahun === TAHUN_AKTIF
   );
   const nowIso = new Date().toISOString();
+  const activeNow = isSimulationSessionActive() ? getSimulationNow() : undefined;
 
   const otherHouses = allStatus.filter((s) => !(s.blok_rumah === blokRumah && s.tahun === TAHUN_AKTIF));
   const rebuilt: StatusEcardBulanan[] = [];
@@ -396,7 +448,7 @@ function syncLocalStatusForHouse(blokRumah: string) {
         (t.status_verifikasi === 'Pending' || t.status_verifikasi === 'ACC Bendahara') &&
         t.bulan_dibayar.includes(bulan)
     );
-    let status = getDefaultUnpaidStatusForMonth(bulan);
+    let status = getDefaultUnpaidStatusForMonth(bulan, TAHUN_AKTIF, activeNow);
     let transaksi_id: string | null = null;
     if (verifiedPaid >= NOMINAL_IPL_STANDAR && verifiedList.length > 0) {
       status = 'Lunas';
@@ -508,6 +560,10 @@ export function loadLastActiveSession(): SessionUser | null {
 }
 
 export function saveStoredSession(session: SessionUser) {
+  if (isSimulationMode(session)) {
+    saveSimulationSession(session);
+    return;
+  }
   safeStorageSet(getSessionKeyForRole(session.role), JSON.stringify(session));
   safeStorageSet(STORAGE_KEYS.LAST_ACTIVE_ROLE, session.role);
   if (session.role !== 'petugas') {
@@ -516,6 +572,19 @@ export function saveStoredSession(session: SessionUser) {
 }
 
 export function clearStoredSession(session?: SessionUser | null, roleOverride?: UserRole) {
+  if (isSimulationMode(session) || (!session && !roleOverride && isSimulationSessionActive())) {
+    if (session) {
+      void recordAuditLog({
+        session,
+        action: 'LOGOUT_SIMULATION',
+        entity: 'auth',
+        entity_id: session.blok_rumah,
+        summary: `${session.nama_warga} (${session.blok_rumah}) keluar dari sesi Mode Simulasi.`,
+      });
+    }
+    clearSimulationSessionOnly();
+    return;
+  }
   const targetRole = roleOverride || session?.role;
   if (session) {
     void recordAuditLog({
@@ -1491,6 +1560,7 @@ interface ApprovalOverlayEntry {
 }
 
 function readApprovalOverlay(): Record<string, ApprovalOverlayEntry> {
+  if (isSimulationSessionActive()) return {};
   try {
     const raw = safeStorageGet(STORAGE_KEYS.APPROVAL_OVERLAY);
     if (!raw) return {};
@@ -1502,6 +1572,7 @@ function readApprovalOverlay(): Record<string, ApprovalOverlayEntry> {
 }
 
 function writeApprovalOverlayEntry(key: string, entry: ApprovalOverlayEntry | null) {
+  if (isSimulationSessionActive()) return;
   const map = readApprovalOverlay();
   if (!entry) {
     delete map[key];
@@ -1682,7 +1753,11 @@ function reconcileStatusWithTransactions(
           if (existing?.status === 'Lunas' && existing.transaksi_id === trx.id) {
             byKey.set(key, {
               ...existing,
-              status: getDefaultUnpaidStatusForMonth(bulan),
+              status: getDefaultUnpaidStatusForMonth(
+                bulan,
+                trx.tahun,
+                isSimulationSessionActive() ? getSimulationNow() : undefined
+              ),
             });
           }
           continue;
@@ -1728,6 +1803,7 @@ export async function submitSetoranWarga(
     nominal: number;
     keterangan?: string;
     buktiFile: File;
+    autoApproveForSim?: boolean;
     onStageChange?: (stage: SetorSubmitStage) => void;
   }
 ): Promise<ServiceResult<TransaksiIPL>> {
@@ -1898,6 +1974,7 @@ export async function submitSetoranWarga(
     payload.onStageChange?.('saving_transaction');
     const resolvedPetugasLocal =
       payload.metode_bayar === 'Setor Tunai' ? payload.petugas_penerima || null : null;
+    const isSimInstant = Boolean(payload.autoApproveForSim && isSimulationMode(effectiveSession));
     const newTrx: TransaksiIPL = {
       id: `trx-${Date.now()}`,
       no_kwitansi: noKwitansi,
@@ -1909,12 +1986,19 @@ export async function submitSetoranWarga(
       metode_bayar: payload.metode_bayar,
       petugas_penerima: resolvedPetugasLocal,
       bukti_url: buktiUrl,
-      status_verifikasi: 'Pending',
+      status_verifikasi: isSimInstant ? 'Terverifikasi' : 'Pending',
       catatan_admin: null,
       keterangan: payload.keterangan?.trim() || null,
       tanggal_setor: nowIso,
-      verified_at: null,
-      verified_by: null,
+      verified_at: isSimInstant ? nowIso : null,
+      verified_by: isSimInstant ? 'Simulasi Instan (Bendahara & Ketua)' : null,
+      bendahara_approved_at: isSimInstant ? nowIso : null,
+      bendahara_approved_by: isSimInstant ? 'Bp Andriansyah (Simulasi)' : null,
+      ketua_approved_at: isSimInstant ? nowIso : null,
+      ketua_approved_by: isSimInstant ? 'Bp Erlangga (Simulasi)' : null,
+      ketua_catatan: isSimInstant
+        ? 'Disahkan otomatis pada Mode Simulasi untuk uji warna status & pos kas.'
+        : null,
       fund_type: deriveIplFundType(payload.nominal, sortedBulan.length),
       holder_role: deriveIplHolderRole(payload.metode_bayar, resolvedPetugasLocal),
     };
@@ -2082,6 +2166,13 @@ export async function fetchPengurusLingkunganAdmin(
       'settings.system_integrations',
       session.central_settings_permissions
     );
+
+  if (isSimulationMode(session)) {
+    return readSimData().pengurusList.map((p) => ({
+      ...p,
+      pin_akses: canRevealPin ? p.pin_akses : '••••••',
+    }));
+  }
 
   const seedRecords = buildDefaultPengurusSeedRecords(canRevealPin, dbAdminRows);
   const localStored = readLocal<PengurusLingkunganRecord[]>(STORAGE_KEYS.PENGURUS_LINGKUNGAN, []);
@@ -2268,16 +2359,18 @@ export async function savePengurusLingkunganAdmin(
     : [...rawStored, recordToSave];
   writeLocal(STORAGE_KEYS.PENGURUS_LINGKUNGAN, nextStored);
 
-  const pinOverrides = (() => {
-    try {
-      const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
-      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-    } catch {
-      return {};
-    }
-  })();
-  pinOverrides[cleanUsername] = cleanPin;
-  safeStorageSet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES, JSON.stringify(pinOverrides));
+  if (!isSimulationMode(session)) {
+    const pinOverrides = (() => {
+      try {
+        const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
+        return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+      } catch {
+        return {};
+      }
+    })();
+    pinOverrides[cleanUsername] = cleanPin;
+    safeStorageSet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES, JSON.stringify(pinOverrides));
+  }
 
   await recordAuditLog({
     session,
@@ -2770,6 +2863,11 @@ export function subscribeAdminRealtime(
   options?: RealtimeSyncOptions
 ): () => void {
   if (session.role !== 'admin') return () => {};
+  if (isSimulationMode(session)) {
+    return subscribeSimulationChanges(() => {
+      void onChange();
+    });
+  }
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) return () => {};
 
@@ -2859,6 +2957,11 @@ export function subscribePatroliRealtime(
   onChange: () => void | Promise<void>,
   options?: RealtimeSyncOptions
 ): () => void {
+  if (isSimulationMode(session)) {
+    return subscribeSimulationChanges(() => {
+      void onChange();
+    });
+  }
   const supabase = getSupabaseClient(session);
   if (!supabase || !isSupabaseConfigured()) return () => {};
 
@@ -3600,7 +3703,18 @@ async function verifyActiveAdminPin(
     }
   }
 
-  // Fallback mode lokal
+  // Fallback mode lokal / Mode Simulasi
+  if (isSimulationMode(session)) {
+    const simPengurus = readSimData().pengurusList.find(
+      (p) => p.username.toLowerCase() === session.blok_rumah.toLowerCase()
+    );
+    const effectiveSimPin = simPengurus?.pin_akses || '123456';
+    if (cleanPin !== effectiveSimPin && cleanPin !== '123456') {
+      return { error: 'PIN 6 digit tidak sesuai (PIN Mode Simulasi: 123456).' };
+    }
+    return { data: true };
+  }
+
   const pinOverrides = (() => {
     try {
       const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
@@ -4860,6 +4974,14 @@ async function persistBotWaLogs(session: SessionUser, logs: BotWaLog[]): Promise
     }
   }
 
+  if (isSimulationMode(session)) {
+    updateSimData((sim) => ({
+      ...sim,
+      botLogs: [...logs, ...sim.botLogs].slice(0, 200),
+    }));
+    return;
+  }
+
   const existingLogs = (() => {
     try {
       const raw = safeStorageGet(STORAGE_KEYS.BOT_LOGS);
@@ -4884,21 +5006,44 @@ export async function sendTestWaMessageAdmin(
   if (cleanPhone.length < 10) {
     return { error: 'Masukkan nomor WhatsApp tujuan yang valid (contoh: 0812xxxxxxxx).' };
   }
-  if (!config.api_token.trim()) {
+  if (!isSimulationMode(session) && !config.api_token.trim()) {
     return { error: 'Masukkan API Token Fonnte / Wablas terlebih dahulu sebelum uji kirim.' };
   }
 
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(isSimulationMode(session) ? getSimulationNow() : undefined);
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
   const appUrl = APP_PORTAL_URL;
 
   const renderedMsg = config.template_pesan
     .replaceAll('{nama_warga}', session.nama_warga)
-    .replaceAll('{blok_rumah}', 'B7/16')
+    .replaceAll('{blok_rumah}', 'SIM/01')
     .replaceAll('{pin_akses}', '123456')
     .replaceAll('{bulan_tagihan}', bulanNama)
     .replaceAll('{nominal_tagihan}', formatRupiah(NOMINAL_IPL_STANDAR))
     .replaceAll('{link_aplikasi}', appUrl);
+
+  if (isSimulationMode(session)) {
+    const nowIso = new Date().toISOString();
+    await persistBotWaLogs(session, [
+      {
+        id: `walog-sim-test-${Date.now()}`,
+        created_at: nowIso,
+        blok_rumah: 'TES-WA',
+        nama_warga: `Uji Coba (${session.nama_warga})`,
+        no_wa: cleanPhone,
+        jenis_pesan: `Uji Koneksi Demo (${config.provider})`,
+        status_kirim: 'Terkirim',
+        respon_gateway: 'Simulasi Lokal (Tanpa API Eksternal)',
+        pesan: renderedMsg,
+      },
+    ]);
+    return {
+      data: {
+        status: 'Terkirim',
+        detail: `Simulasi uji kirim selesai ke +${cleanPhone} (disimpan di memori demo tanpa mengirim WA sungguhan).`,
+      },
+    };
+  }
 
   const proxyRes = await dispatchViaServerWaProxy(session, config, [
     {
@@ -4975,7 +5120,7 @@ export async function triggerManualWaReminderAdmin(
     };
   }
 
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(isSimulationMode(session) ? getSimulationNow() : undefined);
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
   const resolvedStart = billingStart ?? readLocalAppBrandConfig();
   if (isBeforeBillingStart(TAHUN_AKTIF, currentMonth, resolvedStart)) {
@@ -5018,8 +5163,8 @@ export async function triggerManualWaReminderAdmin(
       .replaceAll('{link_aplikasi}', appUrl),
   }));
 
-  // 1. Jika API Token diisi, kirim nyata lewat server proxy /api/bot-wa/send
-  if (config.api_token.trim()) {
+  // 1. Jika API Token diisi (dan bukan Mode Simulasi), kirim nyata lewat server proxy /api/bot-wa/send
+  if (!isSimulationMode(session) && config.api_token.trim()) {
     const proxyRes = await dispatchViaServerWaProxy(session, config, targets);
     if (proxyRes.available) {
       if (proxyRes.error) {
@@ -5144,7 +5289,7 @@ export async function sendWargaAccessCredentialsWaAdmin(
     return { error: 'Akses ditolak: pengiriman massal akun & PIN warga khusus Bendahara.' };
   }
 
-  if (!config.api_token.trim()) {
+  if (!isSimulationMode(session) && !config.api_token.trim()) {
     return { error: 'Masukkan dan simpan API Token Fonnte / Wablas terlebih dahulu.' };
   }
 
@@ -5158,7 +5303,7 @@ export async function sendWargaAccessCredentialsWaAdmin(
     };
   }
 
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(isSimulationMode(session) ? getSimulationNow() : undefined);
   const bulanNama = `${getNamaBulan(currentMonth)} ${TAHUN_AKTIF}`;
   const templateToUse =
     customTemplate && customTemplate.includes('{pin_akses}')
@@ -5177,6 +5322,28 @@ export async function sendWargaAccessCredentialsWaAdmin(
       .replaceAll('{nominal_tagihan}', formatRupiah(w.nominal_iuran))
       .replaceAll('{link_aplikasi}', APP_PORTAL_URL),
   }));
+
+  if (isSimulationMode(session)) {
+    const nowIso = new Date().toISOString();
+    const simLogs: BotWaLog[] = targets.map((t, i) => ({
+      id: `walog-sim-pin-${Date.now()}-${i}`,
+      created_at: nowIso,
+      blok_rumah: t.blok_rumah,
+      nama_warga: t.nama_warga,
+      no_wa: t.no_wa,
+      jenis_pesan: 'Info Akses Akun & PIN Warga (Simulasi)',
+      status_kirim: 'Terkirim',
+      respon_gateway: 'Simulasi Lokal (Tanpa API Eksternal)',
+      pesan: t.pesan,
+    }));
+    await persistBotWaLogs(session, simLogs);
+    return {
+      data: {
+        sentCount: simLogs.length,
+        message: `Simulasi selesai: ${simLogs.length} log pengiriman akses & PIN dicatat ke memori demo.`,
+      },
+    };
+  }
 
   const proxyRes = await dispatchViaServerWaProxy(session, config, targets);
   if (!proxyRes.available) {
@@ -5257,6 +5424,29 @@ export async function sendSingleCredentialWaAdmin(
   const normalizedPhone = normalizePhoneNumber(payload.noWa);
   if (!isRealRegisteredPhone(normalizedPhone)) {
     return { error: 'Nomor WhatsApp penerima kosong atau belum valid.' };
+  }
+
+  if (isSimulationMode(session)) {
+    await persistBotWaLogs(session, [
+      {
+        id: `walog-sim-cred-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        created_at: new Date().toISOString(),
+        blok_rumah: payload.kodeBlokAtauId,
+        nama_warga: payload.namaPenerima,
+        no_wa: normalizedPhone,
+        jenis_pesan: `${payload.logLabel} (Simulasi)`,
+        status_kirim: 'Terkirim',
+        respon_gateway: 'Simulasi Lokal (Tanpa API Eksternal)',
+        pesan: payload.pesan,
+      },
+    ]);
+    return {
+      data: {
+        status_kirim: 'Terkirim',
+        respon_gateway: 'Simulasi Lokal (Tanpa API Eksternal)',
+        no_wa: normalizedPhone,
+      },
+    };
   }
 
   if (!config.api_token.trim()) {
@@ -5366,6 +5556,29 @@ export async function sendWargaBotActivationWaAdmin(
     return { error: `Unit ${warga.blok_rumah} belum memiliki nomor WhatsApp valid yang terdaftar.` };
   }
 
+  if (isSimulationMode(session)) {
+    const activationText = buildWargaBotActivationMessage(warga);
+    const nowIso = new Date().toISOString();
+    const simLogs: BotWaLog[] = targetsNumbers.map((noWa, i) => ({
+      id: `walog-sim-act-${Date.now()}-${i}`,
+      created_at: nowIso,
+      blok_rumah: warga.blok_rumah,
+      nama_warga: warga.nama_warga,
+      no_wa: noWa,
+      jenis_pesan: 'Info Aktivasi Bot WA (Simulasi)',
+      status_kirim: 'Terkirim',
+      respon_gateway: 'Simulasi Lokal (Tanpa API Eksternal)',
+      pesan: activationText,
+    }));
+    await persistBotWaLogs(session, simLogs);
+    return {
+      data: {
+        sentViaGateway: true,
+        message: `Simulasi aktivasi Bot WA selesai ke ${targetsNumbers.map((n) => `+${n}`).join(' & ')}.`,
+      },
+    };
+  }
+
   if (!config.api_token.trim()) {
     return { error: 'Token Fonnte/Wablas belum diisi.' };
   }
@@ -5429,6 +5642,11 @@ export async function sendWargaBotActivationWaAdmin(
 // =========================================================================
 
 function readLocalNotifications(): SystemNotification[] {
+  if (isSimulationSessionActive()) {
+    return [...readSimData().notifications].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SYSTEM_NOTIFICATIONS);
     if (!raw) return [];
@@ -5442,6 +5660,13 @@ function readLocalNotifications(): SystemNotification[] {
 }
 
 function writeLocalNotifications(list: SystemNotification[]) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({
+      ...sim,
+      notifications: list.slice(0, 100),
+    }));
+    return;
+  }
   try {
     localStorage.setItem(STORAGE_KEYS.SYSTEM_NOTIFICATIONS, JSON.stringify(list.slice(0, 100)));
   } catch {
@@ -5641,6 +5866,9 @@ export async function deleteSystemNotificationAdmin(
 // =========================================================================
 
 function readLocalPaymentConfig(): PaymentConfig {
+  if (isSimulationSessionActive()) {
+    return readSimData().paymentConfig;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAYMENT_CONFIG);
     if (!raw) return SEED_PAYMENT_CONFIG;
@@ -5658,6 +5886,13 @@ function readLocalPaymentConfig(): PaymentConfig {
 }
 
 function writeLocalPaymentConfig(config: PaymentConfig) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({
+      ...sim,
+      paymentConfig: config,
+    }));
+    return;
+  }
   try {
     localStorage.setItem(STORAGE_KEYS.PAYMENT_CONFIG, JSON.stringify(config));
   } catch {
@@ -5935,6 +6170,9 @@ function mergeAppBrandConfig(
 }
 
 export function readLocalAppBrandConfig(): AppBrandConfig {
+  if (isSimulationSessionActive()) {
+    return mergeAppBrandConfig(DEFAULT_APP_BRAND_CONFIG, readSimData().brandConfig);
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.BRAND_CONFIG);
     if (!raw) return DEFAULT_APP_BRAND_CONFIG;
@@ -5946,6 +6184,13 @@ export function readLocalAppBrandConfig(): AppBrandConfig {
 }
 
 function writeLocalAppBrandConfig(config: AppBrandConfig) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({
+      ...sim,
+      brandConfig: config,
+    }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.BRAND_CONFIG, JSON.stringify(config));
 }
 
@@ -6228,6 +6473,13 @@ export async function saveAppBrandConfigAdmin(
 // =========================================================================
 
 function readLocalTransaksiKas(): TransaksiKas[] {
+  if (isSimulationSessionActive()) {
+    return [...readSimData().transaksiKasList].sort(
+      (a, b) =>
+        b.tanggal.localeCompare(a.tanggal) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.TRANSAKSI_KAS);
     if (!raw) return [];
@@ -6245,6 +6497,13 @@ function readLocalTransaksiKas(): TransaksiKas[] {
 }
 
 function writeLocalTransaksiKas(list: TransaksiKas[]) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({
+      ...sim,
+      transaksiKasList: list,
+    }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.TRANSAKSI_KAS, JSON.stringify(list));
 }
 
@@ -6351,14 +6610,16 @@ export async function uploadBuktiKasAdmin(
     return { error: 'Akses ditolak: hanya Pengurus yang dapat mengunggah bukti kas.' };
   }
 
-  const directDriveUrl = await tryDirectDriveUploadIfConnected({
-    session,
-    folderKey: 'pengeluaran_kas',
-    file,
-    labelPrefix: 'bukti-kas',
-  });
-  if (directDriveUrl) {
-    return { data: directDriveUrl };
+  if (!isSimulationMode(session)) {
+    const directDriveUrl = await tryDirectDriveUploadIfConnected({
+      session,
+      folderKey: 'pengeluaran_kas',
+      file,
+      labelPrefix: 'bukti-kas',
+    });
+    if (directDriveUrl) {
+      return { data: directDriveUrl };
+    }
   }
 
   const supabase = getSupabaseClient(session);
@@ -7579,7 +7840,26 @@ export async function changeOwnAdminPinAdmin(
     }
   }
 
-  // Fallback mode lokal
+  // Fallback mode lokal / Mode Simulasi
+  if (isSimulationMode(session)) {
+    const simPengurus = readSimData().pengurusList.find(
+      (p) => p.username.toLowerCase() === session.blok_rumah.toLowerCase()
+    );
+    const effectiveOldSimPin = simPengurus?.pin_akses || '123456';
+    if (effectiveOldSimPin !== cleanOld && cleanOld !== '123456') {
+      return { error: 'PIN lama yang Anda masukkan tidak sesuai.' };
+    }
+    updateSimData((sim) => ({
+      ...sim,
+      pengurusList: sim.pengurusList.map((p) =>
+        p.username.toLowerCase() === session.blok_rumah.toLowerCase()
+          ? { ...p, pin_akses: cleanNew }
+          : p
+      ),
+    }));
+    return { data: true };
+  }
+
   const pinOverrides = (() => {
     try {
       const raw = safeStorageGet(STORAGE_KEYS.ADMIN_PIN_OVERRIDES);
@@ -7623,6 +7903,9 @@ export async function changeOwnAdminPinAdmin(
 // =========================================================================
 
 function readLocalPetugasList(): PetugasKeamanan[] {
+  if (isSimulationSessionActive()) {
+    return readSimData().petugasList;
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.PETUGAS_KEAMANAN);
     if (!raw) {
@@ -7637,10 +7920,17 @@ function readLocalPetugasList(): PetugasKeamanan[] {
 }
 
 function writeLocalPetugasList(list: PetugasKeamanan[]) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({ ...sim, petugasList: list }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.PETUGAS_KEAMANAN, JSON.stringify(list));
 }
 
 function readLocalTitikPatroli(): TitikPatroli[] {
+  if (isSimulationSessionActive()) {
+    return readSimData().titikPatroliList;
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.TITIK_PATROLI);
     if (!raw) {
@@ -7655,10 +7945,19 @@ function readLocalTitikPatroli(): TitikPatroli[] {
 }
 
 function writeLocalTitikPatroli(list: TitikPatroli[]) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({ ...sim, titikPatroliList: list }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.TITIK_PATROLI, JSON.stringify(list));
 }
 
 function readLocalLogPatroli(): LogPatroli[] {
+  if (isSimulationSessionActive()) {
+    return [...readSimData().patroliLogs].sort(
+      (a, b) => new Date(b.waktu_scan).getTime() - new Date(a.waktu_scan).getTime()
+    );
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.LOG_PATROLI);
     if (!raw) return [];
@@ -7672,6 +7971,10 @@ function readLocalLogPatroli(): LogPatroli[] {
 }
 
 function writeLocalLogPatroli(list: LogPatroli[]) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({ ...sim, patroliLogs: list.slice(0, 300) }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.LOG_PATROLI, JSON.stringify(list.slice(0, 300)));
 }
 
@@ -7697,6 +8000,9 @@ function normalizePetugasRow(row: Record<string, unknown>, includePin = false): 
 }
 
 function readLocalPatrolMapConfig(): PatrolMapConfig {
+  if (isSimulationSessionActive()) {
+    return readSimData().patrolMapConfig;
+  }
   try {
     const raw = safeStorageGet(STORAGE_KEYS.PATROL_MAP_CONFIG);
     if (raw) {
@@ -7722,6 +8028,10 @@ function readLocalPatrolMapConfig(): PatrolMapConfig {
 }
 
 function writeLocalPatrolMapConfig(cfg: PatrolMapConfig) {
+  if (isSimulationSessionActive()) {
+    updateSimData((sim) => ({ ...sim, patrolMapConfig: cfg }));
+    return;
+  }
   safeStorageSet(STORAGE_KEYS.PATROL_MAP_CONFIG, JSON.stringify(cfg));
 }
 
@@ -8697,6 +9007,14 @@ export function subscribePetugasKeamananRealtime(
 ): () => void {
   const onLocal = () => onChange();
   window.addEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+
+  if (isSimulationMode(session) || isSimulationSessionActive()) {
+    const unsubSim = subscribeSimulationChanges(onChange);
+    return () => {
+      window.removeEventListener(PETUGAS_CHANGE_EVENT, onLocal);
+      unsubSim();
+    };
+  }
 
   if (!isSupabaseConfigured()) {
     return () => {

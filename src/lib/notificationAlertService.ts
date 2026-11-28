@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { ActivityNotification, SessionUser } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { isSimulationMode } from './simulationStore';
 import {
   buildNotificationContentSignature,
   buildNotificationDedupKey,
@@ -819,6 +820,9 @@ async function persistFcmTokenToSupabase(
   session: SessionUser,
   fcmToken: string
 ): Promise<{ synced: boolean; error?: string }> {
+  if (isSimulationMode(session)) {
+    return { synced: false };
+  }
   const cleanToken = fcmToken.trim();
   if (!cleanToken || !session) {
     return { synced: false, error: 'Token atau sesi tidak valid' };
@@ -990,7 +994,7 @@ export async function removeCurrentDevicePushToken(session?: SessionUser | null)
   lastSyncedTokenSignature = '';
   void syncServiceWorkerPollingContext(null);
 
-  if (!targetSession) return;
+  if (!targetSession || isSimulationMode(targetSession)) return;
 
   const supabase = getSupabaseClient(targetSession);
   if (!supabase || !isSupabaseConfigured()) return;
@@ -1206,7 +1210,7 @@ export async function syncServiceWorkerPollingContext(session: SessionUser | nul
       reg?.active || reg?.waiting || reg?.installing || navigator.serviceWorker.controller;
     if (!targetWorker) return;
 
-    if (!session) {
+    if (!session || isSimulationMode(session)) {
       targetWorker.postMessage({ type: 'ECARD_CLEAR_SYNC_CONTEXT' });
       return;
     }
@@ -1247,7 +1251,7 @@ export async function pollUnreadNotificationsNow(
   options?: { silentSeed?: boolean; force?: boolean }
 ): Promise<{ checked: boolean; unreadCount: number; newCount: number }> {
   const targetSession = session || activePushSession;
-  if (!targetSession) {
+  if (!targetSession || isSimulationMode(targetSession)) {
     return { checked: false, unreadCount: 0, newCount: 0 };
   }
 
@@ -1862,7 +1866,7 @@ async function ensureNativePushListeners(): Promise<boolean> {
 export async function syncNativePushTokenForSession(
   session?: SessionUser | null
 ): Promise<{ ok: boolean; synced: boolean; token: string | null; error?: string }> {
-  if (!session) {
+  if (!session || isSimulationMode(session)) {
     return { ok: false, synced: false, token: null };
   }
 
@@ -1983,6 +1987,9 @@ export async function syncNativePushTokenForSession(
 export async function initNativeNotificationsOnLaunch(
   session?: SessionUser | null
 ): Promise<OsNotificationPermissionState> {
+  if (isSimulationMode(session)) {
+    return 'unsupported';
+  }
   if (session) {
     activePushSession = session;
   }

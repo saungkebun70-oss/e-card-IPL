@@ -72,6 +72,13 @@ import {
   removeCurrentDevicePushToken,
   subscribeForegroundPushToast,
 } from './lib/notificationAlertService';
+import { useSimulation } from './lib/simulationContext';
+import {
+  isSimulationEnabled,
+  loadSimulationSession,
+} from './lib/simulationStore';
+import { SimulationTopBar } from './components/SimulationTopBar';
+import { SimulationRoleModal } from './components/SimulationRoleModal';
 
 type PortalRoute = 'warga' | 'admin' | 'petugas';
 
@@ -222,6 +229,13 @@ function resolveInitialPortalAndSession(): { route: PortalRoute; session: Sessio
     return { route: 'warga', session: null };
   }
   try {
+    if (isSimulationEnabled()) {
+      const simSession = loadSimulationSession();
+      if (simSession) {
+        return { route: simSession.role, session: simSession };
+      }
+    }
+
     const pathname = window.location.pathname || '/';
     const pathRoute = resolvePortalRouteFromPath(pathname);
     const directSession = loadStoredSession(pathRoute);
@@ -303,6 +317,8 @@ export default function App() {
   const activeTabRef = useRef<string>(activeTab);
   const lastHomeBackNoticeRef = useRef<number>(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const { simVersion, resetSimData, wipeAndDisableSim } = useSimulation();
+  const [simRoleModalOpen, setSimRoleModalOpen] = useState(false);
 
   const handleAttachmentPickingChange = useCallback((picking: boolean) => {
     isPickingAttachmentRef.current = picking;
@@ -626,6 +642,13 @@ export default function App() {
     void loadPortalData(session, { force: true });
   }, [session, portalRoute, loadPortalData]);
 
+  useEffect(() => {
+    if (!session?.is_simulation || session.role !== portalRoute || session.role === 'petugas') {
+      return;
+    }
+    void loadPortalData(session, { silent: true, force: true });
+  }, [simVersion, session, portalRoute, loadPortalData]);
+
   // Sinkronisasi realtime dengan debouncing (2 detik), throttling, dan deteksi perubahan signifikan
   useEffect(() => {
     if (!session || session.role !== portalRoute || session.role === 'petugas') return;
@@ -879,6 +902,77 @@ export default function App() {
     []
   );
 
+  const handleSimulationLogin = useCallback(
+    (simSession: SessionUser) => {
+      const nextRoute = simSession.role;
+      saveStoredSession(simSession);
+      lastAdminFingerprintRef.current = null;
+      lastWargaFingerprintRef.current = null;
+      setWargaData(null);
+      setAdminData(null);
+      setDataError(null);
+      setSettingsOpen(false);
+      setChatModalOpen(false);
+      setInitialChatRoomId(null);
+      setPortalRoute(nextRoute);
+      setSession(simSession);
+      setActiveTab(nextRoute === 'admin' ? 'dashboard' : 'beranda');
+      if (typeof window !== 'undefined') {
+        const activePath = getPathForPortalRoute(nextRoute);
+        try {
+          window.history.pushState({ ecardSessionGuard: true, route: nextRoute }, '', activePath);
+        } catch {
+          // Abaikan bila dibatasi WebView
+        }
+      }
+      pushToast(
+        'info',
+        `Mode Simulasi aktif sebagai ${simSession.nama_warga} (${
+          nextRoute === 'petugas'
+            ? 'Petugas Patroli'
+            : nextRoute === 'admin'
+              ? simSession.jabatan || 'Pengurus'
+              : simSession.blok_rumah
+        }).`
+      );
+    },
+    [pushToast]
+  );
+
+  const handleResetSimulationData = useCallback(() => {
+    resetSimData();
+    lastAdminFingerprintRef.current = null;
+    lastWargaFingerprintRef.current = null;
+    if (session && session.role !== 'petugas') {
+      void loadPortalData(session, { force: true });
+    }
+    pushToast('info', 'Data simulasi telah direset ke kondisi awal demo.');
+  }, [resetSimData, session, loadPortalData, pushToast]);
+
+  const handleWipeAndDisableSimulation = useCallback(() => {
+    wipeAndDisableSim();
+    setSimRoleModalOpen(false);
+    setSession(null);
+    isPickingAttachmentRef.current = false;
+    setChatModalOpen(false);
+    setInitialChatRoomId(null);
+    setSettingsOpen(false);
+    lastAdminFingerprintRef.current = null;
+    lastWargaFingerprintRef.current = null;
+    setWargaData(null);
+    setAdminData(null);
+    setDataError(null);
+    setPortalRoute('warga');
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState({}, '', '/');
+      } catch {
+        // Abaikan
+      }
+    }
+    pushToast('success', 'Seluruh data simulasi dihapus dan tombol simulasi di login dinonaktifkan.');
+  }, [wipeAndDisableSim, pushToast]);
+
   const handleLoginSuccess = (newSession: SessionUser) => {
     if (newSession.role !== portalRoute) return;
     saveStoredSession(newSession);
@@ -902,8 +996,11 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const wasSimulation = Boolean(session?.is_simulation);
     // Hapus HANYA token perangkat ini dari user_push_tokens agar perangkat lain milik akun ini tetap aktif
-    void removeCurrentDevicePushToken(session);
+    if (!wasSimulation) {
+      void removeCurrentDevicePushToken(session);
+    }
     clearStoredSession(session, portalRoute);
     setSession(null);
     isPickingAttachmentRef.current = false;
@@ -928,7 +1025,12 @@ export default function App() {
       const loginPath = getPathForPortalRoute(portalRoute);
       window.history.replaceState({}, '', loginPath);
     }
-    pushToast('info', 'Anda telah keluar dari sesi portal.');
+    pushToast(
+      'info',
+      wasSimulation
+        ? 'Anda keluar dari Mode Simulasi. Data asli Anda tetap aman.'
+        : 'Anda telah keluar dari sesi portal.'
+    );
   };
 
   const navigatePortalRoute = useCallback((nextRoute: PortalRoute) => {
@@ -968,6 +1070,7 @@ export default function App() {
         <LoginPortalShell
           portalRoute={portalRoute}
           onLoginSuccess={handleLoginSuccess}
+          onSimulationLogin={handleSimulationLogin}
           onSwitchPortal={navigatePortalRoute}
         />
       </>
@@ -979,6 +1082,15 @@ export default function App() {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        {session.is_simulation && (
+          <SimulationTopBar
+            session={session}
+            onOpenRolePicker={() => setSimRoleModalOpen(true)}
+            onExitDemo={handleLogout}
+            onResetSimData={handleResetSimulationData}
+            onWipeAndDisable={handleWipeAndDisableSimulation}
+          />
+        )}
         <div key="portal-petugas" className="animate-page-enter">
           <PetugasPortalPage
             session={session}
@@ -987,6 +1099,12 @@ export default function App() {
             onToast={pushToast}
           />
         </div>
+        <SimulationRoleModal
+          open={simRoleModalOpen}
+          onClose={() => setSimRoleModalOpen(false)}
+          currentSession={session}
+          onSelectSession={handleSimulationLogin}
+        />
       </>
     );
   }
@@ -1067,6 +1185,7 @@ export default function App() {
         case 'beranda':
           return (
             <WargaHomeSlide
+              session={session}
               profil={wargaData.profil}
               statusBulanan={wargaData.statusBulanan}
               riwayat={wargaData.riwayat}
@@ -1212,6 +1331,7 @@ export default function App() {
         case 'lpj':
           return (
             <AdminLpjSlide
+              isSimulation={Boolean(session.is_simulation)}
               wargaList={adminData.wargaList}
               statusList={adminData.statusList}
               transaksiList={adminData.transaksiList}
@@ -1266,10 +1386,23 @@ export default function App() {
   return (
     <>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {session.is_simulation && (
+        <SimulationTopBar
+          session={session}
+          onOpenRolePicker={() => setSimRoleModalOpen(true)}
+          onExitDemo={handleLogout}
+          onResetSimData={handleResetSimulationData}
+          onWipeAndDisable={handleWipeAndDisableSimulation}
+        />
+      )}
       <LoadingOverlay
         visible={loadingData && Boolean(wargaData || adminData)}
         message="Menyinkronkan data..."
-        subMessage="Memperbarui informasi terbaru dari server"
+        subMessage={
+          session.is_simulation
+            ? 'Memperbarui data simulasi lokal'
+            : 'Memperbarui informasi terbaru dari server'
+        }
       />
       <AppShell
         session={session}
@@ -1324,6 +1457,13 @@ export default function App() {
         {renderContent()}
       </AppShell>
 
+      <SimulationRoleModal
+        open={simRoleModalOpen}
+        onClose={() => setSimRoleModalOpen(false)}
+        currentSession={session}
+        onSelectSession={handleSimulationLogin}
+      />
+
       {/* Drawer Pengaturan Terpusat Admin (Profil Saya, Identitas, Pembayaran, Bot WA, Petugas, Keamanan) */}
       {session.role === 'admin' && adminData && (
         <AdminSettingsDrawer
@@ -1343,6 +1483,7 @@ export default function App() {
           onCentralPermissionsUpdated={handleCentralPermissionsUpdated}
           onClose={() => setSettingsOpen(false)}
           onRefresh={() => loadPortalData(session, { silent: true })}
+          onWipeAndDisableSimulation={handleWipeAndDisableSimulation}
           onToast={pushToast}
         />
       )}

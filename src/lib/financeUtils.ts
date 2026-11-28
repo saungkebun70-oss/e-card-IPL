@@ -934,12 +934,14 @@ export function buildChairmanMonthlySummaryReport(
   statusList: StatusEcardBulanan[],
   transaksiList: TransaksiIPL[],
   transaksiKasList: TransaksiKas[],
-  billingStart?: BillingStartPeriod | null
+  billingStart?: BillingStartPeriod | null,
+  now?: Date
 ): ChairmanMonthlySummaryReport {
   const monthlyCash = buildMonthlyCashReport(tahun, bulan, transaksiList, transaksiKasList, {
     wargaList,
     statusList,
     billingStart,
+    now,
   });
   const periodKey = tahun * 100 + bulan;
   const paddedMonth = String(bulan).padStart(2, '0');

@@ -17,6 +17,7 @@ import {
   TANGGAL_JATUH_TEMPO,
   TANGGAL_TERBIT_TAGIHAN,
   type StatusEcardBulanan,
+  type SessionUser,
   type SystemNotification,
   type TransaksiIPL,
   type Warga,
@@ -38,10 +39,13 @@ import {
   type CellStatus,
 } from '../../lib/billingStatus';
 import { useAppBrand } from '../../lib/brandContext';
+import { useSimulation } from '../../lib/simulationContext';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
 import { PanduanBotWaModal } from './PanduanBotWaModal';
+import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
 interface WargaHomeSlideProps {
+  session?: SessionUser;
   profil: Warga;
   statusBulanan: StatusEcardBulanan[];
   riwayat?: TransaksiIPL[];
@@ -133,6 +137,7 @@ function getMonthCellStyles(status: CellStatus, isPending: boolean, paidAmount =
 }
 
 export function WargaHomeSlide({
+  session,
   profil,
   statusBulanan,
   riwayat = [],
@@ -141,6 +146,9 @@ export function WargaHomeSlide({
   onToast,
 }: WargaHomeSlideProps) {
   const { brand } = useAppBrand();
+  const { simNow } = useSimulation();
+  const isSimulation = Boolean(session?.is_simulation);
+  const effectiveNow = isSimulation ? simNow : undefined;
   const [readIds, setReadIds] = useState<string[]>(() =>
     loadReadNotificationIds(profil.blok_rumah)
   );
@@ -166,7 +174,7 @@ export function WargaHomeSlide({
   const unreadNotifications = notifications.filter((n) => !readIds.includes(n.id));
   const displayedNotifications = showReadHistory ? notifications.slice(0, 5) : unreadNotifications.slice(0, 3);
 
-  const currentMonth = getCurrentBillingMonth();
+  const currentMonth = getCurrentBillingMonth(effectiveNow);
   const currentMonthName = getNamaBulan(currentMonth);
 
   const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(riwayat, statusBulanan);
@@ -179,6 +187,7 @@ export function WargaHomeSlide({
     targetMonth: currentMonth,
     paidAmount: currentPaidAmount,
     billingStart: brand,
+    now: effectiveNow,
   });
   const isCurrentPending =
     currentPaidAmount === 0 &&
@@ -258,6 +267,7 @@ export function WargaHomeSlide({
       targetMonth: b.angka,
       paidAmount: paid,
       billingStart: brand,
+      now: effectiveNow,
     });
     const pending =
       paid === 0 &&
@@ -279,6 +289,7 @@ export function WargaHomeSlide({
 
   return (
     <div className="space-y-6">
+      {isSimulation && <SimulationDateSwitcher compact />}
       {/* Pengumuman / Pesan Sistem Resmi dari Pengurus */}
       {notifications.length > 0 && (
         <section
@@ -554,6 +565,7 @@ export function WargaHomeSlide({
               targetMonth: b.angka,
               paidAmount,
               billingStart: brand,
+              now: effectiveNow,
             });
             const isPending =
               paidAmount === 0 &&

@@ -14,6 +14,7 @@ import {
   type Warga,
 } from '../types';
 import { getSupabaseClient, getSupabaseProbeClient, isSupabaseConfigured } from './supabase';
+import { isSimulationMode, readSimData, updateSimData } from './simulationStore';
 import { recordAuditLog } from './auditLogger';
 
 const LOCAL_PERMISSIONS_KEY = 'saungkebun_pengurus_setting_permissions_v1';
@@ -492,14 +493,21 @@ export async function fetchAllPengurusSettingPermissions(
   session: SessionUser
 ): Promise<Record<string, Record<CentralSettingModuleKey, PengurusSettingPermissionRecord>>> {
   const result: Record<string, Record<CentralSettingModuleKey, PengurusSettingPermissionRecord>> = {};
-  const localMap = readLocalPermissionsMap();
+  const isSim = isSimulationMode(session);
+  const simDelegationMap = isSim ? readSimData().delegationMap : null;
+  const localMap = isSim ? {} : readLocalPermissionsMap();
 
   for (const p of SUSUNAN_PENGURUS) {
     const uname = p.username.toLowerCase();
     const isBendahara = p.permission === 'full' || p.jabatan === 'Bendahara';
     const userRecord = {} as Record<CentralSettingModuleKey, PengurusSettingPermissionRecord>;
     for (const moduleKey of ALL_MODULE_KEYS) {
-      const localEntry = localMap[uname]?.[moduleKey];
+      const simStatus = simDelegationMap?.[uname]?.[moduleKey];
+      const localEntry = isSim
+        ? simStatus
+          ? buildDefaultPermissionRecord(uname, moduleKey, simStatus, 'andriansyah')
+          : undefined
+        : localMap[uname]?.[moduleKey];
       userRecord[moduleKey] = isBendahara
         ? buildDefaultPermissionRecord(uname, moduleKey, 'granted', 'system')
         : localEntry || buildDefaultPermissionRecord(uname, moduleKey, 'revoked');
@@ -567,6 +575,13 @@ export async function fetchMySettingPermissions(
   }
 
   const resolved = {} as Record<CentralSettingModuleKey, SettingPermissionStatus>;
+  if (isSimulationMode(session)) {
+    const simDelegation = readSimData().delegationMap;
+    for (const key of ALL_MODULE_KEYS) {
+      resolved[key] = simDelegation[uname]?.[key] === 'granted' ? 'granted' : 'revoked';
+    }
+    return resolved;
+  }
   const localMap = readLocalPermissionsMap();
   for (const key of ALL_MODULE_KEYS) {
     resolved[key] = localMap[uname]?.[key]?.status === 'granted' ? 'granted' : 'revoked';
@@ -722,12 +737,25 @@ export async function setPengurusSettingPermission(
     notes: params.note || null,
   };
 
-  const localMap = readLocalPermissionsMap();
-  localMap[targetUsername] = {
-    ...(localMap[targetUsername] || {}),
-    [params.moduleKey]: record,
-  };
-  writeLocalPermissionsMap(localMap);
+  if (isSimulationMode(session)) {
+    updateSimData((curr) => ({
+      ...curr,
+      delegationMap: {
+        ...curr.delegationMap,
+        [targetUsername]: {
+          ...(curr.delegationMap[targetUsername] || {}),
+          [params.moduleKey]: params.status,
+        },
+      },
+    }));
+  } else {
+    const localMap = readLocalPermissionsMap();
+    localMap[targetUsername] = {
+      ...(localMap[targetUsername] || {}),
+      [params.moduleKey]: record,
+    };
+    writeLocalPermissionsMap(localMap);
+  }
 
   await recordAuditLog({
     session,

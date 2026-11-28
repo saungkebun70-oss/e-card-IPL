@@ -108,6 +108,8 @@ import {
   subscribeChatMessagesRealtime,
   type ChatRoomId,
 } from '../../lib/chatService';
+import { useSimulation } from '../../lib/simulationContext';
+import { SIM_SHIFT_SCHEDULE } from '../../lib/simulationStore';
 
 interface PetugasPortalPageProps {
   session: SessionUser;
@@ -120,13 +122,12 @@ type PetugasTab = 'info' | 'riwayat' | 'scan' | 'honor' | 'peta';
 
 const SHORT_MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-function isSameLocalDay(isoDate: string): boolean {
+function isSameLocalDay(isoDate: string, nowRef: Date = new Date()): boolean {
   const d = new Date(isoDate);
-  const now = new Date();
   return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
+    d.getFullYear() === nowRef.getFullYear() &&
+    d.getMonth() === nowRef.getMonth() &&
+    d.getDate() === nowRef.getDate()
   );
 }
 
@@ -160,6 +161,8 @@ export function PetugasPortalPage({
   onToast,
 }: PetugasPortalPageProps) {
   const { brand } = useAppBrand();
+  const { simNow } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
   const [activeTab, setActiveTab] = useState<PetugasTab>('scan');
   const [data, setData] = useState<PetugasOwnData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -521,11 +524,45 @@ export function PetugasPortalPage({
     [computeMappedPosition, session, stopGpsWatcher]
   );
 
+  const handleStartSimulatedLivePatrol = useCallback(async () => {
+    if (!isSimulation || startingLivePatrol) return;
+    setStartingLivePatrol(true);
+    setGpsErrorMsg(null);
+    try {
+      const mapped = computeMappedPosition(null, null);
+      const res = await startLivePatrolSession(session, {
+        current_x: mapped.x,
+        current_y: mapped.y,
+        current_lat: -6.3422,
+        current_lng: 107.3381,
+        accuracy: 8,
+      });
+      if (!res.ok || !res.data) {
+        onToast('error', res.message || 'Gagal memulai simulasi Patroli Live.');
+        return;
+      }
+      trailPointsRef.current = res.data.trail_points;
+      lastPingSentAtRef.current = Date.now();
+      setGpsAccuracy(8);
+      setActiveLiveSession(res.data);
+      onToast(
+        'success',
+        'Simulasi Patroli Live aktif! Ketuk salah satu checkpoint untuk menggerakkan jejak rute di Peta 3D.'
+      );
+    } finally {
+      setStartingLivePatrol(false);
+    }
+  }, [isSimulation, startingLivePatrol, computeMappedPosition, session, onToast]);
+
   const handleStartLivePatrol = useCallback(async () => {
     if (startingLivePatrol) return;
     setGpsErrorMsg(null);
 
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      if (isSimulation) {
+        await handleStartSimulatedLivePatrol();
+        return;
+      }
       const msg = describeGeolocationError(null);
       setGpsErrorMsg(msg);
       onToast('error', msg);
@@ -575,6 +612,11 @@ export function PetugasPortalPage({
         `Patroli Live dimulai! GPS Aktif (±${acc}m) dan posisi Anda kini tampil di Peta 3D.`
       );
     } catch (err) {
+      if (isSimulation) {
+        setStartingLivePatrol(false);
+        await handleStartSimulatedLivePatrol();
+        return;
+      }
       const msg = describeGeolocationError(err);
       setGpsErrorMsg(msg);
       onToast('error', msg);
@@ -582,6 +624,8 @@ export function PetugasPortalPage({
       setStartingLivePatrol(false);
     }
   }, [
+    isSimulation,
+    handleStartSimulatedLivePatrol,
     startingLivePatrol,
     acquireWakeLock,
     releaseWakeLock,
@@ -938,8 +982,9 @@ export function PetugasPortalPage({
   };
 
   const patroliHariIni = useMemo<LogPatroli[]>(() => {
-    return (data?.patroliPribadi || []).filter((log) => isSameLocalDay(log.waktu_scan));
-  }, [data?.patroliPribadi]);
+    const refNow = isSimulation ? simNow : new Date();
+    return (data?.patroliPribadi || []).filter((log) => isSameLocalDay(log.waktu_scan, refNow));
+  }, [data?.patroliPribadi, isSimulation, simNow]);
 
   const displayedRiwayat = useMemo<LogPatroli[]>(() => {
     if (riwayatFilter === 'hari_ini') return patroliHariIni;
@@ -1210,7 +1255,9 @@ export function PetugasPortalPage({
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-[#FFFDF8]/92 backdrop-blur-xl border-r border-[#E6E2D6] shadow-[8px_0_30px_-14px_rgba(36,56,37,0.12)] no-print"
+        className={`hidden lg:flex lg:flex-col fixed ${
+          isSimulation ? 'top-[49px] bottom-0' : 'inset-y-0'
+        } left-0 w-[260px] z-30 glass-sidebar bg-[#FFFDF8]/92 backdrop-blur-xl border-r border-[#E6E2D6] shadow-[8px_0_30px_-14px_rgba(36,56,37,0.12)] no-print`}
       >
         <div className="px-4 pt-5 pb-4 border-b border-[#E6E2D6] shrink-0">
           <button
@@ -1383,7 +1430,7 @@ export function PetugasPortalPage({
           displayName={profil.nama}
           identityLabel={`${profil.nama} · Keamanan (${effectiveShiftLabel})`}
           avatarUrl={effectiveAvatarUrl}
-          activePeriodLabel={`${SHORT_MONTHS_ID[new Date().getMonth()]} ${new Date().getFullYear()}`}
+          activePeriodLabel={`${SHORT_MONTHS_ID[(isSimulation ? simNow : new Date()).getMonth()]} ${(isSimulation ? simNow : new Date()).getFullYear()}`}
           onOpenMenu={() => setSidebarOpen(true)}
           onLogoClick={() => handleSelectTab('scan')}
           onProfileClick={() => {
@@ -1742,6 +1789,52 @@ export function PetugasPortalPage({
                   </div>
                 </section>
 
+                {/* JADWAL SHIFT PETUGAS KEAMANAN & CHAT PENGURUS (MODE SIMULASI) */}
+                {isSimulation && (
+                  <section className="glass-card bg-[#FFFDF8] border border-purple-200 rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-purple-800">
+                          Jadwal Shift Keamanan (Mode Simulasi)
+                        </p>
+                        <h2 className="text-sm font-bold text-[#1B271B]">
+                          Pembagian Regu Jaga &amp; Koordinasi Pengurus
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatInitialRoomId('pengurus_keamanan');
+                          setChatModalOpen(true);
+                        }}
+                        className="min-h-[40px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Chat Keamanan–Pengurus</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {SIM_SHIFT_SCHEDULE.map((item) => (
+                        <div
+                          key={item.nama}
+                          className="rounded-2xl border border-[#E6E2D6] bg-[#F7F4EC] p-3 space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <p className="text-xs font-bold text-[#1B271B]">{item.nama}</p>
+                            <span className="px-2 py-0.5 rounded-md bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF] text-[10px] font-semibold">
+                              {item.shift}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-[#4A554A] tabular-nums">
+                            {item.jam}
+                          </p>
+                          <p className="text-[10.5px] text-[#6E786D]">{item.keterangan}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {/* Instruksi Keamanan Hari Ini dari Pengurus */}
                 <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs">
                   <h2 className="text-sm font-bold text-[#1B271B] flex items-center gap-2">
@@ -2098,6 +2191,46 @@ export function PetugasPortalPage({
                           <MapPin className="w-4 h-4 shrink-0 text-[#E5EEE3]" />
                           <span>Catat Checkpoint</span>
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tombol Uji Cepat 5 Titik Patroli & Chat Pengurus (Khusus Mode Simulasi) */}
+                  {isSimulation && (
+                    <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-3.5 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-purple-900">
+                          Simulasi Scan 1-Ketuk Rute Patroli (5 Titik)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChatInitialRoomId('pengurus_keamanan');
+                            setChatModalOpen(true);
+                          }}
+                          className="min-h-[34px] px-3 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Chat Keamanan–Pengurus</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(data?.titikPatroli || [])
+                          .filter((t) => t.aktif !== false)
+                          .map((titik) => (
+                            <button
+                              key={titik.id}
+                              type="button"
+                              disabled={submittingPatroli}
+                              onClick={() =>
+                                void recordPatrolEntry(titik, titik.nama_lokasi, 'NFC Tap')
+                              }
+                              className="min-h-[38px] px-3 rounded-xl bg-white hover:bg-[#E5EEE3] border border-purple-200 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                              <span>{titik.nama_lokasi}</span>
+                            </button>
+                          ))}
                       </div>
                     </div>
                   )}

@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ThemeProvider } from './lib/themeContext.tsx';
 import { BrandProvider } from './lib/brandContext.tsx';
+import { SimulationProvider } from './lib/simulationContext.tsx';
 import { AppUpdateProvider } from './lib/appUpdate.tsx';
 import { AppUpdateBanner, OfflineOverlay } from './components/AppUpdateSystem.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
@@ -41,11 +42,13 @@ try {
     <ErrorBoundary>
       <ThemeProvider>
         <AppUpdateProvider>
-          <BrandProvider>
-            <AppUpdateBanner />
-            <OfflineOverlay />
-            <App />
-          </BrandProvider>
+          <SimulationProvider>
+            <BrandProvider>
+              <AppUpdateBanner />
+              <OfflineOverlay />
+              <App />
+            </BrandProvider>
+          </SimulationProvider>
         </AppUpdateProvider>
       </ThemeProvider>
     </ErrorBoundary>

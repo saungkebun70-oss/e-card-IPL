@@ -12,6 +12,7 @@ import {
   QrCode,
   Send,
   Upload,
+  FlaskConical,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -36,6 +37,7 @@ import {
   resolveUnitMonthBillingStatus,
 } from '../../lib/billingStatus';
 import { useAppBrand } from '../../lib/brandContext';
+import { useSimulation } from '../../lib/simulationContext';
 import { submitSetoranWarga, type SetorSubmitStage } from '../../lib/dataService';
 import { compressProofImage, formatFileSize } from '../../lib/imageCompressor';
 
@@ -81,6 +83,9 @@ export function WargaSetorSlide({
   onToast,
 }: WargaSetorSlideProps) {
   const { brand } = useAppBrand();
+  const { simNow } = useSimulation();
+  const isSimulation = Boolean(session.is_simulation);
+  const effectiveNow = isSimulation ? simNow : undefined;
   const nominalUnit = profil.nominal_iuran || NOMINAL_IPL_STANDAR;
   const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(riwayat, statusBulanan);
 
@@ -97,6 +102,7 @@ export function WargaSetorSlide({
   const [copiedRek, setCopiedRek] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitStage, setSubmitStage] = useState<SetorSubmitStage>('idle');
+  const [autoApproveDemo, setAutoApproveDemo] = useState<boolean>(true);
   const submitLockRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -111,6 +117,7 @@ export function WargaSetorSlide({
         targetMonth: preselectedMonth,
         paidAmount,
         billingStart: brand,
+        now: effectiveNow,
       });
       const isPending =
         paidAmount === 0 &&
@@ -222,6 +229,58 @@ export function WargaSetorSlide({
 
   const activeStepIndex = SUBMIT_STEPS.findIndex((s) => s.key === submitStage);
 
+  const handleUseDemoProof = async () => {
+    if (submitting || compressing) return;
+    setCompressing(true);
+    try {
+      let generatedFile: File | null = null;
+      if (typeof document !== 'undefined') {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 420;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#F6F3EA';
+          ctx.fillRect(0, 0, 640, 420);
+          ctx.fillStyle = '#243825';
+          ctx.fillRect(0, 0, 640, 88);
+          ctx.fillStyle = '#FFFDF8';
+          ctx.font = 'bold 24px sans-serif';
+          ctx.fillText('BUKTI TRANSFER SIMULASI', 32, 54);
+          ctx.fillStyle = '#1B271B';
+          ctx.font = 'bold 20px sans-serif';
+          ctx.fillText(`Unit: ${formatBlokRumah(profil.blok_rumah)} • ${profil.nama_warga}`, 32, 145);
+          ctx.font = 'bold 34px monospace';
+          ctx.fillStyle = '#2B3F29';
+          ctx.fillText(formatRupiah(numericNominal || nominalUnit), 32, 205);
+          ctx.fillStyle = '#4A554A';
+          ctx.font = '16px sans-serif';
+          ctx.fillText(`Metode: ${metodeBayar} (Data Demo Lokal)`, 32, 260);
+          ctx.fillText('Status: Siap Uji Verifikasi e-Card Saung Kebun', 32, 295);
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob((b) => resolve(b), 'image/png')
+          );
+          if (blob) {
+            generatedFile = new File([blob], 'bukti-transfer-simulasi.png', { type: 'image/png' });
+          }
+        }
+      }
+      if (!generatedFile) {
+        const fallbackBytes = new TextEncoder().encode('DEMO-PROOF-PNG');
+        generatedFile = new File([fallbackBytes], 'bukti-transfer-simulasi.png', {
+          type: 'image/png',
+        });
+      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setBuktiFile(generatedFile);
+      setPreviewUrl(URL.createObjectURL(generatedFile));
+      setSizeInfo(formatFileSize(generatedFile.size));
+      onToast('info', 'Gambar bukti transfer demo siap digunakan.');
+    } finally {
+      setCompressing(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitLockRef.current || submitting) return;
@@ -242,6 +301,7 @@ export function WargaSetorSlide({
         nominal: numericNominal,
         keterangan,
         buktiFile,
+        autoApproveForSim: isSimulation ? autoApproveDemo : false,
         onStageChange: (stage) => setSubmitStage(stage),
       });
 
@@ -251,7 +311,11 @@ export function WargaSetorSlide({
         setSubmitStage('refreshing');
         onToast(
           'success',
-          'Setoran IPL berhasil dikirim dan menunggu verifikasi Pengurus Lingkungan.'
+          isSimulation && autoApproveDemo
+            ? perMonthNominal > 0 && perMonthNominal < NOMINAL_IPL_STANDAR
+              ? 'Setoran simulasi disahkan instan! Dialihkan ke pos Dana Darurat (Ungu).'
+              : 'Setoran simulasi disahkan instan! Status e-Card berubah Hijau (Lunas).'
+            : 'Setoran IPL berhasil dikirim dan menunggu verifikasi Pengurus Lingkungan.'
         );
         setSelectedMonths([]);
         setManualNominalEdited(false);
@@ -341,6 +405,7 @@ export function WargaSetorSlide({
                 targetMonth: b.angka,
                 paidAmount,
                 billingStart: brand,
+                now: effectiveNow,
               });
               const isPending =
                 paidAmount === 0 &&
@@ -713,6 +778,39 @@ export function WargaSetorSlide({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {isSimulation && (
+              <div className="mt-3 rounded-2xl border border-[#DCE3D7] bg-[#F4F6EF] p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#243825]">
+                    <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+                    Alat Bantu Demo Simulasi
+                  </span>
+                  <button
+                    type="button"
+                    disabled={submitting || compressing}
+                    onClick={() => void handleUseDemoProof()}
+                    className="min-h-[34px] px-3 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-white text-[11px] font-bold cursor-pointer transition whitespace-nowrap"
+                  >
+                    Gunakan Gambar Bukti Demo
+                  </button>
+                </div>
+
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoApproveDemo}
+                    onChange={(e) => setAutoApproveDemo(e.target.checked)}
+                    className="mt-0.5 rounded border-[#C6D2BF] text-[#2B3F29] focus:ring-[#2B3F29]"
+                  />
+                  <span className="text-[11px] text-[#4A554A] leading-snug">
+                    <strong className="text-[#1B271B]">Langsung Sahkan Instan (Demo)</strong> —
+                    langsung ubah e-Card menjadi Hijau (&ge; Rp100rb) atau Ungu Dana Darurat (&lt;
+                    Rp100rb). Matikan untuk menguji antrean 2-tahap Bendahara &rarr; Ketua.
+                  </span>
+                </label>
               </div>
             )}
           </div>

@@ -4,6 +4,7 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { compressLogoImage } from './imageCompressor';
 import { routeNewMediaUploadAuto } from './googleDriveHybridService';
 import { dispatchActivityNotifications, getCanonicalUserId } from './notificationService';
+import { isSimulationMode } from './simulationStore';
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
@@ -230,15 +231,17 @@ export async function uploadAccountAvatar(
     const filePath = `${session.role}/${safeId}_${Date.now()}.${ext}`;
 
     let finalUrl = '';
-    const routedDrive = await routeNewMediaUploadAuto({
-      session,
-      folderKey: 'avatars',
-      file: uploadFile,
-      labelPrefix: `avatar-${safeId}`,
-      description: `Foto profil ${session.nama_warga}`,
-    });
-    if (routedDrive?.url) {
-      finalUrl = routedDrive.url;
+    if (!isSimulationMode(session)) {
+      const routedDrive = await routeNewMediaUploadAuto({
+        session,
+        folderKey: 'avatars',
+        file: uploadFile,
+        labelPrefix: `avatar-${safeId}`,
+        description: `Foto profil ${session.nama_warga}`,
+      });
+      if (routedDrive?.url) {
+        finalUrl = routedDrive.url;
+      }
     }
 
     const supabase = getSupabaseClient(session);
@@ -277,17 +280,19 @@ export async function uploadAccountAvatar(
 
     await persistAvatarUrlToDatabase(session, finalUrl);
 
-    const cacheKey = getSessionAvatarKey(session);
-    const cacheEntries: Array<{ key: string; url: string | null }> = [
-      { key: cacheKey, url: finalUrl },
-    ];
-    if (session.role === 'petugas' && session.blok_rumah) {
-      cacheEntries.push({
-        key: buildAvatarKey('petugas', session.blok_rumah),
-        url: finalUrl,
-      });
+    if (!isSimulationMode(session)) {
+      const cacheKey = getSessionAvatarKey(session);
+      const cacheEntries: Array<{ key: string; url: string | null }> = [
+        { key: cacheKey, url: finalUrl },
+      ];
+      if (session.role === 'petugas' && session.blok_rumah) {
+        cacheEntries.push({
+          key: buildAvatarKey('petugas', session.blok_rumah),
+          url: finalUrl,
+        });
+      }
+      cacheAccountAvatars(cacheEntries);
     }
-    cacheAccountAvatars(cacheEntries);
 
     // Kirim notifikasi konfirmasi ke akun terkait
     const targetUrl =
@@ -329,15 +334,17 @@ export async function removeAccountAvatar(session: SessionUser): Promise<AvatarU
   try {
     await persistAvatarUrlToDatabase(session, null);
 
-    const cacheKey = getSessionAvatarKey(session);
-    const cacheEntries: Array<{ key: string; url: string | null }> = [{ key: cacheKey, url: null }];
-    if (session.role === 'petugas' && session.blok_rumah) {
-      cacheEntries.push({
-        key: buildAvatarKey('petugas', session.blok_rumah),
-        url: null,
-      });
+    if (!isSimulationMode(session)) {
+      const cacheKey = getSessionAvatarKey(session);
+      const cacheEntries: Array<{ key: string; url: string | null }> = [{ key: cacheKey, url: null }];
+      if (session.role === 'petugas' && session.blok_rumah) {
+        cacheEntries.push({
+          key: buildAvatarKey('petugas', session.blok_rumah),
+          url: null,
+        });
+      }
+      cacheAccountAvatars(cacheEntries);
     }
-    cacheAccountAvatars(cacheEntries);
 
     const targetUrl =
       session.role === 'warga'

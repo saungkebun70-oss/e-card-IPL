@@ -27,6 +27,7 @@ import {
   Settings,
   User,
   UserCog,
+  FlaskConical,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -54,6 +55,7 @@ import {
   type Warga,
 } from '../../types';
 import { useAppBrand } from '../../lib/brandContext';
+import { useSimulation } from '../../lib/simulationContext';
 import { compressLogoImage, compressProofImage } from '../../lib/imageCompressor';
 import {
   changeOwnAdminPinAdmin,
@@ -125,6 +127,7 @@ interface AdminSettingsDrawerProps {
   onCentralPermissionsUpdated?: (nextMap: CentralSettingPermissionMap) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  onWipeAndDisableSimulation?: () => void;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -145,9 +148,12 @@ export function AdminSettingsDrawer({
   onCentralPermissionsUpdated,
   onClose,
   onRefresh,
+  onWipeAndDisableSimulation,
   onToast,
 }: AdminSettingsDrawerProps) {
   const { brand, setBrand } = useAppBrand();
+  const { simEnabled, setSimEnabled, resetSimData, wipeAndDisableSim } = useSimulation();
+  const [confirmWipeSimOpen, setConfirmWipeSimOpen] = useState(false);
   const avatarMap = useAvatarMap();
   const isBendahara = isBendaharaOnly(session);
 
@@ -591,16 +597,113 @@ export function AdminSettingsDrawer({
           <div key={activeTab} className="animate-page-enter">
           {/* TAB UTAMA: PUSAT PENGATURAN TERPUSAT & DELEGASI BENDAHARA */}
           {activeTab === 'terpusat' && (
-            <AdminCentralSettingsPanel
-              session={session}
-              pengurusAccounts={pengurusAccounts}
-              wargaList={wargaList}
-              myPermissions={myPermissions}
-              onPermissionsChanged={reloadMyPermissions}
-              onNavigateTab={(nextTab) => setActiveTab(nextTab)}
-              onRefresh={onRefresh}
-              onToast={onToast}
-            />
+            <div className="space-y-5">
+              <AdminCentralSettingsPanel
+                session={session}
+                pengurusAccounts={pengurusAccounts}
+                wargaList={wargaList}
+                myPermissions={myPermissions}
+                onPermissionsChanged={reloadMyPermissions}
+                onNavigateTab={(nextTab) => setActiveTab(nextTab)}
+                onRefresh={onRefresh}
+                onToast={onToast}
+              />
+
+              {isBendahara && (
+                <section
+                  aria-label="Kontrol Mode Simulasi Interaktif"
+                  className="max-w-4xl mx-auto rounded-3xl border border-[#DCE3D7] bg-[#FFFDF8] p-4 sm:p-5 space-y-4 shadow-xs"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
+                        <FlaskConical className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm sm:text-base font-bold text-[#1B271B]">
+                            Mode Simulasi Interaktif (Local Demo)
+                          </h3>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                              simEnabled
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-stone-100 text-stone-600 border-stone-200'
+                            }`}
+                          >
+                            {simEnabled ? 'Tombol Login Aktif' : 'Nonaktif'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#4A554A] mt-1 leading-relaxed">
+                          Mengontrol tombol &ldquo;Coba Mode Simulasi (Demo Tanpa Database)&rdquo; di
+                          halaman login. Data simulasi berjalan 100% di memori browser tanpa menyentuh
+                          database Supabase.
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6] cursor-pointer shrink-0 select-none">
+                      <input
+                        type="checkbox"
+                        checked={simEnabled}
+                        onChange={(e) => {
+                          const next = e.target.checked;
+                          setSimEnabled(next);
+                          onToast(
+                            'info',
+                            next
+                              ? 'Mode Simulasi diaktifkan. Tombol demo muncul di halaman login.'
+                              : 'Tombol Mode Simulasi di halaman login dinonaktifkan.'
+                          );
+                        }}
+                        className="sr-only"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+                          simEnabled ? 'bg-[#2B3F29]' : 'bg-[#C6C2B5]'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
+                            simEnabled ? 'translate-x-4.5 ml-0.5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </span>
+                      <span className="text-xs font-bold text-[#1B271B] whitespace-nowrap">
+                        Aktifkan Mode Simulasi
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E6E2D6] flex flex-wrap items-center justify-between gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetSimData();
+                        if (session.is_simulation) {
+                          void onRefresh();
+                        }
+                        onToast('info', 'Data simulasi lokal telah dikembalikan ke kondisi awal demo.');
+                      }}
+                      className="min-h-[40px] px-4 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/60 hover:bg-[#E5EEE3] text-xs font-bold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      <span>Reset Data Simulasi</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setConfirmWipeSimOpen(true)}
+                      className="min-h-[40px] px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Hapus Data &amp; Tutup Mode Simulasi</span>
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
           )}
           {/* TAB DELEGASI MATRIKS KHUSUS */}
           {activeTab === 'delegasi' && (
@@ -1785,6 +1888,78 @@ export function AdminSettingsDrawer({
           </div>
         </div>
       </div>
+
+      {confirmWipeSimOpen && (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="drawer-confirm-wipe-sim-title"
+          onClick={() => setConfirmWipeSimOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-[#FAF9F5] border border-rose-200 shadow-2xl p-5 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmWipeSimOpen(false)}
+                className="w-9 h-9 rounded-full bg-[#EFECE3] text-[#3E4C3E] hover:bg-[#E4E0D4] flex items-center justify-center cursor-pointer"
+                aria-label="Batal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <h3
+              id="drawer-confirm-wipe-sim-title"
+              className="text-base font-bold text-[#1B271B] mt-3 leading-snug"
+            >
+              Konfirmasi Penutupan Mode Simulasi
+            </h3>
+            <p className="text-sm text-[#4A554A] mt-2 leading-relaxed">
+              Hapus seluruh data simulasi dan nonaktifkan tombol simulasi di halaman login?
+            </p>
+            <p className="text-xs text-[#6B776B] mt-2 leading-relaxed">
+              Seluruh data demo di browser akan dihapus dan tombol demo tidak lagi tampil di halaman
+              login hingga Anda mengaktifkannya kembali di sini.
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmWipeSimOpen(false)}
+                className="min-h-[42px] px-4 rounded-xl border border-[#D7DDD2] bg-white hover:bg-[#F3F5F0] text-xs font-bold text-[#2F3E2F] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmWipeSimOpen(false);
+                  if (session.is_simulation && onWipeAndDisableSimulation) {
+                    onWipeAndDisableSimulation();
+                  } else {
+                    wipeAndDisableSim();
+                    onToast(
+                      'success',
+                      'Seluruh data simulasi dihapus dan tombol simulasi di halaman login dinonaktifkan.'
+                    );
+                  }
+                }}
+                className="min-h-[42px] px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span>Ya, Hapus &amp; Nonaktifkan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
