@@ -1352,6 +1352,7 @@ export default function App() {
             <AdminLpjSlide
               isSimulation={Boolean(session.is_simulation)}
               wargaList={adminData.wargaList}
+              pengurusList={adminData.pengurusList}
               statusList={adminData.statusList}
               transaksiList={adminData.transaksiList}
               transaksiKasList={adminData.transaksiKasList}

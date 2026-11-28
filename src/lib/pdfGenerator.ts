@@ -31,6 +31,8 @@ export type PdfExportMode = 'download' | 'print';
 export interface PdfExportOptions {
   mode?: PdfExportMode;
   captureElement?: HTMLElement | null;
+  pembinaNama?: string;
+  pembinaSubjudul?: string;
 }
 
 export interface PdfExportResult {
@@ -508,9 +510,11 @@ async function drawSignatureBlock(
     tanggalLabel: string;
     includeMengetahui?: boolean;
     statusVerifikasi?: string;
+    pembinaNama?: string;
+    pembinaSubjudul?: string;
   }
 ) {
-  const neededHeight = options.includeMengetahui ? 66 : 42;
+  const neededHeight = options.includeMengetahui ? 78 : 42;
   let y = startY;
   if (y + neededHeight > 282) {
     doc.addPage();
@@ -602,25 +606,37 @@ async function drawSignatureBlock(
   }
 
   if (options.includeMengetahui) {
-    y += 11.5;
+    const pembinaNama = (options.pembinaNama || 'Bp. Iwan').trim() || 'Bp. Iwan';
+    const pembinaSubjudul =
+      (options.pembinaSubjudul || 'Blok B8/5 · Perumahan Saung Kebun').trim() ||
+      'Blok B8/5 · Perumahan Saung Kebun';
+
+    y += 12.5;
     const centerX = PAGE_WIDTH / 2;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
+    doc.setTextColor(100, 116, 139);
     doc.text('Mengetahui,', centerX, y, { align: 'center' });
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.4);
     doc.setTextColor(15, 23, 42);
-    doc.text('Ketua RT / RW / Kepala Desa Bengle', centerX, y + 4, { align: 'center' });
+    doc.text('Pembina Lingkungan', centerX, y + 4.2, { align: 'center' });
 
-    y += 19;
+    y += 22;
     doc.setDrawColor(148, 163, 184);
-    doc.line(centerX - 30, y, centerX + 30, y);
+    doc.setLineWidth(0.3);
+    doc.line(centerX - 24, y, centerX + 24, y);
+
+    y += 4.2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(pembinaNama, centerX, y, { align: 'center' });
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.4);
     doc.setTextColor(100, 116, 139);
-    doc.text('( ....................................................... )', centerX, y + 4.2, {
-      align: 'center',
-    });
+    doc.text(pembinaSubjudul, centerX, y + 3.6, { align: 'center' });
   }
 }
 
@@ -1293,6 +1309,8 @@ export async function downloadLpjTriwulanPdf(
   await drawSignatureBlock(doc, finalY + 12, brand, {
     tanggalLabel: formatTanggal(new Date().toISOString()),
     includeMengetahui: true,
+    pembinaNama: options?.pembinaNama,
+    pembinaSubjudul: options?.pembinaSubjudul,
   });
 
   await applyReportLogoWatermark(doc);

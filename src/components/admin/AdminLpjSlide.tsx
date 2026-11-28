@@ -9,8 +9,10 @@ import {
   Wallet,
 } from 'lucide-react';
 import {
+  SUSUNAN_PENGURUS,
   TAHUN_AKTIF,
   TRIWULAN_LIST,
+  type PengurusLingkunganRecord,
   type StatusEcardBulanan,
   type TransaksiIPL,
   type TransaksiKas,
@@ -32,6 +34,7 @@ import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 interface AdminLpjSlideProps {
   isSimulation?: boolean;
   wargaList: Warga[];
+  pengurusList?: PengurusLingkunganRecord[];
   statusList: StatusEcardBulanan[];
   transaksiList: TransaksiIPL[];
   transaksiKasList: TransaksiKas[];
@@ -52,6 +55,7 @@ function getCompactKopAlamat(kopResmi?: string): string {
 export function AdminLpjSlide({
   isSimulation = false,
   wargaList,
+  pengurusList,
   statusList,
   transaksiList,
   transaksiKasList,
@@ -84,6 +88,30 @@ export function AdminLpjSlide({
 
   const kopAlamat = getCompactKopAlamat(brand.kop_resmi);
 
+  const pembinaInfo = useMemo(() => {
+    const list = pengurusList || [];
+    const activePembina = list.find(
+      (p) => p.aktif !== false && String(p.jabatan || '').toLowerCase().includes('pembina')
+    );
+    const anyPembina =
+      activePembina ||
+      list.find((p) => String(p.jabatan || '').toLowerCase().includes('pembina'));
+    const defaultPembina = SUSUNAN_PENGURUS.find((p) => p.jabatan === 'Pembina');
+
+    const nama = (anyPembina?.nama || defaultPembina?.nama || 'Bp. Iwan').trim() || 'Bp. Iwan';
+    const rawBlok = (anyPembina?.blok_rumah || defaultPembina?.blokRumah || 'B8/5').trim();
+    const formattedBlok = rawBlok
+      ? /^blok\b/i.test(rawBlok)
+        ? rawBlok
+        : `Blok ${rawBlok}`
+      : 'Blok B8/5';
+
+    return {
+      nama,
+      subjudul: `${formattedBlok} · Perumahan Saung Kebun`,
+    };
+  }, [pengurusList]);
+
   const handleDownloadPdf = async () => {
     if (downloadingPdf || printingPdf) return;
     setDownloadingPdf(true);
@@ -91,6 +119,8 @@ export function AdminLpjSlide({
       const result = await downloadLpjTriwulanPdf(lpj, brand, {
         mode: 'download',
         captureElement: reportRef.current,
+        pembinaNama: pembinaInfo.nama,
+        pembinaSubjudul: pembinaInfo.subjudul,
       });
       if (result.method === 'native_share') {
         if (!result.cancelled) {
@@ -126,6 +156,8 @@ export function AdminLpjSlide({
       const result = await downloadLpjTriwulanPdf(lpj, brand, {
         mode: 'print',
         captureElement: reportRef.current,
+        pembinaNama: pembinaInfo.nama,
+        pembinaSubjudul: pembinaInfo.subjudul,
       });
       if (!result.cancelled) {
         onToast(
@@ -590,15 +622,18 @@ export function AdminLpjSlide({
             </div>
           </div>
 
-          <div className="pt-1 text-center">
+          <div className="pt-2 sm:pt-3 print:pt-2 text-center">
             <p className="text-[11px] print:text-[10px] text-[#6E786D]">Mengetahui,</p>
-            <p className="text-xs print:text-[10px] font-bold text-[#1B271B] mt-0.5">
-              Ketua RT / RW / Kepala Desa Bengle
+            <p className="text-xs print:text-[10px] font-semibold text-[#4A554A] mt-0.5">
+              Pembina Lingkungan
             </p>
-            <div className="h-14 sm:h-16 print:h-12" />
-            <div className="border-b border-[#C6D2BF] w-44 sm:w-52 mx-auto" />
-            <p className="text-[10px] text-[#6E786D] mt-1">
-              ( .................................................... )
+            <div className="h-16 sm:h-20 print:h-14" />
+            <div className="border-b border-[#C6D2BF] w-32 sm:w-40 mx-auto" />
+            <p className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] mt-1.5">
+              {pembinaInfo.nama}
+            </p>
+            <p className="text-[10px] sm:text-[11px] print:text-[9px] text-[#6E786D]">
+              {pembinaInfo.subjudul}
             </p>
           </div>
         </section>
