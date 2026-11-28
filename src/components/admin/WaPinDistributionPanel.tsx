@@ -12,8 +12,9 @@ import {
   XCircle,
   Eye,
   EyeOff,
+  KeyRound,
+  Search,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   APP_ADMIN_PORTAL_URL,
   APP_PETUGAS_PORTAL_URL,
@@ -521,7 +522,9 @@ export function WaPinDistributionPanel({
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#E6E2D6] bg-[#F7F4EC]/75 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <Icon3D name="ganti_pin" className="w-10 h-10 shrink-0 shadow-xs" />
+          <div className="w-10 h-10 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 shadow-xs">
+            <KeyRound className="w-5 h-5" />
+          </div>
           <div className="min-w-0">
             <h2 className="text-base font-bold text-[#1B271B]">
               Kirim Informasi Akun &amp; PIN via WhatsApp ({botConfig.provider})
@@ -686,7 +689,7 @@ export function WaPinDistributionPanel({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 border-t border-[#E6E2D6]">
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             <div className="relative flex-1 min-w-[210px] max-w-sm">
-              <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={search}

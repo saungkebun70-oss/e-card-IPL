@@ -7,12 +7,13 @@ import {
   Copy,
   List,
   MapPin,
+  MessageCircle,
   Network,
+  Search,
   ShieldCheck,
   Users,
   X,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   SUSUNAN_PENGURUS,
@@ -355,7 +356,7 @@ export function ProfilLingkungan({
 
           {/* Input Pencarian */}
           <div className="relative w-full md:w-72 shrink-0">
-            <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#6E786D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -687,7 +688,7 @@ export function ProfilLingkungan({
                       rel="noopener noreferrer"
                       className="min-h-[44px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
                     >
-                      <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
+                      <MessageCircle className="w-4 h-4 text-[#2B3F29] shrink-0" />
                       <span>WhatsApp Pengurus</span>
                     </a>
 

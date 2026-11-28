@@ -12,6 +12,8 @@ import {
   Loader2,
   Moon,
   Plus,
+  Printer,
+  Search,
   ShieldCheck,
   Trash2,
   Undo2,
@@ -19,7 +21,6 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   getStatusVerifikasiShortLabel,
   isBendaharaFullAccess,
@@ -925,7 +926,7 @@ export function AdminKeuanganSlide({
             </div>
 
             <div className="relative">
-              <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#6E786D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={searchQuery}
@@ -1086,7 +1087,7 @@ export function AdminKeuanganSlide({
                             onClick={() => setSelectedKwitansi(item)}
                             className="min-h-[34px] px-3 rounded-full bg-[#384E35] hover:bg-[#243825] text-[#FFFDF8] text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <Icon3D name="cetak" className="w-4 h-4 rounded-sm" />
+                            <Printer className="w-3.5 h-3.5" />
                             <span>Kwitansi</span>
                           </button>
 

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Loader2, RefreshCw, RotateCcw, SwitchCamera, X } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
+import { Camera, Check, Loader2, RefreshCw, RotateCcw, SwitchCamera, X } from 'lucide-react';
 
 interface InAppCameraModalProps {
   open: boolean;
@@ -221,7 +220,9 @@ export function InAppCameraModal({
       {/* Header Atas (shrink-0) */}
       <div className="shrink-0 px-4 py-3 bg-[#1B271B]/90 border-b border-white/10 flex items-center justify-between gap-2 text-[#FFFDF8]">
         <div className="flex items-center gap-2 min-w-0">
-          <Icon3D name="kamera" className="w-6 h-6 rounded-lg shadow-xs" />
+          <span className="w-7 h-7 rounded-lg bg-white/10 text-[#E5EEE3] flex items-center justify-center shrink-0">
+            <Camera className="w-4 h-4" />
+          </span>
           <span className="text-sm font-bold truncate">Ambil Foto Lampiran</span>
         </div>
         <button
@@ -244,7 +245,9 @@ export function InAppCameraModal({
           />
         ) : cameraError ? (
           <div className="p-6 text-center space-y-4 max-w-sm rounded-3xl bg-[#243825]/95 border border-[#C6D2BF]/25">
-            <Icon3D name="kamera" className="w-12 h-12 rounded-2xl mx-auto shadow-xs" />
+            <div className="w-12 h-12 rounded-2xl mx-auto bg-white/10 border border-[#C6D2BF]/25 text-[#E5EEE3] flex items-center justify-center">
+              <Camera className="w-6 h-6" />
+            </div>
             <p className="text-xs sm:text-sm text-[#FFFDF8]/90 leading-relaxed">{cameraError}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
               <button
@@ -252,7 +255,7 @@ export function InAppCameraModal({
                 onClick={handleUseNativeCamera}
                 className="w-full sm:w-auto min-h-[44px] px-4 rounded-xl bg-[#2B3F29] hover:bg-[#384E35] border border-[#C6D2BF]/30 text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Icon3D name="kamera" className="w-5 h-5 rounded-md shadow-2xs" />
+                <Camera className="w-4 h-4 shrink-0" />
                 <span>Gunakan Kamera Perangkat</span>
               </button>
               <button

@@ -6,23 +6,27 @@ import {
   ClipboardList,
   Clock,
   Crosshair,
+  Fingerprint,
   Loader2,
+  LogOut,
   Map as MapIcon,
   MapPin,
   Menu,
+  MessageCircle,
   Navigation,
   PhoneCall,
   Play,
   Radio,
+  RefreshCw,
   ScanFace,
   Shield,
   ShieldAlert,
   Smartphone,
   Square,
+  User,
   Wallet,
   X,
 } from 'lucide-react';
-import { Icon3D, type Icon3DName } from '../Icon3D';
 import { Navbar3D } from '../Navbar3D';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -1091,11 +1095,10 @@ export function PetugasPortalPage({
     label: string;
     subtitle: string;
     icon: typeof Shield;
-    icon3d?: Icon3DName;
   }> = [
-    { id: 'info', label: 'Pos Jaga & Shift', subtitle: 'Absensi & darurat', icon: Shield, icon3d: 'keamanan' },
-    { id: 'riwayat', label: 'Riwayat Patroli', subtitle: 'Log checkpoint Anda', icon: ClipboardList, icon3d: 'rekap' },
-    { id: 'scan', label: 'Scan NFC / Patroli', subtitle: 'Checkpoint RFID/NFC', icon: Radio, icon3d: 'scan_nfc' },
+    { id: 'info', label: 'Pos Jaga & Shift', subtitle: 'Absensi & darurat', icon: Shield },
+    { id: 'riwayat', label: 'Riwayat Patroli', subtitle: 'Log checkpoint Anda', icon: ClipboardList },
+    { id: 'scan', label: 'Scan NFC / Patroli', subtitle: 'Checkpoint RFID/NFC', icon: Radio },
     { id: 'honor', label: 'Honor & Lembur', subtitle: 'Termin & uang lembur', icon: Wallet },
     { id: 'peta', label: 'Peta Patroli', subtitle: 'Status titik live', icon: MapIcon },
   ];
@@ -1120,24 +1123,15 @@ export function PetugasPortalPage({
                   : 'text-[#4A554A] font-medium hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6]'
               }`}
             >
-              {item.icon3d ? (
-                <Icon3D
-                  name={item.icon3d}
-                  className={`w-9 h-9 rounded-xl shadow-xs transition-transform ${
-                    isActive ? 'scale-105 ring-2 ring-[#2B3F29]/25' : ''
-                  }`}
-                />
-              ) : (
-                <span
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    isActive
-                      ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
-                      : 'bg-[#F7F4EC] text-[#4A554A]'
-                  }`}
-                >
-                  <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
-                </span>
-              )}
+              <span
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                    : 'bg-[#F7F4EC] text-[#4A554A]'
+                }`}
+              >
+                <Icon className="w-[18px] h-[18px]" strokeWidth={isActive ? 2.4 : 2} />
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">{item.label}</p>
                 <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -1170,7 +1164,15 @@ export function PetugasPortalPage({
               : 'text-[#4A554A] font-medium hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6]'
           }`}
         >
-          <Icon3D name="chat_cepat" className="w-9 h-9 rounded-xl shadow-xs" />
+          <span
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+              chatModalOpen
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-xs'
+                : 'bg-[#F7F4EC] text-[#4A554A]'
+            }`}
+          >
+            <MessageCircle className="w-[18px] h-[18px]" />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -1189,7 +1191,9 @@ export function PetugasPortalPage({
           onClick={handleOpenProfileFromSidebar}
           className="w-full min-h-[46px] md:min-h-[50px] lg:min-h-[46px] px-3.5 md:px-4 lg:px-3.5 py-2.5 md:py-3 lg:py-2.5 rounded-2xl text-left flex items-center gap-3.5 text-[13.5px] md:text-sm leading-snug font-medium text-[#4A554A] hover:bg-[#F7F4EC] hover:text-[#1B271B] border border-transparent hover:border-[#E6E2D6] transition-all duration-200 cursor-pointer"
         >
-          <Icon3D name="profil" className="w-9 h-9 shrink-0 shadow-xs" />
+          <span className="w-9 h-9 rounded-xl bg-[#F7F4EC] text-[#4A554A] flex items-center justify-center shrink-0">
+            <User className="w-[18px] h-[18px]" />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Profil &amp; Tema Petugas</p>
             <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -1265,7 +1269,7 @@ export function PetugasPortalPage({
             onClick={handleLogoutFromSidebar}
             className="w-full min-h-[42px] px-3.5 rounded-2xl bg-[#C87058]/10 hover:bg-[#C87058]/20 text-[#7A311E] border border-[#E2A898] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
-            <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
+            <LogOut className="w-4 h-4 shrink-0" />
             <span>Keluar / Logout</span>
           </button>
 
@@ -1361,7 +1365,7 @@ export function PetugasPortalPage({
                   onClick={handleLogoutFromSidebar}
                   className="w-full min-h-[44px] px-4 rounded-2xl bg-[#C87058]/10 text-[#7A311E] hover:bg-[#C87058]/20 active:scale-[0.98] font-semibold text-sm border border-[#E2A898] inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
+                  <LogOut className="w-4 h-4 shrink-0" />
                   <span>Keluar / Logout</span>
                 </button>
                 <AppVersionFooter compact className="px-1" />
@@ -1412,7 +1416,7 @@ export function PetugasPortalPage({
               aria-label="Muat ulang data petugas"
               className="h-10 w-10 rounded-full bg-[#FFFDF8]/10 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/15 text-[#E5EEE3] flex items-center justify-center cursor-pointer shrink-0 transition-colors"
             >
-              <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
 
             <div className="inline-flex items-center visible opacity-100 shrink-0">
@@ -1535,7 +1539,15 @@ export function PetugasPortalPage({
                     <ScanFace className="w-5 h-5" />
                   </div>
                 ) : (
-                  <Icon3D name="sidik_jari" className="w-10 h-10 rounded-2xl shadow-xs" />
+                  <div
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                      isBiometricEnabledForMe
+                        ? 'bg-[#E5EEE3] text-[#243825] border-[#C6D2BF]'
+                        : 'bg-[#F7F4EC] text-[#2B3F29] border-[#E6E2D6]'
+                    }`}
+                  >
+                    <Fingerprint className="w-5 h-5" />
+                  </div>
                 )}
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1579,7 +1591,7 @@ export function PetugasPortalPage({
                   ) : biometryAvailability.isFace ? (
                     <ScanFace className="w-4 h-4" />
                   ) : (
-                    <Icon3D name="sidik_jari" className="w-5 h-5 rounded-md shadow-2xs" />
+                    <Fingerprint className="w-4 h-4" />
                   )}
                   <span>{isBiometricEnabledForMe ? 'Nonaktifkan' : 'Aktifkan Sekarang'}</span>
                 </button>
@@ -1835,7 +1847,7 @@ export function PetugasPortalPage({
                                 rel="noopener noreferrer"
                                 className="min-h-[40px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1"
                               >
-                                <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm" />
+                                <MessageCircle className="w-3.5 h-3.5" />
                                 <span>WA</span>
                               </a>
                               <a
@@ -2331,8 +2343,8 @@ export function PetugasPortalPage({
             isScanning: scanningNfc,
             isLoading: submittingPatroli,
           },
-          { id: 'honor', label: 'Honor & Lembur', shortLabel: 'Honor', icon: Wallet },
-          { id: 'peta', label: 'Peta Patroli', shortLabel: 'Peta', icon: MapIcon },
+          { id: 'honor', label: 'Honor & Lembur', shortLabel: 'Honor', icon: Wallet, icon3d: 'pembayaran' },
+          { id: 'peta', label: 'Peta Patroli', shortLabel: 'Peta', icon: MapIcon, icon3d: 'petugas_peta' },
         ]}
       />
 

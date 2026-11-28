@@ -5,11 +5,11 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
+  MessageCircle,
   ShieldCheck,
   Wallet,
   X,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   APP_PORTAL_URL,
@@ -407,7 +407,7 @@ export function PanduanBotWaModal({
                               rel="noopener noreferrer"
                               className="min-h-[42px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shadow-xs"
                             >
-                              <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
+                              <MessageCircle className="w-4 h-4 text-[#E5EEE3] shrink-0" />
                               <span>Kirim ke Bot WA</span>
                               <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                             </a>

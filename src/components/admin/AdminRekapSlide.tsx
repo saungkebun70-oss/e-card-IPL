@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  BookOpen,
   X,
   Check,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileBarChart2,
+  FileSpreadsheet,
+  FileText,
+  Plus,
+  Printer,
+  Search,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -52,7 +59,6 @@ import {
 } from '../../lib/pdfGenerator';
 import { useAppBrand } from '../../lib/brandContext';
 import { BrandLogo, SaungKebunWatermark } from '../BrandLogo';
-import { Icon3D } from '../Icon3D';
 import { OfficialStamp } from '../OfficialStamp';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
 
@@ -438,7 +444,7 @@ export function AdminRekapSlide({
                 : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <Icon3D name="buku_kas" className="w-4 h-4 shrink-0" />
+            <BookOpen className={`w-4 h-4 shrink-0 ${subTab === 'bulanan' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Rekap Bulanan (Buku Kas)</span>
           </button>
           <button
@@ -450,7 +456,7 @@ export function AdminRekapSlide({
                 : 'text-[#4A554A] hover:bg-[#E5EEE3]/60 hover:text-[#243825]'
             }`}
           >
-            <Icon3D name="excel" className="w-4 h-4 shrink-0" />
+            <FileSpreadsheet className={`w-4 h-4 shrink-0 ${subTab === 'matriks' ? 'text-[#E5EEE3]' : 'text-[#2B3F29]'}`} />
             <span>Matriks IPL 12 Bulan</span>
           </button>
           {isKetua && (
@@ -474,7 +480,7 @@ export function AdminRekapSlide({
           onClick={openManualModal}
           className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
         >
-          <Icon3D name="plus_kas" className="w-4 h-4 shrink-0" />
+          <Plus className="w-4 h-4 shrink-0" />
           <span>Input Tunai Manual</span>
         </button>
       </div>
@@ -508,7 +514,9 @@ export function AdminRekapSlide({
           {/* Toolbar Filter Bulan/Tahun + Cetak/Unduh A4 + Excel */}
           <div className="no-print glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <Icon3D name="dokumen" className="w-8 h-8 shadow-xs shrink-0" />
+              <div className="w-8 h-8 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 shadow-xs">
+                <FileText className="w-4 h-4" />
+              </div>
               <select
                 aria-label="Pilih Bulan Rekapitulasi"
                 value={selectedBulan}
@@ -546,7 +554,7 @@ export function AdminRekapSlide({
                 {printingPdf ? (
                   <LoadingSpinner size="xs" tone="current" />
                 ) : (
-                  <Icon3D name="cetak" className="w-4 h-4 rounded-sm" />
+                  <Printer className="w-4 h-4 shrink-0" />
                 )}
                 <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
               </button>
@@ -560,7 +568,7 @@ export function AdminRekapSlide({
                 {downloadingPdf ? (
                   <LoadingSpinner size="xs" tone="white" />
                 ) : (
-                  <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm" />
+                  <Download className="w-4 h-4 shrink-0" />
                 )}
                 <span>{downloadingPdf ? 'Menyiapkan PDF...' : 'Unduh PDF A4'}</span>
               </button>
@@ -570,7 +578,7 @@ export function AdminRekapSlide({
                 onClick={handleExportExcel}
                 className="min-h-[42px] px-4 rounded-full bg-[#E5EEE3] hover:bg-[#D3E3D0] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
               >
-                <Icon3D name="excel" className="w-4 h-4 rounded-sm" />
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
                 <span>Excel</span>
               </button>
             </div>
@@ -879,7 +887,7 @@ export function AdminRekapSlide({
           <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="search"
                   value={search}
@@ -926,7 +934,7 @@ export function AdminRekapSlide({
                 onClick={handleExportCsv}
                 className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm" />
+                <Download className="w-4 h-4 shrink-0" />
                 <span>Export CSV</span>
               </button>
 
@@ -935,7 +943,7 @@ export function AdminRekapSlide({
                 onClick={handleExportExcel}
                 className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
               >
-                <Icon3D name="excel" className="w-4 h-4 rounded-sm" />
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
                 <span>Export Excel (.xlsx)</span>
               </button>
             </div>

@@ -2,17 +2,20 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
+  Bell,
   CheckCircle2,
   DownloadCloud,
   Eye,
   EyeOff,
+  Fingerprint,
   Home,
   Loader2,
   Lock,
+  RefreshCw,
   ScanFace,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
-import { Icon3D } from './Icon3D';
 import { type LoginAccountValidationStatus, type SessionUser } from '../types';
 import { loginWargaAccount, loginWargaWithBiometric } from '../lib/dataService';
 import {
@@ -296,7 +299,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
             ) : updateFeedback ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-[#2B3F29]" />
             ) : (
-              <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#2B3F29]" />
             )}
             <span>
               {updating
@@ -314,7 +317,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
             title={`Versi v${currentVersion}`}
             className="relative h-9 w-9 rounded-full bg-[#FFFDF8]/88 hover:bg-[#FFFDF8] backdrop-blur-md border border-white/40 text-[#243825] flex items-center justify-center shadow-sm transition active:scale-95 cursor-pointer"
           >
-            <Icon3D name="notifikasi" className="w-7 h-7 rounded-xl" />
+            <Bell className="w-4 h-4 text-[#243825]" />
             {updateAvailable && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C87058]" />
             )}
@@ -350,7 +353,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
                 aria-label="Hapus akses biometrik di perangkat ini"
                 className="h-9 w-9 rounded-full bg-white/10 hover:bg-[#C87058]/80 text-[#E5EEE3] hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
               >
-                <Icon3D name="hapus" className="w-6 h-6 rounded-lg shadow-xs" />
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -412,7 +415,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               {isFaceBiometry ? (
                 <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
               ) : (
-                <Icon3D name="sidik_jari" className="w-5 h-5 rounded-md mt-0.5" />
+                <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0 mt-0.5" />
               )}
               <span>{infoMsg}</span>
             </div>
@@ -478,7 +481,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               {isFaceBiometry ? (
                 <ScanFace className="w-4 h-4 text-[#E5EEE3] shrink-0" />
               ) : (
-                <Icon3D name="sidik_jari" className="w-6 h-6 rounded-lg shadow-2xs" />
+                <Fingerprint className="w-4 h-4 text-[#E5EEE3] shrink-0" />
               )}
               <span className="text-xs font-semibold text-[#FFFDF8] truncate">
                 Masuk cepat {biometryLabel}
@@ -537,7 +540,7 @@ export function WargaLoginPage({ onLoginSuccess, onSwitchPortal }: WargaLoginPag
               ) : isFaceBiometry ? (
                 <ScanFace className="w-6 h-6 text-[#243825]" />
               ) : (
-                <Icon3D name="sidik_jari" className="w-9 h-9 rounded-xl shadow-xs" />
+                <Fingerprint className="w-6 h-6 text-[#243825]" />
               )}
             </button>
           </div>

@@ -16,8 +16,9 @@ import {
   Webhook,
   ShieldCheck,
   Link2,
+  KeyRound,
+  MessageCircle,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   APP_ADMIN_PORTAL_URL,
   APP_PORTAL_URL,
@@ -529,7 +530,7 @@ export function AdminBotWaSlide({
                 >
                   <p className="text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
                     {preset.id === 'akses_pin' ? (
-                      <Icon3D name="ganti_pin" className="w-4 h-4 rounded-sm shrink-0" />
+                      <KeyRound className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
                     ) : preset.id === 'akses_pengurus' ? (
                       <ShieldCheck className="w-3.5 h-3.5 text-[#2B3F29] shrink-0" />
                     ) : (
@@ -667,7 +668,7 @@ export function AdminBotWaSlide({
                 onClick={() => setConfirmSendCredentials(true)}
                 className="w-full min-h-[44px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 disabled:opacity-50 disabled:cursor-not-allowed text-[#1B271B] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
-                <Icon3D name="ganti_pin" className="w-4 h-4 rounded-sm shrink-0" />
+                <KeyRound className="w-4 h-4 text-[#2B3F29] shrink-0" />
                 <span>Kirim Akses Akun &amp; PIN ke Semua Warga Aktif</span>
               </button>
             ) : (
@@ -838,7 +839,7 @@ export function AdminBotWaSlide({
                     rel="noopener noreferrer"
                     className="flex-1 min-h-[38px] px-3 rounded-full bg-[#E5EEE3] hover:bg-[#D5E4D2] border border-[#C6D2BF] text-[#243825] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
                   >
-                    <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
+                    <MessageCircle className="w-4 h-4 shrink-0" />
                     <span>Kirim WA</span>
                   </a>
                   <button

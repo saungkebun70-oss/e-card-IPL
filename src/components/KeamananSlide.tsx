@@ -7,12 +7,15 @@ import {
   Keyboard,
   Loader2,
   MapPin,
+  Megaphone,
   Moon,
+  Nfc,
   Radio,
+  RefreshCw,
+  Settings,
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { Icon3D } from './Icon3D';
 import {
   APP_PETUGAS_PORTAL_URL,
   type LogPatroli,
@@ -557,7 +560,7 @@ export function KeamananSlide({
               onClick={onOpenPetugasSettings}
               className="min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
             >
-              <Icon3D name="pengaturan" className="w-4 h-4 rounded-sm shrink-0" />
+              <Settings className="w-4 h-4 shrink-0" />
               <span>Kelola Petugas &amp; NFC</span>
             </button>
           )}
@@ -567,10 +570,7 @@ export function KeamananSlide({
             onClick={() => void onRefresh()}
             className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 disabled:opacity-60 text-xs sm:text-sm font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <Icon3D
-              name="refresh"
-              className={`w-4 h-4 rounded-sm shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className={`w-4 h-4 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>
         </div>
@@ -739,7 +739,9 @@ export function KeamananSlide({
         >
           <div className="px-4 sm:px-5 py-4 border-b border-[#E6E2D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
-              <Icon3D name="scan_nfc" className="w-9 h-9 rounded-xl shadow-xs mt-0.5" />
+              <div className="w-9 h-9 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 mt-0.5">
+                <Nfc className="w-5 h-5" />
+              </div>
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-[#1B271B] leading-tight">
                   Scan Checkpoint Patroli RFID / NFC
@@ -861,7 +863,7 @@ export function KeamananSlide({
                     <Radio className="relative w-4 h-4 text-[#1B271B]" />
                   </span>
                 ) : (
-                  <Icon3D name="scan_nfc" className="w-6 h-6 rounded-lg shadow-xs" />
+                  <Nfc className="w-5 h-5 shrink-0" />
                 )}
                 <span>
                   {submittingPatrol
@@ -1269,7 +1271,9 @@ export function KeamananSlide({
       {securityAnnouncements.length > 0 && (
         <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-[#E6E2D6] flex items-center gap-2">
-            <Icon3D name="pengumuman" className="w-7 h-7 rounded-lg shadow-2xs" />
+            <div className="w-7 h-7 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
+              <Megaphone className="w-4 h-4" />
+            </div>
             <h2 className="text-sm font-bold text-[#1B271B]">
               Imbauan &amp; Info Keamanan Lingkungan
             </h2>

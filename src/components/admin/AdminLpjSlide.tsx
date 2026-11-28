@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import {
+  Download,
+  FileSpreadsheet,
+  Printer,
   TrendingDown,
   TrendingUp,
   Users,
   Wallet,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   TAHUN_AKTIF,
   TRIWULAN_LIST,
@@ -188,7 +190,7 @@ export function AdminLpjSlide({
             {printingPdf ? (
               <LoadingSpinner size="xs" tone="current" />
             ) : (
-              <Icon3D name="cetak" className="w-4 h-4 rounded-sm shrink-0" />
+              <Printer className="w-4 h-4 shrink-0" />
             )}
             <span>{printingPdf ? 'Menyiapkan...' : 'Cetak A4'}</span>
           </button>
@@ -201,7 +203,7 @@ export function AdminLpjSlide({
             {downloadingPdf ? (
               <LoadingSpinner size="xs" tone="white" />
             ) : (
-              <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm shrink-0" />
+              <Download className="w-4 h-4 shrink-0" />
             )}
             <span>{downloadingPdf ? 'Menyiapkan...' : 'Unduh LPJ PDF A4'}</span>
           </button>
@@ -243,7 +245,7 @@ export function AdminLpjSlide({
         {/* 1. Ikhtisar Arus Kas 3 Bulan — Otomatis 5 Kolom Sejajar Saat Cetak A4 */}
         <section className="relative z-10 space-y-2.5 print:space-y-1.5 avoid-break">
           <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#1B271B] flex items-center gap-1.5">
-            <Icon3D name="excel" className="w-4 h-4 rounded-sm shrink-0 print:w-3.5 print:h-3.5" />
+            <FileSpreadsheet className="w-4 h-4 text-[#2B3F29] shrink-0 print:w-3.5 print:h-3.5" />
             <span>1. Ikhtisar Arus Kas ({lpj.rentangBulan} {lpj.tahun})</span>
           </h3>
 

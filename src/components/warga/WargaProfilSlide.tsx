@@ -8,8 +8,8 @@ import {
   Building2,
   Bot,
   BookOpen,
+  MessageCircle,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import { type SessionUser, type Warga } from '../../types';
 import { buildWhatsAppLink, formatBlokRumah, formatRupiah } from '../../lib/format';
 import { useAppBrand } from '../../lib/brandContext';
@@ -181,7 +181,7 @@ export function WargaProfilSlide({
             className="w-full min-h-[52px] px-4 py-2.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] font-semibold text-sm flex flex-col items-center justify-center transition-colors text-center shadow-sm"
           >
             <span className="inline-flex items-center gap-2">
-              <Icon3D name="kirim_wa" className="w-4 h-4 rounded-sm shrink-0" />
+              <MessageCircle className="w-4 h-4 text-[#E5EEE3] shrink-0" />
               <span>Hubungi Pengurus via WhatsApp</span>
             </span>
             <span className="text-[11px] font-normal text-[#E5EEE3]/85 mt-0.5">

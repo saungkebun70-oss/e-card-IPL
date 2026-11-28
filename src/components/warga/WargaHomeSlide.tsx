@@ -8,8 +8,8 @@ import {
   ShieldCheck,
   Check,
   Bot,
+  Megaphone,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   BULAN_LIST,
   NOMINAL_IPL_STANDAR,
@@ -203,7 +203,9 @@ export function WargaHomeSlide({
         >
           <div className="px-5 py-3.5 border-b border-[#E6E2D6] bg-[#F7F4EC] flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-bold text-[#1B271B]">
-              <Icon3D name="pengumuman" className="w-7 h-7 rounded-lg shadow-2xs" />
+              <span className="w-7 h-7 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
+                <Megaphone className="w-4 h-4" />
+              </span>
               <span>Pengumuman Pengurus</span>
               {unreadNotifications.length > 0 && (
                 <>

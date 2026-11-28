@@ -8,12 +8,12 @@ import {
   Edit3,
   Loader2,
   Radio,
+  RefreshCw,
   ShieldCheck,
   Trash2,
   UserCheck,
   X,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   DEFAULT_SECURITY_OFFICER_NAMES,
   SHIFT_PETUGAS_OPTIONS,
@@ -351,7 +351,7 @@ export function AdminAttendanceMonitorPanel({
             onClick={() => void loadAttendance(true)}
             className="min-h-[38px] px-3.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
           >
-            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Segarkan</span>
           </button>
         </div>

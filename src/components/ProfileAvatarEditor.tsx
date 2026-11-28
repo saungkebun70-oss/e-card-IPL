@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, X, AlertCircle } from 'lucide-react';
-import { Icon3D } from './Icon3D';
+import { AlertCircle, Camera, Check, Trash2, X } from 'lucide-react';
 import type { SessionUser } from '../types';
 import {
   removeAccountAvatar,
@@ -195,7 +194,7 @@ export function ProfileAvatarEditor({
                 onClick={() => fileInputRef.current?.click()}
                 className="min-h-[40px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-60 text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97] cursor-pointer shadow-xs whitespace-nowrap"
               >
-                <Icon3D name="kamera" className="w-5 h-5 rounded-md shadow-2xs" />
+                <Camera className="w-4 h-4 shrink-0" />
                 <span>Ganti Foto</span>
               </button>
 
@@ -210,7 +209,7 @@ export function ProfileAvatarEditor({
                   {removing ? (
                     <LoadingSpinner size="xs" tone="danger" label="Menghapus foto profil" />
                   ) : (
-                    <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
+                    <Trash2 className="w-4 h-4 shrink-0" />
                   )}
                   <span>{removing ? 'Menghapus...' : 'Hapus Foto'}</span>
                 </button>

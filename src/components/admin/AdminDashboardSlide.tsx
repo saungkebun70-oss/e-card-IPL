@@ -17,8 +17,12 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Megaphone,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   BULK_NOTIFICATION_TEMPLATES,
   getStatusVerifikasiShortLabel,
@@ -618,7 +622,7 @@ export function AdminDashboardSlide({
             title="Muat Ulang Data"
             className="min-h-[34px] px-3 rounded-full bg-white/12 hover:bg-white/22 border border-white/20 disabled:opacity-60 text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isRefreshing ? 'Memuat...' : 'Muat Ulang'}</span>
           </button>
         </div>
@@ -772,7 +776,7 @@ export function AdminDashboardSlide({
                 onClick={openBroadcastModal}
                 className="w-full min-h-[46px] px-4 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-[#243825] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
-                <Icon3D name="pengumuman" className="w-6 h-6 rounded-lg shadow-2xs" />
+                <Megaphone className="w-4 h-4 shrink-0" />
                 <span>Buat Pengumuman Baru</span>
               </button>
             )}
@@ -820,7 +824,7 @@ export function AdminDashboardSlide({
                         {deletingNotifId === notif.id ? (
                           <LoadingSpinner size="xs" tone="danger" />
                         ) : (
-                          <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         )}
                         <span className="hidden sm:inline">Hapus</span>
                       </button>
@@ -1161,7 +1165,7 @@ export function AdminDashboardSlide({
             </div>
 
             <div className="relative sm:w-64">
-              <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#8E948A] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={trxSearch}
@@ -1398,7 +1402,7 @@ export function AdminDashboardSlide({
                           className="min-h-[40px] px-3.5 rounded-full border border-[#E5B8AC] bg-[#FFFDF8] hover:bg-[#FDF2EF] text-xs font-semibold text-[#B8573E] inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
                           title="Hapus riwayat setoran IPL (wajib PIN 6 digit)"
                         >
-                          <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           <span>Hapus</span>
                         </button>
                       )}
@@ -1687,7 +1691,9 @@ export function AdminDashboardSlide({
           >
             <div className="px-5 py-4 border-b border-[#E6E2D6] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Icon3D name="pengumuman" className="w-9 h-9 rounded-2xl shadow-xs" />
+                <div className="w-9 h-9 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 shadow-xs">
+                  <Megaphone className="w-4 h-4" />
+                </div>
                 <div className="min-w-0">
                   <h3 id="broadcast-modal-title" className="text-base font-bold text-[#1F2A1E]">
                     Kirim Pengumuman Massal Sistem
@@ -1887,7 +1893,7 @@ export function AdminDashboardSlide({
                   </>
                 ) : (
                   <>
-                    <Icon3D name="kirim" className="w-5 h-5 rounded-md shadow-2xs" />
+                    <Send className="w-4 h-4 shrink-0" />
                     <span>Kirim ke {targetRecipientCount} Akun Warga</span>
                   </>
                 )}
@@ -1913,7 +1919,9 @@ export function AdminDashboardSlide({
           >
             <div className="px-5 py-4 border-b border-[#E2A898] bg-[#C87058]/10 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Icon3D name="hapus" className="w-9 h-9 rounded-2xl shadow-xs" />
+                <div className="w-9 h-9 rounded-2xl bg-[#C87058]/15 border border-[#E2A898] text-[#9A422B] flex items-center justify-center shrink-0 shadow-xs">
+                  <Trash2 className="w-4 h-4" />
+                </div>
                 <div className="min-w-0">
                   <h3 id="delete-ipl-pin-title" className="text-sm font-bold text-[#1B271B] truncate">
                     Hapus Setoran IPL Warga
@@ -2029,7 +2037,7 @@ export function AdminDashboardSlide({
                   </>
                 ) : (
                   <>
-                    <Icon3D name="hapus" className="w-5 h-5 rounded-md shadow-2xs" />
+                    <Trash2 className="w-4 h-4 shrink-0" />
                     <span>Lanjut Hapus</span>
                   </>
                 )}

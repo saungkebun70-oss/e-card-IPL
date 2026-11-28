@@ -2,11 +2,13 @@ import { useState } from 'react';
 import {
   CheckCircle2,
   Clock,
+  FileText,
+  Image as ImageIcon,
+  ReceiptText,
   XCircle,
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import { getStatusVerifikasiLabel, type TransaksiIPL, type Warga } from '../../types';
 import { formatBlokRumah, formatDaftarBulan, formatRupiah, formatTanggalWaktu } from '../../lib/format';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
@@ -24,7 +26,9 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
   if (riwayat.length === 0) {
     return (
       <section className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-12 text-center">
-        <Icon3D name="riwayat" className="w-14 h-14 rounded-2xl mx-auto shadow-xs" />
+        <div className="w-14 h-14 rounded-2xl mx-auto bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center">
+          <ReceiptText className="w-7 h-7" />
+        </div>
         <h2 className="text-base font-serif-brand font-bold text-[#1B271B] mt-3">
           Belum Ada Riwayat Setoran
         </h2>
@@ -131,7 +135,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                         onClick={() => setSelectedProof(trx)}
                         className="min-h-[38px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/50 text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                       >
-                        <Icon3D name="galeri" className="w-5 h-5 rounded-md shadow-2xs" />
+                        <ImageIcon className="w-4 h-4 text-[#2B3F29]" />
                         <span>Bukti Foto</span>
                       </button>
                     )}
@@ -142,7 +146,7 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
                         onClick={() => setSelectedReceipt(trx)}
                         className="min-h-[38px] px-3.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                       >
-                        <Icon3D name="riwayat" className="w-5 h-5 rounded-md shadow-2xs" />
+                        <FileText className="w-4 h-4 text-[#E5EEE3]" />
                         <span>e-Kwitansi</span>
                       </button>
                     )}

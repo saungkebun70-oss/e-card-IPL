@@ -3,13 +3,15 @@ import {
   AlertCircle,
   Download,
   ExternalLink,
+  FileText,
+  Image as ImageIcon,
   Loader2,
   Lock,
   Maximize2,
   Play,
   RotateCcw,
+  Video,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import type { SessionUser } from '../../types';
 import type { ChatAttachmentType, ChatMessage } from '../../lib/chatService';
 import {
@@ -370,7 +372,13 @@ export function ChatMessageAttachmentBubble({
                 onClick={() => onOpenAttachment(resolvedMessage)}
                 className="flex-1 min-w-0 flex items-center gap-2.5 text-left cursor-pointer"
               >
-                <Icon3D name="galeri" className="w-9 h-9 rounded-xl shadow-xs" />
+                <span
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    isMine ? 'bg-white/20 text-[#FFFDF8]' : 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold truncate">{fileName}</p>
                   <p className={`text-[10.5px] truncate ${subTextClass}`}>
@@ -428,7 +436,13 @@ export function ChatMessageAttachmentBubble({
               <span> · {isPrivateRoom ? 'Privat' : 'Putar'}</span>
             </p>
           </div>
-          <Icon3D name="video" className="w-8 h-8 rounded-xl shadow-xs" />
+          <span
+            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              isMine ? 'bg-white/15 text-[#FFFDF8]' : 'bg-[#E5EEE3] text-[#243825]'
+            }`}
+          >
+            <Video className="w-4 h-4" />
+          </span>
         </button>
       ) : (
         <div
@@ -439,7 +453,13 @@ export function ChatMessageAttachmentBubble({
             onClick={() => onOpenAttachment(resolvedMessage)}
             className="w-full flex items-start gap-2.5 text-left cursor-pointer min-w-0"
           >
-            <Icon3D name="dokumen" className="w-9 h-9 rounded-xl shadow-xs" />
+            <span
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                isMine ? 'bg-white/20 text-[#FFFDF8]' : 'bg-[#E5EEE3] text-[#243825] border border-[#C6D2BF]'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+            </span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold leading-snug line-clamp-2 break-words">{fileName}</p>
               <p className={`text-[10.5px] truncate mt-0.5 ${subTextClass}`}>

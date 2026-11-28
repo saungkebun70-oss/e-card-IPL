@@ -3,10 +3,10 @@ import {
   CheckCircle2,
   DownloadCloud,
   Loader2,
+  RefreshCw,
   WifiOff,
   X,
 } from 'lucide-react';
-import { Icon3D } from './Icon3D';
 import { useAppUpdate } from '../lib/appUpdate';
 
 /**
@@ -55,7 +55,7 @@ export function AppUpdateBanner() {
               </>
             ) : (
               <>
-                <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>Update Sekarang</span>
               </>
             )}
@@ -138,7 +138,7 @@ export function OfflineOverlay() {
             </>
           ) : (
             <>
-              <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
+              <RefreshCw className="w-4 h-4" />
               <span>Coba Lagi</span>
             </>
           )}
@@ -222,7 +222,7 @@ export function AppVersionFooter({
           onClick={() => void handleManualCheck()}
           className="min-h-[32px] px-3 rounded-full border border-[#C6D2BF] bg-[#FFFDF8] hover:bg-[#E5EEE3] disabled:opacity-60 text-[#243825] text-[11px] font-semibold inline-flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap"
         >
-          <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${checking ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
           <span>{checking ? 'Memeriksa...' : 'Cek Update'}</span>
         </button>
       )}

@@ -1,11 +1,10 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { MessageCircle, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { SessionUser } from '../types';
 import type { ChatRoomId } from '../lib/chatService';
 import { CommunityChatSlide } from './CommunityChatSlide';
-import { Icon3D } from './Icon3D';
 import bgHeaderAsset from '../assets/bg-header.jpg';
 
 interface FloatingChatWidgetProps {
@@ -442,7 +441,9 @@ export function FloatingChatWidget({
                 />
 
                 <div className="relative z-10 flex items-center gap-2.5 min-w-0">
-                  <Icon3D name="chat_cepat" className="w-9 h-9 shrink-0 shadow-sm" />
+                  <span className="w-9 h-9 rounded-2xl bg-white/15 border border-white/25 text-[#FFFDF8] flex items-center justify-center shrink-0 shadow-sm">
+                    <MessageCircle className="w-5 h-5" />
+                  </span>
                   <div className="min-w-0">
                     <p className="font-serif-brand text-sm font-bold leading-tight truncate text-[#FFFDF8]">
                       Chat Cepat Saung Kebun
@@ -512,10 +513,7 @@ export function FloatingChatWidget({
         {isOpen ? (
           <X className="w-5 h-5 pointer-events-none" />
         ) : (
-          <Icon3D
-            name="chat_cepat"
-            className="w-8 h-8 sm:w-9 sm:h-9 drop-shadow-[0_2px_3px_rgba(12,22,12,0.45)]"
-          />
+          <MessageCircle className="w-6 h-6 pointer-events-none" />
         )}
         {!isOpen && unreadCount > 0 && (
           <span className="pointer-events-none absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C87058] text-white text-[10px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#FFFDF8] shadow-xs">

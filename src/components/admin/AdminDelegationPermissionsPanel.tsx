@@ -4,13 +4,14 @@ import {
   CheckCircle2,
   History,
   Lock,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   UserCheck,
+  UserCog,
   UserX,
   Loader2,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   CENTRAL_SETTING_DEFINITIONS,
   type AuditLogEntry,
@@ -240,7 +241,9 @@ export function AdminDelegationPermissionsPanel({
       <section className="rounded-2xl bg-[#FFFDF8] border border-[#E6E2D6] p-4 sm:p-5 space-y-3 shadow-xs">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <Icon3D name="delegasi" className="w-10 h-10 shadow-xs shrink-0" />
+            <div className="w-10 h-10 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 shadow-xs">
+              <UserCog className="w-5 h-5" />
+            </div>
             <div className="min-w-0">
               <h3 className="text-sm sm:text-base font-bold text-[#1B271B] leading-snug">
                 {isBendaharaOwner
@@ -261,7 +264,7 @@ export function AdminDelegationPermissionsPanel({
             onClick={() => void refreshPermissions()}
             className="min-h-[40px] px-3.5 rounded-xl border border-[#E6E2D6] bg-[#F7F4EC] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-60 transition-colors"
           >
-            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingPermissions ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loadingPermissions ? 'animate-spin' : ''}`} />
             <span>Segarkan Status</span>
           </button>
         </div>
@@ -781,7 +784,7 @@ export function AdminDelegationPermissionsPanel({
               onClick={() => void loadDelegationAudit()}
               className="min-h-[36px] px-3 rounded-xl border border-[#E6E2D6] bg-[#FFFFFF] hover:bg-[#E5EEE3] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
             >
-              <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingAudit ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingAudit ? 'animate-spin' : ''}`} />
               <span>Muat Ulang</span>
             </button>
           )}

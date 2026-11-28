@@ -10,8 +10,9 @@ import {
   Lock,
   Loader2,
   QrCode,
+  Send,
+  Upload,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import {
   BULAN_LIST,
   NOMINAL_IPL_STANDAR,
@@ -629,7 +630,9 @@ export function WargaSetorSlide({
                 htmlFor="upload-bukti-input"
                 className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#C6D2BF] hover:border-[#2B3F29] bg-[#F7F4EC] hover:bg-[#E5EEE3]/40 p-6 text-center transition-colors cursor-pointer min-h-[168px]"
               >
-                <Icon3D name="galeri" className="w-12 h-12 rounded-2xl mb-2.5 shadow-xs" />
+                <span className="w-12 h-12 rounded-2xl mb-2.5 bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center">
+                  <Upload className="w-5 h-5" />
+                </span>
                 <p className="text-sm font-semibold text-[#1B271B]">
                   Pilih Foto Bukti Transfer / Kwitansi
                 </p>
@@ -717,7 +720,7 @@ export function WargaSetorSlide({
                 </>
               ) : (
                 <>
-                  <Icon3D name="kirim" className="w-5 h-5 rounded-md shadow-2xs" />
+                  <Send className="w-4 h-4 shrink-0" />
                   <span>Submit Setoran</span>
                 </>
               )}

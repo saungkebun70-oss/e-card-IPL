@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bug,
   ChevronRight,
+  FileSpreadsheet,
+  LogOut,
   Menu,
+  MessageCircle,
   PhoneCall,
+  ReceiptText,
+  Settings,
+  User,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -12,7 +19,7 @@ import { useAppBrand } from '../lib/brandContext';
 import { formatBlokRumah } from '../lib/format';
 import { BrandLogo, SaungKebunWatermark } from './BrandLogo';
 import { AppVersionFooter } from './AppUpdateSystem';
-import { Icon3D, type Icon3DName } from './Icon3D';
+import type { Icon3DName } from './Icon3D';
 import { Navbar3D } from './Navbar3D';
 import { NotificationBell } from './NotificationBell';
 import { UserAvatar } from './UserAvatar';
@@ -294,24 +301,15 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              {item.icon3d ? (
-                <Icon3D
-                  name={item.icon3d}
-                  className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
-                    isActive ? 'scale-[1.04]' : ''
-                  }`}
-                />
-              ) : (
-                <span
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-[#FFFDF8]'
-                      : 'bg-[#E5EEE3] text-[#243825]'
-                  }`}
-                >
-                  <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.3 : 2} />
-                </span>
-              )}
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
+                }`}
+              >
+                <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.3 : 2} />
+              </span>
               <span className="truncate flex-1">{labelText}</span>
               {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
                 <span
@@ -344,7 +342,15 @@ export function AppShell({
               : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
           }`}
         >
-          <Icon3D name="chat_cepat" className="w-7 h-7 shadow-xs" />
+          <span
+            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+              isChatModalOpen
+                ? 'bg-white/15 text-[#FFFDF8]'
+                : 'bg-[#E5EEE3] text-[#243825]'
+            }`}
+          >
+            <MessageCircle className="w-[17px] h-[17px]" />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate leading-tight">Chat Cepat Lingkungan</p>
             <p
@@ -373,7 +379,15 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <Icon3D name="laporan_lpj" className="w-7 h-7 shadow-xs" />
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isLpjActive
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
+                }`}
+              >
+                <FileSpreadsheet className="w-[17px] h-[17px]" />
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Laporan LPJ (PDF)</p>
                 <p
@@ -395,12 +409,15 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <Icon3D
-                name="laporan_bug"
-                className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
-                  isBugReportsActive ? 'scale-[1.04]' : ''
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isBugReportsActive
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
-              />
+              >
+                <Bug className="w-[17px] h-[17px]" />
+              </span>
               <span className="truncate flex-1">Laporan Bug</span>
               {pendingBugCount > 0 && (
                 <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#C87058] text-white tabular-nums shrink-0">
@@ -414,7 +431,9 @@ export function AppShell({
               onClick={handleOpenProfileFromSidebar}
               className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <Icon3D name="profil" className="w-7 h-7 shadow-xs" />
+              <span className="w-7 h-7 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                <User className="w-[17px] h-[17px]" />
+              </span>
               <span className="truncate flex-1">Profil Pengurus</span>
             </button>
 
@@ -424,7 +443,9 @@ export function AppShell({
                 onClick={handleOpenSettingsFromSidebar}
                 className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
               >
-                <Icon3D name="pengaturan" className="w-8 h-8 shadow-xs" />
+                <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                  <Settings className="w-[17px] h-[17px]" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate leading-tight">Pengaturan Sistem</p>
                   <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
@@ -447,12 +468,15 @@ export function AppShell({
                   : 'text-[#3A473A] font-medium hover:bg-[#E5EEE3]/70 hover:text-[#1B271B]'
               }`}
             >
-              <Icon3D
-                name="profil"
-                className={`w-7 h-7 shadow-xs transition-transform duration-200 ${
-                  isProfilActive ? 'scale-[1.04]' : ''
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isProfilActive
+                    ? 'bg-white/15 text-[#FFFDF8]'
+                    : 'bg-[#E5EEE3] text-[#243825]'
                 }`}
-              />
+              >
+                <User className="w-[17px] h-[17px]" />
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate leading-tight">Profil Warga</p>
                 <p
@@ -470,7 +494,9 @@ export function AppShell({
               onClick={() => handleSelectNav('riwayat')}
               className="w-full min-h-[46px] px-3.5 py-2.5 rounded-2xl text-left flex items-center gap-3 text-[13.5px] leading-snug font-medium text-[#3A473A] hover:bg-[#E5EEE3]/70 hover:text-[#1B271B] transition-all duration-200 cursor-pointer"
             >
-              <Icon3D name="riwayat" className="w-8 h-8 shadow-xs" />
+              <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] text-[#243825] flex items-center justify-center shrink-0">
+                <ReceiptText className="w-[17px] h-[17px]" />
+              </span>
               <span className="truncate flex-1">Kwitansi Digital</span>
             </button>
 
@@ -567,7 +593,7 @@ export function AppShell({
             onClick={handleLogoutFromSidebar}
             className="w-full min-h-[42px] px-3.5 rounded-2xl bg-[#C87058]/14 hover:bg-[#C87058] text-[#A44831] hover:text-white border border-[#C87058]/35 text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-[0.98]"
           >
-            <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
+            <LogOut className="w-4 h-4 shrink-0" />
             <span>Keluar / Logout</span>
           </button>
 
@@ -669,7 +695,7 @@ export function AppShell({
                   onClick={handleLogoutFromSidebar}
                   className="w-full min-h-[44px] px-4 rounded-2xl bg-[#C87058] hover:bg-[#B75F47] active:scale-[0.98] font-bold text-sm text-[#FFFDF8] shadow-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <Icon3D name="keluar" className="w-5 h-5 rounded-md shadow-2xs" />
+                  <LogOut className="w-4 h-4 shrink-0" />
                   <span>Keluar / Logout</span>
                 </button>
                 <AppVersionFooter compact className="px-1" />
@@ -740,7 +766,7 @@ export function AppShell({
                   title="Pengaturan Sistem Terpusat"
                   className="hidden sm:inline-flex h-10 w-10 rounded-full border border-white/25 bg-white/15 backdrop-blur-md hover:bg-white/25 text-[#FFFDF8] items-center justify-center transition-colors cursor-pointer shrink-0"
                 >
-                  <Icon3D name="pengaturan" className="w-6 h-6 rounded-lg" />
+                  <Settings className="w-4.5 h-4.5" />
                 </button>
               )}
               <NotificationBell
@@ -824,7 +850,7 @@ export function AppShell({
                 title="Pengaturan Sistem Terpusat"
                 className="h-10 w-10 rounded-full border border-white/25 bg-white/15 hover:bg-white/25 text-[#FFFDF8] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <Icon3D name="pengaturan" className="w-6 h-6 rounded-lg" />
+                <Settings className="w-4.5 h-4.5" />
               </button>
             )}
 

@@ -18,13 +18,13 @@ import {
   Layers,
   Loader2,
   LogOut,
+  RefreshCw,
   Server,
   ShieldAlert,
   ShieldCheck,
   Trash2,
   UploadCloud,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import type { User } from 'firebase/auth';
 import {
   cancelPendingExternalGoogleOAuth,
@@ -840,7 +840,7 @@ export function AdminHybridDrivePanel({
                 onClick={() => void loadDriveWorkspace(accessToken, folderFilter)}
                 className="min-h-[36px] px-3 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingDriveInfo ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingDriveInfo ? 'animate-spin' : ''}`} />
                 <span>Segarkan Drive</span>
               </button>
               <button
@@ -926,7 +926,7 @@ export function AdminHybridDrivePanel({
                     : 'bg-[#2B3F29] hover:bg-[#243825] text-white'
                 }`}
               >
-                <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${resyncingOAuth ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${resyncingOAuth ? 'animate-spin' : ''}`} />
                 <span>{resyncingOAuth ? 'Menyinkronkan...' : 'Sinkronisasi Ulang'}</span>
               </button>
             )}
@@ -1006,7 +1006,7 @@ export function AdminHybridDrivePanel({
                     onClick={() => void handleRecheckDomain()}
                     className="min-h-[34px] px-3.5 rounded-full border border-[#E2A898] bg-[#FFFDF8] hover:bg-[#C87058]/10 text-[#7A311E] text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
-                    <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${checkingDomain ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${checkingDomain ? 'animate-spin' : ''}`} />
                     <span>{checkingDomain ? 'Memeriksa...' : 'Cek Ulang Domain'}</span>
                   </button>
                 </div>
@@ -1235,7 +1235,7 @@ export function AdminHybridDrivePanel({
             onClick={() => void refreshBackendMonitor(true)}
             className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
-            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${loadingMonitor ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingMonitor ? 'animate-spin' : ''}`} />
             <span>Cek Kuota</span>
           </button>
         </div>
@@ -1414,7 +1414,7 @@ export function AdminHybridDrivePanel({
             onClick={() => void runInventoryScan(config.retentionDays)}
             className="min-h-[36px] px-3.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 text-xs font-semibold text-[#4A554A] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
-            <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${scanning ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} />
             <span>Pindai Ulang</span>
           </button>
         </div>

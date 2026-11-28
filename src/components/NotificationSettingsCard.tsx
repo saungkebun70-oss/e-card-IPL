@@ -4,13 +4,14 @@ import {
   BellRing,
   CheckCircle2,
   Radio,
+  RefreshCw,
+  Send,
   ShieldAlert,
   Smartphone,
   Vibrate,
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { Icon3D } from './Icon3D';
 import type { SessionUser } from '../types';
 import {
   ANDROID_NOTIFICATION_CHANNEL_ID,
@@ -316,7 +317,7 @@ export function NotificationSettingsCard({
                 </span>
                 {pushInfo.isBackgroundSyncFallback && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-[#E2C285] bg-[#F2D8A7]/45 px-2 py-0.5 text-[10px] font-bold text-[#4A3410]">
-                    <Icon3D name="refresh" className="w-3.5 h-3.5 rounded-sm" />
+                    <RefreshCw className="w-3 h-3" />
                     Background Sync Fallback
                   </span>
                 )}
@@ -361,7 +362,7 @@ export function NotificationSettingsCard({
           <div className="px-3.5 py-3 bg-[#F2D8A7]/35 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-start gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-[#FFFDF8] border border-[#E2C285] flex items-center justify-center text-[#6E4D12] shrink-0">
-                <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
+                <RefreshCw className="w-4 h-4" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-[#4A3410]">
@@ -385,7 +386,7 @@ export function NotificationSettingsCard({
               {syncingFallback ? (
                 <LoadingSpinner size="xs" />
               ) : (
-                <Icon3D name="refresh" className="w-4 h-4 rounded-sm" />
+                <RefreshCw className="w-3.5 h-3.5" />
               )}
               <span>{syncingFallback ? 'Memeriksa...' : 'Cek Sekarang'}</span>
             </button>
@@ -437,7 +438,7 @@ export function NotificationSettingsCard({
               {sendingServerPush === 'self' ? (
                 <LoadingSpinner size="xs" tone="white" />
               ) : (
-                <Icon3D name="kirim" className="w-5 h-5 rounded-md shadow-2xs" />
+                <Send className="w-4 h-4" />
               )}
               <span>
                 {sendingServerPush === 'self' ? 'Mengirim...' : 'Tes ke Perangkat Sendiri'}

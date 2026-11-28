@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Bug,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
   FileCode2,
+  Filter,
   Image as ImageIcon,
   Loader2,
   MessageSquareText,
   Monitor,
+  RefreshCw,
   RotateCcw,
+  Search,
   Trash2,
   User,
   X,
 } from 'lucide-react';
-import { Icon3D } from '../Icon3D';
 import type { SessionUser } from '../../types';
 import {
   BUG_CATEGORY_LABELS,
@@ -249,7 +253,9 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
       <section className="bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5 sm:p-6 shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <Icon3D name="laporan_bug" className="w-11 h-11 shadow-xs shrink-0" />
+            <div className="w-11 h-11 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0 shadow-xs">
+              <Bug className="w-5 h-5" />
+            </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-[#1B271B]">
                 Laporan Bug Pengguna
@@ -296,7 +302,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
               disabled={refreshing || loading}
               className="min-h-[40px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-xs font-semibold text-[#243825] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
             >
-              <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>Muat Ulang</span>
             </button>
           </div>
@@ -414,10 +420,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
           {/* Pencarian & Kategori */}
           <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             <div className="relative flex-1">
-              <Icon3D
-                name="cari"
-                className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              />
+              <Search className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -428,10 +431,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
             </div>
 
             <div className="relative shrink-0">
-              <Icon3D
-                name="filter"
-                className="w-4 h-4 rounded-sm absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              />
+              <Filter className="w-4 h-4 text-[#6E786D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
                 aria-label="Filter kategori laporan bug"
                 value={categoryFilter}
@@ -457,11 +457,11 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
         </div>
       ) : filteredReports.length === 0 ? (
         <div className="bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-10 text-center">
-          <div className="flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center mx-auto shadow-xs">
             {statusFilter === 'pending' ? (
-              <Icon3D name="centang" className="w-12 h-12 shadow-xs" />
+              <CheckCircle2 className="w-6 h-6" />
             ) : (
-              <Icon3D name="laporan_bug" className="w-12 h-12 shadow-xs" />
+              <Bug className="w-6 h-6" />
             )}
           </div>
           <h3 className="text-sm font-bold text-[#1B271B] mt-3">
@@ -614,7 +614,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                         {isUpdating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Icon3D name="centang" className="w-4 h-4 rounded-sm" />
+                          <CheckCircle2 className="w-3.5 h-3.5" />
                         )}
                         <span>Simpan &amp; Tandai Resolved</span>
                       </button>
@@ -675,7 +675,7 @@ export function AdminBugReportsSlide({ session, onToast }: AdminBugReportsSlideP
                           {isUpdating ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <Icon3D name="centang" className="w-4 h-4 rounded-sm" />
+                            <CheckCircle2 className="w-3.5 h-3.5" />
                           )}
                           <span>Tandai Selesai (Resolved)</span>
                         </button>

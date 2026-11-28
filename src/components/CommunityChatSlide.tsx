@@ -7,15 +7,19 @@ import {
   Home,
   Loader2,
   Lock,
+  MessageCircle,
   Pencil,
+  RefreshCw,
+  Search,
+  Send,
   Shield,
   ShieldCheck,
+  Trash2,
   User,
   Users,
   X,
 } from 'lucide-react';
 import type { SessionUser, UserRole } from '../types';
-import { Icon3D } from './Icon3D';
 import {
   buildDmRoomId,
   canAccessChatRoom,
@@ -1241,7 +1245,9 @@ export function CommunityChatSlide({
             <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-b border-[#E6E2D6] space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Icon3D name="chat_cepat" className="w-8 h-8 rounded-xl shadow-xs" />
+                  <span className="w-8 h-8 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-4 h-4" />
+                  </span>
                   <div className="min-w-0">
                     <h2 className="text-xs sm:text-sm font-bold text-[#1B271B] leading-tight truncate">
                       Pesan &amp; Koordinasi
@@ -1260,7 +1266,7 @@ export function CommunityChatSlide({
                   title="Sinkronkan percakapan & kontak"
                   className="h-8 w-8 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#E5EEE3] text-[#243825] flex items-center justify-center cursor-pointer transition-colors shrink-0"
                 >
-                  <Icon3D name="refresh" className={`w-4 h-4 rounded-sm ${refreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
@@ -1311,7 +1317,7 @@ export function CommunityChatSlide({
                   {/* Pencarian & Filter Peran Penerima DM */}
                   <div className="space-y-2 shrink-0 min-w-0">
                     <div className="relative min-w-0">
-                      <Icon3D name="cari" className="w-4 h-4 rounded-sm absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-4 h-4 text-[#6E786D] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="search"
                         value={contactSearch}
@@ -1943,7 +1949,7 @@ export function CommunityChatSlide({
                                       : 'hover:bg-[#C87058]/10 text-[#6E786D] hover:text-[#9A422B]'
                                   }`}
                                 >
-                                  <Icon3D name="hapus" className="w-4 h-4 rounded-sm" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>
@@ -2154,7 +2160,7 @@ export function CommunityChatSlide({
                   ) : editingTarget ? (
                     <Check className="w-4 h-4" />
                   ) : (
-                    <Icon3D name="kirim" className="w-6 h-6 rounded-lg shadow-2xs" />
+                    <Send className="w-4 h-4" />
                   )}
                   <span className="hidden sm:inline">{editingTarget ? 'Simpan' : 'Kirim'}</span>
                 </button>

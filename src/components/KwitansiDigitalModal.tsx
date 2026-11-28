@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
   CheckCircle2,
+  Download,
+  Printer,
   X,
 } from 'lucide-react';
 import { type TransaksiIPL, type TransaksiKas } from '../types';
@@ -18,7 +20,6 @@ import {
   isNativeCapacitorPlatform,
 } from '../lib/pdfGenerator';
 import { BrandLogo } from './BrandLogo';
-import { Icon3D } from './Icon3D';
 import { OfficialStamp } from './OfficialStamp';
 import { RoleApprovalStamp } from './RoleApprovalStamp';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -391,7 +392,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               {printing ? (
                 <LoadingSpinner size="xs" tone="current" />
               ) : (
-                <Icon3D name="cetak" className="w-4 h-4 rounded-sm" />
+                <Printer className="w-4 h-4" />
               )}
               <span>{printing ? 'Menyiapkan...' : 'Cetak A4'}</span>
             </button>
@@ -404,7 +405,7 @@ export function KwitansiDigitalModal(props: KwitansiDigitalModalProps) {
               {downloading ? (
                 <LoadingSpinner size="xs" tone="white" />
               ) : (
-                <Icon3D name="unduh_pdf" className="w-4 h-4 rounded-sm" />
+                <Download className="w-4 h-4" />
               )}
               <span>{downloading ? 'Menyiapkan...' : 'Unduh PDF A4'}</span>
             </button>
