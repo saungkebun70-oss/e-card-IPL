@@ -41,6 +41,7 @@ import {
   type ChatRoomId,
 } from '../lib/chatService';
 import { FloatingChatWidget } from './FloatingChatWidget';
+import { AdminStorageUsageWidget } from './admin/AdminStorageUsageWidget';
 
 export interface NavItem {
   id: string;
@@ -59,6 +60,7 @@ interface AppShellProps {
   onTabChange: (id: string) => void;
   onLogout: () => void;
   onOpenSettings?: () => void;
+  onOpenStorageInfo?: () => void;
   onOpenProfile?: () => void;
   onNavigateTarget?: (targetUrl: string) => void;
   chatOpen?: boolean;
@@ -81,6 +83,7 @@ export function AppShell({
   onTabChange,
   onLogout,
   onOpenSettings,
+  onOpenStorageInfo,
   onOpenProfile,
   onNavigateTarget,
   chatOpen: controlledChatOpen,
@@ -251,6 +254,15 @@ export function AppShell({
   const handleOpenSettingsFromSidebar = () => {
     setDrawerOpen(false);
     onOpenSettings?.();
+  };
+
+  const handleOpenStorageFromSidebar = () => {
+    setDrawerOpen(false);
+    if (onOpenStorageInfo) {
+      onOpenStorageInfo();
+    } else {
+      onOpenSettings?.();
+    }
   };
 
   const handleOpenProfileFromSidebar = () => {
@@ -451,8 +463,8 @@ export function AppShell({
                   <p className="truncate leading-tight">Pengaturan Sistem</p>
                   <p className="text-[11px] text-[#6E786D] font-normal truncate mt-0.5">
                     {canAccessBotWa
-                      ? 'Tarif IPL, QRIS, Bot WA & Identitas'
-                      : 'Tema, Identitas, QRIS & Petugas'}
+                      ? 'Tarif IPL, QRIS, Penyimpanan & Bot WA'
+                      : 'Tema, Identitas, Penyimpanan & QRIS'}
                   </p>
                 </div>
               </button>
@@ -589,8 +601,16 @@ export function AppShell({
           </div>
         </div>
 
-        {/* Footer Sidebar: Logout Terakota Lembut + Versi */}
+        {/* Footer Sidebar: Ringkasan Penyimpanan (Admin) + Logout Terakota Lembut + Versi */}
         <div className="relative z-10 mt-auto px-4 pt-3 pb-4 border-t border-[#E6E2D6] bg-[#FFFDF8]/75 space-y-2.5 shrink-0">
+          {isAdmin && (
+            <AdminStorageUsageWidget
+              session={session}
+              variant="sidebar"
+              onOpenStorageInfo={handleOpenStorageFromSidebar}
+            />
+          )}
+
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
@@ -691,8 +711,16 @@ export function AppShell({
                 </div>
               </div>
 
-              {/* Footer Drawer + Logout Terakota */}
+              {/* Footer Drawer: Ringkasan Penyimpanan (Admin) + Logout Terakota */}
               <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#FFFDF8]/80 space-y-2.5 shrink-0">
+                {isAdmin && (
+                  <AdminStorageUsageWidget
+                    session={session}
+                    variant="sidebar"
+                    onOpenStorageInfo={handleOpenStorageFromSidebar}
+                  />
+                )}
+
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}

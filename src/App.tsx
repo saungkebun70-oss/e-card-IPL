@@ -1457,6 +1457,14 @@ export default function App() {
               }
             : undefined
         }
+        onOpenStorageInfo={
+          session.role === 'admin'
+            ? () => {
+                setSettingsTab('info_penyimpanan');
+                setSettingsOpen(true);
+              }
+            : undefined
+        }
         onLogout={handleLogout}
       >
         {dataError && (wargaData || adminData) && (

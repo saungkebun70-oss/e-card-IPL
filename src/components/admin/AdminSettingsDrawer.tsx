@@ -28,6 +28,7 @@ import {
   User,
   UserCog,
   FlaskConical,
+  Database,
 } from 'lucide-react';
 import {
   BULAN_LIST,
@@ -87,6 +88,7 @@ import { BugReportCard } from '../BugReportCard';
 import { UserAvatar } from '../UserAvatar';
 import { buildAvatarKey, useAvatarMap } from '../../lib/avatarService';
 import { AdminHybridDrivePanel } from './AdminHybridDrivePanel';
+import { AdminStorageUsageWidget } from './AdminStorageUsageWidget';
 import { AdminCentralSettingsPanel } from './AdminCentralSettingsPanel';
 import { AdminDelegationPermissionsPanel } from './AdminDelegationPermissionsPanel';
 import { fetchMySettingPermissions } from '../../lib/centralSettingsService';
@@ -106,6 +108,7 @@ export type SettingsDrawerTab =
   | 'identitas'
   | 'pembayaran'
   | 'bot_wa'
+  | 'info_penyimpanan'
   | 'arsip_drive'
   | 'petugas_nfc'
   | 'keamanan';
@@ -537,6 +540,12 @@ export function AdminSettingsDrawer({
                   label: 'Bot WA',
                   icon: Bot,
                   locked: session.role !== 'admin' || session.is_active_pengurus === false,
+                },
+                {
+                  id: 'info_penyimpanan' as const,
+                  label: 'Info Penyimpanan',
+                  icon: Database,
+                  locked: false,
                 },
                 {
                   id: 'arsip_drive' as const,
@@ -1840,6 +1849,11 @@ export function AdminSettingsDrawer({
                 Kembali ke Pusat Modul
               </button>
             </div>
+          )}
+
+          {/* TAB INFO PENYIMPANAN SUPABASE & GOOGLE DRIVE (READ-ONLY) */}
+          {activeTab === 'info_penyimpanan' && (
+            <AdminStorageUsageWidget session={session} variant="full" />
           )}
 
           {activeTab === 'arsip_drive' && canAccessSystemIntegrations && (

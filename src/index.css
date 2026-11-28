@@ -983,6 +983,31 @@ html[data-theme="midnight"] #printable-report .border-slate-200 {
   }
 }
 
+/* Custom thin scrollbar untuk tabel Master Warga & Pengurus (Tablet & PC) */
+.saung-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #9DB296 #F6F3EA;
+}
+
+.saung-table-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.saung-table-scroll::-webkit-scrollbar-track {
+  background: #F6F3EA;
+  border-radius: 9999px;
+}
+
+.saung-table-scroll::-webkit-scrollbar-thumb {
+  background: #9DB296;
+  border-radius: 9999px;
+}
+
+.saung-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #384E35;
+}
+
 @page {
   size: A4 portrait;
   margin: 12mm 14mm;

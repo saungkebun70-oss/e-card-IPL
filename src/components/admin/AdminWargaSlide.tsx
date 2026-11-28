@@ -1127,26 +1127,32 @@ export function AdminWargaSlide({
       </div>
 
       {/* Daftar / Tabel Master Data Warga (Desktop & Tablet >= md) */}
-      <section className="hidden md:block w-full min-w-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
-        <div className="w-full overflow-x-auto overscroll-x-contain">
+      <section className="hidden md:block w-full min-w-0">
+        <div className="saung-table-scroll w-full md:max-h-[calc(100vh-380px)] lg:max-h-[calc(100vh-360px)] min-h-[340px] overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)]">
           <table className="w-full min-w-max text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3]/75 text-xs font-semibold text-[#243825]">
-                <th className="sticky left-0 z-20 bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle border-r border-[#C6D2BF] shadow-[4px_0_12px_-4px_rgba(36,56,37,0.08)]">
+            <thead className="sticky top-0 z-20 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
+              <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3] text-xs font-semibold text-[#243825]">
+                <th className="sticky left-0 z-30 bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle border-r border-[#C6D2BF] shadow-[4px_0_12px_-4px_rgba(36,56,37,0.08)]">
                   Blok / Username
                 </th>
-                <th className="py-3.5 px-4 min-w-[180px] whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] py-3.5 px-4 min-w-[180px] whitespace-nowrap align-middle">
                   Nama Warga
                 </th>
-                <th className="py-3.5 px-4 whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
                   No. WhatsApp Terdaftar
                 </th>
-                <th className="py-3.5 px-4 whitespace-nowrap align-middle">Status Hunian</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
+                  Status Hunian
+                </th>
+                <th className="bg-[#E5EEE3] py-3.5 px-4 text-right whitespace-nowrap align-middle">
                   Iuran Wajib
                 </th>
-                <th className="py-3.5 px-4 whitespace-nowrap align-middle">PIN (6 Digit)</th>
-                <th className="py-3.5 px-4 pr-5 text-left whitespace-nowrap align-middle">Aksi</th>
+                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
+                  PIN (6 Digit)
+                </th>
+                <th className="bg-[#E5EEE3] py-3.5 px-4 pr-5 text-left whitespace-nowrap align-middle">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6E2D6] text-sm">
@@ -1600,18 +1606,18 @@ export function AdminWargaSlide({
           </div>
 
           {/* Desktop Table Pengurus Lingkungan */}
-          <section className="hidden md:block w-full min-w-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
-            <div className="w-full overflow-x-auto overscroll-x-contain">
+          <section className="hidden md:block w-full min-w-0">
+            <div className="saung-table-scroll w-full md:max-h-[calc(100vh-380px)] lg:max-h-[calc(100vh-360px)] min-h-[340px] overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)]">
               <table className="w-full min-w-max text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3]/75 text-xs font-semibold text-[#243825]">
-                    <th className="py-3.5 px-4 whitespace-nowrap">Pengurus &amp; Username</th>
-                    <th className="py-3.5 px-4 whitespace-nowrap">Jabatan</th>
-                    <th className="py-3.5 px-4 whitespace-nowrap">Unit / Blok Rumah</th>
-                    <th className="py-3.5 px-4 whitespace-nowrap">No. WhatsApp</th>
-                    <th className="py-3.5 px-4 whitespace-nowrap">PIN 6 Digit</th>
-                    <th className="py-3.5 px-4 whitespace-nowrap">Status</th>
-                    <th className="py-3.5 px-4 pr-5 whitespace-nowrap">Aksi</th>
+                <thead className="sticky top-0 z-20 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
+                  <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3] text-xs font-semibold text-[#243825]">
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Pengurus &amp; Username</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Jabatan</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Unit / Blok Rumah</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">No. WhatsApp</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">PIN 6 Digit</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Status</th>
+                    <th className="bg-[#E5EEE3] py-3.5 px-4 pr-5 whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E6E2D6] text-sm">

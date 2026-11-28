@@ -78,7 +78,6 @@ import { useAppBrand } from '../../lib/brandContext';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 import { SaungKebunWatermark } from '../BrandLogo';
 import { ChairmanMonthlyReportPanel } from './ChairmanMonthlyReportPanel';
-import { AdminStorageUsageWidget } from './AdminStorageUsageWidget';
 import { useSimulation } from '../../lib/simulationContext';
 import { SimulationDateSwitcher } from '../SimulationDateSwitcher';
 
@@ -116,7 +115,6 @@ export function AdminDashboardSlide({
   onRefresh,
   onOptimisticMutate,
   onToast,
-  onOpenDriveSettings,
 }: AdminDashboardSlideProps) {
   const { brand } = useAppBrand();
   const { simNow, simDateIso } = useSimulation();
@@ -955,12 +953,6 @@ export function AdminDashboardSlide({
           </p>
         </div>
       </section>
-
-      {/* WIDGET PENGGUNAAN PENYIMPANAN SUPABASE & BATAS KUOTA */}
-      <AdminStorageUsageWidget
-        session={session}
-        onOpenDriveSettings={onOpenDriveSettings}
-      />
 
       {/* GENERATOR LAPORAN BULANAN OTOMATIS KHUSUS KETUA */}
       {isKetua && (
