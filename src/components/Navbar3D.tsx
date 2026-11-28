@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Icon3D, type Icon3DName } from './Icon3D';
 
@@ -334,21 +334,157 @@ export const ChatFab3DEmblem: React.FC<{ className?: string }> = ({
   );
 };
 
+/**
+ * Menghasilkan path SVG 3D Soft Porcelain Floating Navbar dengan U-notch presisi
+ * (transisi C1 tangent sempurna antara bibir bar horizontal dan lekukan lingkaran tengah).
+ */
+function buildPorcelainDockPath(width: number, height = 64): {
+  path: string;
+  cx: number;
+  cy: number;
+  cradleRadius: number;
+} {
+  const W = Math.max(300, Math.round(width));
+  const H = height;
+  const endR = H / 2;
+  const cx = W / 2;
+  const cy = 20;
+  const cradleRadius = 37;
+  const filletR = 10;
+
+  const dy = cy - filletR; // 10
+  const sumR = cradleRadius + filletR; // 47
+  const dx = Math.sqrt(sumR * sumR - dy * dy); // ~45.924
+  const ratio = cradleRadius / sumR;
+
+  const txLeft = cx - dx * ratio;
+  const txRight = cx + dx * ratio;
+  const ty = cy - dy * ratio;
+
+  const xLeftFillet = cx - dx;
+  const xRightFillet = cx + dx;
+
+  const path = [
+    `M ${endR} 0`,
+    `L ${xLeftFillet.toFixed(2)} 0`,
+    `A ${filletR} ${filletR} 0 0 1 ${txLeft.toFixed(2)} ${ty.toFixed(2)}`,
+    `A ${cradleRadius} ${cradleRadius} 0 0 0 ${txRight.toFixed(2)} ${ty.toFixed(2)}`,
+    `A ${filletR} ${filletR} 0 0 1 ${xRightFillet.toFixed(2)} 0`,
+    `L ${W - endR} 0`,
+    `A ${endR} ${endR} 0 0 1 ${W - endR} ${H}`,
+    `L ${endR} ${H}`,
+    `A ${endR} ${endR} 0 0 1 ${endR} 0`,
+    'Z',
+  ].join(' ');
+
+  return { path, cx, cy, cradleRadius };
+}
+
 export const Navbar3D: React.FC<Navbar3DProps> = ({
   items,
   activeId,
   onSelect,
-  ariaLabel = 'Navigasi Bawah NP11 Liquid Pearl-Glass',
+  ariaLabel = 'Navigasi Bawah 3D NB2',
   className = '',
 }) => {
+  const navRef = useRef<HTMLElement | null>(null);
+  const [barWidth, setBarWidth] = useState<number>(380);
+  const uid = useId().replace(/:/g, '');
+  const gradBodyId = `nb2-body-${uid}`;
+  const gradRimId = `nb2-rim-${uid}`;
+  const clipId = `nb2-clip-${uid}`;
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+
+    const updateWidth = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 120) {
+        setBarWidth((prev) => (Math.abs(prev - w) >= 1 ? w : prev));
+      }
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateWidth);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
   const dockItems = items.slice(0, 5);
+  const barHeight = 64;
+  const { path, cx, cy, cradleRadius } = buildPorcelainDockPath(barWidth, barHeight);
 
   return (
     <nav
+      ref={navRef}
       aria-label={ariaLabel}
-      className={`np11-dock lg:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-4 max-w-md mx-auto z-40 overflow-visible rounded-full px-2 py-2 bg-gradient-to-b from-[#FFFFFF]/80 via-[#F5F2E9]/70 to-[#E9E4D8]/75 backdrop-blur-xl border border-white/90 shadow-[0_14px_32px_rgba(36,56,37,0.16),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_6px_rgba(36,56,37,0.06)] no-print select-none ${className}`.trim()}
+      className={`lg:hidden fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[94%] max-w-[430px] h-[64px] z-40 no-print select-none ${className}`.trim()}
     >
-      <div className="relative z-10 h-[44px] grid grid-cols-5 items-end overflow-visible">
+      {/* Shell SVG 3D Soft Porcelain dengan Lekukan Cradle Presisi */}
+      <svg
+        viewBox={`0 0 ${Math.max(300, Math.round(barWidth))} ${barHeight}`}
+        width="100%"
+        height={barHeight}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        className="nb2-porcelain-shell absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+      >
+        <defs>
+          <clipPath id={clipId}>
+            <path d={path} />
+          </clipPath>
+          <linearGradient id={gradBodyId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="var(--nb2-bar-top, #FDFBF5)" />
+            <stop offset="48%" stopColor="var(--nb2-bar-mid, #F5F0E3)" />
+            <stop offset="100%" stopColor="var(--nb2-bar-bot, #E3DCCB)" />
+          </linearGradient>
+          <linearGradient id={gradRimId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="var(--nb2-rim-top, rgba(255,255,255,0.95))" />
+            <stop offset="55%" stopColor="rgba(255,255,255,0.22)" />
+            <stop offset="100%" stopColor="var(--nb2-rim-bot, rgba(162,152,134,0.34))" />
+          </linearGradient>
+        </defs>
+
+        {/* Isi Porcelain */}
+        <path d={path} fill={`url(#${gradBodyId})`} />
+
+        {/* Bevel Kilau Bibir Dalam */}
+        <path
+          d={path}
+          clipPath={`url(#${clipId})`}
+          fill="none"
+          stroke={`url(#${gradRimId})`}
+          strokeWidth="3.5"
+        />
+
+        {/* Garis Tepi Halus Luar */}
+        <path
+          d={path}
+          fill="none"
+          stroke="var(--nb2-bar-stroke, rgba(210, 203, 187, 0.85))"
+          strokeWidth="1"
+        />
+
+        {/* Cincin Alur Konsentris di Sekeliling Orb Tengah */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={cradleRadius - 1}
+          fill="none"
+          stroke="var(--nb2-ring-stroke, rgba(178, 188, 170, 0.55))"
+          strokeWidth="1.2"
+        />
+      </svg>
+
+      {/* Grid 5 Destinasi Simetris */}
+      <div className="relative z-10 h-full grid grid-cols-5 items-center px-1.5 sm:px-2">
         {dockItems.map((item) => {
           const isActive = item.id === activeId;
           const dockLabel = item.id === 'dashboard' ? 'Dasbor' : item.shortLabel;
@@ -359,7 +495,7 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
             return (
               <div
                 key={item.id}
-                className="relative h-full flex flex-col items-center justify-end overflow-visible"
+                className="relative flex flex-col items-center justify-center h-full"
               >
                 <button
                   type="button"
@@ -368,71 +504,47 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
                   aria-label={item.ariaLabel || item.label}
                   aria-pressed={item.ariaPressed}
                   title={item.label}
-                  className={`relative h-full w-full flex flex-col items-center justify-end pb-1 overflow-visible cursor-pointer group focus-visible:outline-none disabled:opacity-70 ${
-                    isActive || isScanning ? 'scale-[1.03]' : ''
-                  } transition-transform duration-200`}
+                  className={`nb2-center-orb -mt-[25px] w-[62px] h-[62px] rounded-full flex flex-col items-center justify-center gap-0.5 relative cursor-pointer transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2B3F29] focus-visible:ring-offset-2 disabled:opacity-70 ${
+                    isActive || isScanning ? 'scale-[1.04]' : 'hover:scale-[1.02]'
+                  }`}
                 >
-                  <div
-                    className={`np11-center-orb -mt-8 w-16 h-16 shrink-0 rounded-full flex items-center justify-center bg-gradient-to-b from-[#E5EEE3]/85 to-[#B9CEB4]/75 backdrop-blur-lg border-2 border-white/90 shadow-[0_10px_24px_rgba(36,56,37,0.24),inset_0_2px_5px_rgba(255,255,255,0.9)] relative transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-95 group-focus-visible:ring-2 group-focus-visible:ring-[#243825] ${
-                      isActive || isScanning
-                        ? 'ring-2 ring-[#243825]/25'
-                        : ''
-                    }`}
-                  >
-                    {isScanning && (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="absolute -inset-2 rounded-full bg-[#384E35]/35 animate-ping pointer-events-none"
-                        />
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-0 rounded-full bg-[#C6D2BF]/40 animate-ping [animation-delay:300ms] pointer-events-none"
-                        />
-                      </>
+                  {isScanning && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="absolute -inset-2 rounded-full bg-[#384E35]/40 animate-ping pointer-events-none"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-full bg-[#C6D2BF]/40 animate-ping [animation-delay:300ms] pointer-events-none"
+                      />
+                    </>
+                  )}
+                  <span className="relative z-10 flex items-center justify-center">
+                    {item.isLoading ? (
+                      <Navbar3DEmblem
+                        name={emblemName}
+                        active={isActive || isScanning}
+                        isCenter
+                        isLoading={item.isLoading}
+                      />
+                    ) : item.icon3d ? (
+                      <Icon3D
+                        name={item.icon3d}
+                        className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-[0_2px_3px_rgba(12,24,12,0.42)]"
+                      />
+                    ) : (
+                      <Navbar3DEmblem
+                        name={emblemName}
+                        active={isActive || isScanning}
+                        isCenter
+                        isLoading={item.isLoading}
+                      />
                     )}
-                    <span className="relative z-10 flex items-center justify-center">
-                      {item.isLoading ? (
-                        <Navbar3DEmblem
-                          name={emblemName}
-                          active={isActive || isScanning}
-                          isCenter
-                          isLoading={item.isLoading}
-                        />
-                      ) : item.icon3d ? (
-                        <Icon3D
-                          name={item.icon3d}
-                          className="w-11 h-11 object-contain drop-shadow-[0_4px_8px_rgba(36,56,37,0.25)]"
-                        />
-                      ) : (
-                        <Navbar3DEmblem
-                          name={emblemName}
-                          active={isActive || isScanning}
-                          isCenter
-                          isLoading={item.isLoading}
-                        />
-                      )}
-                    </span>
-                  </div>
-
-                  <span
-                    className={`mt-0.5 text-[11px] font-semibold tracking-tight leading-none whitespace-nowrap ${
-                      isActive
-                        ? 'text-[#243825] font-bold dark:text-[#ECFDF5]'
-                        : 'text-[#2B3B2B] dark:text-[#D5E2D4]'
-                    }`}
-                  >
+                  </span>
+                  <span className="relative z-10 text-[10.5px] font-bold tracking-tight leading-none text-[#F7F3E8] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)] whitespace-nowrap">
                     {dockLabel}
                   </span>
-
-                  <span
-                    aria-hidden="true"
-                    className={`w-1.5 h-1.5 rounded-full mt-0.5 transition-all duration-200 ${
-                      isActive
-                        ? 'bg-[#243825] dark:bg-[#86EFAC] opacity-100 scale-100'
-                        : 'bg-transparent opacity-0 scale-0'
-                    }`}
-                  />
                 </button>
               </div>
             );
@@ -444,40 +556,40 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
               type="button"
               onClick={() => onSelect(item.id)}
               aria-label={item.ariaLabel || item.label}
-              className="relative h-full flex flex-col items-center justify-end overflow-visible cursor-pointer group focus-visible:outline-none"
+              className="relative h-full flex items-center justify-center cursor-pointer group focus-visible:outline-none"
             >
               <div
-                className={`relative flex flex-col items-center justify-end px-2.5 pb-1.5 rounded-3xl overflow-visible transition-all duration-200 active:scale-[0.95] group-focus-visible:ring-2 group-focus-visible:ring-[#243825] ${
+                className={`relative w-[92%] max-w-[78px] h-[52px] rounded-full flex flex-col items-center justify-center px-1 transition-all duration-200 active:scale-[0.94] group-focus-visible:ring-2 group-focus-visible:ring-[#2B3F29] ${
                   isActive
-                    ? 'np11-active-aura bg-[#D9EAD3]/65 shadow-[0_0_20px_rgba(168,198,159,0.55),inset_0_1px_3px_rgba(255,255,255,0.9)]'
-                    : 'bg-transparent group-hover:bg-[#E5EEE3]/35'
+                    ? 'nb2-active-pill'
+                    : 'bg-transparent group-hover:bg-[#E5EEE3]/45'
                 }`}
               >
-                <div className="relative -mt-6 mb-0.5 flex items-center justify-center overflow-visible">
+                <div className="relative flex items-center justify-center">
                   {item.icon3d ? (
                     <Icon3D
                       name={item.icon3d}
-                      className={`w-11 h-11 drop-shadow-[0_6px_10px_rgba(36,56,37,0.22)] transition-transform duration-200 ${
-                        isActive ? 'scale-[1.04]' : 'group-hover:scale-[1.03]'
+                      className={`w-6 h-6 sm:w-[26px] sm:h-[26px] transition-transform duration-200 ${
+                        isActive
+                          ? 'scale-105 drop-shadow-[0_2px_3px_rgba(28,45,27,0.26)]'
+                          : 'drop-shadow-[0_1.5px_2px_rgba(28,45,27,0.18)]'
                       }`}
                     />
                   ) : (
-                    <div className="w-11 h-11 rounded-[22%] bg-[#2B3F29] flex items-center justify-center drop-shadow-[0_6px_10px_rgba(36,56,37,0.22)]">
-                      <Navbar3DEmblem name={emblemName} active={isActive} />
-                    </div>
+                    <Navbar3DEmblem name={emblemName} active={isActive} />
                   )}
                   {typeof item.badgeCount === 'number' && item.badgeCount > 0 && (
-                    <span className="absolute -top-1 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#C87058] text-white text-[9.5px] font-bold font-mono flex items-center justify-center tabular-nums ring-2 ring-[#FFFDF8] shadow-xs">
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C87058] text-white text-[9.5px] font-bold font-mono flex items-center justify-center tabular-nums ring-1 ring-[#FFFDF8] shadow-xs">
                       {item.badgeCount > 9 ? '9+' : item.badgeCount}
                     </span>
                   )}
                 </div>
 
                 <span
-                  className={`text-[11px] font-semibold tracking-tight leading-none whitespace-nowrap max-w-full truncate ${
+                  className={`text-[10.5px] mt-0.5 leading-none truncate max-w-full whitespace-nowrap ${
                     isActive
-                      ? 'text-[#243825] font-bold dark:text-[#ECFDF5]'
-                      : 'text-[#324232] dark:text-[#CBD5C9]'
+                      ? 'font-bold text-[#1A271A] dark:text-[#F2F5F0]'
+                      : 'font-semibold text-[#3B483B] dark:text-[#CBD5C9]'
                   }`}
                 >
                   {dockLabel}
@@ -487,7 +599,7 @@ export const Navbar3D: React.FC<Navbar3DProps> = ({
                   aria-hidden="true"
                   className={`w-1.5 h-1.5 rounded-full mt-0.5 transition-all duration-200 ${
                     isActive
-                      ? 'bg-[#243825] dark:bg-[#86EFAC] opacity-100 scale-100'
+                      ? 'bg-[#748B6E] dark:bg-[#86EFAC] opacity-100 scale-100'
                       : 'bg-transparent opacity-0 scale-0'
                   }`}
                 />

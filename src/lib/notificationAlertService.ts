@@ -2266,8 +2266,8 @@ export async function showOsNotification(payload: {
 
     const webOptions: NotificationOptions & { vibrate?: number[]; renotify?: boolean } = {
       body,
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      icon: '/app-icon.jpg',
+      badge: '/app-icon.jpg',
       tag,
       renotify: true,
       requireInteraction: true,

@@ -2,7 +2,6 @@ import { Capacitor } from '@capacitor/core';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import watermarkMossAsset from '../assets/saung-kebun-watermark-moss.png';
-import transparentLogoAsset from '../assets/saung-kebun-logo-transparent.png';
 import {
   type AppBrandConfig,
   type TransaksiIPL,
@@ -450,7 +449,7 @@ async function drawOfficialKop(
   subtitle: string
 ): Promise<number> {
   let y = PAGE_MARGIN;
-  const logoDataUrl = await loadImageAsDataUrl(transparentLogoAsset);
+  const logoDataUrl = await loadImageAsDataUrl(brand.logo_url);
 
   if (logoDataUrl) {
     try {

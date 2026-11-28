@@ -1210,46 +1210,23 @@ export function PetugasPortalPage({
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar 260px) */}
       <aside
         aria-label="Navigasi Sidebar Portal Keamanan"
-        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar-panel border-r border-white/25 shadow-[8px_0_32px_-12px_rgba(20,32,21,0.18)] no-print"
+        className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[260px] z-30 glass-sidebar bg-[#FFFDF8]/92 backdrop-blur-xl border-r border-[#E6E2D6] shadow-[8px_0_30px_-14px_rgba(36,56,37,0.12)] no-print"
       >
-        <div className="relative overflow-hidden px-4 pt-5 pb-4 glass-header-green border-b border-white/15 text-[#FFFDF8] shrink-0">
-          <SaungKebunWatermark className="absolute -right-6 -bottom-4 w-32 h-24" tone="cream" />
+        <div className="px-4 pt-5 pb-4 border-b border-[#E6E2D6] shrink-0">
           <button
             type="button"
             onClick={() => handleSelectTabFromSidebar('scan')}
-            className="relative z-10 w-full flex items-center gap-3 text-left cursor-pointer group"
+            className="w-full flex items-center gap-3 text-left cursor-pointer group"
           >
-            <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
+            <BrandLogo size="md" variant="light" className="shrink-0" />
             <div className="min-w-0">
-              <p className="font-serif-brand text-sm font-bold tracking-tight text-[#FFFDF8] leading-tight truncate">
+              <p className="font-serif-brand text-sm font-bold tracking-tight text-[#1B271B] leading-tight truncate">
                 {brand.app_name || 'Perumahan Saung Kebun'}
               </p>
-              <p className="text-[11px] font-medium text-[#E5EEE3]/85 truncate mt-0.5">
+              <p className="text-[11px] font-medium text-[#6E786D] truncate mt-0.5">
                 Portal Petugas Keamanan
               </p>
             </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenProfileFromSidebar}
-            className="relative z-10 group mt-3.5 w-full p-2.5 rounded-2xl glass-profile-card bg-white/15 hover:bg-white/22 backdrop-blur-md border border-white/25 shadow-md flex items-center gap-2.5 text-left transition-all duration-200 cursor-pointer"
-          >
-            <UserAvatar
-              name={profil.nama}
-              src={effectiveAvatarUrl}
-              size="sm"
-              className="shrink-0 ring-2 ring-[#E5EEE3]/60 transition-all"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#FFFDF8] truncate leading-tight transition-colors">
-                {profil.nama}
-              </p>
-              <p className="text-[11px] text-[#E5EEE3]/85 truncate mt-0.5 leading-tight">
-                Keamanan · {effectiveShiftLabel}
-              </p>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-[#E5EEE3]/80 group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
           </button>
         </div>
 
@@ -1263,7 +1240,29 @@ export function PetugasPortalPage({
           </div>
         </div>
 
-        <div className="relative z-10 mt-auto px-4 pt-3.5 pb-4 border-t border-white/25 glass-sidebar-footer space-y-2.5 shrink-0">
+        <div className="relative z-10 mt-auto px-4 pt-3.5 pb-4 border-t border-[#E6E2D6] bg-[#F7F4EC]/75 space-y-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenProfileFromSidebar}
+            className="group w-full p-3 rounded-2xl bg-[#FFFDF8] hover:bg-[#E5EEE3]/60 border border-[#E6E2D6] hover:border-[#C6D2BF] shadow-2xs flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
+          >
+            <UserAvatar
+              name={profil.nama}
+              src={effectiveAvatarUrl}
+              size="sm"
+              className="shrink-0 ring-2 ring-[#C6D2BF] transition-all"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-[#1B271B] group-hover:text-[#243825] truncate leading-tight transition-colors">
+                {profil.nama}
+              </p>
+              <p className="text-[11px] text-[#6E786D] truncate mt-0.5 leading-tight">
+                Keamanan · {effectiveShiftLabel}
+              </p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-[#6E786D] group-hover:text-[#243825] group-hover:translate-x-0.5 shrink-0 transition-all duration-200" />
+          </button>
+
           <button
             type="button"
             onClick={handleLogoutFromSidebar}
@@ -1300,13 +1299,13 @@ export function PetugasPortalPage({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar-panel rounded-r-3xl border-r border-white/25 shadow-2xl flex flex-col overflow-hidden"
+              className="relative z-10 w-[84vw] max-w-[328px] md:max-w-[360px] h-full glass-sidebar bg-[#FFFDF8] rounded-r-3xl border-r border-[#E6E2D6] shadow-2xl flex flex-col overflow-hidden"
             >
-              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 glass-header-green border-b border-white/15 text-[#FFFDF8] shrink-0">
+              <div className="relative overflow-hidden px-4 pt-[calc(max(env(safe-area-inset-top,0px),18px)+0.75rem)] pb-4 bg-gradient-to-br from-[#243825] via-[#2B3F29] to-[#384E35] text-[#FFFDF8] shrink-0">
                 <SaungKebunWatermark className="absolute -right-4 -bottom-4 w-28 h-36" tone="cream" />
                 <div className="relative z-10 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <BrandLogo size="md" variant="dark" srcOverride={null} className="shrink-0" />
+                    <BrandLogo size="md" variant="dark" className="shrink-0" />
                     <div className="min-w-0">
                       <p className="font-serif-brand text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                         {brand?.app_name || 'Perumahan Saung Kebun'}
@@ -1329,7 +1328,7 @@ export function PetugasPortalPage({
                 <button
                   type="button"
                   onClick={handleOpenProfileFromSidebar}
-                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl glass-profile-card bg-white/15 hover:bg-white/22 backdrop-blur-md border border-white/25 shadow-md flex items-center gap-3 transition-all duration-200 cursor-pointer"
+                  className="relative z-10 group mt-4 w-full text-left p-3 rounded-2xl bg-[#FFFDF8]/12 hover:bg-[#FFFDF8]/20 border border-[#FFFDF8]/20 hover:border-[#FFFDF8]/35 flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
                   <UserAvatar
                     name={profil.nama}
@@ -1359,7 +1358,7 @@ export function PetugasPortalPage({
                 </div>
               </div>
 
-              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/25 glass-sidebar-footer space-y-2.5 shrink-0">
+              <div className="relative z-10 mt-auto px-4 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#E6E2D6] bg-[#F7F4EC] space-y-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleLogoutFromSidebar}
@@ -1375,15 +1374,15 @@ export function PetugasPortalPage({
         )}
       </AnimatePresence>
 
-      {/* Header Tetap & Anti-Geser Frosted Glass Khusus Petugas (Offset lg:left-[260px] pada Desktop) */}
-      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4.85rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] glass-header-green text-[#FFFDF8] border-b border-white/15 flex items-center shadow-lg">
+      {/* Header Tetap & Anti-Geser Khusus Petugas (Offset lg:left-[260px] pada Desktop) */}
+      <header className="fixed top-0 left-0 right-0 lg:left-[260px] z-40 h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-[#243825] text-[#FFFDF8] border-b border-[#384E35]/60 flex items-center shadow-md">
         <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
           <img
             src={bgHeaderAsset}
             alt=""
-            className="w-full h-full object-cover object-center opacity-35"
+            className="w-full h-full object-cover object-center opacity-45"
           />
-          <div className="absolute inset-0 bg-[#243825]/78 backdrop-blur-md" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1A291B]/82 via-[#243825]/72 to-[#243825]/88" />
         </div>
         <div className="relative z-10 max-w-3xl w-full mx-auto px-3 sm:px-4 flex flex-nowrap items-center justify-between gap-2 min-w-0">
           <div className="flex flex-nowrap items-center gap-2.5 min-w-0 flex-1">
@@ -1397,7 +1396,7 @@ export function PetugasPortalPage({
               <Menu className="w-5 h-5" />
             </button>
 
-            <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
+            <BrandLogo size="xs" variant="dark" className="shrink-0 lg:hidden" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-[#FFFDF8] leading-tight truncate">
                 {profil.nama}
@@ -1446,7 +1445,7 @@ export function PetugasPortalPage({
         </div>
       </header>
 
-      <main className="lg:pl-[260px] pt-[calc(4.85rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(8rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="lg:pl-[260px] pt-[calc(4rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-3xl mx-auto px-3 py-3 sm:px-4 space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState

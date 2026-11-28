@@ -272,7 +272,7 @@ export function AdminLoginPage({ onLoginSuccess, onSwitchPortal }: AdminLoginPag
       {/* Bar Atas: Logo Transparan Krem + Teks Serif "Saung Kebun" di Kiri, Pil "Cek Update" + Lonceng di Kanan */}
       <header className="relative z-10 w-full max-w-lg mx-auto px-4 sm:px-6 pt-[calc(max(env(safe-area-inset-top,0px),14px)+0.5rem)] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
+          <BrandLogo size="sm" variant="dark" className="shrink-0" />
           <span className="font-serif-brand text-xl font-bold tracking-tight text-[#FFFDF8] truncate drop-shadow-xs">
             Saung Kebun
           </span>

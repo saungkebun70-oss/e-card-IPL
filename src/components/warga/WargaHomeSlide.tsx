@@ -299,7 +299,7 @@ export function WargaHomeSlide({
           {/* Header Kartu */}
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <BrandLogo size="sm" variant="dark" srcOverride={null} className="shrink-0" />
+              <BrandLogo size="sm" variant="dark" className="shrink-0" />
               <div>
                 <p className="text-sm font-serif-brand font-bold tracking-tight text-[#FFFDF8]">
                   e-Card Verifikasi IPL
