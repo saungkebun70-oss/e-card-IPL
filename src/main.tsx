@@ -8,18 +8,56 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { initBugReportErrorCollector } from './lib/bugReportService.ts';
 import './index.css';
 
-initBugReportErrorCollector();
+declare global {
+  interface Window {
+    __ECARD_APP_MOUNTED__?: boolean;
+    __ECARD_RENDER_BOOT_FALLBACK__?: (reason?: string) => void;
+    __ECARD_TRY_CHUNK_RECOVERY__?: () => boolean;
+  }
+}
 
-createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary>
-    <ThemeProvider>
-      <AppUpdateProvider>
-        <BrandProvider>
-          <AppUpdateBanner />
-          <OfflineOverlay />
-          <App />
-        </BrandProvider>
-      </AppUpdateProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
-);
+try {
+  initBugReportErrorCollector();
+} catch {
+  // Abaikan agar error collector tidak pernah memblokir render awal
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    if (!window.__ECARD_TRY_CHUNK_RECOVERY__?.()) {
+      window.location.reload();
+    }
+  });
+}
+
+try {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Elemen #root tidak ditemukan di halaman.');
+  }
+
+  createRoot(rootElement).render(
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppUpdateProvider>
+          <BrandProvider>
+            <AppUpdateBanner />
+            <OfflineOverlay />
+            <App />
+          </BrandProvider>
+        </AppUpdateProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
+
+  if (typeof window !== 'undefined') {
+    window.__ECARD_APP_MOUNTED__ = true;
+  }
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'Gagal memulai antarmuka aplikasi.';
+  if (typeof window !== 'undefined' && typeof window.__ECARD_RENDER_BOOT_FALLBACK__ === 'function') {
+    window.__ECARD_RENDER_BOOT_FALLBACK__(message);
+  }
+  console.error('[BOOT_ERROR]', err);
+}

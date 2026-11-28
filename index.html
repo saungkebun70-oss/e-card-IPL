@@ -46,6 +46,127 @@
   </head>
   <body class="bg-[var(--theme-bg)] text-[var(--theme-text)] antialiased selection:bg-[var(--theme-primary)]/15 selection:text-[var(--theme-primary-text)]">
     <div id="root"></div>
+    <script>
+      (function () {
+        window.__ECARD_APP_MOUNTED__ = false;
+        var RELOAD_GUARD_KEY = 'ecard_boot_reload_guard_v1';
+        var fallbackRendered = false;
+        var capturedBootError = '';
+
+        function clearCachesAndReload() {
+          try {
+            var finish = function () {
+              try {
+                var nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.set('_v', String(Date.now()));
+                window.location.replace(nextUrl.toString());
+              } catch (e) {
+                window.location.reload();
+              }
+            };
+            var tasks = [];
+            if (window.caches && typeof window.caches.keys === 'function') {
+              tasks.push(
+                window.caches.keys().then(function (keys) {
+                  return Promise.all((keys || []).map(function (k) { return window.caches.delete(k); }));
+                }).catch(function () {})
+              );
+            }
+            if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
+              tasks.push(
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all((regs || []).map(function (r) { return r.unregister(); }));
+                }).catch(function () {})
+              );
+            }
+            if (tasks.length > 0) {
+              Promise.all(tasks).finally(finish);
+            } else {
+              finish();
+            }
+          } catch (e) {
+            window.location.reload();
+          }
+        }
+
+        function tryGuardedAutoReload() {
+          try {
+            var now = Date.now();
+            var last = Number(window.sessionStorage.getItem(RELOAD_GUARD_KEY) || '0');
+            if (!last || now - last > 15000) {
+              window.sessionStorage.setItem(RELOAD_GUARD_KEY, String(now));
+              clearCachesAndReload();
+              return true;
+            }
+          } catch (e) {}
+          return false;
+        }
+
+        function renderBootFallback(reason) {
+          if (window.__ECARD_APP_MOUNTED__ || fallbackRendered) return;
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          fallbackRendered = true;
+          var msg = reason || capturedBootError || 'Koneksi atau cache browser perlu disegarkan.';
+          root.innerHTML =
+            '<div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,sans-serif;">' +
+              '<div style="width:100%;max-width:380px;background:#FFFDF8;color:#1B271B;border:1px solid #E6E2D6;border-radius:24px;padding:24px;text-align:center;box-shadow:0 12px 32px rgba(36,56,37,0.12);">' +
+                '<h1 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#243825;">Aplikasi Perlu Dimuat Ulang</h1>' +
+                '<p style="margin:0 0 18px;font-size:13px;line-height:1.5;color:#4A554A;">Versi terbaru sedang disiapkan atau jaringan sempat terputus. Ketuk tombol di bawah untuk memuat ulang.</p>' +
+                '<button id="ecard-boot-reload-btn" type="button" style="min-height:44px;padding:0 22px;border:none;border-radius:9999px;background:#2B3F29;color:#FFFDF8;font-size:14px;font-weight:700;cursor:pointer;">Muat Ulang Aplikasi</button>' +
+                '<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #EAE5D9;font-size:11px;color:#6E786D;word-break:break-word;">' + String(msg).replace(/[<>&]/g, '') + '</p>' +
+              '</div>' +
+            '</div>';
+          var btn = document.getElementById('ecard-boot-reload-btn');
+          if (btn) {
+            btn.addEventListener('click', function () {
+              btn.disabled = true;
+              btn.textContent = 'Memuat ulang...';
+              clearCachesAndReload();
+            });
+          }
+        }
+
+        window.__ECARD_RENDER_BOOT_FALLBACK__ = renderBootFallback;
+        window.__ECARD_TRY_CHUNK_RECOVERY__ = tryGuardedAutoReload;
+
+        window.addEventListener('error', function (event) {
+          if (window.__ECARD_APP_MOUNTED__) return;
+          var target = event && event.target;
+          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+            var src = target.src || target.href || '';
+            capturedBootError = 'Gagal memuat modul aplikasi' + (src ? ' (' + src.split('/').pop() + ')' : '');
+            if (!tryGuardedAutoReload()) {
+              renderBootFallback(capturedBootError);
+            }
+            return;
+          }
+          if (event && event.message) {
+            capturedBootError = String(event.message);
+            renderBootFallback(capturedBootError);
+          }
+        }, true);
+
+        window.addEventListener('vite:preloadError', function (event) {
+          if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+          }
+          if (!tryGuardedAutoReload() && !window.__ECARD_APP_MOUNTED__) {
+            renderBootFallback('Gagal memuat pembaruan modul.');
+          }
+        });
+
+        window.setTimeout(function () {
+          if (window.__ECARD_APP_MOUNTED__) return;
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            if (!tryGuardedAutoReload()) {
+              renderBootFallback(capturedBootError);
+            }
+          }
+        }, 4500);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

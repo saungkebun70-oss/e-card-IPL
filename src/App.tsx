@@ -219,29 +219,37 @@ function resolveInitialPortalAndSession(): { route: PortalRoute; session: Sessio
   if (typeof window === 'undefined') {
     return { route: 'warga', session: null };
   }
-  const pathname = window.location.pathname || '/';
-  const pathRoute = resolvePortalRouteFromPath(pathname);
-  const directSession = loadStoredSession(pathRoute);
-  if (directSession) {
-    return { route: pathRoute, session: directSession };
-  }
-
-  // Saat membuka ulang aplikasi / APK atau kembali ke URL utama (/),
-  // pulihkan otomatis sesi akun terakhir yang masih aktif (Warga / Pengurus / Petugas)
-  // agar tidak langsung keluar login sebelum tombol Keluar ditekan.
-  const isRootEntry = pathname === '/' || pathname === '' || pathname === '/index.html';
-  if (isRootEntry) {
-    const lastActive = loadLastActiveSession();
-    if (lastActive) {
-      const targetPath = getPathForPortalRoute(lastActive.role);
-      if (window.location.pathname !== targetPath) {
-        window.history.replaceState({ ecardSessionGuard: true, route: lastActive.role }, '', targetPath);
-      }
-      return { route: lastActive.role, session: lastActive };
+  try {
+    const pathname = window.location.pathname || '/';
+    const pathRoute = resolvePortalRouteFromPath(pathname);
+    const directSession = loadStoredSession(pathRoute);
+    if (directSession) {
+      return { route: pathRoute, session: directSession };
     }
-  }
 
-  return { route: pathRoute, session: null };
+    // Saat membuka ulang aplikasi / APK atau kembali ke URL utama (/),
+    // pulihkan otomatis sesi akun terakhir yang masih aktif (Warga / Pengurus / Petugas)
+    // agar tidak langsung keluar login sebelum tombol Keluar ditekan.
+    const isRootEntry = pathname === '/' || pathname === '' || pathname === '/index.html';
+    if (isRootEntry) {
+      const lastActive = loadLastActiveSession();
+      if (lastActive) {
+        const targetPath = getPathForPortalRoute(lastActive.role);
+        if (window.location.pathname !== targetPath) {
+          try {
+            window.history.replaceState({ ecardSessionGuard: true, route: lastActive.role }, '', targetPath);
+          } catch {
+            // Abaikan bila history.replaceState dibatasi WebView
+          }
+        }
+        return { route: lastActive.role, session: lastActive };
+      }
+    }
+
+    return { route: pathRoute, session: null };
+  } catch {
+    return { route: 'warga', session: null };
+  }
 }
 
 export default function App() {
@@ -1052,7 +1060,7 @@ export default function App() {
       );
     }
 
-    if (loadingData && !wargaData && !adminData) {
+    if ((loadingData || (!wargaData && !adminData)) && !dataError) {
       return (
         <ContentLoadingState
           message={
