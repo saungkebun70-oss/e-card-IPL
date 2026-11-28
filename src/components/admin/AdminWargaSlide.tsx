@@ -701,9 +701,9 @@ export function AdminWargaSlide({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5 pb-[100px] w-full max-w-full min-w-0">
+    <div className="w-full max-w-none min-w-0 flex flex-col gap-3 pb-28 md:pb-24 lg:pb-0 lg:flex-1 lg:min-h-0">
       {/* Segmented Tab Pemisahan Akun: Warga Reguler vs Pengurus Lingkungan (Anti-Dobel) */}
-      <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full max-w-full min-w-0">
+      <div className="shrink-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full max-w-none min-w-0">
         <div className="grid grid-cols-2 sm:inline-flex items-center gap-1.5 p-1 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6]">
           <button
             type="button"
@@ -762,7 +762,7 @@ export function AdminWargaSlide({
       {activeSubTab === 'warga' ? (
         <>
       {/* Toolbar Pencarian & Tombol Aksi */}
-      <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 w-full max-w-full min-w-0">
+      <div className="shrink-0 relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-3 lg:px-4 lg:py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 w-full max-w-none min-w-0">
         <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
           <Search className="w-4 h-4 text-[#6B7168] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -781,7 +781,7 @@ export function AdminWargaSlide({
               setSyncExistingNames(false);
               setImportModalOpen(true);
             }}
-            className="min-h-[38px] sm:min-h-[42px] px-3 py-1.5 sm:px-4 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d5e5d2] text-[#243825] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-xs min-w-0"
+            className="min-h-[38px] sm:min-h-[40px] px-3 py-1.5 sm:px-4 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d5e5d2] text-[#243825] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-xs min-w-0"
           >
             <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
             <span className="truncate">
@@ -793,7 +793,7 @@ export function AdminWargaSlide({
           <button
             type="button"
             onClick={openAddModal}
-            className="min-h-[38px] sm:min-h-[42px] px-3 py-1.5 sm:px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-sm min-w-0"
+            className="min-h-[38px] sm:min-h-[40px] px-3 py-1.5 sm:px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-sm min-w-0"
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
             <span className="truncate">Tambah Warga Baru</span>
@@ -802,7 +802,7 @@ export function AdminWargaSlide({
       </div>
 
       {/* Bar Filter Status Hunian & Counter Unit Real-Time */}
-      <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-3.5 space-y-2 w-full max-w-full min-w-0">
+      <div className="shrink-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 space-y-2 w-full max-w-none min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -1127,30 +1127,30 @@ export function AdminWargaSlide({
       </div>
 
       {/* Daftar / Tabel Master Data Warga (Desktop & Tablet >= md) */}
-      <section className="hidden md:block w-full min-w-0">
-        <div className="saung-table-scroll w-full md:max-h-[calc(100vh-380px)] lg:max-h-[calc(100vh-360px)] min-h-[340px] overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)]">
-          <table className="w-full min-w-max text-left border-collapse">
-            <thead className="sticky top-0 z-20 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
+      <section className="hidden md:flex md:flex-col flex-1 min-h-0 w-full min-w-0">
+        <div className="saung-table-scroll flex-1 min-h-0 md:max-h-[calc(100vh-360px)] lg:max-h-none md:min-h-[300px] lg:min-h-[200px] w-full overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-sm">
+          <table className="w-full table-auto text-left border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
               <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3] text-xs font-semibold text-[#243825]">
-                <th className="sticky left-0 z-30 bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle border-r border-[#C6D2BF] shadow-[4px_0_12px_-4px_rgba(36,56,37,0.08)]">
-                  Blok / Username
+                <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap align-middle">
+                  Blok
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 min-w-[180px] whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap align-middle">
                   Nama Warga
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
-                  No. WhatsApp Terdaftar
+                <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap align-middle">
+                  No. WhatsApp
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap align-middle">
                   Status Hunian
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 text-right whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] px-3 py-2.5 text-right whitespace-nowrap align-middle">
                   Iuran Wajib
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap align-middle">
-                  PIN (6 Digit)
+                <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap align-middle">
+                  PIN
                 </th>
-                <th className="bg-[#E5EEE3] py-3.5 px-4 pr-5 text-left whitespace-nowrap align-middle">
+                <th className="bg-[#E5EEE3] px-3 py-2.5 text-right whitespace-nowrap align-middle">
                   Aksi
                 </th>
               </tr>
@@ -1181,11 +1181,11 @@ export function AdminWargaSlide({
                       key={w.id}
                       className="group bg-[#FFFDF8] hover:bg-[#F6F3EA]/80 transition-colors"
                     >
-                      <td className="sticky left-0 z-10 bg-[#FFFDF8] group-hover:bg-[#F6F3EA] py-3.5 px-4 font-mono font-bold text-[#1B271B] whitespace-nowrap align-middle border-r border-[#E6E2D6] shadow-[4px_0_12px_-4px_rgba(36,56,37,0.08)] transition-colors">
+                      <td className="px-3 py-2.5 font-mono font-bold text-[#1B271B] whitespace-nowrap align-middle">
                         {formatBlokRumah(w.blok_rumah) || w.blok_rumah}
                       </td>
-                      <td className="py-3.5 px-4 min-w-[180px] max-w-[250px] whitespace-normal align-middle">
-                        <div className="flex items-center gap-2.5">
+                      <td className="px-3 py-2.5 min-w-[140px] max-w-[220px] whitespace-normal align-middle">
+                        <div className="flex items-center gap-2">
                           <UserAvatar
                             name={w.nama_warga}
                             src={
@@ -1196,12 +1196,12 @@ export function AdminWargaSlide({
                             size="sm"
                           />
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1">
                               <p className="font-semibold text-[#1B271B] leading-snug line-clamp-2">
                                 {w.nama_warga}
                               </p>
                               {isPrivilegedBot && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#243825] text-[#FFFDF8] text-[10px] font-semibold whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#243825] text-[#FFFDF8] text-[10px] font-semibold whitespace-nowrap">
                                   <ShieldCheck className="w-3 h-3 text-[#E5EEE3] shrink-0" />
                                   {w.bot_role === 'bendahara' ? 'Bendahara Bot' : 'Pengurus Bot'}
                                 </span>
@@ -1213,35 +1213,35 @@ export function AdminWargaSlide({
                           </div>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap align-middle">
+                      <td className="px-3 py-2.5 whitespace-nowrap align-middle">
                         {hasAnyRealWa ? (
                           <div className="flex flex-col items-start gap-1">
                             {hasPrimaryWa && (
-                              <span className="inline-flex items-center h-7 px-2.5 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] font-mono text-xs font-semibold tabular-nums whitespace-nowrap">
+                              <span className="inline-flex items-center h-6 px-2 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] font-mono text-xs font-semibold tabular-nums whitespace-nowrap">
                                 {formatPhoneDisplay(w.no_wa)}
                               </span>
                             )}
                             {hasSecondaryWa && (
-                              <span className="inline-flex items-center h-6 px-2 rounded-lg bg-[#F6F3EA] border border-[#E6E2D6] text-[#4A554A] font-mono text-[11px] tabular-nums whitespace-nowrap">
+                              <span className="inline-flex items-center h-5 px-2 rounded-lg bg-[#F6F3EA] border border-[#E6E2D6] text-[#4A554A] font-mono text-[10.5px] tabular-nums whitespace-nowrap">
                                 {formatPhoneDisplay(w.secondary_whatsapp)} (Cadangan)
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center h-7 px-2.5 rounded-lg bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] text-xs font-medium whitespace-nowrap">
+                          <span className="inline-flex items-center h-6 px-2 rounded-lg bg-[#F6F3EA] border border-[#E6E2D6] text-[#6E786D] text-xs font-medium whitespace-nowrap">
                             Belum Ada WA
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-3 py-2.5 align-middle">
+                        <div className="flex flex-wrap items-center gap-1">
                           {isKosong ? (
-                            <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#F2D8A7]/70 border border-[#E2C285] text-[#4A3410] text-xs font-semibold leading-none whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-[#F2D8A7]/70 border border-[#E2C285] text-[#4A3410] text-xs font-semibold leading-none whitespace-nowrap">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#8A5F16] shrink-0" />
                               Kosong
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-semibold leading-none whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-semibold leading-none whitespace-nowrap">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#2B3F29] shrink-0" />
                               Dihuni
                               {w.status_hunian === 'Kontrak' && (
@@ -1262,7 +1262,7 @@ export function AdminWargaSlide({
                                   ? 'Ubah cepat menjadi Dihuni / Aktif'
                                   : 'Ubah cepat menjadi Rumah Kosong'
                               }
-                              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4A554A] hover:text-[#1B271B] leading-none transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
+                              className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[11px] font-semibold text-[#4A554A] hover:text-[#1B271B] leading-none transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
                             >
                               {togglingId === w.id ? (
                                 <Loader2 className="w-3 h-3 animate-spin shrink-0" />
@@ -1274,22 +1274,22 @@ export function AdminWargaSlide({
                           )}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-semibold text-[#1B271B] tabular-nums whitespace-nowrap align-middle">
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-[#1B271B] tabular-nums whitespace-nowrap align-middle">
                         {formatRupiah(w.nominal_iuran)}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#243825] tracking-wider tabular-nums whitespace-nowrap align-middle">
+                      <td className="px-3 py-2.5 font-mono font-bold text-[#243825] tracking-wider tabular-nums whitespace-nowrap align-middle">
                         {w.pin_akses}
                       </td>
-                      <td className="py-3.5 px-4 pr-5 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-[6px]">
+                      <td className="px-3 py-2.5 align-middle">
+                        <div className="flex flex-wrap items-center gap-1.5 justify-end">
                           {canManageFull && (
                             <button
                               type="button"
                               onClick={() => void handleResetPin(w)}
                               title="Acak / Reset PIN 6 Digit"
-                              className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
+                              className="px-2.5 py-1 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
                             >
-                              <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                              <KeyRound className="w-3 h-3 shrink-0" />
                               <span>Reset PIN</span>
                             </button>
                           )}
@@ -1301,9 +1301,9 @@ export function AdminWargaSlide({
                                 type="button"
                                 disabled
                                 title="Daftarkan nomor WA warga terlebih dahulu untuk mengaktifkan Bot"
-                                className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#E6E2D6] bg-[#F6F3EA] text-[#8E948A] text-xs font-semibold inline-flex items-center gap-1.5 cursor-not-allowed whitespace-nowrap shrink-0"
+                                className="px-2.5 py-1 rounded-full border border-[#E6E2D6] bg-[#F6F3EA] text-[#8E948A] text-xs font-semibold inline-flex items-center gap-1 cursor-not-allowed whitespace-nowrap shrink-0"
                               >
-                                <Bot className="w-3.5 h-3.5 shrink-0" />
+                                <Bot className="w-3 h-3 shrink-0" />
                                 <span>Aktivasi Bot</span>
                               </button>
                             ) : hasGatewayToken ? (
@@ -1312,12 +1312,12 @@ export function AdminWargaSlide({
                                 disabled={activatingId === w.id}
                                 onClick={() => void handleSendBotActivationGateway(w)}
                                 title={`Kirim Info Aktivasi Bot WA (perintah CEK) via ${botConfig?.provider || 'Fonnte'}`}
-                                className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] disabled:opacity-60 text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                                className="px-2.5 py-1 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] disabled:opacity-60 text-xs font-semibold text-[#243825] inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 {activatingId === w.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                                  <Loader2 className="w-3 h-3 animate-spin shrink-0" />
                                 ) : (
-                                  <Bot className="w-3.5 h-3.5 shrink-0" />
+                                  <Bot className="w-3 h-3 shrink-0" />
                                 )}
                                 <span>Aktivasi Bot</span>
                               </button>
@@ -1330,9 +1330,9 @@ export function AdminWargaSlide({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Kirim Info Aktivasi Bot WA ke warga bahwa perintah CEK sudah aktif"
-                                className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                                className="px-2.5 py-1 rounded-full border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] text-xs font-semibold text-[#243825] inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0"
                               >
-                                <Bot className="w-3.5 h-3.5 shrink-0" />
+                                <Bot className="w-3 h-3 shrink-0" />
                                 <span>Aktivasi Bot</span>
                               </a>
                             ))}
@@ -1343,9 +1343,9 @@ export function AdminWargaSlide({
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Kirim Template Akses Akun & PIN langsung ke WhatsApp warga"
-                              className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                              className="px-2.5 py-1 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                              <MessageCircle className="w-3 h-3 shrink-0" />
                               <span>Kirim WA</span>
                             </a>
                           ) : (
@@ -1353,9 +1353,9 @@ export function AdminWargaSlide({
                               type="button"
                               onClick={() => void handleCopyLoginInfo(w)}
                               title="Belum ada nomor WA terdaftar — salin template untuk dikirim manual"
-                              className="min-h-[34px] px-3 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4B5549] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                              className="px-2.5 py-1 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#4B5549] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                              <MessageCircle className="w-3 h-3 shrink-0" />
                               <span>Kirim WA</span>
                             </button>
                           )}
@@ -1364,16 +1364,16 @@ export function AdminWargaSlide({
                             type="button"
                             onClick={() => void handleCopyLoginInfo(w)}
                             title="Salin Template WA Akses Akun & PIN (e-card-ipl.vercel.app)"
-                            className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                            className="px-2.5 py-1 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                           >
                             {copiedId === w.id ? (
                               <>
-                                <Check className="w-3.5 h-3.5 shrink-0" />
+                                <Check className="w-3 h-3 shrink-0" />
                                 <span>Tersalin</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-3.5 h-3.5 shrink-0" />
+                                <Copy className="w-3 h-3 shrink-0" />
                                 <span>Salin</span>
                               </>
                             )}
@@ -1386,7 +1386,7 @@ export function AdminWargaSlide({
                                 onClick={() => openEditModal(w)}
                                 aria-label={`Edit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
                                 title={`Edit data ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
-                                className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4B5549] cursor-pointer shrink-0 transition-colors"
+                                className="h-7 w-7 flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4B5549] cursor-pointer shrink-0 transition-colors"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
@@ -1396,7 +1396,7 @@ export function AdminWargaSlide({
                                 onClick={() => setDeleteTarget(w)}
                                 aria-label={`Hapus ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
                                 title={`Hapus unit ${formatBlokRumah(w.blok_rumah) || w.blok_rumah}`}
-                                className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#FDF2EF] hover:border-[#E5B8AC] text-[#6B7168] hover:text-[#C87058] cursor-pointer shrink-0 transition-colors"
+                                className="h-7 w-7 flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#FDF2EF] hover:border-[#E5B8AC] text-[#6B7168] hover:text-[#C87058] cursor-pointer shrink-0 transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1414,7 +1414,7 @@ export function AdminWargaSlide({
       </section>
 
       {filteredWarga.length > PAGE_SIZE && (
-        <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-[#5F665D]">
+        <div className="shrink-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-[#5F665D]">
             <span className="tabular-nums text-center sm:text-left">
               Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
               {Math.min(safePage * PAGE_SIZE, filteredWarga.length)} dari {filteredWarga.length} unit
@@ -1446,9 +1446,9 @@ export function AdminWargaSlide({
       )}
         </>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3 w-full max-w-none min-w-0 lg:flex-1 lg:min-h-0">
           {/* Toolbar Tab Pengurus Lingkungan */}
-          <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
+          <div className="shrink-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-2xl sm:rounded-3xl p-3 lg:px-4 lg:py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
             <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
               <Search className="w-4 h-4 text-[#6B7168] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -1606,18 +1606,18 @@ export function AdminWargaSlide({
           </div>
 
           {/* Desktop Table Pengurus Lingkungan */}
-          <section className="hidden md:block w-full min-w-0">
-            <div className="saung-table-scroll w-full md:max-h-[calc(100vh-380px)] lg:max-h-[calc(100vh-360px)] min-h-[340px] overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-[0_8px_24px_-12px_rgba(27,39,27,0.08)]">
-              <table className="w-full min-w-max text-left border-collapse">
-                <thead className="sticky top-0 z-20 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
+          <section className="hidden md:flex md:flex-col flex-1 min-h-0 w-full min-w-0">
+            <div className="saung-table-scroll flex-1 min-h-0 md:max-h-[calc(100vh-360px)] lg:max-h-none md:min-h-[300px] lg:min-h-[200px] w-full overflow-y-auto overflow-x-auto overscroll-contain rounded-2xl border border-[#E6E2D6] bg-[#FFFDF8] shadow-sm">
+              <table className="w-full table-auto text-left border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-[#E5EEE3] text-[#243825] shadow-[0_1px_0_#C6D2BF]">
                   <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3] text-xs font-semibold text-[#243825]">
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Pengurus &amp; Username</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Jabatan</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Unit / Blok Rumah</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">No. WhatsApp</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">PIN 6 Digit</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 whitespace-nowrap">Status</th>
-                    <th className="bg-[#E5EEE3] py-3.5 px-4 pr-5 whitespace-nowrap">Aksi</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">Pengurus &amp; Username</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">Jabatan</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">Blok</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">No. WhatsApp</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">PIN</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 whitespace-nowrap">Status</th>
+                    <th className="bg-[#E5EEE3] px-3 py-2.5 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E6E2D6] text-sm">
@@ -1637,8 +1637,8 @@ export function AdminWargaSlide({
 
                       return (
                         <tr key={p.id} className="bg-[#FFFDF8] hover:bg-[#F6F3EA]/80 transition-colors">
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-2.5">
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
                               <UserAvatar
                                 name={p.nama}
                                 src={
@@ -1646,72 +1646,72 @@ export function AdminWargaSlide({
                                 }
                                 size="sm"
                               />
-                              <div>
+                              <div className="min-w-0">
                                 <p className="font-semibold text-[#1B271B]">{p.nama}</p>
                                 <p className="text-xs font-mono text-[#6B7168]">@{p.username}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#243825] text-[#FFFDF8] text-xs font-semibold">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#243825] text-[#FFFDF8] text-xs font-semibold">
                               <ShieldCheck className="w-3 h-3 text-[#E5EEE3]" />
                               {p.jabatan}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
                             {p.blok_rumah ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] font-mono font-bold text-xs text-[#243825]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] font-mono font-bold text-xs text-[#243825]">
                                 {formatBlokRumah(p.blok_rumah) || p.blok_rumah}
                               </span>
                             ) : (
                               <span className="text-xs text-[#8E948A]">-</span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
                             {hasRealWa ? (
-                              <span className="inline-flex items-center h-7 px-2.5 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] font-mono text-xs font-semibold">
+                              <span className="inline-flex items-center h-6 px-2 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] font-mono text-xs font-semibold">
                                 {formatPhoneDisplay(cleanWa)}
                               </span>
                             ) : (
                               <span className="text-xs text-[#6E786D]">Belum Ada WA</span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-[#243825] tracking-wider whitespace-nowrap">
+                          <td className="px-3 py-2.5 font-mono font-bold text-[#243825] tracking-wider whitespace-nowrap">
                             {p.pin_akses}
                           </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
                             {p.aktif ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-semibold">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-semibold">
                                 Aktif
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold">
                                 Nonaktif
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 pr-5 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
+                          <td className="px-3 py-2.5">
+                            <div className="flex flex-wrap items-center gap-1.5 justify-end">
                               {hasRealWa ? (
                                 <a
                                   href={buildWhatsAppLink(cleanWa, buildPengurusPinWaMessage(p))}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5"
+                                  className="px-2.5 py-1 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                                 >
-                                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                                  <MessageCircle className="w-3 h-3 shrink-0" />
                                   <span>Kirim WA</span>
                                 </a>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => void handleCopyPengurusInfo(p)}
-                                  className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer"
+                                  className="px-2.5 py-1 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                                 >
                                   {copiedPengurusId === p.id ? (
-                                    <Check className="w-3.5 h-3.5 shrink-0" />
+                                    <Check className="w-3 h-3 shrink-0" />
                                   ) : (
-                                    <Copy className="w-3.5 h-3.5 shrink-0" />
+                                    <Copy className="w-3 h-3 shrink-0" />
                                   )}
                                   <span>{copiedPengurusId === p.id ? 'Tersalin' : 'Salin'}</span>
                                 </button>
@@ -1722,9 +1722,9 @@ export function AdminWargaSlide({
                                   <button
                                     type="button"
                                     onClick={() => void handleResetPinPengurus(p)}
-                                    className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer"
+                                    className="px-2.5 py-1 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                                   >
-                                    <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                                    <KeyRound className="w-3 h-3 shrink-0" />
                                     <span>Reset PIN</span>
                                   </button>
 
@@ -1732,7 +1732,7 @@ export function AdminWargaSlide({
                                     type="button"
                                     onClick={() => openEditPengurusModal(p)}
                                     aria-label={`Edit ${p.nama}`}
-                                    className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4B5549] cursor-pointer"
+                                    className="h-7 w-7 flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4B5549] cursor-pointer shrink-0"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
                                   </button>
@@ -1742,7 +1742,7 @@ export function AdminWargaSlide({
                                       type="button"
                                       onClick={() => setDeletePengurusTarget(p)}
                                       aria-label={`Hapus ${p.nama}`}
-                                      className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#FDF2EF] hover:border-[#E5B8AC] text-[#6B7168] hover:text-[#C87058] cursor-pointer"
+                                      className="h-7 w-7 flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#FDF2EF] hover:border-[#E5B8AC] text-[#6B7168] hover:text-[#C87058] cursor-pointer shrink-0"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>

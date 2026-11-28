@@ -293,7 +293,7 @@ export function AppShell({
       : `${session.nama_warga} · Blok ${displayWargaBlok}`;
 
   const renderSidebarNavigation = () => (
-    <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-4 md:py-5 lg:py-4 space-y-5">
+    <div className="saung-table-scroll flex-1 overflow-y-auto px-4 md:px-5 lg:px-4 py-4 md:py-5 lg:py-4 space-y-5">
       {/* Daftar Menu Utama */}
       <div className="space-y-1.5">
         <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.09em] text-[#6E786D]">
@@ -529,14 +529,18 @@ export function AppShell({
     </div>
   );
 
+  const isFullHeightTableTab = isAdmin && activeTab === 'warga';
+
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col overflow-x-clip">
+    <div
+      className={`min-h-[100dvh] w-full max-w-[100vw] bg-[#F6F3EA] glass-canvas text-[var(--theme-text)] flex flex-col lg:flex-row lg:w-full lg:overflow-hidden overflow-x-clip print:h-auto print:overflow-visible print:block ${
+        session.is_simulation ? 'lg:h-[calc(100vh-49px)]' : 'lg:h-screen'
+      }`}
+    >
       {/* SIDEBAR TETAP — DESKTOP (lg+, lebar w-72 / 288px) */}
       <aside
         aria-label="Navigasi Sidebar Utama"
-        className={`hidden lg:flex lg:flex-col fixed left-0 w-72 z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print ${
-          session.is_simulation ? 'top-[49px] bottom-0' : 'inset-y-0'
-        }`}
+        className="hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:h-full lg:overflow-y-auto saung-table-scroll z-30 bg-[#F6F3EA] border-r border-[#E6E2D6] shadow-[6px_0_24px_-12px_rgba(36,56,37,0.12)] no-print"
       >
         {/* Brand Header Sidebar Velvety Moss Green + Foto Lingkungan + Watermark */}
         <div className="relative overflow-hidden px-4 pt-5 pb-4 bg-[#243825] text-[#FFFDF8] shrink-0">
@@ -736,40 +740,52 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      {/* HEADER IDENTIK SCENIC SAUNG KEBUN + PIL PROFIL KACA MENGAMBANG */}
-      <div className="lg:pl-72 relative z-30 no-print">
-        <PortalHeader
-          session={session}
-          appTitle={brand.app_name || 'e-Card Verifikasi'}
-          appSubtitle="Perumahan Saung Kebun"
-          displayName={session.nama_warga}
-          identityLabel={compactIdentityLabel}
-          avatarUrl={effectiveAvatarUrl}
-          activePeriodLabel={currentMonthBadge}
-          menuBadgeCount={isAdmin ? pendingBugCount : 0}
-          externalUnreadCount={unreadNotificationCount}
-          onUnreadCountChange={setUnreadNotificationCount}
-          onOpenMenu={() => setDrawerOpen(true)}
-          onLogoClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
-          onProfileClick={() => {
-            if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-              handleOpenProfileFromSidebar();
-            } else {
-              setDrawerOpen(true);
-            }
-          }}
-          onNavigateTarget={onNavigateTarget}
-        />
-      </div>
+      {/* PANEL KANAN FULLSCREEN (HEADER + KONTEN UTAMA) */}
+      <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-hidden print:h-auto print:overflow-visible">
+        {/* HEADER IDENTIK SCENIC SAUNG KEBUN + PIL PROFIL KACA MENGAMBANG */}
+        <div className="relative z-30 shrink-0 no-print">
+          <PortalHeader
+            session={session}
+            appTitle={brand.app_name || 'e-Card Verifikasi'}
+            appSubtitle="Perumahan Saung Kebun"
+            displayName={session.nama_warga}
+            identityLabel={compactIdentityLabel}
+            avatarUrl={effectiveAvatarUrl}
+            activePeriodLabel={currentMonthBadge}
+            menuBadgeCount={isAdmin ? pendingBugCount : 0}
+            externalUnreadCount={unreadNotificationCount}
+            onUnreadCountChange={setUnreadNotificationCount}
+            onOpenMenu={() => setDrawerOpen(true)}
+            onLogoClick={() => onTabChange(isAdmin ? 'dashboard' : 'beranda')}
+            onProfileClick={() => {
+              if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+                handleOpenProfileFromSidebar();
+              } else {
+                setDrawerOpen(true);
+              }
+            }}
+            onNavigateTarget={onNavigateTarget}
+          />
+        </div>
 
-      {/* AREA KONTEN UTAMA (pb-32 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-72 pt-3 px-4 sm:px-6 lg:px-8 pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] lg:pb-10 w-full max-w-full min-w-0 overflow-x-clip">
-        <div className="max-w-7xl mx-auto w-full min-w-0">
-          <div key={activeTab} className="w-full min-w-0 animate-page-enter">
+        {/* AREA KONTEN UTAMA FULL-WIDTH (tanpa max-w sempit di PC/Tablet; Mobile aman dengan pb-28+) */}
+        <main
+          className={`flex-1 min-h-0 w-full max-w-none min-w-0 px-4 md:px-6 overflow-x-clip print:overflow-visible print:p-0 ${
+            isFullHeightTableTab
+              ? 'flex flex-col pt-3 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] lg:pt-3 lg:pb-3 lg:overflow-hidden'
+              : 'pt-3 pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] lg:py-4 lg:pb-6 lg:overflow-y-auto saung-table-scroll'
+          }`}
+        >
+          <div
+            key={activeTab}
+            className={`w-full max-w-none min-w-0 animate-page-enter ${
+              isFullHeightTableTab ? 'flex-1 min-h-0 flex flex-col' : ''
+            }`}
+          >
             {children}
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* IKON CHAT MELAYANG + PANEL CHAT CEPAT (DM & GROUP) */}
       <FloatingChatWidget
