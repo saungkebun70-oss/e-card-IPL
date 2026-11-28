@@ -294,6 +294,43 @@ export function AdminLpjSlide({
               </p>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-2.5 print:gap-2">
+            <div className="rounded-xl border border-[#E6E2D6] bg-[#FAF7EF] px-3 py-2.5 print:p-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
+                Pemisahan Alokasi Dana Masuk
+              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs print:text-[10px]">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                  Kas IPL Reguler: <strong className="font-mono tabular-nums">{formatRupiah(lpj.totalIplReguler)}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-semibold text-purple-800">
+                  <span className="w-2 h-2 rounded-full bg-purple-600" />
+                  Dana Darurat: <strong className="font-mono tabular-nums">{formatRupiah(lpj.totalDanaDarurat)}</strong>
+                  {lpj.jumlahTransaksiDarurat > 0 && (
+                    <span className="text-[10px] text-purple-700">({lpj.jumlahTransaksiDarurat} trx)</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#E6E2D6] bg-[#FAF7EF] px-3 py-2.5 print:p-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
+                Posisi Pemegang Saldo Akhir
+              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs print:text-[10px]">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-[#243825]">
+                  <span className="w-2 h-2 rounded-full bg-[#243825]" />
+                  Kas di Bendahara: <strong className="font-mono tabular-nums">{formatRupiah(lpj.saldoAkhirBendahara)}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-semibold text-[#6E4D12]">
+                  <span className="w-2 h-2 rounded-full bg-[#C78C26]" />
+                  Titipan Pengurus: <strong className="font-mono tabular-nums">{formatRupiah(lpj.saldoAkhirPengurusTitipan)}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* 2. Tingkat Kepatuhan Pembayaran Warga */}
@@ -329,15 +366,30 @@ export function AdminLpjSlide({
                           Pra-Rilis
                         </span>
                       )}
+                      {row.isBulanBerjalan && !row.isPraRilis && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-50 text-[10px] font-semibold text-amber-800 border border-amber-300">
+                          Potensi Tagihan Berjalan
+                        </span>
+                      )}
+                      {row.isBelumPeriode && !row.isPraRilis && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-50 text-[10px] font-medium text-slate-500 border border-slate-200">
+                          Belum Periode
+                        </span>
+                      )}
                     </td>
                     <td className="px-2.5 py-2 print:py-1.5 text-center font-mono tabular-nums text-[#4A554A]">
                       {row.unitAktif}
                     </td>
                     <td className="px-2.5 py-2 print:py-1.5 text-center font-mono font-bold tabular-nums text-[#2B3F29]">
-                      {row.unitLunas}
+                      <div>{row.unitLunas}</div>
+                      {(row.unitDarurat || 0) > 0 && (
+                        <div className="text-[10px] font-semibold text-purple-700">
+                          +{row.unitDarurat} Darurat
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-[#1B271B]">
-                      {row.persentase}%
+                      {row.isPraRilis || row.isBelumPeriode ? '—' : `${row.persentase}%`}
                     </td>
                     <td className="px-3 sm:px-4 py-2 print:py-1.5 text-right font-mono tabular-nums text-[#4A554A] whitespace-nowrap">
                       {formatRupiah(row.nominalTerkumpul)}
@@ -432,10 +484,63 @@ export function AdminLpjSlide({
           </div>
         </section>
 
-        {/* 4. Lembar Pengesahan Resmi + Stempel Digital Pengurus (Rapi, Tidak Menutupi Nama) */}
+        {/* 4. Daftar Unit Menunggak Triwulan */}
+        <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs sm:text-sm print:text-xs font-bold text-[#7A311E]">
+              4. Daftar Unit Menunggak Triwulan (Melewati Jatuh Tempo Tgl 7)
+            </h3>
+            <span className="text-[11px] sm:text-xs print:text-[10px] font-mono font-bold text-[#A44831] tabular-nums">
+              {lpj.daftarUnitMenunggak.length} unit
+            </span>
+          </div>
+
+          {lpj.daftarUnitMenunggak.length === 0 ? (
+            <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/40 px-4 py-3 text-xs text-[#243825] font-medium">
+              Tidak ada unit wajib iuran yang berstatus menunggak pada {lpj.labelTriwulan} {lpj.tahun}.
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-[#E2A898] rounded-xl">
+              <table className="w-full text-xs print:text-[9.5px]">
+                <thead className="bg-[#C87058]/15 border-b border-[#E2A898] text-[#7A311E]">
+                  <tr>
+                    <th className="text-left px-3 py-2 print:py-1.5 font-semibold whitespace-nowrap">Blok</th>
+                    <th className="text-left px-3 py-2 print:py-1.5 font-semibold">Nama Warga</th>
+                    <th className="text-left px-3 py-2 print:py-1.5 font-semibold">Bulan Menunggak</th>
+                    <th className="text-right px-3 py-2 print:py-1.5 font-semibold whitespace-nowrap">Estimasi Tagihan</th>
+                    <th className="text-left px-3 py-2 print:py-1.5 font-semibold">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E6E2D6]/60">
+                  {lpj.daftarUnitMenunggak.map((u) => (
+                    <tr key={u.blokRumah}>
+                      <td className="px-3 py-2 print:py-1.5 font-mono font-bold text-[#1B271B] whitespace-nowrap">
+                        {u.blokRumah}
+                      </td>
+                      <td className="px-3 py-2 print:py-1.5 font-medium text-[#1B271B]">
+                        {u.namaWarga}
+                      </td>
+                      <td className="px-3 py-2 print:py-1.5 text-[#7A311E] font-medium">
+                        {u.labelBulan} ({u.bulanTunggak.length} bln)
+                      </td>
+                      <td className="px-3 py-2 print:py-1.5 text-right font-mono font-bold tabular-nums text-[#A44831] whitespace-nowrap">
+                        {formatRupiah(u.estimasiTunggakan)}
+                      </td>
+                      <td className="px-3 py-2 print:py-1.5 text-[#6E786D]">
+                        {u.statusKeterangan || 'Melewati jatuh tempo tgl 7'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* 5. Lembar Pengesahan Resmi + Stempel Digital Pengurus (Rapi, Tidak Menutupi Nama) */}
         <section className="relative z-10 pt-3 print:pt-2.5 border-t border-[#E6E2D6] avoid-break space-y-4 print:space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs print:text-[10px] text-[#4A554A]">
-            <span className="font-bold text-[#1B271B]">4. Lembar Pengesahan Pengurus</span>
+            <span className="font-bold text-[#1B271B]">5. Lembar Pengesahan Pengurus</span>
             <span>Karawang, {formatTanggal(new Date().toISOString())}</span>
           </div>
 

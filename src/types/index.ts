@@ -30,6 +30,10 @@ export type StatusVerifikasi =
   | 'Terverifikasi'
   | 'Ditolak';
 
+export type FundType = 'IPL_REGULER' | 'DANA_DARURAT';
+
+export type HolderRole = 'BENDAHARA' | 'PENGURUS_TITIPAN';
+
 export type BotProvider = 'Fonnte' | 'Wablas';
 
 export interface RekeningPembayaran {
@@ -78,11 +82,29 @@ export interface PengurusItem {
 }
 
 export interface PengurusAccountInfo extends PengurusItem {
+  id?: string;
+  blok_rumah?: string;
   pin_akses?: string;
   no_wa?: string;
   avatar_url?: string | null;
   aktif?: boolean;
   is_active_pengurus?: boolean;
+}
+
+export interface PengurusLingkunganRecord {
+  id: string;
+  nama: string;
+  jabatan: AdminJabatan | string;
+  username: string;
+  blok_rumah?: string | null;
+  no_wa: string;
+  pin_akses: string;
+  permission: AdminPermission;
+  avatar_url?: string | null;
+  aktif: boolean;
+  is_default?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SessionUser {
@@ -162,6 +184,9 @@ export interface Warga {
   bot_role?: BotAccessRole | null;
   avatar_url?: string | null;
   aktif: boolean;
+  is_pengurus?: boolean;
+  is_occupied?: boolean;
+  is_exempt?: boolean;
   is_active_pengurus?: boolean;
   is_active_warga?: boolean;
   warga_account_status?: WargaAccountStatus | string | null;
@@ -178,9 +203,12 @@ export function isOccupantNameEmpty(nama?: string | null): boolean {
 }
 
 export function resolveOccupancyStatus(
-  warga?: Pick<Warga, 'occupancy_status' | 'status_hunian' | 'nama_warga'> | null
+  warga?: Pick<Warga, 'occupancy_status' | 'status_hunian' | 'nama_warga' | 'is_occupied'> | null
 ): OccupancyStatus {
   if (!warga) return 'aktif';
+  if (warga.is_occupied === false) {
+    return 'kosong';
+  }
   if (warga.occupancy_status === 'kosong') {
     return 'kosong';
   }
@@ -228,6 +256,8 @@ export interface TransaksiIPL {
   ketua_approved_at?: string | null;
   ketua_approved_by?: string | null;
   ketua_catatan?: string | null;
+  fund_type?: FundType;
+  holder_role?: HolderRole;
 }
 
 export type JenisTransaksiKas = 'pengeluaran' | 'pemasukan_lain';
@@ -282,6 +312,8 @@ export interface TransaksiKas {
   ketua_approved_by?: string | null;
   ketua_catatan?: string | null;
   catatan_verifikasi?: string | null;
+  fund_type?: FundType;
+  holder_role?: HolderRole;
 }
 
 export const KATEGORI_PENGELUARAN_LIST: KategoriPengeluaran[] = [

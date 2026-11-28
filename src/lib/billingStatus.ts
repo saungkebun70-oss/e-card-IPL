@@ -204,8 +204,62 @@ export function buildPaidAmountLookup(
   return { paidAmountByKey, pendingKeys };
 }
 
+export function formatDaruratBadgeLabel(paidAmount: number): string {
+  const clean = Math.max(0, Math.round(paidAmount || 0));
+  if (clean <= 0) return 'Darurat';
+  if (clean >= 1000 && clean % 1000 === 0) {
+    return `Rp${clean / 1000}rb • Darurat`;
+  }
+  return `Rp${new Intl.NumberFormat('id-ID').format(clean)} • Darurat`;
+}
+
+export function isUnitBillable(
+  warga?: Pick<
+    Warga,
+    'occupancy_status' | 'status_hunian' | 'nama_warga' | 'is_occupied' | 'is_exempt' | 'warga_account_status'
+  > | null
+): boolean {
+  if (!warga) return false;
+  if (warga.is_occupied === false) return false;
+  if (resolveOccupancyStatus(warga) === 'kosong') return false;
+  if (warga.is_exempt === true) return false;
+  if (warga.warga_account_status === 'inactive') return false;
+  return true;
+}
+
+export function getUnfulfilledCycleStatus(params: {
+  targetYear: number;
+  targetMonth: number;
+  isOccupied: boolean;
+  isExempt?: boolean;
+  billingStart?: BillingStartPeriod | null;
+  now?: Date;
+}): CellStatus {
+  const { startMonth, startYear } = resolveBillingStartPeriod(params.billingStart);
+  return getMonthlyBillingStatus({
+    targetYear: params.targetYear,
+    targetMonth: params.targetMonth,
+    isOccupied: params.isOccupied,
+    isExempt: params.isExempt,
+    paidAmount: 0,
+    systemStartYear: startYear || DEFAULT_BILLING_START_YEAR,
+    systemStartMonth: startMonth || DEFAULT_BILLING_START_MONTH,
+    now: params.now,
+  });
+}
+
 export function resolveUnitMonthBillingStatus(params: {
-  warga: Pick<Warga, 'blok_rumah' | 'occupancy_status' | 'status_hunian' | 'nama_warga' | 'aktif' | 'warga_account_status'>;
+  warga: Pick<
+    Warga,
+    | 'blok_rumah'
+    | 'occupancy_status'
+    | 'status_hunian'
+    | 'nama_warga'
+    | 'aktif'
+    | 'warga_account_status'
+    | 'is_occupied'
+    | 'is_exempt'
+  >;
   targetYear: number;
   targetMonth: number;
   paidAmount: number;
@@ -223,8 +277,8 @@ export function resolveUnitMonthBillingStatus(params: {
     now,
   } = params;
 
-  const isOccupied = resolveOccupancyStatus(warga) !== 'kosong';
-  const isExempt = warga.warga_account_status === 'inactive';
+  const isOccupied = warga.is_occupied !== false && resolveOccupancyStatus(warga) !== 'kosong';
+  const isExempt = Boolean(warga.is_exempt) || warga.warga_account_status === 'inactive';
   const { startMonth, startYear } = resolveBillingStartPeriod(billingStart);
 
   return getMonthlyBillingStatus({
@@ -238,4 +292,76 @@ export function resolveUnitMonthBillingStatus(params: {
     systemStartMonth: startMonth || DEFAULT_BILLING_START_MONTH,
     now,
   });
+}
+
+export function getUnitDelinquentMonths(params: {
+  warga: Pick<
+    Warga,
+    | 'blok_rumah'
+    | 'occupancy_status'
+    | 'status_hunian'
+    | 'nama_warga'
+    | 'aktif'
+    | 'warga_account_status'
+    | 'is_occupied'
+    | 'is_exempt'
+  >;
+  year: number;
+  months?: readonly number[];
+  paidAmountByKey: Map<string, number>;
+  pendingKeys?: Set<string>;
+  billingStart?: BillingStartPeriod | null;
+  standardTariff?: number;
+  now?: Date;
+}): number[] {
+  const {
+    warga,
+    year,
+    months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    paidAmountByKey,
+    pendingKeys,
+    billingStart,
+    standardTariff = NOMINAL_IPL_STANDAR,
+    now = new Date(),
+  } = params;
+
+  if (!isUnitBillable(warga)) return [];
+
+  const delinquent: number[] = [];
+  for (const m of months) {
+    const cellKey = buildBillingCellKey(warga.blok_rumah, year, m);
+    const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+    const cellStatus = resolveUnitMonthBillingStatus({
+      warga,
+      targetYear: year,
+      targetMonth: m,
+      paidAmount,
+      billingStart,
+      standardTariff,
+      now,
+    });
+
+    if (cellStatus === 'LUNAS' || cellStatus === 'PRA_RILIS' || cellStatus === 'KOSONG') {
+      continue;
+    }
+
+    const cycleStatus =
+      cellStatus === 'DANA_DARURAT'
+        ? getUnfulfilledCycleStatus({
+            targetYear: year,
+            targetMonth: m,
+            isOccupied: true,
+            isExempt: false,
+            billingStart,
+            now,
+          })
+        : cellStatus;
+
+    const isPending = pendingKeys?.has(cellKey) ?? false;
+    if (cycleStatus === 'TUNGGAK' && !isPending) {
+      delinquent.push(m);
+    }
+  }
+
+  return delinquent;
 }

@@ -853,7 +853,7 @@ export async function downloadRekapBulananPdf(
     theme: 'grid',
     head: [['RINGKASAN POSISI KAS BULANAN', 'NOMINAL']],
     headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
-    styles: { fontSize: 8.5, cellPadding: 3, lineColor: [226, 232, 240], lineWidth: 0.25 },
+    styles: { fontSize: 8.4, cellPadding: 2.7, lineColor: [226, 232, 240], lineWidth: 0.25 },
     columnStyles: {
       0: { cellWidth: CONTENT_WIDTH - 52 },
       1: { cellWidth: 52, halign: 'right', fontStyle: 'bold' },
@@ -862,10 +862,26 @@ export async function downloadRekapBulananPdf(
       ['Saldo Awal Bulan', formatRupiah(report.saldoAwal)],
       [`(+) Pemasukan IPL Warga Terverifikasi (${report.jumlahTransaksiIpl} transaksi)`, formatRupiah(report.totalIplBulanIni)],
       [`(+) Pemasukan Lain-lain (${report.jumlahPemasukanLain} transaksi)`, formatRupiah(report.totalPemasukanLainBulanIni)],
+      [
+        { content: '    • Porsi Kas IPL Reguler', styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
+        { content: formatRupiah(report.totalIplReguler), styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
+        { content: `    • Porsi Dana Darurat (${report.jumlahTransaksiDarurat} trx < Rp100rb/bln)`, styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206] } },
+        { content: formatRupiah(report.totalDanaDarurat), styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206], halign: 'right', fontStyle: 'bold' } },
+      ],
       [`(-) Total Pengeluaran Anggaran (${report.jumlahPengeluaran} transaksi)`, formatRupiah(report.totalKeluarBulanIni)],
       [
         { content: 'SALDO AKHIR BULAN', styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
         { content: formatRupiah(report.saldoAkhir), styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right' } },
+      ],
+      [
+        { content: '    • Posisi Kas di Bendahara', styles: { fillColor: [248, 250, 252], textColor: [51, 65, 85] } },
+        { content: formatRupiah(report.saldoAkhirBendahara), styles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
+        { content: '    • Dana Titipan Sementara di Pengurus', styles: { fillColor: [255, 251, 235], textColor: [180, 83, 9] } },
+        { content: formatRupiah(report.saldoAkhirPengurusTitipan), styles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], halign: 'right', fontStyle: 'bold' } },
       ],
     ],
   });
@@ -938,19 +954,88 @@ export async function downloadRekapBulananPdf(
     },
     body:
       report.mutasiKronologis.length > 0
-        ? report.mutasiKronologis.map((row) => [
-            formatTanggalSingkat(row.tanggal),
-            row.noBukti,
-            row.uraian,
-            row.masuk > 0 ? formatRupiah(row.masuk) : '-',
-            row.keluar > 0 ? formatRupiah(row.keluar) : '-',
-            formatRupiah(row.saldoBerjalan),
-          ])
+        ? report.mutasiKronologis.map((row) => {
+            const isDarurat = row.fundType === 'DANA_DARURAT' && row.masuk > 0;
+            const holderTag = row.holderRole === 'PENGURUS_TITIPAN' ? ' [Titipan Pengurus]' : '';
+            return [
+              {
+                content: formatTanggalSingkat(row.tanggal),
+                styles: isDarurat ? { fillColor: [250, 245, 255] } : {},
+              },
+              {
+                content: row.noBukti,
+                styles: isDarurat ? { fillColor: [250, 245, 255] } : {},
+              },
+              {
+                content: `${row.uraian}${holderTag}`,
+                styles: isDarurat ? { fillColor: [250, 245, 255], textColor: [107, 33, 168] } : {},
+              },
+              {
+                content: row.masuk > 0 ? formatRupiah(row.masuk) : '-',
+                styles: isDarurat
+                  ? { fillColor: [250, 245, 255], textColor: [126, 34, 206], fontStyle: 'bold', halign: 'right' }
+                  : { halign: 'right' },
+              },
+              {
+                content: row.keluar > 0 ? formatRupiah(row.keluar) : '-',
+                styles: isDarurat ? { fillColor: [250, 245, 255], halign: 'right' } : { halign: 'right' },
+              },
+              {
+                content: formatRupiah(row.saldoBerjalan),
+                styles: isDarurat ? { fillColor: [250, 245, 255], halign: 'right', fontStyle: 'bold' } : { halign: 'right', fontStyle: 'bold' },
+              },
+            ];
+          })
         : [['-', '-', 'Belum ada mutasi kas pada bulan ini.', '-', '-', formatRupiah(report.saldoAkhir)]],
   });
 
-  const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40;
-  await drawSignatureBlock(doc, finalY + 10, brand, {
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40) + 7;
+
+  // Daftar Unit Menunggak (Hanya unit berpenghuni & wajib iuran yang melewati tgl 7 bulan berikutnya)
+  if (report.daftarUnitMenunggak.length > 0) {
+    if (y > 240) {
+      doc.addPage();
+      y = PAGE_MARGIN + 4;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(
+      `C. Daftar Unit Menunggak (${report.daftarUnitMenunggak.length} Unit Melewati Jatuh Tempo Tgl 7)`,
+      PAGE_MARGIN,
+      y
+    );
+    y += 3;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+      theme: 'grid',
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      head: [['Blok / Unit', 'Nama Warga', 'Bulan Menunggak', 'Estimasi Tagihan', 'Keterangan']],
+      headStyles: { fillColor: [190, 18, 60], textColor: 255, fontSize: 7.5, fontStyle: 'bold' },
+      styles: { fontSize: 7.4, cellPadding: 2.1, lineColor: [226, 232, 240], lineWidth: 0.2 },
+      columnStyles: {
+        0: { cellWidth: 22, fontStyle: 'bold' },
+        1: { cellWidth: 44 },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [190, 18, 60] },
+        4: { cellWidth: 50 },
+      },
+      body: report.daftarUnitMenunggak.map((u) => [
+        u.blokRumah,
+        u.namaWarga,
+        u.labelBulan,
+        formatRupiah(u.estimasiTunggakan),
+        u.statusKeterangan || 'Melewati jatuh tempo tgl 7',
+      ]),
+    });
+
+    y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 30) + 7;
+  }
+
+  await drawSignatureBlock(doc, y + 3, brand, {
     tanggalLabel: formatTanggal(new Date().toISOString()),
   });
 
@@ -1025,7 +1110,7 @@ export async function downloadLpjTriwulanPdf(
     rowPageBreak: 'avoid',
     head: [['Uraian Arus Kas', 'Nominal']],
     headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
-    styles: { fontSize: 8.5, cellPadding: 3, lineColor: [226, 232, 240], lineWidth: 0.25 },
+    styles: { fontSize: 8.4, cellPadding: 2.7, lineColor: [226, 232, 240], lineWidth: 0.25 },
     columnStyles: {
       0: { cellWidth: CONTENT_WIDTH - 52 },
       1: { cellWidth: 52, halign: 'right', fontStyle: 'bold' },
@@ -1034,10 +1119,26 @@ export async function downloadLpjTriwulanPdf(
       ['Saldo Awal Periode Triwulan', formatRupiah(lpj.saldoAwal)],
       ['(+) Total Pemasukan IPL Warga Terverifikasi', formatRupiah(lpj.totalIpl)],
       ['(+) Total Pemasukan Lain-lain (Non-Iuran)', formatRupiah(lpj.totalPemasukanLain)],
+      [
+        { content: '    • Porsi Kas IPL Reguler', styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
+        { content: formatRupiah(lpj.totalIplReguler), styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
+        { content: `    • Porsi Dana Darurat (${lpj.jumlahTransaksiDarurat} trx < Rp100rb/bln)`, styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206] } },
+        { content: formatRupiah(lpj.totalDanaDarurat), styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206], halign: 'right', fontStyle: 'bold' } },
+      ],
       ['(-) Total Pengeluaran Operasional & Anggaran', formatRupiah(lpj.totalPengeluaran)],
       [
         { content: 'SALDO AKHIR PERIODE TRIWULAN', styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
         { content: formatRupiah(lpj.saldoAkhir), styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right' } },
+      ],
+      [
+        { content: '    • Posisi Kas di Bendahara', styles: { fillColor: [248, 250, 252], textColor: [51, 65, 85] } },
+        { content: formatRupiah(lpj.saldoAkhirBendahara), styles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
+        { content: '    • Dana Titipan Sementara di Pengurus', styles: { fillColor: [255, 251, 235], textColor: [180, 83, 9] } },
+        { content: formatRupiah(lpj.saldoAkhirPengurusTitipan), styles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], halign: 'right', fontStyle: 'bold' } },
       ],
     ],
   });
@@ -1061,20 +1162,33 @@ export async function downloadLpjTriwulanPdf(
     headStyles: { fillColor: [5, 150, 105], textColor: 255, fontSize: 8, fontStyle: 'bold' },
     styles: { fontSize: 8, cellPadding: 2.6, lineColor: [226, 232, 240], lineWidth: 0.2 },
     columnStyles: {
-      0: { cellWidth: 44 },
-      1: { cellWidth: 26, halign: 'center' },
-      2: { cellWidth: 26, halign: 'center' },
-      3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
-      4: { cellWidth: 52, halign: 'right' },
+      0: { cellWidth: 52 },
+      1: { cellWidth: 24, halign: 'center' },
+      2: { cellWidth: 28, halign: 'center' },
+      3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+      4: { cellWidth: 46, halign: 'right' },
     },
     body: [
-      ...lpj.kepatuhanPerBulan.map((row) => [
-        `${row.namaBulan} ${lpj.tahun}`,
-        String(row.unitAktif),
-        String(row.unitLunas),
-        `${row.persentase}%`,
-        formatRupiah(row.nominalTerkumpul),
-      ]),
+      ...lpj.kepatuhanPerBulan.map((row) => {
+        const statusTag = row.isPraRilis
+          ? ' (Pra-Rilis)'
+          : row.isBulanBerjalan
+            ? ' (Potensi Tagihan Berjalan)'
+            : row.isBelumPeriode
+              ? ' (Belum Periode)'
+              : '';
+        const lunasText =
+          row.unitDarurat && row.unitDarurat > 0
+            ? `${row.unitLunas} (+${row.unitDarurat} Darurat)`
+            : String(row.unitLunas);
+        return [
+          `${row.namaBulan} ${lpj.tahun}${statusTag}`,
+          String(row.unitAktif),
+          lunasText,
+          row.isPraRilis || row.isBelumPeriode ? '-' : `${row.persentase}%`,
+          formatRupiah(row.nominalTerkumpul),
+        ];
+      }),
       [
         { content: 'Rata-rata Kepatuhan Triwulan', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
         { content: String(lpj.totalUnitAktif), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
@@ -1128,9 +1242,54 @@ export async function downloadLpjTriwulanPdf(
         : [['Belum ada pencatatan pengeluaran anggaran pada triwulan ini.', '0', '0%', formatRupiah(0)]],
   });
 
-  const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40;
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40) + 7;
 
-  // 4. Lembar Pengesahan Resmi + Stempel Digital (Anti-Potong Halaman)
+  // 4. Daftar Unit Menunggak Triwulan (hanya unit berpenghuni & wajib iuran)
+  if (y > 240) {
+    doc.addPage();
+    y = PAGE_MARGIN + 4;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    `4. Daftar Unit Menunggak Triwulan (${lpj.daftarUnitMenunggak.length} Unit)`,
+    PAGE_MARGIN,
+    y
+  );
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    head: [['Blok / Unit', 'Nama Warga', 'Bulan Menunggak', 'Estimasi Tagihan', 'Keterangan']],
+    headStyles: { fillColor: [190, 18, 60], textColor: 255, fontSize: 7.5, fontStyle: 'bold' },
+    styles: { fontSize: 7.4, cellPadding: 2.2, lineColor: [226, 232, 240], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 22, fontStyle: 'bold' },
+      1: { cellWidth: 44 },
+      2: { cellWidth: 34 },
+      3: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [190, 18, 60] },
+      4: { cellWidth: 50 },
+    },
+    body:
+      lpj.daftarUnitMenunggak.length > 0
+        ? lpj.daftarUnitMenunggak.map((u) => [
+            u.blokRumah,
+            u.namaWarga,
+            u.labelBulan,
+            formatRupiah(u.estimasiTunggakan),
+            u.statusKeterangan || 'Melewati jatuh tempo tgl 7',
+          ])
+        : [['-', '-', 'Tidak ada unit berpenghuni yang menunggak melewati jatuh tempo.', '-', '-']],
+  });
+
+  const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 30;
+
+  // 5. Lembar Pengesahan Resmi + Stempel Digital (Anti-Potong Halaman)
   await drawSignatureBlock(doc, finalY + 12, brand, {
     tanggalLabel: formatTanggal(new Date().toISOString()),
     includeMengetahui: true,
@@ -1218,6 +1377,16 @@ export async function downloadChairmanMonthlySummaryPdf(
         formatRupiah(mc.totalPemasukanLainBulanIni),
       ],
       [
+        { content: '    • Porsi Kas IPL Reguler', styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87] } },
+        { content: 'IPL >= Rp100rb/bln & kas reguler', styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87], fontSize: 7.4 } },
+        { content: formatRupiah(mc.totalIplReguler), styles: { fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
+        { content: '    • Porsi Dana Darurat', styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206] } },
+        { content: `${mc.jumlahTransaksiDarurat} trx setoran < Rp100rb/bln`, styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206], fontSize: 7.4 } },
+        { content: formatRupiah(mc.totalDanaDarurat), styles: { fillColor: [243, 232, 255], textColor: [126, 34, 206], halign: 'right', fontStyle: 'bold' } },
+      ],
+      [
         { content: 'Total Pemasukan Bulan Ini', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
         {
           content: `${mc.jumlahTransaksiIpl + mc.jumlahPemasukanLain} transaksi masuk`,
@@ -1261,6 +1430,11 @@ export async function downloadChairmanMonthlySummaryPdf(
           content: formatRupiah(mc.saldoAkhir),
           styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87], halign: 'right' },
         },
+      ],
+      [
+        { content: '    • Kas di Bendahara vs Titipan Pengurus', styles: { fillColor: [248, 250, 252], textColor: [51, 65, 85], fontSize: 7.6 } },
+        { content: `Titipan Pengurus: ${formatRupiah(mc.saldoAkhirPengurusTitipan)}`, styles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], fontSize: 7.4 } },
+        { content: `Bendahara: ${formatRupiah(mc.saldoAkhirBendahara)}`, styles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], halign: 'right', fontStyle: 'bold', fontSize: 7.6 } },
       ],
     ],
   });
@@ -1464,19 +1638,87 @@ export async function downloadChairmanMonthlySummaryPdf(
     },
     body:
       mc.mutasiKronologis.length > 0
-        ? mc.mutasiKronologis.map((row) => [
-            formatTanggalSingkat(row.tanggal),
-            row.noBukti,
-            row.uraian,
-            row.masuk > 0 ? formatRupiah(row.masuk) : '-',
-            row.keluar > 0 ? formatRupiah(row.keluar) : '-',
-            formatRupiah(row.saldoBerjalan),
-          ])
+        ? mc.mutasiKronologis.map((row) => {
+            const isDarurat = row.fundType === 'DANA_DARURAT' && row.masuk > 0;
+            const holderTag = row.holderRole === 'PENGURUS_TITIPAN' ? ' [Titipan]' : '';
+            return [
+              {
+                content: formatTanggalSingkat(row.tanggal),
+                styles: isDarurat ? { fillColor: [250, 245, 255] } : {},
+              },
+              {
+                content: row.noBukti,
+                styles: isDarurat ? { fillColor: [250, 245, 255] } : {},
+              },
+              {
+                content: `${row.uraian}${holderTag}`,
+                styles: isDarurat ? { fillColor: [250, 245, 255], textColor: [107, 33, 168] } : {},
+              },
+              {
+                content: row.masuk > 0 ? formatRupiah(row.masuk) : '-',
+                styles: isDarurat
+                  ? { fillColor: [250, 245, 255], textColor: [126, 34, 206], fontStyle: 'bold', halign: 'right' }
+                  : { halign: 'right' },
+              },
+              {
+                content: row.keluar > 0 ? formatRupiah(row.keluar) : '-',
+                styles: isDarurat ? { fillColor: [250, 245, 255], halign: 'right' } : { halign: 'right' },
+              },
+              {
+                content: formatRupiah(row.saldoBerjalan),
+                styles: isDarurat ? { fillColor: [250, 245, 255], halign: 'right', fontStyle: 'bold' } : { halign: 'right', fontStyle: 'bold' },
+              },
+            ];
+          })
         : [['-', '-', 'Belum ada mutasi kas terverifikasi pada bulan ini.', '-', '-', formatRupiah(mc.saldoAkhir)]],
   });
 
-  const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40;
-  await drawSignatureBlock(doc, finalY + 10, brand, {
+  y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 40) + 6.5;
+
+  if (mc.daftarUnitMenunggak.length > 0) {
+    if (y > 240) {
+      doc.addPage();
+      y = PAGE_MARGIN + 4;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(
+      `6. Daftar Unit Menunggak (${mc.daftarUnitMenunggak.length} Unit Melewati Jatuh Tempo Tgl 7)`,
+      PAGE_MARGIN,
+      y
+    );
+    y += 3;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
+      theme: 'grid',
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      head: [['Blok / Unit', 'Nama Warga', 'Bulan Menunggak', 'Estimasi Tagihan', 'Keterangan']],
+      headStyles: { fillColor: [190, 18, 60], textColor: 255, fontSize: 7.4, fontStyle: 'bold' },
+      styles: { fontSize: 7.3, cellPadding: 2.1, lineColor: [226, 232, 240], lineWidth: 0.2 },
+      columnStyles: {
+        0: { cellWidth: 22, fontStyle: 'bold' },
+        1: { cellWidth: 44 },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [190, 18, 60] },
+        4: { cellWidth: 50 },
+      },
+      body: mc.daftarUnitMenunggak.map((u) => [
+        u.blokRumah,
+        u.namaWarga,
+        u.labelBulan,
+        formatRupiah(u.estimasiTunggakan),
+        u.statusKeterangan || 'Melewati jatuh tempo tgl 7',
+      ]),
+    });
+
+    y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || y + 30) + 6.5;
+  }
+
+  await drawSignatureBlock(doc, y + 3.5, brand, {
     tanggalLabel: formatTanggal(report.generatedAt),
   });
 

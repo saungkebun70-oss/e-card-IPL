@@ -329,7 +329,35 @@ export function ChairmanMonthlyReportPanel({
             <p className="text-[10px] text-[#4A554A] mt-0.5 tabular-nums">
               {report.compliance.isPraRilis
                 ? 'Periode Pra-Rilis (Belum Berlaku)'
-                : `${report.compliance.unitLunas} / ${report.compliance.unitAktif} unit aktif lunas`}
+                : `${report.compliance.unitLunas} / ${report.compliance.unitAktif} unit lunas · ${mc.summaryKepatuhan.menunggak} menunggak`}
+            </p>
+          </div>
+        </div>
+
+        {/* Strip Pemisahan Dana (Reguler vs Darurat) & Pemegang Saldo */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2">
+            <p className="text-[10px] font-semibold text-emerald-800">Kas IPL Reguler (≥100rb)</p>
+            <p className="text-xs sm:text-sm font-mono font-bold text-emerald-900 tabular-nums mt-0.5">
+              {formatRupiah(mc.totalIplReguler)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-purple-300 bg-purple-50/80 px-3 py-2">
+            <p className="text-[10px] font-semibold text-purple-900">Dana Darurat (&lt;100rb/bln)</p>
+            <p className="text-xs sm:text-sm font-mono font-bold text-purple-800 tabular-nums mt-0.5">
+              {formatRupiah(mc.totalDanaDarurat)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/45 px-3 py-2">
+            <p className="text-[10px] font-semibold text-[#243825]">Kas di Bendahara</p>
+            <p className="text-xs sm:text-sm font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
+              {formatRupiah(mc.saldoAkhirBendahara)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#E2C285] bg-[#F2D8A7]/40 px-3 py-2">
+            <p className="text-[10px] font-semibold text-[#4A3410]">Titipan Pengurus</p>
+            <p className="text-xs sm:text-sm font-mono font-bold text-[#4A3410] tabular-nums mt-0.5">
+              {formatRupiah(mc.saldoAkhirPengurusTitipan)}
             </p>
           </div>
         </div>
@@ -505,6 +533,59 @@ export function ChairmanMonthlyReportPanel({
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Daftar Unit Menunggak (Melewati Jatuh Tempo Tgl 7) */}
+            <div className="border border-[#E2A898] bg-[#FFFDF8] rounded-2xl overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-[#C87058]/10 border-b border-[#E2A898] flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-bold text-[#7A311E]">
+                    Daftar Unit Menunggak ({mc.daftarUnitMenunggak.length} Unit)
+                  </h3>
+                  <p className="text-[10px] text-[#7A311E]/85">
+                    Unit wajib iuran yang melewati jatuh tempo tanggal 7 bulan berikutnya.
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-[#A44831] tabular-nums">
+                  {mc.daftarUnitMenunggak.length} unit
+                </span>
+              </div>
+              {mc.daftarUnitMenunggak.length === 0 ? (
+                <p className="px-3.5 py-4 text-xs text-[#243825] text-center font-medium">
+                  Tidak ada unit wajib iuran yang berstatus menunggak hingga periode {report.namaBulan} {report.tahun}.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#F6F3EA]/70 border-b border-[#E6E2D6] text-[10px] font-bold uppercase tracking-wider text-[#4A554A]">
+                        <th className="py-2 px-3 whitespace-nowrap">Blok</th>
+                        <th className="py-2 px-3">Nama Warga</th>
+                        <th className="py-2 px-3">Bulan Menunggak</th>
+                        <th className="py-2 px-3 text-right whitespace-nowrap">Estimasi Tagihan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E6E2D6]/60">
+                      {mc.daftarUnitMenunggak.map((u) => (
+                        <tr key={u.blokRumah} className="hover:bg-[#F6F3EA]/60">
+                          <td className="py-2 px-3 font-mono font-bold text-[#1B271B] whitespace-nowrap">
+                            {u.blokRumah}
+                          </td>
+                          <td className="py-2 px-3 font-medium text-[#1B271B]">
+                            {u.namaWarga}
+                          </td>
+                          <td className="py-2 px-3 text-[#7A311E]">
+                            {u.labelBulan} ({u.bulanTunggak.length} bln)
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-[#A44831] tabular-nums whitespace-nowrap">
+                            {formatRupiah(u.estimasiTunggakan)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

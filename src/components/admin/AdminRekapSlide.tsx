@@ -42,7 +42,10 @@ import {
 import {
   buildBillingCellKey,
   buildPaidAmountLookup,
+  formatDaruratBadgeLabel,
   getStatusBadgeStyle,
+  getUnitDelinquentMonths,
+  isUnitBillable,
   resolveUnitMonthBillingStatus,
   type CellStatus,
 } from '../../lib/billingStatus';
@@ -75,17 +78,27 @@ interface AdminRekapSlideProps {
 }
 
 type RekapSubTab = 'bulanan' | 'matriks' | 'ketua';
-type DelinquencyFilter = 'all' | 'gt1' | '2' | '3' | 'gt3';
+type DelinquencyFilter = 'all' | 'gt0' | '1' | '2' | '3' | 'gt3';
 
 function isUnitKosong(w: Warga): boolean {
   return resolveOccupancyStatus(w) === 'kosong';
 }
 
-function getMatrixBadgeDisplay(status: CellStatus, isPending: boolean): {
+function getMatrixBadgeDisplay(
+  status: CellStatus,
+  isPending: boolean,
+  paidAmount = 0
+): {
   label: string;
   className: string;
 } {
-  if (isPending && status !== 'LUNAS' && status !== 'DANA_DARURAT' && status !== 'KOSONG' && status !== 'PRA_RILIS') {
+  if (status === 'DANA_DARURAT') {
+    return {
+      label: formatDaruratBadgeLabel(paidAmount),
+      className: 'bg-purple-100 text-purple-800 border border-purple-300 font-semibold',
+    };
+  }
+  if (isPending && status !== 'LUNAS' && status !== 'KOSONG' && status !== 'PRA_RILIS') {
     return {
       label: 'Pending',
       className: 'bg-[#F2D8A7]/70 text-[#4A3410] border border-[#E2C285]',
@@ -134,8 +147,13 @@ export function AdminRekapSlide({
   const cashSummary = useMemo(() => calculateCashAllocation(transaksiList), [transaksiList]);
 
   const monthlyReport = useMemo(
-    () => buildMonthlyCashReport(selectedTahun, selectedBulan, transaksiList, transaksiKasList),
-    [selectedTahun, selectedBulan, transaksiList, transaksiKasList]
+    () =>
+      buildMonthlyCashReport(selectedTahun, selectedBulan, transaksiList, transaksiKasList, {
+        wargaList,
+        statusList,
+        billingStart: brand,
+      }),
+    [selectedTahun, selectedBulan, transaksiList, transaksiKasList, wargaList, statusList, brand]
   );
 
   const sortedWargaList = useMemo(
@@ -151,11 +169,13 @@ export function AdminRekapSlide({
   const matrixSummary = useMemo(() => {
     let berpenghuniCount = 0;
     let kosongCount = 0;
+    let exemptCount = 0;
     let sudahSetorCount = 0;
     let lunasBulanIniCount = 0;
     let daruratBulanIniCount = 0;
     let belumSetorCount = 0;
     let menungguCount = 0;
+    let menunggak1Bln = 0;
     let menunggak2Bln = 0;
     let menunggak3Bln = 0;
     let menunggakGt3Bln = 0;
@@ -163,8 +183,12 @@ export function AdminRekapSlide({
     const unpaidMonthsByWargaId = new Map<string, number>();
 
     for (const w of sortedWargaList) {
-      if (isUnitKosong(w)) {
-        kosongCount += 1;
+      if (!isUnitBillable(w)) {
+        if (isUnitKosong(w)) {
+          kosongCount += 1;
+        } else {
+          exemptCount += 1;
+        }
         unpaidMonthsByWargaId.set(w.id, 0);
         continue;
       }
@@ -189,7 +213,8 @@ export function AdminRekapSlide({
         sudahSetorCount += 1;
         lunasBulanIniCount += 1;
       } else if (currentSt === 'DANA_DARURAT') {
-        sudahSetorCount += 1;
+        // Pembayaran < Rp 100.000/bln dialihkan ke Dana Darurat -> tetap terhitung Belum Setor IPL Penuh
+        belumSetorCount += 1;
         daruratBulanIniCount += 1;
       } else if (currentSt !== 'PRA_RILIS' && currentSt !== 'KOSONG') {
         belumSetorCount += 1;
@@ -198,27 +223,20 @@ export function AdminRekapSlide({
         }
       }
 
-      let tunggakMonths = 0;
-      for (let m = 1; m <= 12; m += 1) {
-        const mKey = buildBillingCellKey(w.blok_rumah, TAHUN_AKTIF, m);
-        const mPaid = paidAmountByKey.get(mKey) ?? 0;
-        const mStatus = resolveUnitMonthBillingStatus({
-          warga: w,
-          targetYear: TAHUN_AKTIF,
-          targetMonth: m,
-          paidAmount: mPaid,
-          billingStart: brand,
-        });
-        const mPending = mPaid === 0 && pendingKeys.has(mKey);
-        if (mStatus === 'TUNGGAK' && !mPending) {
-          tunggakMonths += 1;
-        }
-      }
+      const delinquentMonths = getUnitDelinquentMonths({
+        warga: w,
+        year: TAHUN_AKTIF,
+        paidAmountByKey,
+        pendingKeys,
+        billingStart: brand,
+      });
+      const tunggakMonths = delinquentMonths.length;
 
       unpaidMonthsByWargaId.set(w.id, tunggakMonths);
-      if (tunggakMonths >= 2) {
+      if (tunggakMonths >= 1) {
         menunggakTotal += 1;
-        if (tunggakMonths === 2) menunggak2Bln += 1;
+        if (tunggakMonths === 1) menunggak1Bln += 1;
+        else if (tunggakMonths === 2) menunggak2Bln += 1;
         else if (tunggakMonths === 3) menunggak3Bln += 1;
         else menunggakGt3Bln += 1;
       }
@@ -227,11 +245,13 @@ export function AdminRekapSlide({
     return {
       berpenghuniCount,
       kosongCount,
+      exemptCount,
       sudahSetorCount,
       lunasBulanIniCount,
       daruratBulanIniCount,
       belumSetorCount,
       menungguCount,
+      menunggak1Bln,
       menunggak2Bln,
       menunggak3Bln,
       menunggakGt3Bln,
@@ -258,9 +278,10 @@ export function AdminRekapSlide({
       }
 
       if (delinquencyFilter !== 'all') {
-        if (isUnitKosong(w)) return false;
+        if (!isUnitBillable(w)) return false;
         const unpaidCount = matrixSummary.unpaidMonthsByWargaId.get(w.id) ?? 0;
-        if (delinquencyFilter === 'gt1' && unpaidCount < 2) return false;
+        if (delinquencyFilter === 'gt0' && unpaidCount < 1) return false;
+        if (delinquencyFilter === '1' && unpaidCount !== 1) return false;
         if (delinquencyFilter === '2' && unpaidCount !== 2) return false;
         if (delinquencyFilter === '3' && unpaidCount !== 3) return false;
         if (delinquencyFilter === 'gt3' && unpaidCount <= 3) return false;
@@ -690,6 +711,71 @@ export function AdminRekapSlide({
               </div>
             </section>
 
+            {/* Rincian Alokasi Dana (Reguler vs Darurat) & Pemegang Saldo (Bendahara vs Titipan) */}
+            <section className="relative z-10 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-2.5 print:gap-2 avoid-break">
+              <div className="rounded-xl border border-[#E6E2D6] bg-[#FAF7EF] p-3 print:p-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
+                    Pemisahan Pos Pemasukan
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                      Kas IPL Reguler: <strong className="font-mono tabular-nums">{formatRupiah(monthlyReport.totalIplReguler)}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-purple-800">
+                      <span className="w-2 h-2 rounded-full bg-purple-600" />
+                      Dana Darurat: <strong className="font-mono tabular-nums">{formatRupiah(monthlyReport.totalDanaDarurat)}</strong>
+                      {monthlyReport.jumlahTransaksiDarurat > 0 && (
+                        <span className="text-[10px] text-purple-700">({monthlyReport.jumlahTransaksiDarurat} trx)</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#E6E2D6] bg-[#FAF7EF] p-3 print:p-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6E786D]">
+                    Posisi Pemegang Saldo Akhir
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-[#243825]">
+                      <span className="w-2 h-2 rounded-full bg-[#243825]" />
+                      Kas di Bendahara: <strong className="font-mono tabular-nums">{formatRupiah(monthlyReport.saldoAkhirBendahara)}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-[#6E4D12]">
+                      <span className="w-2 h-2 rounded-full bg-[#C78C26]" />
+                      Titipan Pengurus: <strong className="font-mono tabular-nums">{formatRupiah(monthlyReport.saldoAkhirPengurusTitipan)}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Ringkasan Kepatuhan Unit Wajib Iuran */}
+            {monthlyReport.summaryKepatuhan.totalBillable > 0 && (
+              <section className="relative z-10 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/35 px-3.5 py-2.5 print:py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs print:text-[9.5px] avoid-break">
+                <span className="font-bold text-[#243825]">
+                  Kepatuhan Unit Wajib Iuran ({monthlyReport.namaBulan} {monthlyReport.tahun}):
+                </span>
+                <div className="flex flex-wrap items-center gap-2 font-mono tabular-nums">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold">
+                    Sudah Setor Lunas: {monthlyReport.summaryKepatuhan.sudahSetor}/{monthlyReport.summaryKepatuhan.totalBillable}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 font-semibold">
+                    Belum Setor: {monthlyReport.summaryKepatuhan.belumSetor}
+                    {monthlyReport.summaryKepatuhan.unitDarurat > 0
+                      ? ` (${monthlyReport.summaryKepatuhan.unitDarurat} Darurat)`
+                      : ''}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 font-semibold">
+                    Menunggak (&gt;Tgl 7): {monthlyReport.summaryKepatuhan.menunggak} unit
+                  </span>
+                </div>
+              </section>
+            )}
+
             {/* Rincian Pengeluaran per Kategori */}
             {monthlyReport.pengeluaranPerKategori.length > 0 && (
               <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
@@ -777,29 +863,56 @@ export function AdminRekapSlide({
                         </td>
                       </tr>
                     ) : (
-                      monthlyReport.mutasiKronologis.map((row) => (
-                        <tr key={row.id} className="hover:bg-[#F6F3EA]/70">
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[#4A554A] whitespace-nowrap tabular-nums">
-                            {formatTanggalSingkat(row.tanggal)}
-                          </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[10px] text-[#4A554A] whitespace-nowrap">
-                            {row.noBukti}
-                          </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 min-w-[180px]">
-                            <p className="font-medium text-[#1B271B] leading-snug">{row.uraian}</p>
-                            <p className="text-[10px] text-[#6E786D] mt-0.5">{row.kategori}</p>
-                          </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-[#243825] tabular-nums whitespace-nowrap">
-                            {row.masuk > 0 ? formatRupiah(row.masuk) : '—'}
-                          </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-[#C87058] tabular-nums whitespace-nowrap">
-                            {row.keluar > 0 ? formatRupiah(row.keluar) : '—'}
-                          </td>
-                          <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap">
-                            {formatRupiah(row.saldoBerjalan)}
-                          </td>
-                        </tr>
-                      ))
+                      monthlyReport.mutasiKronologis.map((row) => {
+                        const isDarurat = row.fundType === 'DANA_DARURAT';
+                        const isTitipan = row.holderRole === 'PENGURUS_TITIPAN';
+                        return (
+                          <tr
+                            key={row.id}
+                            className={
+                              isDarurat
+                                ? 'border-l-4 border-l-purple-600 bg-purple-50/70 hover:bg-purple-50'
+                                : 'hover:bg-[#F6F3EA]/70'
+                            }
+                          >
+                            <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[#4A554A] whitespace-nowrap tabular-nums">
+                              {formatTanggalSingkat(row.tanggal)}
+                            </td>
+                            <td className="py-2 print:py-1.5 px-2.5 sm:px-3 font-mono text-[10px] text-[#4A554A] whitespace-nowrap">
+                              {row.noBukti}
+                            </td>
+                            <td className="py-2 print:py-1.5 px-2.5 sm:px-3 min-w-[180px]">
+                              <p className="font-medium text-[#1B271B] leading-snug">
+                                {row.uraian}
+                                {isDarurat && (
+                                  <span className="inline-block ml-1.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300 text-[9.5px] font-bold align-middle">
+                                    Dana Darurat
+                                  </span>
+                                )}
+                                {isTitipan && (
+                                  <span className="inline-block ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[9.5px] font-semibold align-middle">
+                                    Titipan Pengurus
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[10px] text-[#6E786D] mt-0.5">{row.kategori}</p>
+                            </td>
+                            <td
+                              className={`py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap ${
+                                isDarurat ? 'text-purple-800' : 'text-[#243825]'
+                              }`}
+                            >
+                              {row.masuk > 0 ? formatRupiah(row.masuk) : '—'}
+                            </td>
+                            <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-semibold text-[#C87058] tabular-nums whitespace-nowrap">
+                              {row.keluar > 0 ? formatRupiah(row.keluar) : '—'}
+                            </td>
+                            <td className="py-2 print:py-1.5 px-2.5 sm:px-3 text-right font-mono font-bold text-[#1B271B] tabular-nums whitespace-nowrap">
+                              {formatRupiah(row.saldoBerjalan)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
 
                     {/* Baris Total & Saldo Akhir */}
@@ -821,6 +934,58 @@ export function AdminRekapSlide({
                   </tbody>
                 </table>
               </div>
+            </section>
+
+            {/* Daftar Unit Menunggak (Hanya unit wajib iuran yang lewat tgl 7 bulan berikutnya) */}
+            <section className="relative z-10 space-y-2 print:space-y-1.5 avoid-break">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A311E]">
+                  Daftar Unit Menunggak (Melewati Jatuh Tempo Tgl 7)
+                </h3>
+                <span className="text-xs print:text-[10px] font-mono font-bold text-[#A44831] tabular-nums">
+                  {monthlyReport.daftarUnitMenunggak.length} unit
+                </span>
+              </div>
+              {monthlyReport.daftarUnitMenunggak.length === 0 ? (
+                <div className="rounded-xl border border-[#C6D2BF] bg-[#E5EEE3]/40 px-4 py-3 text-xs text-[#243825] font-medium">
+                  Tidak ada unit wajib iuran yang berstatus menunggak hingga periode {monthlyReport.namaBulan} {monthlyReport.tahun}.
+                </div>
+              ) : (
+                <div className="overflow-x-auto w-full border border-[#E2A898] rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs print:text-[9.5px]">
+                    <thead>
+                      <tr className="bg-[#C87058]/15 border-b border-[#E2A898] text-[#7A311E] font-semibold">
+                        <th className="py-2 print:py-1.5 px-3 whitespace-nowrap">Blok</th>
+                        <th className="py-2 print:py-1.5 px-3">Nama Warga</th>
+                        <th className="py-2 print:py-1.5 px-3">Bulan Menunggak</th>
+                        <th className="py-2 print:py-1.5 px-3 text-right whitespace-nowrap">Estimasi Tagihan</th>
+                        <th className="py-2 print:py-1.5 px-3">Keterangan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E6E2D6]/70">
+                      {monthlyReport.daftarUnitMenunggak.map((u) => (
+                        <tr key={u.blokRumah}>
+                          <td className="py-2 print:py-1.5 px-3 font-mono font-bold text-[#1B271B] whitespace-nowrap">
+                            {u.blokRumah}
+                          </td>
+                          <td className="py-2 print:py-1.5 px-3 font-medium text-[#1B271B]">
+                            {u.namaWarga}
+                          </td>
+                          <td className="py-2 print:py-1.5 px-3 text-[#7A311E] font-medium">
+                            {u.labelBulan} ({u.bulanTunggak.length} bln)
+                          </td>
+                          <td className="py-2 print:py-1.5 px-3 text-right font-mono font-bold text-[#A44831] tabular-nums whitespace-nowrap">
+                            {formatRupiah(u.estimasiTunggakan)}
+                          </td>
+                          <td className="py-2 print:py-1.5 px-3 text-[#6E786D]">
+                            {u.statusKeterangan || 'Melewati jatuh tempo tgl 7'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             {/* Blok Tanda Tangan & Stempel Pengurus — Stempel Rapi di Area TTD (Tidak Menutupi Nama) */}
@@ -885,15 +1050,15 @@ export function AdminRekapSlide({
               <p className="text-xs text-[#6E786D] mt-1">Operasional &amp; pemeliharaan lingkungan</p>
             </div>
 
-            <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-5">
-              <p className="text-xs font-medium text-[#6E786D]">
+            <div className="glass-card bg-purple-50/70 border border-purple-300 rounded-3xl p-5">
+              <p className="text-xs font-semibold text-purple-900">
                 Alokasi Dana Darurat (&lt; Rp 100.000/bln)
               </p>
-              <p className="text-2xl font-mono font-bold text-[#6E4D12] tabular-nums mt-1.5">
+              <p className="text-2xl font-mono font-bold text-purple-700 tabular-nums mt-1.5">
                 {formatRupiah(cashSummary.alokasiDanaDarurat)}
               </p>
-              <p className="text-xs text-[#6E786D] mt-1 tabular-nums">
-                {cashSummary.jumlahTransaksiDarurat} transaksi setoran khusus/parsial
+              <p className="text-xs text-purple-800/80 mt-1 tabular-nums">
+                {cashSummary.jumlahTransaksiDarurat} transaksi setoran khusus/parsial (belum lunas IPL)
               </p>
             </div>
           </section>
@@ -972,7 +1137,7 @@ export function AdminRekapSlide({
                   Matriks Pembayaran 12 Bulan ({TAHUN_AKTIF})
                 </h2>
                 <p className="text-xs text-[#6E786D]">
-                  Sage lembut = berpenghuni · Krem hangat = blok kosong · Mulai penagihan:{' '}
+                  Sage lembut = wajib iuran · Krem hangat = kosong/bebas iuran · Mulai penagihan:{' '}
                   <span className="font-semibold text-[#1B271B]">
                     {formatBillingStartLabel(brand)}
                   </span>{' '}
@@ -980,8 +1145,8 @@ export function AdminRekapSlide({
                   {delinquencyFilter !== 'all' && (
                     <span className="ml-1 font-semibold text-[#243825]">
                       (Filter tunggakan:{' '}
-                      {delinquencyFilter === 'gt1'
-                        ? '> 1 bulan'
+                      {delinquencyFilter === 'gt0'
+                        ? '≥ 1 bulan'
                         : delinquencyFilter === 'gt3'
                           ? '> 3 bulan'
                           : `${delinquencyFilter} bulan`}
@@ -1001,25 +1166,27 @@ export function AdminRekapSlide({
                 aria-label="Ringkasan Statistik Matriks IPL Bulan Berjalan"
                 className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4"
               >
-                {/* 1. Blok Berpenghuni */}
+                {/* 1. Blok Wajib Iuran */}
                 <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/75 p-3.5">
-                  <p className="text-[11px] font-semibold text-[#243825]">Blok Berpenghuni</p>
+                  <p className="text-[11px] font-semibold text-[#243825]">Unit Wajib Iuran</p>
                   <p className="text-lg sm:text-xl font-mono font-bold text-[#243825] tabular-nums mt-1">
                     {matrixSummary.berpenghuniCount} Unit
                   </p>
-                  <p className="text-[11px] text-[#384E35] mt-0.5">Unit terisi aktif</p>
+                  <p className="text-[11px] text-[#384E35] mt-0.5">Berpenghuni aktif</p>
                 </div>
 
-                {/* 2. Blok Kosong */}
+                {/* 2. Blok Kosong / Bebas Iuran */}
                 <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/45 p-3.5">
-                  <p className="text-[11px] font-semibold text-[#4A3410]">Blok Kosong</p>
+                  <p className="text-[11px] font-semibold text-[#4A3410]">Kosong / Bebas Iuran</p>
                   <p className="text-lg sm:text-xl font-mono font-bold text-[#4A3410] tabular-nums mt-1">
-                    {matrixSummary.kosongCount} Unit
+                    {matrixSummary.kosongCount + matrixSummary.exemptCount} Unit
                   </p>
-                  <p className="text-[11px] text-[#6E4D12] mt-0.5">Unit kosong / belum dihuni</p>
+                  <p className="text-[11px] text-[#6E4D12] mt-0.5 tabular-nums">
+                    {matrixSummary.kosongCount} kosong{matrixSummary.exemptCount > 0 ? ` · ${matrixSummary.exemptCount} bebas iuran` : ''}
+                  </p>
                 </div>
 
-                {/* 3. Sudah Setor (Bulan Berjalan) */}
+                {/* 3. Sudah Setor (Lunas >= Rp100rb) */}
                 <div className="rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] p-3.5">
                   <p className="text-[11px] font-semibold text-[#4A554A]">
                     Sudah Setor ({getNamaBulan(currentMonth)})
@@ -1028,17 +1195,15 @@ export function AdminRekapSlide({
                     {matrixSummary.sudahSetorCount} Unit
                   </p>
                   <p className="text-[11px] text-[#6E786D] mt-0.5 tabular-nums">
-                    {matrixSummary.lunasBulanIniCount} Lunas
-                    {matrixSummary.daruratBulanIniCount > 0
-                      ? ` · ${matrixSummary.daruratBulanIniCount} Darurat`
-                      : ''}{' '}
-                    ({matrixSummary.berpenghuniCount > 0
+                    {matrixSummary.lunasBulanIniCount} Lunas ≥ Rp100rb (
+                    {matrixSummary.berpenghuniCount > 0
                       ? `${Math.round((matrixSummary.sudahSetorCount / matrixSummary.berpenghuniCount) * 100)}%`
-                      : '0%'})
+                      : '0%'}
+                    )
                   </p>
                 </div>
 
-                {/* 4. Belum Setor (Bulan Berjalan) */}
+                {/* 4. Belum Setor (Termasuk Dana Darurat < Rp100rb) */}
                 <div className="rounded-2xl border border-[#C87058]/40 bg-[#C87058]/10 p-3.5">
                   <p className="text-[11px] font-semibold text-[#A44831]">
                     Belum Setor ({getNamaBulan(currentMonth)})
@@ -1049,27 +1214,29 @@ export function AdminRekapSlide({
                   <p className="text-[11px] text-[#A44831]/85 mt-0.5 tabular-nums">
                     {isBeforeBillingStart(TAHUN_AKTIF, currentMonth, brand)
                       ? 'Periode Pra-Rilis (Belum Berlaku)'
-                      : matrixSummary.menungguCount > 0
-                        ? `${matrixSummary.menungguCount} menunggu verifikasi`
-                        : 'Unit berpenghuni belum lunas'}
+                      : matrixSummary.daruratBulanIniCount > 0
+                        ? `${matrixSummary.daruratBulanIniCount} Dana Darurat (<100rb)${matrixSummary.menungguCount > 0 ? ` · ${matrixSummary.menungguCount} pending` : ''}`
+                        : matrixSummary.menungguCount > 0
+                          ? `${matrixSummary.menungguCount} menunggu verifikasi`
+                          : 'Unit aktif belum lunas'}
                   </p>
                 </div>
 
-                {/* 5. Menunggak (> 1 Bulan) + Filter Rincian */}
+                {/* 5. Menunggak (Lewat Tgl 7) + Filter Rincian */}
                 <div className="col-span-2 sm:col-span-1 rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/55 p-3.5 flex flex-col justify-between gap-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[11px] font-semibold text-[#4A3410]">
-                        Menunggak (&gt; 1 Bulan)
+                        Menunggak (Lewat Tgl 7)
                       </p>
                       <button
                         type="button"
                         onClick={() =>
-                          setDelinquencyFilter((prev) => (prev === 'gt1' ? 'all' : 'gt1'))
+                          setDelinquencyFilter((prev) => (prev === 'gt0' ? 'all' : 'gt0'))
                         }
-                        title="Filter unit menunggak lebih dari 1 bulan"
+                        title="Filter unit menunggak melewati jatuh tempo tgl 7"
                         className={`mt-1 text-left font-mono text-lg sm:text-xl font-bold tabular-nums cursor-pointer underline-offset-4 hover:underline ${
-                          delinquencyFilter === 'gt1' ? 'text-[#243825] underline' : 'text-[#4A3410]'
+                          delinquencyFilter === 'gt0' ? 'text-[#243825] underline' : 'text-[#4A3410]'
                         }`}
                       >
                         {matrixSummary.menunggakTotal} Unit
@@ -1086,9 +1253,10 @@ export function AdminRekapSlide({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1">
                     {(
                       [
+                        { key: '1', label: '1 bln', count: matrixSummary.menunggak1Bln },
                         { key: '2', label: '2 bln', count: matrixSummary.menunggak2Bln },
                         { key: '3', label: '3 bln', count: matrixSummary.menunggak3Bln },
                         { key: 'gt3', label: '>3 bln', count: matrixSummary.menunggakGt3Bln },
@@ -1102,7 +1270,7 @@ export function AdminRekapSlide({
                           onClick={() =>
                             setDelinquencyFilter((prev) => (prev === item.key ? 'all' : item.key))
                           }
-                          className={`px-2 py-1 rounded-lg border text-[10.5px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`px-1.5 py-0.5 rounded-lg border text-[10px] font-semibold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
                             active
                               ? 'bg-[#2B3F29] text-[#FFFDF8] border-[#2B3F29] shadow-2xs'
                               : 'bg-[#FFFDF8] text-[#4A3410] border-[#E2C285] hover:bg-[#F2D8A7]/50'
@@ -1170,7 +1338,7 @@ export function AdminRekapSlide({
                     </tr>
                   ) : (
                     pagedWarga.map((w) => {
-                      const kosong = isUnitKosong(w);
+                      const kosong = !isUnitBillable(w);
                       return (
                         <tr
                           key={w.id}
@@ -1200,6 +1368,7 @@ export function AdminRekapSlide({
                               }`}
                             >
                               {w.nama_warga}
+                              {w.is_exempt ? ' (Bebas Iuran)' : ''}
                             </p>
                           </td>
                           {BULAN_LIST.map((b) => {
@@ -1213,7 +1382,7 @@ export function AdminRekapSlide({
                               billingStart: brand,
                             });
                             const isPending = paidAmount === 0 && pendingKeys.has(cellKey);
-                            const badge = getMatrixBadgeDisplay(cellStatus, isPending);
+                            const badge = getMatrixBadgeDisplay(cellStatus, isPending, paidAmount);
                             return (
                               <td
                                 key={b.angka}

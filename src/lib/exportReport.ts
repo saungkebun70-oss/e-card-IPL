@@ -17,7 +17,10 @@ import {
 import {
   buildBillingCellKey,
   buildPaidAmountLookup,
+  formatDaruratBadgeLabel,
   getStatusBadgeStyle,
+  getUnitDelinquentMonths,
+  isUnitBillable,
   resolveUnitMonthBillingStatus,
 } from './billingStatus';
 
@@ -36,14 +39,18 @@ export function calculateCashAllocation(transaksiList: TransaksiIPL[]): CashAllo
   let jumlahTransaksiDarurat = 0;
 
   for (const t of verified) {
-    totalTerverifikasi += t.nominal;
+    const nominal = Number(t.nominal) || 0;
+    totalTerverifikasi += nominal;
     const bulanCount = Math.max(t.bulan_dibayar.length, 1);
-    const perBulan = t.nominal / bulanCount;
-    if (perBulan < NOMINAL_IPL_STANDAR) {
-      alokasiDanaDarurat += t.nominal;
+    const perBulan = nominal / bulanCount;
+    const isDarurat =
+      t.fund_type === 'DANA_DARURAT' ||
+      (t.fund_type !== 'IPL_REGULER' && perBulan > 0 && perBulan < NOMINAL_IPL_STANDAR);
+    if (isDarurat) {
+      alokasiDanaDarurat += nominal;
       jumlahTransaksiDarurat += 1;
     } else {
-      alokasiIplReguler += t.nominal;
+      alokasiIplReguler += nominal;
     }
   }
 
@@ -68,9 +75,9 @@ function buildMatrixRows(
     const row: Record<string, string | number> = {
       'Blok / No. Rumah': formatBlokRumah(w.blok_rumah) || w.blok_rumah,
       'Nama Warga': w.nama_warga,
-      'Status Hunian': w.status_hunian,
+      'Status Hunian': w.is_exempt ? `${w.status_hunian} (Bebas Iuran)` : w.status_hunian,
       'No. WhatsApp': w.no_wa,
-      'Iuran Wajib (Rp)': w.nominal_iuran,
+      'Iuran Wajib (Rp)': w.is_occupied === false || w.is_exempt ? 0 : w.nominal_iuran,
     };
     let totalLunas = 0;
     for (const b of BULAN_LIST) {
@@ -90,7 +97,13 @@ function buildMatrixRows(
         cellStatus !== 'PRA_RILIS' &&
         pendingKeys.has(cellKey);
 
-      row[b.singkat] = isPending ? 'Pending' : getStatusBadgeStyle(cellStatus).label;
+      if (isPending) {
+        row[b.singkat] = 'Pending';
+      } else if (cellStatus === 'DANA_DARURAT') {
+        row[b.singkat] = formatDaruratBadgeLabel(paidAmount);
+      } else {
+        row[b.singkat] = getStatusBadgeStyle(cellStatus).label;
+      }
       if (cellStatus === 'LUNAS') totalLunas += 1;
     }
     row['Total Bulan Lunas'] = totalLunas;
@@ -104,10 +117,14 @@ function buildCashLedgerRows(transaksiList: TransaksiIPL[]) {
     .map((t) => {
       const bulanCount = Math.max(t.bulan_dibayar.length, 1);
       const perBulan = t.nominal / bulanCount;
-      const kategoriAlokasi =
-        perBulan < NOMINAL_IPL_STANDAR
-          ? 'Alokasi Dana Darurat (< Rp 100.000/bln)'
-          : 'Kas IPL Reguler';
+      const isDarurat =
+        t.fund_type === 'DANA_DARURAT' ||
+        (t.fund_type !== 'IPL_REGULER' && perBulan > 0 && perBulan < NOMINAL_IPL_STANDAR);
+      const kategoriAlokasi = isDarurat
+        ? 'Dana Darurat (< Rp 100.000/bln)'
+        : 'Kas IPL Reguler';
+      const pemegangDana =
+        t.holder_role === 'PENGURUS_TITIPAN' ? 'Titipan Pengurus' : 'Bendahara';
       return {
         'No. Kwitansi': t.no_kwitansi,
         'Tanggal Setor': formatTanggal(t.tanggal_setor),
@@ -116,11 +133,47 @@ function buildCashLedgerRows(transaksiList: TransaksiIPL[]) {
         'Bulan Dibayar': formatDaftarBulan(t.bulan_dibayar),
         'Metode Pembayaran': t.metode_bayar,
         'Petugas Penerima': t.petugas_penerima || '-',
+        'Pemegang Dana': pemegangDana,
         'Nominal (Rp)': t.nominal,
         'Kategori Alokasi': kategoriAlokasi,
         'Keterangan': t.keterangan || '-',
       };
     });
+}
+
+function buildDelinquentUnitRows(
+  wargaList: Warga[],
+  statusList: StatusEcardBulanan[],
+  transaksiList: TransaksiIPL[],
+  billingStart?: BillingStartPeriod | null
+) {
+  const sortedWarga = [...wargaList]
+    .filter(isUnitBillable)
+    .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
+  const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(transaksiList, statusList);
+
+  const rows: Array<Record<string, string | number>> = [];
+  for (const w of sortedWarga) {
+    const tunggakMonths = getUnitDelinquentMonths({
+      warga: w,
+      year: TAHUN_AKTIF,
+      paidAmountByKey,
+      pendingKeys,
+      billingStart,
+    });
+    if (tunggakMonths.length === 0) continue;
+
+    rows.push({
+      'Blok / No. Rumah': formatBlokRumah(w.blok_rumah) || w.blok_rumah,
+      'Nama Warga': w.nama_warga,
+      'Status Hunian': w.status_hunian,
+      'No. WhatsApp': w.no_wa,
+      'Bulan Menunggak': formatDaftarBulan(tunggakMonths, true),
+      'Jumlah Bulan': tunggakMonths.length,
+      'Estimasi Tunggakan (Rp)': tunggakMonths.length * NOMINAL_IPL_STANDAR,
+    });
+  }
+  return rows;
 }
 
 export function exportLaporanExcel(
@@ -140,7 +193,7 @@ export function exportLaporanExcel(
   const summary = calculateCashAllocation(transaksiList);
   const summaryRows = [
     { Uraian: 'Instansi', Nilai: 'Pengurus Lingkungan Perumahan Saung Kebun' },
-    { Uraian: 'Alamat', Nilai: 'Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B03/07)' },
+    { Uraian: 'Alamat', Nilai: 'Desa Bengle, Kec. Majalaya, Kab. Karawang (Sekretariat: Blok B3/7)' },
     { Uraian: 'Periode Laporan', Nilai: `Tahun ${TAHUN_AKTIF}` },
     { Uraian: 'Total Kas Terverifikasi (Rp)', Nilai: summary.totalTerverifikasi },
     { Uraian: 'Alokasi Kas IPL Reguler (Rp)', Nilai: summary.alokasiIplReguler },
@@ -158,6 +211,15 @@ export function exportLaporanExcel(
       : [{ Info: 'Belum ada transaksi terverifikasi pada periode ini.' }]
   );
   XLSX.utils.book_append_sheet(wb, wsLedger, 'Detail Transaksi Kas');
+
+  // Sheet 4: Daftar Unit Menunggak (Hanya unit berpenghuni & wajib iuran)
+  const delinquentRows = buildDelinquentUnitRows(wargaList, statusList, transaksiList, billingStart);
+  const wsDelinquent = XLSX.utils.json_to_sheet(
+    delinquentRows.length > 0
+      ? delinquentRows
+      : [{ Info: 'Tidak ada unit berpenghuni yang menunggak melewati jatuh tempo tanggal 7.' }]
+  );
+  XLSX.utils.book_append_sheet(wb, wsDelinquent, 'Unit Menunggak');
 
   const dateStamp = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `Laporan_IPL_Saung_Kebun_${TAHUN_AKTIF}_${dateStamp}.xlsx`);

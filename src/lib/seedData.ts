@@ -1,5 +1,6 @@
 import {
   DEFAULT_PAYMENT_CONFIG,
+  NOMINAL_IPL_STANDAR,
   TAHUN_AKTIF,
   type AdminJabatan,
   type AdminPermission,
@@ -334,22 +335,30 @@ export function buildInitialStatusBulanan(
   for (const w of wargaList) {
     const trxWarga = transaksiList.filter((t) => t.blok_rumah === w.blok_rumah && t.tahun === TAHUN_AKTIF);
     for (let bulan = 1; bulan <= 12; bulan++) {
-      const verified = trxWarga.find(
+      const verifiedList = trxWarga.filter(
         (t) => t.status_verifikasi === 'Terverifikasi' && t.bulan_dibayar.includes(bulan)
       );
+      const verifiedPaidAmount = verifiedList.reduce((sum, t) => {
+        const div = Math.max(t.bulan_dibayar.length, 1);
+        return sum + Math.round((Number(t.nominal) || 0) / div);
+      }, 0);
       const pending = trxWarga.find(
-        (t) => t.status_verifikasi === 'Pending' && t.bulan_dibayar.includes(bulan)
+        (t) =>
+          (t.status_verifikasi === 'Pending' || t.status_verifikasi === 'ACC Bendahara') &&
+          t.bulan_dibayar.includes(bulan)
       );
 
       let status = getDefaultUnpaidStatusForMonth(bulan);
       let transaksiId: string | null = null;
 
-      if (verified) {
+      if (verifiedPaidAmount >= NOMINAL_IPL_STANDAR && verifiedList.length > 0) {
         status = 'Lunas';
-        transaksiId = verified.id;
+        transaksiId = verifiedList[0].id;
       } else if (pending) {
         status = 'Menunggu Verifikasi';
         transaksiId = pending.id;
+      } else if (verifiedList.length > 0) {
+        transaksiId = verifiedList[0].id;
       }
 
       result.push({

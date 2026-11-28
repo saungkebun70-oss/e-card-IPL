@@ -124,6 +124,9 @@ function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
   const petugasSig = `${data.petugasList.length}:${data.petugasList
     .map((p) => `${p.id}|${p.aktif ? 1 : 0}|${p.shift}|${p.nama}|${p.avatar_url || ''}`)
     .join(',')}`;
+  const pengurusSig = `${data.pengurusList.length}:${data.pengurusList
+    .map((p) => `${p.id}|${p.nama}|${p.jabatan}|${p.blok_rumah || ''}|${p.no_wa}|${p.pin_akses}|${p.aktif ? 1 : 0}`)
+    .join(',')}`;
   const notifSig = `${data.notifications.length}:${data.notifications
     .slice(0, 20)
     .map((n) => n.id)
@@ -141,6 +144,7 @@ function computeAdminSnapshotFingerprint(data: AdminSnapshot): string {
     patroliSig,
     titikSig,
     petugasSig,
+    pengurusSig,
     notifSig,
     botLogSig,
     mapSig,
@@ -1175,6 +1179,7 @@ export default function App() {
             <AdminWargaSlide
               session={session}
               wargaList={adminData.wargaList}
+              pengurusList={adminData.pengurusList}
               botConfig={adminData.botConfig}
               onRefresh={() => loadPortalData(session, { force: true })}
               onToast={pushToast}

@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { getStatusVerifikasiLabel, type TransaksiIPL, type Warga } from '../../types';
 import { formatBlokRumah, formatDaftarBulan, formatRupiah, formatTanggalWaktu } from '../../lib/format';
+import { formatDaruratBadgeLabel } from '../../lib/billingStatus';
+import { deriveIplFundType, deriveIplHolderRole } from '../../lib/dataService';
 import { KwitansiDigitalModal } from '../KwitansiDigitalModal';
 
 interface WargaRiwayatSlideProps {
@@ -66,15 +68,39 @@ export function WargaRiwayatSlide({ profil, riwayat, onGoToSetor }: WargaRiwayat
           const isVerified = trx.status_verifikasi === 'Terverifikasi';
           const isAccBendahara = trx.status_verifikasi === 'ACC Bendahara';
           const isPending = trx.status_verifikasi === 'Pending';
+          const fType = deriveIplFundType(trx.nominal, trx.bulan_dibayar?.length || 1, trx.fund_type);
+          const hRole = deriveIplHolderRole(trx.metode_bayar, trx.petugas_penerima, trx.holder_role);
+          const isDarurat = fType === 'DANA_DARURAT';
+          const isTitipan = hRole === 'PENGURUS_TITIPAN';
+          const perMonth = Math.round(
+            (Number(trx.nominal) || 0) / Math.max(trx.bulan_dibayar?.length || 1, 1)
+          );
 
           return (
-            <article key={trx.id} className="p-4 sm:p-5 hover:bg-[#F7F4EC]/70 transition-colors">
+            <article
+              key={trx.id}
+              className={`p-4 sm:p-5 transition-colors ${
+                isDarurat
+                  ? 'border-l-4 border-l-purple-600 bg-purple-50/35 hover:bg-purple-50/60'
+                  : 'hover:bg-[#F7F4EC]/70'
+              }`}
+            >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-bold text-[#1B271B]">
                       Bulan {formatDaftarBulan(trx.bulan_dibayar)} ({trx.tahun})
                     </span>
+                    {isDarurat && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 text-[10.5px] font-bold">
+                        {formatDaruratBadgeLabel(perMonth)}
+                      </span>
+                    )}
+                    {isTitipan && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10.5px] font-semibold">
+                        Titipan {trx.petugas_penerima || 'Pengurus'}
+                      </span>
+                    )}
                     <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
                     <span
                       className={`inline-flex items-center gap-1 text-xs font-semibold ${

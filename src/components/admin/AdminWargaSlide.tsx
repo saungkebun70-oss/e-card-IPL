@@ -22,13 +22,18 @@ import {
   Search,
 } from 'lucide-react';
 import {
+  APP_ADMIN_PORTAL_URL,
   isBendaharaFullAccess,
   isBendaharaOnly,
   NOMINAL_IPL_STANDAR,
   resolveOccupancyStatus,
+  SUSUNAN_PENGURUS,
+  WA_PIN_PENGURUS_TEMPLATE_DEFAULT,
+  type AdminPermission,
   type BotAccessRole,
   type BotWaConfig,
   type OccupancyStatus,
+  type PengurusLingkunganRecord,
   type SessionUser,
   type StatusHunian,
   type Warga,
@@ -50,9 +55,12 @@ import {
   normalizePhoneNumber,
 } from '../../lib/format';
 import {
+  deletePengurusLingkunganAdmin,
   deleteWargaAdmin,
   importMasterWargaToDatabase,
+  resetPinPengurusAdmin,
   resetPinWargaAdmin,
+  savePengurusLingkunganAdmin,
   saveWargaAdmin,
   sendWargaBotActivationWaAdmin,
   toggleWargaOccupancyAdmin,
@@ -65,6 +73,7 @@ import { LoadingSpinner } from '../LoadingSpinner';
 interface AdminWargaSlideProps {
   session: SessionUser;
   wargaList: Warga[];
+  pengurusList?: PengurusLingkunganRecord[];
   botConfig?: BotWaConfig;
   onRefresh: () => Promise<void>;
   onToast: (type: 'success' | 'error' | 'info', msg: string) => void;
@@ -81,6 +90,19 @@ interface WargaFormState {
   nominal_iuran: number;
   pin_akses: string;
   aktif: boolean;
+  is_exempt: boolean;
+}
+
+interface PengurusFormState {
+  id?: string;
+  nama: string;
+  jabatan: string;
+  username: string;
+  blok_rumah: string;
+  no_wa: string;
+  pin_akses: string;
+  permission: AdminPermission;
+  aktif: boolean;
 }
 
 const EMPTY_FORM: WargaFormState = {
@@ -93,11 +115,43 @@ const EMPTY_FORM: WargaFormState = {
   nominal_iuran: NOMINAL_IPL_STANDAR,
   pin_akses: '',
   aktif: true,
+  is_exempt: false,
 };
+
+const EMPTY_PENGURUS_FORM: PengurusFormState = {
+  nama: '',
+  jabatan: 'Humas',
+  username: '',
+  blok_rumah: '',
+  no_wa: '',
+  pin_akses: '',
+  permission: 'add_only',
+  aktif: true,
+};
+
+const JABATAN_PENGURUS_OPTIONS = [
+  'Pembina',
+  'Ketua',
+  'Bendahara',
+  'Humas',
+  'Seksi Olahraga',
+  'Sekretaris',
+  'Keamanan',
+] as const;
+
+function buildPengurusPinWaMessage(p: PengurusLingkunganRecord): string {
+  return WA_PIN_PENGURUS_TEMPLATE_DEFAULT
+    .replaceAll('{nama}', p.nama)
+    .replaceAll('{jabatan}', p.jabatan)
+    .replaceAll('{link}', APP_ADMIN_PORTAL_URL)
+    .replaceAll('{username}', p.username)
+    .replaceAll('{pin}', p.pin_akses && !p.pin_akses.includes('•') ? p.pin_akses : '(Hubungi Bendahara)');
+}
 
 export function AdminWargaSlide({
   session,
   wargaList,
+  pengurusList,
   botConfig,
   onRefresh,
   onToast,
@@ -107,7 +161,9 @@ export function AdminWargaSlide({
   const canAccessBotWa = isBendaharaOnly(session);
   const hasGatewayToken = Boolean(botConfig?.api_token?.trim());
   const avatarMap = useAvatarMap();
+  const [activeSubTab, setActiveSubTab] = useState<'warga' | 'pengurus'>('warga');
   const [search, setSearch] = useState('');
+  const [pengurusSearch, setPengurusSearch] = useState('');
   const [occupancyFilter, setOccupancyFilter] = useState<'all' | OccupancyStatus>('all');
   const [optimisticStatusMap, setOptimisticStatusMap] = useState<
     Record<string, { status_hunian: StatusHunian; occupancy_status: OccupancyStatus; nominal_iuran?: number }>
@@ -125,25 +181,87 @@ export function AdminWargaSlide({
   const [importingMaster, setImportingMaster] = useState(false);
   const [syncExistingNames, setSyncExistingNames] = useState(false);
 
+  // State khusus Tab Pengurus Lingkungan
+  const [pengurusModalOpen, setPengurusModalOpen] = useState(false);
+  const [pengurusForm, setPengurusForm] = useState<PengurusFormState>(EMPTY_PENGURUS_FORM);
+  const [savingPengurus, setSavingPengurus] = useState(false);
+  const [deletePengurusTarget, setDeletePengurusTarget] = useState<PengurusLingkunganRecord | null>(null);
+  const [deletingPengurus, setDeletingPengurus] = useState(false);
+  const [copiedPengurusId, setCopiedPengurusId] = useState<string | null>(null);
+
   // Sinkronkan optimistic override setiap kali data utama dari parent/Supabase diperbarui
   useEffect(() => {
     setOptimisticStatusMap({});
   }, [wargaList]);
 
-  const effectiveWargaList = useMemo(() => {
-    const hasOverrides = Object.keys(optimisticStatusMap).length > 0;
-    if (!hasOverrides) return wargaList;
-    return wargaList.map((w) => {
-      const ov = optimisticStatusMap[w.id];
-      if (!ov) return w;
-      return {
-        ...w,
-        status_hunian: ov.status_hunian,
-        occupancy_status: ov.occupancy_status,
-        nominal_iuran: ov.nominal_iuran ?? w.nominal_iuran,
-      };
+  const resolvedPengurusList = useMemo<PengurusLingkunganRecord[]>(() => {
+    if (pengurusList && pengurusList.length > 0) return pengurusList;
+    return SUSUNAN_PENGURUS.map((p) => ({
+      id: `default-${p.username}`,
+      nama: p.nama,
+      jabatan: p.jabatan,
+      username: p.username,
+      blok_rumah: p.blokRumah,
+      no_wa: '',
+      pin_akses: '••••••',
+      permission: p.permission,
+      aktif: true,
+      is_default: true,
+    }));
+  }, [pengurusList]);
+
+  const pengurusBlokKeySet = useMemo(() => {
+    const keys = new Set<string>();
+    for (const p of resolvedPengurusList) {
+      if (p.aktif && p.blok_rumah) {
+        const key = canonicalizeBlokKey(p.blok_rumah);
+        if (key) keys.add(key);
+      }
+    }
+    return keys;
+  }, [resolvedPengurusList]);
+
+  const filteredPengurus = useMemo(() => {
+    const q = pengurusSearch.trim().toLowerCase();
+    const qNormPhone = normalizePhoneNumber(pengurusSearch);
+    return resolvedPengurusList.filter((p) => {
+      if (!q) return true;
+      return (
+        p.nama.toLowerCase().includes(q) ||
+        p.jabatan.toLowerCase().includes(q) ||
+        p.username.toLowerCase().includes(q) ||
+        (p.blok_rumah ? matchesBlockSearch(p.blok_rumah, pengurusSearch) : false) ||
+        (p.no_wa || '').includes(q) ||
+        (qNormPhone.length >= 4 && normalizePhoneNumber(p.no_wa).includes(qNormPhone))
+      );
     });
-  }, [wargaList, optimisticStatusMap]);
+  }, [resolvedPengurusList, pengurusSearch]);
+
+  const effectiveWargaList = useMemo(() => {
+    const base =
+      Object.keys(optimisticStatusMap).length > 0
+        ? wargaList.map((w) => {
+            const ov = optimisticStatusMap[w.id];
+            if (!ov) return w;
+            return {
+              ...w,
+              status_hunian: ov.status_hunian,
+              occupancy_status: ov.occupancy_status,
+              nominal_iuran: ov.nominal_iuran ?? w.nominal_iuran,
+            };
+          })
+        : wargaList;
+
+    // Anti-Dobel: sembunyikan akun pengurus pada tab daftar Warga reguler
+    // (tetap mempertahankan seluruh 109/117 unit di wargaList untuk Kas, Rekap, & LPJ)
+    return base.filter((w) => {
+      if (w.is_pengurus === true || w.is_active_pengurus === true) return false;
+      if (w.bot_role === 'admin' || w.bot_role === 'bendahara') return false;
+      const blokKey = canonicalizeBlokKey(w.blok_rumah);
+      if (blokKey && pengurusBlokKeySet.has(blokKey)) return false;
+      return true;
+    });
+  }, [wargaList, optimisticStatusMap, pengurusBlokKeySet]);
 
   const unitCounts = useMemo(() => {
     let aktif = 0;
@@ -161,6 +279,8 @@ export function AdminWargaSlide({
       kosong,
     };
   }, [effectiveWargaList]);
+
+  const excludedPengurusUnitCount = Math.max(0, wargaList.length - effectiveWargaList.length);
 
   const rosterStats = useMemo(() => {
     const existingKeys = new Set(effectiveWargaList.map((w) => canonicalizeBlokKey(w.blok_rumah)));
@@ -297,6 +417,7 @@ export function AdminWargaSlide({
       nominal_iuran: warga.nominal_iuran,
       pin_akses: warga.pin_akses,
       aktif: warga.aktif,
+      is_exempt: Boolean(warga.is_exempt),
     });
     setModalOpen(true);
   };
@@ -482,8 +603,164 @@ export function AdminWargaSlide({
     }
   };
 
+  const openAddPengurusModal = () => {
+    setPengurusForm({
+      ...EMPTY_PENGURUS_FORM,
+      pin_akses: generateRandomPin(),
+    });
+    setPengurusModalOpen(true);
+  };
+
+  const openEditPengurusModal = (p: PengurusLingkunganRecord) => {
+    setPengurusForm({
+      id: p.id,
+      nama: p.nama,
+      jabatan: p.jabatan,
+      username: p.username,
+      blok_rumah: p.blok_rumah || '',
+      no_wa: isRealRegisteredPhone(p.no_wa) ? normalizePhoneNumber(p.no_wa) : '',
+      pin_akses: /^\d{6}$/.test(p.pin_akses) ? p.pin_akses : generateRandomPin(),
+      permission: p.permission,
+      aktif: p.aktif,
+    });
+    setPengurusModalOpen(true);
+  };
+
+  const handleSubmitPengurusForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (savingPengurus) return;
+    setSavingPengurus(true);
+    try {
+      const res = await savePengurusLingkunganAdmin(session, {
+        id: pengurusForm.id,
+        nama: pengurusForm.nama,
+        jabatan: pengurusForm.jabatan,
+        username: pengurusForm.username,
+        blok_rumah: pengurusForm.blok_rumah.trim() || null,
+        no_wa: pengurusForm.no_wa.trim() ? normalizePhoneNumber(pengurusForm.no_wa) : '',
+        pin_akses: pengurusForm.pin_akses,
+        permission: pengurusForm.permission,
+        aktif: pengurusForm.aktif,
+      });
+      if (res.error || !res.data) {
+        onToast('error', res.error || 'Gagal menyimpan data Pengurus Lingkungan.');
+      } else {
+        onToast(
+          'success',
+          pengurusForm.id
+            ? `Data pengurus ${res.data.nama} (${res.data.jabatan}) berhasil diperbarui.`
+            : `Pengurus baru ${res.data.nama} (${res.data.jabatan}) berhasil ditambahkan.`
+        );
+        setPengurusModalOpen(false);
+        await onRefresh();
+      }
+    } finally {
+      setSavingPengurus(false);
+    }
+  };
+
+  const handleResetPinPengurus = async (p: PengurusLingkunganRecord) => {
+    const res = await resetPinPengurusAdmin(session, p);
+    if (res.error || !res.data) {
+      onToast('error', res.error || 'Gagal mereset PIN pengurus.');
+    } else {
+      onToast(
+        'success',
+        `PIN baru untuk ${p.nama} (${p.jabatan}): ${res.data.pin_akses}`
+      );
+      await onRefresh();
+    }
+  };
+
+  const handleCopyPengurusInfo = async (p: PengurusLingkunganRecord) => {
+    const ok = await copyToClipboard(buildPengurusPinWaMessage(p));
+    if (ok) {
+      setCopiedPengurusId(p.id);
+      onToast('success', `Info login & PIN pengurus ${p.nama} berhasil disalin.`);
+      setTimeout(() => setCopiedPengurusId(null), 2000);
+    } else {
+      onToast('error', 'Gagal menyalin info login pengurus.');
+    }
+  };
+
+  const handleConfirmDeletePengurus = async () => {
+    if (!deletePengurusTarget || deletingPengurus) return;
+    setDeletingPengurus(true);
+    try {
+      const res = await deletePengurusLingkunganAdmin(session, deletePengurusTarget);
+      if (res.error) {
+        onToast('error', res.error);
+      } else {
+        onToast('info', `Akun pengurus ${deletePengurusTarget.nama} telah dinonaktifkan/dihapus.`);
+        setDeletePengurusTarget(null);
+        await onRefresh();
+      }
+    } finally {
+      setDeletingPengurus(false);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-5 pb-[100px] w-full max-w-full min-w-0">
+      {/* Segmented Tab Pemisahan Akun: Warga Reguler vs Pengurus Lingkungan (Anti-Dobel) */}
+      <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full max-w-full min-w-0">
+        <div className="grid grid-cols-2 sm:inline-flex items-center gap-1.5 p-1 rounded-2xl bg-[#F6F3EA] border border-[#E6E2D6]">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('warga')}
+            className={`min-h-[38px] px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeSubTab === 'warga'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                : 'text-[#4B5549] hover:text-[#1F2A1E]'
+            }`}
+          >
+            <Home className="w-3.5 h-3.5 shrink-0" />
+            <span>Warga</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-mono tabular-nums ${
+                activeSubTab === 'warga'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#E5EEE3] text-[#243825]'
+              }`}
+            >
+              {unitCounts.total}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('pengurus')}
+            className={`min-h-[38px] px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeSubTab === 'pengurus'
+                ? 'bg-[#2B3F29] text-[#FFFDF8] shadow-sm'
+                : 'text-[#4B5549] hover:text-[#1F2A1E]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span>Pengurus</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-mono tabular-nums ${
+                activeSubTab === 'pengurus'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#E5EEE3] text-[#243825]'
+              }`}
+            >
+              {resolvedPengurusList.filter((p) => p.aktif).length}
+            </span>
+          </button>
+        </div>
+
+        <p className="text-[11px] text-[#5F665D] px-2 leading-snug">
+          {activeSubTab === 'warga'
+            ? excludedPengurusUnitCount > 0
+              ? `${excludedPengurusUnitCount} akun unit Pengurus dipisahkan ke tab Pengurus (tetap terhitung dalam ${wargaList.length} total unit IPL).`
+              : `Menampilkan akun warga reguler (total unit IPL tetap ${wargaList.length} unit).`
+            : 'Kelola akun Pengurus Lingkungan (Pembina, Ketua, Bendahara, Humas & Seksi Olahraga).'}
+        </p>
+      </div>
+
+      {activeSubTab === 'warga' ? (
+        <>
       {/* Toolbar Pencarian & Tombol Aksi */}
       <div className="relative z-10 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 w-full max-w-full min-w-0">
         <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
@@ -666,6 +943,11 @@ export function AdminWargaSlide({
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-[11px] font-semibold whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#2B3F29] shrink-0" />
                         Dihuni{w.status_hunian === 'Kontrak' ? ' · Kontrak' : ''}
+                      </span>
+                    )}
+                    {w.is_exempt && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-600 text-[10px] font-semibold whitespace-nowrap">
+                        Bebas Iuran
                       </span>
                     )}
                     <p className="font-mono text-xs font-bold text-[#1F2A1E] tabular-nums whitespace-nowrap">
@@ -1156,6 +1438,323 @@ export function AdminWargaSlide({
             </div>
           </div>
       )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          {/* Toolbar Tab Pengurus Lingkungan */}
+          <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
+            <div className="relative w-full lg:flex-1 lg:max-w-md min-w-0">
+              <Search className="w-4 h-4 text-[#6B7168] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="search"
+                value={pengurusSearch}
+                onChange={(e) => setPengurusSearch(e.target.value)}
+                placeholder="Cari nama pengurus, jabatan, username, atau blok..."
+                className="w-full min-h-[40px] sm:min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/55 pl-10 pr-3.5 text-sm text-[#1F2A1E] placeholder:text-[#6B7168] focus:bg-[#FFFDF8] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/15"
+              />
+            </div>
+
+            {canManageFull && (
+              <button
+                type="button"
+                onClick={openAddPengurusModal}
+                className="min-h-[40px] sm:min-h-[42px] px-4 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-[#FFFDF8] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Tambah Pengurus</span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Card List Pengurus */}
+          <div className="md:hidden space-y-3">
+            {filteredPengurus.length === 0 ? (
+              <div className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-6 text-center text-sm text-[#6B7168]">
+                Tidak ada data pengurus yang cocok dengan pencarian.
+              </div>
+            ) : (
+              filteredPengurus.map((p) => {
+                const hasRealWa = isRealRegisteredPhone(p.no_wa);
+                const cleanWa = hasRealWa ? normalizePhoneNumber(p.no_wa) : '';
+                const isProtected =
+                  p.username.toLowerCase() === 'andriansyah' ||
+                  p.username.toLowerCase() === session.blok_rumah.toLowerCase();
+
+                return (
+                  <article
+                    key={p.id}
+                    className="glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl p-3.5 space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <UserAvatar
+                          name={p.nama}
+                          src={p.avatar_url || avatarMap[buildAvatarKey('admin', p.username)] || null}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#243825] text-[#FFFDF8] text-[10px] font-bold whitespace-nowrap">
+                              <ShieldCheck className="w-2.5 h-2.5 text-[#E5EEE3]" />
+                              {p.jabatan}
+                            </span>
+                            {p.blok_rumah && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] font-mono font-bold text-[11px] text-[#243825] whitespace-nowrap">
+                                Blok {formatBlokRumah(p.blok_rumah) || p.blok_rumah}
+                              </span>
+                            )}
+                            {!p.aktif && (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold">
+                                Nonaktif
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-bold text-[#1F2A1E] mt-1">{p.nama}</p>
+                          <p className="text-[11px] font-mono text-[#6B7168]">@{p.username}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-[#F6F3EA] border border-[#E6E2D6] px-2.5 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7168]">
+                          No. WhatsApp
+                        </p>
+                        <p className="font-mono text-xs font-semibold text-[#1F2A1E] truncate mt-0.5">
+                          {hasRealWa ? formatPhoneDisplay(cleanWa) : 'Belum Ada WA'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[#F6F3EA] border border-[#E6E2D6] px-2.5 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7168]">
+                          PIN 6 Digit
+                        </p>
+                        <p className="font-mono text-xs font-bold text-[#243825] tracking-wider mt-0.5">
+                          {p.pin_akses}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-[#E6E2D6]">
+                      {hasRealWa ? (
+                        <a
+                          href={buildWhatsAppLink(cleanWa, buildPengurusPinWaMessage(p))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-h-[34px] py-1.5 px-2.5 rounded-xl bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center justify-center gap-1.5"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Kirim WA</span>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyPengurusInfo(p)}
+                          className="min-h-[34px] py-1.5 px-2.5 rounded-xl bg-[#E5EEE3] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {copiedPengurusId === p.id ? (
+                            <Check className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 shrink-0" />
+                          )}
+                          <span>{copiedPengurusId === p.id ? 'Tersalin' : 'Salin Akses'}</span>
+                        </button>
+                      )}
+
+                      {canManageFull && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleResetPinPengurus(p)}
+                            className="min-h-[34px] py-1.5 px-2.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1F2A1E] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                            <span>Reset PIN</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openEditPengurusModal(p)}
+                            className="min-h-[34px] py-1.5 px-2.5 rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1F2A1E] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5 shrink-0" />
+                            <span>Edit</span>
+                          </button>
+
+                          {!isProtected && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletePengurusTarget(p)}
+                              className="min-h-[34px] py-1.5 px-2.5 rounded-xl border border-[#E5B8AC] bg-[#FFFDF8] hover:bg-[#FDF2EF] text-xs font-semibold text-[#C87058] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>Hapus</span>
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table Pengurus Lingkungan */}
+          <section className="hidden md:block w-full min-w-0 glass-card bg-[#FFFDF8] border border-[#E6E2D6] rounded-3xl overflow-hidden">
+            <div className="w-full overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-max text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#C6D2BF] bg-[#E5EEE3]/75 text-xs font-semibold text-[#243825]">
+                    <th className="py-3.5 px-4 whitespace-nowrap">Pengurus &amp; Username</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Jabatan</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Unit / Blok Rumah</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">No. WhatsApp</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">PIN 6 Digit</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Status</th>
+                    <th className="py-3.5 px-4 pr-5 whitespace-nowrap">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E6E2D6] text-sm">
+                  {filteredPengurus.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-sm text-[#6E786D]">
+                        Tidak ada pengurus yang cocok dengan pencarian.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPengurus.map((p) => {
+                      const hasRealWa = isRealRegisteredPhone(p.no_wa);
+                      const cleanWa = hasRealWa ? normalizePhoneNumber(p.no_wa) : '';
+                      const isProtected =
+                        p.username.toLowerCase() === 'andriansyah' ||
+                        p.username.toLowerCase() === session.blok_rumah.toLowerCase();
+
+                      return (
+                        <tr key={p.id} className="bg-[#FFFDF8] hover:bg-[#F6F3EA]/80 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <UserAvatar
+                                name={p.nama}
+                                src={
+                                  p.avatar_url || avatarMap[buildAvatarKey('admin', p.username)] || null
+                                }
+                                size="sm"
+                              />
+                              <div>
+                                <p className="font-semibold text-[#1B271B]">{p.nama}</p>
+                                <p className="text-xs font-mono text-[#6B7168]">@{p.username}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#243825] text-[#FFFDF8] text-xs font-semibold">
+                              <ShieldCheck className="w-3 h-3 text-[#E5EEE3]" />
+                              {p.jabatan}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {p.blok_rumah ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] font-mono font-bold text-xs text-[#243825]">
+                                {formatBlokRumah(p.blok_rumah) || p.blok_rumah}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#8E948A]">-</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {hasRealWa ? (
+                              <span className="inline-flex items-center h-7 px-2.5 rounded-lg bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] font-mono text-xs font-semibold">
+                                {formatPhoneDisplay(cleanWa)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#6E786D]">Belum Ada WA</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#243825] tracking-wider whitespace-nowrap">
+                            {p.pin_akses}
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {p.aktif ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E5EEE3] border border-[#C6D2BF] text-[#243825] text-xs font-semibold">
+                                Aktif
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold">
+                                Nonaktif
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 pr-5 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {hasRealWa ? (
+                                <a
+                                  href={buildWhatsAppLink(cleanWa, buildPengurusPinWaMessage(p))}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#2B3F29] hover:bg-[#243825] text-xs font-semibold text-[#FFFDF8] inline-flex items-center gap-1.5"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Kirim WA</span>
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleCopyPengurusInfo(p)}
+                                  className="min-h-[34px] px-3 py-1.5 rounded-full bg-[#E5EEE3] hover:bg-[#d7e6d4] border border-[#C6D2BF] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  {copiedPengurusId === p.id ? (
+                                    <Check className="w-3.5 h-3.5 shrink-0" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5 shrink-0" />
+                                  )}
+                                  <span>{copiedPengurusId === p.id ? 'Tersalin' : 'Salin'}</span>
+                                </button>
+                              )}
+
+                              {canManageFull && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleResetPinPengurus(p)}
+                                    className="min-h-[34px] px-2.5 py-1.5 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-xs font-semibold text-[#1B271B] inline-flex items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                                    <span>Reset PIN</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditPengurusModal(p)}
+                                    aria-label={`Edit ${p.nama}`}
+                                    className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#F6F3EA] text-[#4B5549] cursor-pointer"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {!isProtected && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeletePengurusTarget(p)}
+                                      aria-label={`Hapus ${p.nama}`}
+                                      className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-full border border-[#E6E2D6] bg-[#FFFDF8] hover:bg-[#FDF2EF] hover:border-[#E5B8AC] text-[#6B7168] hover:text-[#C87058] cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Modal Tambah / Edit Warga */}
       {modalOpen && (
@@ -1430,6 +2029,16 @@ export function AdminWargaSlide({
                   <span>Akun rumah ini aktif dan dapat login ke Portal Warga</span>
                 </label>
               )}
+
+              <label className="flex items-center gap-2.5 text-sm text-[#4B5549] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_exempt}
+                  onChange={(e) => setForm({ ...form, is_exempt: e.target.checked })}
+                  className="w-4 h-4 rounded accent-[#2B3F29] shrink-0"
+                />
+                <span>Bebaskan dari tagihan bulanan IPL (unit pengecualian / tidak ditagih)</span>
+              </label>
             </div>
 
             <div className="shrink-0 px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#F6F3EA]/70 border-t border-[#E6E2D6] flex items-center justify-end gap-2">
@@ -1613,6 +2222,254 @@ export function AdminWargaSlide({
               >
                 {deletingWarga && <LoadingSpinner size="xs" tone="white" />}
                 <span>{deletingWarga ? 'Menghapus...' : 'Ya, Hapus Unit'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah / Edit Pengurus Lingkungan */}
+      {pengurusModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[70] bg-[#182419]/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-modal-backdrop"
+          onClick={() => !savingPengurus && setPengurusModalOpen(false)}
+        >
+          <form
+            onSubmit={handleSubmitPengurusForm}
+            className="bg-[#FFFDF8] rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 px-4 sm:px-5 py-4 border-b border-[#E6E2D6] bg-[#F6F3EA]/70 flex items-center justify-between gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-[#1F2A1E] truncate">
+                {pengurusForm.id ? `Edit Pengurus — ${pengurusForm.nama}` : 'Tambah Pengurus Lingkungan'}
+              </h3>
+              <button
+                type="button"
+                disabled={savingPengurus}
+                onClick={() => setPengurusModalOpen(false)}
+                aria-label="Tutup modal"
+                className="p-1.5 rounded-full text-[#6B7168] hover:text-[#1F2A1E] hover:bg-[#E5EEE3] cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    Nama Lengkap Pengurus
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={pengurusForm.nama}
+                    onChange={(e) => setPengurusForm({ ...pengurusForm, nama: e.target.value })}
+                    placeholder="Contoh: Erlangga"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    Jabatan Lingkungan
+                  </label>
+                  <select
+                    value={pengurusForm.jabatan}
+                    onChange={(e) =>
+                      setPengurusForm({
+                        ...pengurusForm,
+                        jabatan: e.target.value,
+                        permission: e.target.value === 'Bendahara' ? 'full' : pengurusForm.permission,
+                      })
+                    }
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  >
+                    {JABATAN_PENGURUS_OPTIONS.map((j) => (
+                      <option key={j} value={j}>
+                        {j}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    Username Login Pengurus
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={Boolean(pengurusForm.id)}
+                    value={pengurusForm.username}
+                    onChange={(e) =>
+                      setPengurusForm({
+                        ...pengurusForm,
+                        username: e.target.value.toLowerCase().replace(/\s+/g, ''),
+                      })
+                    }
+                    placeholder="Contoh: erlangga"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] disabled:bg-[#F6F3EA] px-3.5 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    Blok / Unit Rumah (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={pengurusForm.blok_rumah}
+                    onChange={(e) =>
+                      setPengurusForm({ ...pengurusForm, blok_rumah: e.target.value.toUpperCase() })
+                    }
+                    placeholder="Contoh: B3/7"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm font-mono uppercase text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    No. WhatsApp Pengurus
+                  </label>
+                  <input
+                    type="tel"
+                    value={pengurusForm.no_wa}
+                    onChange={(e) => setPengurusForm({ ...pengurusForm, no_wa: e.target.value })}
+                    placeholder="Contoh: 0812xxxxxxxx"
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm font-mono text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B271B] mb-1">
+                    Hak Akses Portal Admin
+                  </label>
+                  <select
+                    value={pengurusForm.permission}
+                    onChange={(e) =>
+                      setPengurusForm({
+                        ...pengurusForm,
+                        permission: e.target.value as AdminPermission,
+                      })
+                    }
+                    className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
+                  >
+                    <option value="add_only">Pengurus (Monitor &amp; Pengesahan Ketua)</option>
+                    <option value="full">Bendahara (Akses Penuh Keuangan &amp; Master)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  PIN Akses Pengurus (6 Digit)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={pengurusForm.pin_akses}
+                    onChange={(e) =>
+                      setPengurusForm({
+                        ...pengurusForm,
+                        pin_akses: e.target.value.replace(/\D/g, '').slice(0, 6),
+                      })
+                    }
+                    className="flex-1 min-w-0 min-h-[44px] rounded-xl border border-[#E6E2D6] bg-[#FFFDF8] px-3.5 text-sm font-mono tracking-[0.2em] font-bold focus:border-[#2B3F29] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPengurusForm({ ...pengurusForm, pin_akses: generateRandomPin() })
+                    }
+                    className="shrink-0 min-h-[44px] px-3.5 rounded-xl border border-[#C6D2BF] bg-[#E5EEE3] hover:bg-[#d7e6d4] text-xs font-semibold text-[#243825] inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Acak PIN</span>
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2.5 text-sm text-[#4B5549] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pengurusForm.aktif}
+                  onChange={(e) => setPengurusForm({ ...pengurusForm, aktif: e.target.checked })}
+                  className="w-4 h-4 rounded accent-[#2B3F29] shrink-0"
+                />
+                <span>Akun pengurus aktif &amp; dapat masuk Portal Pengurus</span>
+              </label>
+            </div>
+
+            <div className="shrink-0 px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#F6F3EA]/70 border-t border-[#E6E2D6] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={savingPengurus}
+                onClick={() => setPengurusModalOpen(false)}
+                className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-sm font-semibold text-[#4B5549] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={savingPengurus}
+                className="min-h-[42px] px-5 rounded-full bg-[#2B3F29] hover:bg-[#243825] disabled:opacity-50 text-[#FFFDF8] text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+              >
+                {savingPengurus && <LoadingSpinner size="xs" tone="white" />}
+                <span>{savingPengurus ? 'Menyimpan...' : 'Simpan Pengurus'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Hapus Pengurus */}
+      {deletePengurusTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[70] bg-[#182419]/65 backdrop-blur-sm flex items-center justify-center p-4 animate-modal-backdrop"
+          onClick={() => !deletingPengurus && setDeletePengurusTarget(null)}
+        >
+          <div
+            className="bg-[#FFFDF8] rounded-3xl max-w-md w-full border border-[#E6E2D6] shadow-2xl overflow-hidden animate-modal-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5">
+              <h3 className="text-base font-bold text-[#1F2A1E]">Hapus Akun Pengurus?</h3>
+              <p className="text-sm text-[#5F665D] mt-2 leading-relaxed">
+                Anda akan menghapus akun pengurus{' '}
+                <span className="font-semibold text-[#1F2A1E]">{deletePengurusTarget.nama}</span> (
+                {deletePengurusTarget.jabatan}). Unit rumah warga (jika ada) tetap aman dan tidak
+                terhapus dari data IPL.
+              </p>
+            </div>
+            <div className="px-5 py-4 bg-[#F6F3EA]/70 border-t border-[#E6E2D6] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={deletingPengurus}
+                onClick={() => setDeletePengurusTarget(null)}
+                className="min-h-[42px] px-4 rounded-full border border-[#E6E2D6] bg-[#FFFDF8] text-sm font-semibold text-[#4B5549] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deletingPengurus}
+                onClick={() => void handleConfirmDeletePengurus()}
+                className="min-h-[42px] px-5 rounded-full bg-[#C87058] hover:bg-[#b55e47] disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+              >
+                {deletingPengurus && <LoadingSpinner size="xs" tone="white" />}
+                <span>{deletingPengurus ? 'Menghapus...' : 'Ya, Hapus Pengurus'}</span>
               </button>
             </div>
           </div>

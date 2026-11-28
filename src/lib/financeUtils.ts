@@ -1,12 +1,15 @@
 import {
+  NOMINAL_IPL_STANDAR,
   TRIWULAN_LIST,
+  type FundType,
+  type HolderRole,
   type StatusEcardBulanan,
   type TransaksiIPL,
   type TransaksiKas,
   type Warga,
 } from '../types';
 import {
-  canonicalizeBlokKey,
+  compareBlokRumah,
   formatBillingStartLabel,
   formatBlokRumah,
   formatDaftarBulan,
@@ -15,6 +18,13 @@ import {
   isBeforeBillingStart,
   type BillingStartPeriod,
 } from './format';
+import {
+  buildBillingCellKey,
+  buildPaidAmountLookup,
+  getUnitDelinquentMonths,
+  isUnitBillable,
+  resolveUnitMonthBillingStatus,
+} from './billingStatus';
 
 export interface GlobalCashSummary {
   totalIplMasuk: number;
@@ -35,6 +45,9 @@ export interface CashLedgerRow {
   keluar: number;
   saldoBerjalan: number;
   sumberJenis: 'ipl' | 'pemasukan_lain' | 'pengeluaran';
+  fundType: FundType;
+  holderRole: HolderRole;
+  metodeBayar?: string;
 }
 
 export interface KategoriRekapItem {
@@ -42,6 +55,24 @@ export interface KategoriRekapItem {
   jumlahTransaksi: number;
   totalNominal: number;
   persentase: number;
+}
+
+export interface UnitDelinquencyItem {
+  blokRumah: string;
+  namaWarga: string;
+  bulanTunggak: number[];
+  labelBulan: string;
+  estimasiTunggakan: number;
+  statusKeterangan?: string;
+}
+
+export interface MonthlyComplianceSummary {
+  totalBillable: number;
+  sudahSetor: number;
+  belumSetor: number;
+  menunggak: number;
+  unitDarurat: number;
+  isPraRilis: boolean;
 }
 
 export interface MonthlyCashReport {
@@ -54,11 +85,20 @@ export interface MonthlyCashReport {
   totalMasukBulanIni: number;
   totalKeluarBulanIni: number;
   saldoAkhir: number;
+  totalIplReguler: number;
+  totalDanaDarurat: number;
+  jumlahTransaksiDarurat: number;
+  saldoAwalBendahara: number;
+  saldoAwalPengurusTitipan: number;
+  saldoAkhirBendahara: number;
+  saldoAkhirPengurusTitipan: number;
   jumlahTransaksiIpl: number;
   jumlahPemasukanLain: number;
   jumlahPengeluaran: number;
   pengeluaranPerKategori: KategoriRekapItem[];
   mutasiKronologis: CashLedgerRow[];
+  summaryKepatuhan: MonthlyComplianceSummary;
+  daftarUnitMenunggak: UnitDelinquencyItem[];
 }
 
 export interface KepatuhanBulananItem {
@@ -66,9 +106,12 @@ export interface KepatuhanBulananItem {
   namaBulan: string;
   unitAktif: number;
   unitLunas: number;
+  unitDarurat?: number;
   persentase: number;
   nominalTerkumpul: number;
   isPraRilis?: boolean;
+  isBulanBerjalan?: boolean;
+  isBelumPeriode?: boolean;
 }
 
 export interface QuarterlyLpjReport {
@@ -83,11 +126,19 @@ export interface QuarterlyLpjReport {
   totalPemasukan: number;
   totalPengeluaran: number;
   saldoAkhir: number;
+  totalIplReguler: number;
+  totalDanaDarurat: number;
+  jumlahTransaksiDarurat: number;
+  saldoAwalBendahara: number;
+  saldoAwalPengurusTitipan: number;
+  saldoAkhirBendahara: number;
+  saldoAkhirPengurusTitipan: number;
   pengeluaranPerKategori: KategoriRekapItem[];
   kepatuhanPerBulan: KepatuhanBulananItem[];
   rataRataKepatuhan: number;
   totalUnitAktif: number;
   mutasiKronologis: CashLedgerRow[];
+  daftarUnitMenunggak: UnitDelinquencyItem[];
 }
 
 export interface PaymentMethodSummaryItem {
@@ -178,6 +229,40 @@ function parseDateParts(dateStr: string): { tahun: number; bulan: number; hari: 
   };
 }
 
+function resolveIplFundType(trx: TransaksiIPL): FundType {
+  if (trx.fund_type === 'IPL_REGULER' || trx.fund_type === 'DANA_DARURAT') {
+    return trx.fund_type;
+  }
+  const bulanCount = Math.max(trx.bulan_dibayar?.length || 1, 1);
+  const perBulan = Math.round((Number(trx.nominal) || 0) / bulanCount);
+  return perBulan > 0 && perBulan < NOMINAL_IPL_STANDAR ? 'DANA_DARURAT' : 'IPL_REGULER';
+}
+
+function resolveIplHolderRole(trx: TransaksiIPL): HolderRole {
+  if (trx.holder_role === 'BENDAHARA' || trx.holder_role === 'PENGURUS_TITIPAN') {
+    return trx.holder_role;
+  }
+  const petugas = String(trx.petugas_penerima || '').trim();
+  if (trx.metode_bayar === 'Setor Tunai' && petugas && !/andriansyah|bendahara/i.test(petugas)) {
+    return 'PENGURUS_TITIPAN';
+  }
+  return 'BENDAHARA';
+}
+
+function resolveKasFundType(kas: TransaksiKas): FundType {
+  if (kas.fund_type === 'IPL_REGULER' || kas.fund_type === 'DANA_DARURAT') {
+    return kas.fund_type;
+  }
+  return /darurat/i.test(String(kas.kategori || '')) ? 'DANA_DARURAT' : 'IPL_REGULER';
+}
+
+function resolveKasHolderRole(kas: TransaksiKas): HolderRole {
+  if (kas.holder_role === 'BENDAHARA' || kas.holder_role === 'PENGURUS_TITIPAN') {
+    return kas.holder_role;
+  }
+  return 'BENDAHARA';
+}
+
 export function isTransaksiKasFinalVerified(kas: TransaksiKas): boolean {
   return !kas.status_verifikasi || kas.status_verifikasi === 'Terverifikasi';
 }
@@ -238,22 +323,88 @@ function buildKategoriBreakdown(items: TransaksiKas[]): KategoriRekapItem[] {
     .sort((a, b) => b.totalNominal - a.totalNominal);
 }
 
+function buildUnitDelinquencyList(params: {
+  wargaList: Warga[];
+  year: number;
+  months: readonly number[];
+  paidAmountByKey: Map<string, number>;
+  pendingKeys: Set<string>;
+  billingStart?: BillingStartPeriod | null;
+  now?: Date;
+}): UnitDelinquencyItem[] {
+  const sortedUnits = [...params.wargaList]
+    .filter(isUnitBillable)
+    .sort((a, b) => compareBlokRumah(a.blok_rumah, b.blok_rumah));
+
+  const result: UnitDelinquencyItem[] = [];
+  for (const w of sortedUnits) {
+    const tunggakMonths = getUnitDelinquentMonths({
+      warga: w,
+      year: params.year,
+      months: params.months,
+      paidAmountByKey: params.paidAmountByKey,
+      pendingKeys: params.pendingKeys,
+      billingStart: params.billingStart,
+      now: params.now,
+    });
+    if (tunggakMonths.length === 0) continue;
+
+    const hasPartialDarurat = tunggakMonths.some((m) => {
+      const paid = params.paidAmountByKey.get(buildBillingCellKey(w.blok_rumah, params.year, m)) ?? 0;
+      return paid > 0 && paid < NOMINAL_IPL_STANDAR;
+    });
+
+    result.push({
+      blokRumah: formatBlokRumah(w.blok_rumah) || w.blok_rumah,
+      namaWarga: w.nama_warga,
+      bulanTunggak: tunggakMonths,
+      labelBulan: formatDaftarBulan(tunggakMonths, true),
+      estimasiTunggakan: tunggakMonths.length * NOMINAL_IPL_STANDAR,
+      statusKeterangan: hasPartialDarurat
+        ? 'Sebagian masuk Dana Darurat (< Rp100rb/bln)'
+        : 'Melewati jatuh tempo tgl 7 bulan berikutnya',
+    });
+  }
+  return result;
+}
+
+export interface MonthlyCashReportOptions {
+  wargaList?: Warga[];
+  statusList?: StatusEcardBulanan[];
+  billingStart?: BillingStartPeriod | null;
+  now?: Date;
+}
+
 /**
- * Rekapitulasi Kas Bulanan (Buku Kas Umum) dengan Saldo Awal & Saldo Akhir akurat.
+ * Rekapitulasi Kas Bulanan (Buku Kas Umum) dengan Saldo Awal & Saldo Akhir akurat,
+ * pemisahan Kas IPL Reguler vs Dana Darurat, pemegang kas (Bendahara vs Titipan Pengurus),
+ * serta ringkasan kepatuhan & daftar unit menunggak.
  */
 export function buildMonthlyCashReport(
   tahun: number,
   bulan: number,
   transaksiList: TransaksiIPL[],
-  transaksiKasList: TransaksiKas[]
+  transaksiKasList: TransaksiKas[],
+  options?: MonthlyCashReportOptions
 ): MonthlyCashReport {
   const periodStartKey = tahun * 100 + bulan;
   const verifiedIpl = transaksiList.filter((t) => t.status_verifikasi === 'Terverifikasi');
 
   let saldoAwal = 0;
+  let saldoAwalBendahara = 0;
+  let saldoAwalPengurusTitipan = 0;
+
   let totalIplBulanIni = 0;
   let totalPemasukanLainBulanIni = 0;
   let totalKeluarBulanIni = 0;
+
+  let totalIplReguler = 0;
+  let totalDanaDarurat = 0;
+  let jumlahTransaksiDarurat = 0;
+
+  let netBendaharaBulanIni = 0;
+  let netPengurusTitipanBulanIni = 0;
+
   let jumlahTransaksiIpl = 0;
   let jumlahPemasukanLain = 0;
   let jumlahPengeluaran = 0;
@@ -266,22 +417,47 @@ export function buildMonthlyCashReport(
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;
     const nominal = Number(trx.nominal) || 0;
+    const fundType = resolveIplFundType(trx);
+    const holderRole = resolveIplHolderRole(trx);
 
     if (ymKey < periodStartKey) {
       saldoAwal += nominal;
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        saldoAwalPengurusTitipan += nominal;
+      } else {
+        saldoAwalBendahara += nominal;
+      }
     } else if (ymKey === periodStartKey) {
       totalIplBulanIni += nominal;
       jumlahTransaksiIpl += 1;
+      if (fundType === 'DANA_DARURAT') {
+        totalDanaDarurat += nominal;
+        jumlahTransaksiDarurat += 1;
+      } else {
+        totalIplReguler += nominal;
+      }
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        netPengurusTitipanBulanIni += nominal;
+      } else {
+        netBendaharaBulanIni += nominal;
+      }
+
       rawRows.push({
         id: `ipl-${trx.id}`,
         tanggal: effDate,
         sortKey: new Date(trx.verified_at || trx.tanggal_setor).getTime() || parts.ts,
         noBukti: trx.no_kwitansi,
-        uraian: `IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
-        kategori: `IPL Warga (${trx.metode_bayar})`,
+        uraian: `${fundType === 'DANA_DARURAT' ? '[Dana Darurat] ' : ''}IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
+        kategori:
+          fundType === 'DANA_DARURAT'
+            ? `Dana Darurat (${trx.metode_bayar})`
+            : `IPL Reguler (${trx.metode_bayar})`,
         masuk: nominal,
         keluar: 0,
         sumberJenis: 'ipl',
+        fundType,
+        holderRole,
+        metodeBayar: trx.metode_bayar,
       });
     }
   }
@@ -291,28 +467,54 @@ export function buildMonthlyCashReport(
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;
     const nominal = Number(kas.nominal) || 0;
+    const fundType = resolveKasFundType(kas);
+    const holderRole = resolveKasHolderRole(kas);
 
     if (ymKey < periodStartKey) {
-      saldoAwal += kas.jenis === 'pemasukan_lain' ? nominal : -nominal;
+      const delta = kas.jenis === 'pemasukan_lain' ? nominal : -nominal;
+      saldoAwal += delta;
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        saldoAwalPengurusTitipan += delta;
+      } else {
+        saldoAwalBendahara += delta;
+      }
     } else if (ymKey === periodStartKey) {
       if (kas.jenis === 'pemasukan_lain') {
         totalPemasukanLainBulanIni += nominal;
         jumlahPemasukanLain += 1;
+        if (fundType === 'DANA_DARURAT') {
+          totalDanaDarurat += nominal;
+          jumlahTransaksiDarurat += 1;
+        } else {
+          totalIplReguler += nominal;
+        }
+        if (holderRole === 'PENGURUS_TITIPAN') {
+          netPengurusTitipanBulanIni += nominal;
+        } else {
+          netBendaharaBulanIni += nominal;
+        }
         rawRows.push({
           id: `kas-${kas.id}`,
           tanggal: effDate,
           sortKey: parts.ts + 1,
           noBukti: kas.no_bukti,
-          uraian: `${kas.penerima_atau_sumber}${kas.keterangan ? ` — ${kas.keterangan}` : ''}`,
+          uraian: `${fundType === 'DANA_DARURAT' ? '[Dana Darurat] ' : ''}${kas.penerima_atau_sumber}${kas.keterangan ? ` — ${kas.keterangan}` : ''}`,
           kategori: kas.kategori,
           masuk: nominal,
           keluar: 0,
           sumberJenis: 'pemasukan_lain',
+          fundType,
+          holderRole,
         });
       } else {
         totalKeluarBulanIni += nominal;
         jumlahPengeluaran += 1;
         pengeluaranBulanIni.push(kas);
+        if (holderRole === 'PENGURUS_TITIPAN') {
+          netPengurusTitipanBulanIni -= nominal;
+        } else {
+          netBendaharaBulanIni -= nominal;
+        }
         rawRows.push({
           id: `kas-${kas.id}`,
           tanggal: effDate,
@@ -323,6 +525,8 @@ export function buildMonthlyCashReport(
           masuk: 0,
           keluar: nominal,
           sumberJenis: 'pengeluaran',
+          fundType,
+          holderRole,
         });
       }
     }
@@ -341,6 +545,62 @@ export function buildMonthlyCashReport(
 
   const totalMasukBulanIni = totalIplBulanIni + totalPemasukanLainBulanIni;
   const saldoAkhir = saldoAwal + totalMasukBulanIni - totalKeluarBulanIni;
+  const saldoAkhirBendahara = saldoAwalBendahara + netBendaharaBulanIni;
+  const saldoAkhirPengurusTitipan = saldoAwalPengurusTitipan + netPengurusTitipanBulanIni;
+
+  // Hitung kepatuhan & daftar unit menunggak jika wargaList disediakan
+  const wargaList = options?.wargaList || [];
+  const statusList = options?.statusList || [];
+  const billingStart = options?.billingStart;
+  const now = options?.now || new Date();
+  const isPraRilis = isBeforeBillingStart(tahun, bulan, billingStart);
+
+  let sudahSetor = 0;
+  let belumSetor = 0;
+  let unitDarurat = 0;
+  let menunggak = 0;
+  let totalBillable = 0;
+  let daftarUnitMenunggak: UnitDelinquencyItem[] = [];
+
+  if (wargaList.length > 0) {
+    const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(transaksiList, statusList);
+    const billableUnits = wargaList.filter(isUnitBillable);
+    totalBillable = billableUnits.length;
+
+    for (const w of billableUnits) {
+      const cellKey = buildBillingCellKey(w.blok_rumah, tahun, bulan);
+      const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+      const cellStatus = resolveUnitMonthBillingStatus({
+        warga: w,
+        targetYear: tahun,
+        targetMonth: bulan,
+        paidAmount,
+        billingStart,
+        now,
+      });
+
+      if (cellStatus === 'LUNAS') {
+        sudahSetor += 1;
+      } else if (cellStatus !== 'KOSONG' && cellStatus !== 'PRA_RILIS') {
+        belumSetor += 1;
+        if (cellStatus === 'DANA_DARURAT') {
+          unitDarurat += 1;
+        }
+      }
+    }
+
+    const monthsUpToSelected = Array.from({ length: Math.max(1, bulan) }, (_, idx) => idx + 1);
+    daftarUnitMenunggak = buildUnitDelinquencyList({
+      wargaList: billableUnits,
+      year: tahun,
+      months: monthsUpToSelected,
+      paidAmountByKey,
+      pendingKeys,
+      billingStart,
+      now,
+    });
+    menunggak = daftarUnitMenunggak.length;
+  }
 
   return {
     tahun,
@@ -352,16 +612,34 @@ export function buildMonthlyCashReport(
     totalMasukBulanIni,
     totalKeluarBulanIni,
     saldoAkhir,
+    totalIplReguler,
+    totalDanaDarurat,
+    jumlahTransaksiDarurat,
+    saldoAwalBendahara,
+    saldoAwalPengurusTitipan,
+    saldoAkhirBendahara,
+    saldoAkhirPengurusTitipan,
     jumlahTransaksiIpl,
     jumlahPemasukanLain,
     jumlahPengeluaran,
     pengeluaranPerKategori: buildKategoriBreakdown(pengeluaranBulanIni),
     mutasiKronologis,
+    summaryKepatuhan: {
+      totalBillable,
+      sudahSetor,
+      belumSetor,
+      menunggak,
+      unitDarurat,
+      isPraRilis,
+    },
+    daftarUnitMenunggak,
   };
 }
 
 /**
  * Laporan Pertanggungjawaban (LPJ) Keuangan Per Triwulan (3 Bulan).
+ * Mengevaluasi 3 bulan di triwulan secara independen terhadap tanggal cetak,
+ * memisahkan Kas IPL Reguler vs Dana Darurat, pemegang saldo, serta Daftar Unit Menunggak.
  */
 export function buildQuarterlyLpjReport(
   tahun: number,
@@ -370,7 +648,8 @@ export function buildQuarterlyLpjReport(
   statusList: StatusEcardBulanan[],
   transaksiList: TransaksiIPL[],
   transaksiKasList: TransaksiKas[],
-  billingStart?: BillingStartPeriod | null
+  billingStart?: BillingStartPeriod | null,
+  now: Date = new Date()
 ): QuarterlyLpjReport {
   const tw = TRIWULAN_LIST.find((item) => item.id === triwulanId) || TRIWULAN_LIST[0];
   const startMonth = tw.bulan[0];
@@ -381,9 +660,16 @@ export function buildQuarterlyLpjReport(
   const verifiedIpl = transaksiList.filter((t) => t.status_verifikasi === 'Terverifikasi');
 
   let saldoAwal = 0;
+  let saldoAwalBendahara = 0;
+  let saldoAwalPengurusTitipan = 0;
   let totalIpl = 0;
   let totalPemasukanLain = 0;
   let totalPengeluaran = 0;
+  let totalIplReguler = 0;
+  let totalDanaDarurat = 0;
+  let jumlahTransaksiDarurat = 0;
+  let netBendahara = 0;
+  let netPengurusTitipan = 0;
 
   const pengeluaranTriwulan: TransaksiKas[] = [];
   const rawRows: Omit<CashLedgerRow, 'saldoBerjalan'>[] = [];
@@ -393,21 +679,45 @@ export function buildQuarterlyLpjReport(
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;
     const nominal = Number(trx.nominal) || 0;
+    const fundType = resolveIplFundType(trx);
+    const holderRole = resolveIplHolderRole(trx);
 
     if (ymKey < startYmKey) {
       saldoAwal += nominal;
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        saldoAwalPengurusTitipan += nominal;
+      } else {
+        saldoAwalBendahara += nominal;
+      }
     } else if (ymKey >= startYmKey && ymKey <= endYmKey) {
       totalIpl += nominal;
+      if (fundType === 'DANA_DARURAT') {
+        totalDanaDarurat += nominal;
+        jumlahTransaksiDarurat += 1;
+      } else {
+        totalIplReguler += nominal;
+      }
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        netPengurusTitipan += nominal;
+      } else {
+        netBendahara += nominal;
+      }
       rawRows.push({
         id: `ipl-${trx.id}`,
         tanggal: effDate,
         sortKey: new Date(trx.verified_at || trx.tanggal_setor).getTime() || parts.ts,
         noBukti: trx.no_kwitansi,
-        uraian: `IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
-        kategori: `IPL Warga (${trx.metode_bayar})`,
+        uraian: `${fundType === 'DANA_DARURAT' ? '[Dana Darurat] ' : ''}IPL Blok ${formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} (${trx.nama_warga}) — ${formatDaftarBulan(trx.bulan_dibayar, true)}`,
+        kategori:
+          fundType === 'DANA_DARURAT'
+            ? `Dana Darurat (${trx.metode_bayar})`
+            : `IPL Reguler (${trx.metode_bayar})`,
         masuk: nominal,
         keluar: 0,
         sumberJenis: 'ipl',
+        fundType,
+        holderRole,
+        metodeBayar: trx.metode_bayar,
       });
     }
   }
@@ -417,26 +727,52 @@ export function buildQuarterlyLpjReport(
     const parts = parseDateParts(effDate);
     const ymKey = parts.tahun * 100 + parts.bulan;
     const nominal = Number(kas.nominal) || 0;
+    const fundType = resolveKasFundType(kas);
+    const holderRole = resolveKasHolderRole(kas);
 
     if (ymKey < startYmKey) {
-      saldoAwal += kas.jenis === 'pemasukan_lain' ? nominal : -nominal;
+      const delta = kas.jenis === 'pemasukan_lain' ? nominal : -nominal;
+      saldoAwal += delta;
+      if (holderRole === 'PENGURUS_TITIPAN') {
+        saldoAwalPengurusTitipan += delta;
+      } else {
+        saldoAwalBendahara += delta;
+      }
     } else if (ymKey >= startYmKey && ymKey <= endYmKey) {
       if (kas.jenis === 'pemasukan_lain') {
         totalPemasukanLain += nominal;
+        if (fundType === 'DANA_DARURAT') {
+          totalDanaDarurat += nominal;
+          jumlahTransaksiDarurat += 1;
+        } else {
+          totalIplReguler += nominal;
+        }
+        if (holderRole === 'PENGURUS_TITIPAN') {
+          netPengurusTitipan += nominal;
+        } else {
+          netBendahara += nominal;
+        }
         rawRows.push({
           id: `kas-${kas.id}`,
           tanggal: effDate,
           sortKey: parts.ts + 1,
           noBukti: kas.no_bukti,
-          uraian: `${kas.penerima_atau_sumber}${kas.keterangan ? ` — ${kas.keterangan}` : ''}`,
+          uraian: `${fundType === 'DANA_DARURAT' ? '[Dana Darurat] ' : ''}${kas.penerima_atau_sumber}${kas.keterangan ? ` — ${kas.keterangan}` : ''}`,
           kategori: kas.kategori,
           masuk: nominal,
           keluar: 0,
           sumberJenis: 'pemasukan_lain',
+          fundType,
+          holderRole,
         });
       } else {
         totalPengeluaran += nominal;
         pengeluaranTriwulan.push(kas);
+        if (holderRole === 'PENGURUS_TITIPAN') {
+          netPengurusTitipan -= nominal;
+        } else {
+          netBendahara -= nominal;
+        }
         rawRows.push({
           id: `kas-${kas.id}`,
           tanggal: effDate,
@@ -447,6 +783,8 @@ export function buildQuarterlyLpjReport(
           masuk: 0,
           keluar: nominal,
           sumberJenis: 'pengeluaran',
+          fundType,
+          holderRole,
         });
       }
     }
@@ -463,24 +801,41 @@ export function buildQuarterlyLpjReport(
     };
   });
 
-  // Hitung tingkat kepatuhan pembayaran warga per bulan pada triwulan ini
-  const activeUnits = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
-  const activeUnitSet = new Set(activeUnits.map((w) => canonicalizeBlokKey(w.blok_rumah)));
-  const totalUnitAktif = activeUnits.length;
+  // Hitung tingkat kepatuhan pembayaran warga per bulan pada triwulan ini secara independen
+  // Mengecualikan unit kosong (is_occupied = false) & dibebaskan (is_exempt = true)
+  const billableUnits = wargaList.filter(isUnitBillable);
+  const totalUnitAktif = billableUnits.length;
+  const { paidAmountByKey, pendingKeys } = buildPaidAmountLookup(transaksiList, statusList);
+
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
 
   const kepatuhanPerBulan: KepatuhanBulananItem[] = tw.bulan.map((bulan) => {
     const isPraRilis = isBeforeBillingStart(tahun, bulan, billingStart);
-    const lunasSet = new Set(
-      statusList
-        .filter(
-          (s) =>
-            s.tahun === tahun &&
-            s.bulan === bulan &&
-            s.status === 'Lunas' &&
-            activeUnitSet.has(canonicalizeBlokKey(s.blok_rumah))
-        )
-        .map((s) => canonicalizeBlokKey(s.blok_rumah))
-    );
+    const isBulanBerjalan = tahun === currentYear && bulan === currentMonth;
+    const isBelumPeriode =
+      tahun > currentYear || (tahun === currentYear && bulan > currentMonth);
+
+    let unitLunas = 0;
+    let unitDarurat = 0;
+
+    for (const w of billableUnits) {
+      const cellKey = buildBillingCellKey(w.blok_rumah, tahun, bulan);
+      const paidAmount = paidAmountByKey.get(cellKey) ?? 0;
+      const cellStatus = resolveUnitMonthBillingStatus({
+        warga: w,
+        targetYear: tahun,
+        targetMonth: bulan,
+        paidAmount,
+        billingStart,
+        now,
+      });
+      if (cellStatus === 'LUNAS') {
+        unitLunas += 1;
+      } else if (cellStatus === 'DANA_DARURAT') {
+        unitDarurat += 1;
+      }
+    }
 
     const nominalBulan = verifiedIpl
       .filter((t) => t.tahun === tahun && t.bulan_dibayar.includes(bulan))
@@ -489,7 +844,6 @@ export function buildQuarterlyLpjReport(
         return sum + Math.round((Number(t.nominal) || 0) / div);
       }, 0);
 
-    const unitLunas = lunasSet.size;
     const persentase =
       totalUnitAktif > 0 ? Math.round((unitLunas / totalUnitAktif) * 1000) / 10 : 0;
 
@@ -498,13 +852,23 @@ export function buildQuarterlyLpjReport(
       namaBulan: getNamaBulan(bulan),
       unitAktif: totalUnitAktif,
       unitLunas,
+      unitDarurat,
       persentase,
       nominalTerkumpul: nominalBulan,
       isPraRilis,
+      isBulanBerjalan,
+      isBelumPeriode,
     };
   });
 
-  const activeBillingMonths = kepatuhanPerBulan.filter((m) => !m.isPraRilis);
+  const finishedBillingMonths = kepatuhanPerBulan.filter(
+    (m) => !m.isPraRilis && !m.isBelumPeriode && !m.isBulanBerjalan
+  );
+  const activeBillingMonths =
+    finishedBillingMonths.length > 0
+      ? finishedBillingMonths
+      : kepatuhanPerBulan.filter((m) => !m.isPraRilis && !m.isBelumPeriode);
+
   const rataRataKepatuhan =
     activeBillingMonths.length > 0
       ? Math.round(
@@ -514,8 +878,20 @@ export function buildQuarterlyLpjReport(
         ) / 10
       : 0;
 
+  const daftarUnitMenunggak = buildUnitDelinquencyList({
+    wargaList: billableUnits,
+    year: tahun,
+    months: tw.bulan,
+    paidAmountByKey,
+    pendingKeys,
+    billingStart,
+    now,
+  });
+
   const totalPemasukan = totalIpl + totalPemasukanLain;
   const saldoAkhir = saldoAwal + totalPemasukan - totalPengeluaran;
+  const saldoAkhirBendahara = saldoAwalBendahara + netBendahara;
+  const saldoAkhirPengurusTitipan = saldoAwalPengurusTitipan + netPengurusTitipan;
 
   return {
     triwulanId,
@@ -529,11 +905,19 @@ export function buildQuarterlyLpjReport(
     totalPemasukan,
     totalPengeluaran,
     saldoAkhir,
+    totalIplReguler,
+    totalDanaDarurat,
+    jumlahTransaksiDarurat,
+    saldoAwalBendahara,
+    saldoAwalPengurusTitipan,
+    saldoAkhirBendahara,
+    saldoAkhirPengurusTitipan,
     pengeluaranPerKategori: buildKategoriBreakdown(pengeluaranTriwulan),
     kepatuhanPerBulan,
     rataRataKepatuhan,
     totalUnitAktif,
     mutasiKronologis,
+    daftarUnitMenunggak,
   };
 }
 
@@ -552,7 +936,11 @@ export function buildChairmanMonthlySummaryReport(
   transaksiKasList: TransaksiKas[],
   billingStart?: BillingStartPeriod | null
 ): ChairmanMonthlySummaryReport {
-  const monthlyCash = buildMonthlyCashReport(tahun, bulan, transaksiList, transaksiKasList);
+  const monthlyCash = buildMonthlyCashReport(tahun, bulan, transaksiList, transaksiKasList, {
+    wargaList,
+    statusList,
+    billingStart,
+  });
   const periodKey = tahun * 100 + bulan;
   const paddedMonth = String(bulan).padStart(2, '0');
   const documentNumber = `LAP-KETUA/${tahun}/${paddedMonth}/SK`;
@@ -647,25 +1035,11 @@ export function buildChairmanMonthlySummaryReport(
   const totalExpenseAll = expenseLogs.reduce((sum, e) => sum + e.nominal, 0);
   const totalExpenseUnverified = Math.max(0, totalExpenseAll - totalExpenseVerified);
 
-  // 3. Kepatuhan Pembayaran IPL Unit Aktif pada bulan terpilih
-  const activeUnits = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
-  const activeUnitKeys = new Set(activeUnits.map((w) => canonicalizeBlokKey(w.blok_rumah)));
-  const lunasKeys = new Set(
-    statusList
-      .filter(
-        (s) =>
-          s.tahun === tahun &&
-          s.bulan === bulan &&
-          s.status === 'Lunas' &&
-          activeUnitKeys.has(canonicalizeBlokKey(s.blok_rumah))
-      )
-      .map((s) => canonicalizeBlokKey(s.blok_rumah))
-  );
-
-  const isPraRilis = isBeforeBillingStart(tahun, bulan, billingStart);
-  const unitAktif = activeUnits.length;
-  const unitLunas = lunasKeys.size;
-  const unitBelumBayar = isPraRilis ? 0 : Math.max(0, unitAktif - unitLunas);
+  // 3. Kepatuhan Pembayaran IPL Unit Billable pada bulan terpilih (memakai aturan >= 100rb = Lunas)
+  const isPraRilis = monthlyCash.summaryKepatuhan.isPraRilis;
+  const unitAktif = monthlyCash.summaryKepatuhan.totalBillable;
+  const unitLunas = monthlyCash.summaryKepatuhan.sudahSetor;
+  const unitBelumBayar = isPraRilis ? 0 : monthlyCash.summaryKepatuhan.belumSetor;
   const persentaseKepatuhan =
     unitAktif > 0 ? Math.round((unitLunas / unitAktif) * 1000) / 10 : 0;
 
@@ -680,7 +1054,7 @@ export function buildChairmanMonthlySummaryReport(
   const executiveHighlights: string[] = [];
   if (surplusDefisit >= 0) {
     executiveHighlights.push(
-      `Arus kas periode ${monthlyCash.namaBulan} ${tahun} mencatat SURPLUS sebesar ${formatRupiah(surplusDefisit)} dengan saldo akhir kas ${formatRupiah(monthlyCash.saldoAkhir)}.`
+      `Arus kas periode ${monthlyCash.namaBulan} ${tahun} mencatat SURPLUS sebesar ${formatRupiah(surplusDefisit)} dengan saldo akhir kas ${formatRupiah(monthlyCash.saldoAkhir)} (Kas Reguler: ${formatRupiah(monthlyCash.totalIplReguler)}, Dana Darurat: ${formatRupiah(monthlyCash.totalDanaDarurat)}).`
     );
   } else {
     executiveHighlights.push(
@@ -691,7 +1065,7 @@ export function buildChairmanMonthlySummaryReport(
   executiveHighlights.push(
     isPraRilis
       ? `Periode ${monthlyCash.namaBulan} ${tahun} berstatus Pra-Rilis (penagihan aktif dimulai ${formatBillingStartLabel(billingStart)}); unit belum setor tidak dihitung sebagai tunggakan.`
-      : `Total ${totalTransaksiTerverifikasi} transaksi terverifikasi (${monthlyCash.jumlahTransaksiIpl} IPL, ${monthlyCash.jumlahPemasukanLain} kas lain, ${monthlyCash.jumlahPengeluaran} pengeluaran) dengan tingkat kepatuhan IPL ${persentaseKepatuhan}% (${unitLunas}/${unitAktif} unit aktif lunas).`
+      : `Total ${totalTransaksiTerverifikasi} transaksi terverifikasi (${monthlyCash.jumlahTransaksiIpl} IPL, ${monthlyCash.jumlahPemasukanLain} kas lain, ${monthlyCash.jumlahPengeluaran} pengeluaran) dengan kepatuhan IPL ${persentaseKepatuhan}% (${unitLunas}/${unitAktif} unit wajib iuran lunas; ${monthlyCash.summaryKepatuhan.menunggak} unit menunggak).`
   );
 
   if (monthlyCash.pengeluaranPerKategori.length > 0) {

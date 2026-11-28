@@ -29,6 +29,8 @@ import {
   KATEGORI_PEMASUKAN_LAIN_LIST,
   KATEGORI_PENGELUARAN_LIST,
   TERMIN_PENGELUARAN_LIST,
+  type FundType,
+  type HolderRole,
   type JenisTransaksiKas,
   type PetugasKeamanan,
   type SecurityShiftOverride,
@@ -40,6 +42,10 @@ import {
 import {
   createTransaksiKasAdmin,
   deleteTransaksiKasAdmin,
+  deriveIplFundType,
+  deriveIplHolderRole,
+  deriveKasFundType,
+  deriveKasHolderRole,
   fetchPetugasListAdmin,
   subscribePetugasKeamananRealtime,
   updateTransaksiKasAdmin,
@@ -109,6 +115,8 @@ export function AdminKeuanganSlide({
   const [nominalStr, setNominalStr] = useState<string>('');
   const [penerimaAtauSumber, setPenerimaAtauSumber] = useState<string>('');
   const [keterangan, setKeterangan] = useState<string>('');
+  const [fundType, setFundType] = useState<FundType>('IPL_REGULER');
+  const [holderRole, setHolderRole] = useState<HolderRole>('BENDAHARA');
   const [buktiFile, setBuktiFile] = useState<File | null>(null);
   const [buktiPreview, setBuktiPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -186,6 +194,57 @@ export function AdminKeuanganSlide({
     [transaksiList, transaksiKasList]
   );
 
+  const fundAndHolderBreakdown = useMemo(() => {
+    let totalIplReguler = 0;
+    let totalDanaDarurat = 0;
+    let saldoBendahara = 0;
+    let saldoPengurusTitipan = 0;
+
+    for (const trx of transaksiList) {
+      if (trx.status_verifikasi !== 'Terverifikasi') continue;
+      const nom = Number(trx.nominal) || 0;
+      const fType = deriveIplFundType(nom, trx.bulan_dibayar?.length || 1, trx.fund_type);
+      const hRole = deriveIplHolderRole(trx.metode_bayar, trx.petugas_penerima, trx.holder_role);
+      if (fType === 'DANA_DARURAT') {
+        totalDanaDarurat += nom;
+      } else {
+        totalIplReguler += nom;
+      }
+      if (hRole === 'PENGURUS_TITIPAN') {
+        saldoPengurusTitipan += nom;
+      } else {
+        saldoBendahara += nom;
+      }
+    }
+
+    for (const kas of transaksiKasList) {
+      if (kas.status_verifikasi && kas.status_verifikasi !== 'Terverifikasi') continue;
+      const nom = Number(kas.nominal) || 0;
+      const fType = deriveKasFundType(kas.kategori, kas.fund_type);
+      const hRole = deriveKasHolderRole(kas.holder_role);
+      const delta = kas.jenis === 'pemasukan_lain' ? nom : -nom;
+      if (kas.jenis === 'pemasukan_lain') {
+        if (fType === 'DANA_DARURAT') {
+          totalDanaDarurat += nom;
+        } else {
+          totalIplReguler += nom;
+        }
+      }
+      if (hRole === 'PENGURUS_TITIPAN') {
+        saldoPengurusTitipan += delta;
+      } else {
+        saldoBendahara += delta;
+      }
+    }
+
+    return {
+      totalIplReguler,
+      totalDanaDarurat,
+      saldoBendahara,
+      saldoPengurusTitipan,
+    };
+  }, [transaksiList, transaksiKasList]);
+
   const parsedNominal = useMemo(() => {
     const clean = nominalStr.replace(/\D/g, '');
     return clean ? Number(clean) : 0;
@@ -194,18 +253,22 @@ export function AdminKeuanganSlide({
   const switchJenisForm = (next: JenisTransaksiKas) => {
     setFormJenis(next);
     setEditingItem(null);
-    setKategori(
-      next === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0]
-    );
+    const nextKat =
+      next === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0];
+    setKategori(nextKat);
+    setFundType(deriveKasFundType(nextKat));
+    setHolderRole('BENDAHARA');
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
   };
 
   const resetForm = (keepJenis = formJenis) => {
     setEditingItem(null);
     setFormJenis(keepJenis);
-    setKategori(
-      keepJenis === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0]
-    );
+    const nextKat =
+      keepJenis === 'pengeluaran' ? DEFAULT_NON_HONOR_PENGELUARAN : KATEGORI_PEMASUKAN_LAIN_LIST[0];
+    setKategori(nextKat);
+    setFundType(deriveKasFundType(nextKat));
+    setHolderRole('BENDAHARA');
     setTermin(TERMIN_PENGELUARAN_LIST[0]);
     setTanggal(todayIso);
     setNominalStr('');
@@ -221,6 +284,8 @@ export function AdminKeuanganSlide({
     setEditingItem(item);
     setFormJenis(item.jenis);
     setKategori(item.kategori);
+    setFundType(deriveKasFundType(item.kategori, item.fund_type));
+    setHolderRole(deriveKasHolderRole(item.holder_role));
     setTermin(item.termin || TERMIN_PENGELUARAN_LIST[0]);
     setTanggal(item.tanggal);
     setNominalStr(String(item.nominal));
@@ -282,6 +347,8 @@ export function AdminKeuanganSlide({
           bukti_url: buktiPreview,
           petugas_id: editingItem.petugas_id ?? null,
           jenis_honor: editingItem.jenis_honor ?? null,
+          fund_type: fundType,
+          holder_role: holderRole,
         });
         if (res.error) {
           onToast('error', res.error);
@@ -300,6 +367,8 @@ export function AdminKeuanganSlide({
           penerima_atau_sumber: penerimaAtauSumber,
           keterangan,
           buktiFile,
+          fund_type: fundType,
+          holder_role: holderRole,
         });
         if (res.error || !res.data) {
           onToast('error', res.error || 'Gagal menyimpan transaksi kas.');
@@ -507,6 +576,34 @@ export function AdminKeuanganSlide({
         </div>
       </section>
 
+      {/* Strip Pemisahan Dana (Reguler vs Darurat) & Posisi Pemegang Dana */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-2.5">
+          <p className="text-[10.5px] font-semibold text-emerald-800">Kas IPL Reguler (≥100rb)</p>
+          <p className="text-sm sm:text-base font-mono font-bold text-emerald-900 tabular-nums mt-0.5">
+            {formatRupiah(fundAndHolderBreakdown.totalIplReguler)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-purple-300 bg-purple-50/80 px-3.5 py-2.5">
+          <p className="text-[10.5px] font-semibold text-purple-900">Dana Darurat (&lt;100rb/bln)</p>
+          <p className="text-sm sm:text-base font-mono font-bold text-purple-800 tabular-nums mt-0.5">
+            {formatRupiah(fundAndHolderBreakdown.totalDanaDarurat)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#C6D2BF] bg-[#E5EEE3]/50 px-3.5 py-2.5">
+          <p className="text-[10.5px] font-semibold text-[#243825]">Kas di Bendahara</p>
+          <p className="text-sm sm:text-base font-mono font-bold text-[#1B271B] tabular-nums mt-0.5">
+            {formatRupiah(fundAndHolderBreakdown.saldoBendahara)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#E2C285] bg-[#F2D8A7]/40 px-3.5 py-2.5">
+          <p className="text-[10.5px] font-semibold text-[#4A3410]">Titipan Sementara Pengurus</p>
+          <p className="text-sm sm:text-base font-mono font-bold text-[#4A3410] tabular-nums mt-0.5">
+            {formatRupiah(fundAndHolderBreakdown.saldoPengurusTitipan)}
+          </p>
+        </div>
+      </section>
+
       {/* Sub-Navigasi Keuangan: Buku Kas vs Kelola Shift & Lembur Keamanan */}
       <div
         role="tablist"
@@ -624,7 +721,13 @@ export function AdminKeuanganSlide({
               </label>
               <select
                 value={kategori}
-                onChange={(e) => setKategori(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setKategori(val);
+                  if (!editingItem) {
+                    setFundType(deriveKasFundType(val));
+                  }
+                }}
                 className="w-full min-h-[44px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3.5 text-sm text-[#1B271B] focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
               >
                 {kategoriOptions.map((opt) => (
@@ -769,6 +872,36 @@ export function AdminKeuanganSlide({
                     placeholder="Rincian penggunaan anggaran atau keterangan penerimaan dana..."
                     className="w-full rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] p-3 text-sm text-[#1B271B] resize-none focus:border-[#2B3F29] focus:outline-none focus:ring-2 focus:ring-[#2B3F29]/20"
                   />
+                </div>
+
+                {/* Pos Alokasi Dana & Pemegang Kas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
+                      Alokasi Pos Dana
+                    </label>
+                    <select
+                      value={fundType}
+                      onChange={(e) => setFundType(e.target.value as FundType)}
+                      className="w-full min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-xs font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
+                    >
+                      <option value="IPL_REGULER">Kas IPL Reguler</option>
+                      <option value="DANA_DARURAT">Dana Darurat</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1B271B] mb-1.5">
+                      Pemegang Dana
+                    </label>
+                    <select
+                      value={holderRole}
+                      onChange={(e) => setHolderRole(e.target.value as HolderRole)}
+                      className="w-full min-h-[42px] rounded-2xl border border-[#C6D2BF] bg-[#FFFDF8] px-3 text-xs font-semibold text-[#1B271B] focus:border-[#2B3F29] focus:outline-none"
+                    >
+                      <option value="BENDAHARA">Kas di Bendahara</option>
+                      <option value="PENGURUS_TITIPAN">Titipan Sementara Pengurus</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Upload Foto Nota / Bukti */}
@@ -954,8 +1087,19 @@ export function AdminKeuanganSlide({
                 const isOut = item.jenis === 'pengeluaran';
                 const statusVerif: StatusVerifikasi = item.status_verifikasi || 'Terverifikasi';
                 const isBusy = verifyingId === item.id;
+                const itemFundType = deriveKasFundType(item.kategori, item.fund_type);
+                const itemHolderRole = deriveKasHolderRole(item.holder_role);
+                const isDarurat = itemFundType === 'DANA_DARURAT';
+                const isTitipan = itemHolderRole === 'PENGURUS_TITIPAN';
                 return (
-                  <article key={item.id} className="p-4 sm:p-5 hover:bg-[#F6F3EA]/60 transition-colors">
+                  <article
+                    key={item.id}
+                    className={`p-4 sm:p-5 transition-colors ${
+                      isDarurat
+                        ? 'border-l-4 border-l-purple-600 bg-purple-50/40 hover:bg-purple-50/70'
+                        : 'hover:bg-[#F6F3EA]/60'
+                    }`}
+                  >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="space-y-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
@@ -968,6 +1112,16 @@ export function AdminKeuanganSlide({
                           </span>
                           <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
                           <span className="font-semibold text-[#1B271B]">{item.kategori}</span>
+                          {isDarurat && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-bold">
+                              Dana Darurat
+                            </span>
+                          )}
+                          {isTitipan && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-semibold">
+                              Titipan Pengurus
+                            </span>
+                          )}
                           {item.termin && (
                             <>
                               <span aria-hidden="true" className="text-[#C6D2BF]">·</span>

@@ -40,7 +40,6 @@ import {
   type Warga,
 } from '../../types';
 import {
-  canonicalizeBlokKey,
   formatBlokRumah,
   formatDaftarBulan,
   formatRupiah,
@@ -49,14 +48,24 @@ import {
   getCurrentBillingMonth,
   getNamaBulan,
   isBeforeBillingStart,
-  isCountableUnpaidStatus,
   matchesBlockSearch,
-  resolveEffectiveMonthStatus,
 } from '../../lib/format';
+import {
+  buildBillingCellKey,
+  buildPaidAmountLookup,
+  formatDaruratBadgeLabel,
+  getUnitDelinquentMonths,
+  isUnitBillable,
+  resolveUnitMonthBillingStatus,
+} from '../../lib/billingStatus';
 import { LoadingSpinner } from '../LoadingSpinner';
 import {
   deleteSystemNotificationAdmin,
   deleteTransaksiIplAdmin,
+  deriveIplFundType,
+  deriveIplHolderRole,
+  deriveKasFundType,
+  deriveKasHolderRole,
   sendBulkSystemNotificationAdmin,
   verifyTransaksiAdmin,
   verifyTransaksiKasKetuaAdmin,
@@ -154,35 +163,59 @@ export function AdminDashboardSlide({
     [transaksiList, transaksiKasList]
   );
 
-  // Hitung KPI bulan berjalan dengan pencocokan blok kanonis (B05/02 == B5/2)
-  const activeWarga = wargaList.filter((w) => w.aktif && w.status_hunian !== 'Kosong');
-  const rumahLunasBulanIni = activeWarga.filter((w) => {
-    const wKey = canonicalizeBlokKey(w.blok_rumah);
-    const st = statusList.find(
-      (s) =>
-        canonicalizeBlokKey(s.blok_rumah) === wKey &&
-        s.tahun === TAHUN_AKTIF &&
-        s.bulan === currentMonth
-    );
-    return st?.status === 'Lunas';
-  }).length;
+  // Hitung KPI bulan berjalan secara sinkron dengan siklus post-paid & aturan Dana Darurat (< Rp100rb)
+  const activeWarga = useMemo(() => wargaList.filter(isUnitBillable), [wargaList]);
+  const { paidAmountByKey, pendingKeys } = useMemo(
+    () => buildPaidAmountLookup(transaksiList, statusList),
+    [transaksiList, statusList]
+  );
 
-  const rumahBelumBayarBulanIni = activeWarga.filter((w) => {
-    const wKey = canonicalizeBlokKey(w.blok_rumah);
-    const st = statusList.find(
-      (s) =>
-        canonicalizeBlokKey(s.blok_rumah) === wKey &&
-        s.tahun === TAHUN_AKTIF &&
-        s.bulan === currentMonth
-    );
-    const effective = resolveEffectiveMonthStatus({
-      dbStatus: st?.status,
-      tahun: TAHUN_AKTIF,
-      bulan: currentMonth,
-      billingStart: brand,
-    });
-    return isCountableUnpaidStatus(effective);
-  }).length;
+  const { rumahLunasBulanIni, rumahBelumBayarBulanIni, rumahDaruratBulanIni, rumahMenunggakCount } =
+    useMemo(() => {
+      let lunas = 0;
+      let belumBayar = 0;
+      let darurat = 0;
+      let menunggak = 0;
+
+      for (const w of activeWarga) {
+        const cellKey = buildBillingCellKey(w.blok_rumah, TAHUN_AKTIF, currentMonth);
+        const paid = paidAmountByKey.get(cellKey) ?? 0;
+        const st = resolveUnitMonthBillingStatus({
+          warga: w,
+          targetYear: TAHUN_AKTIF,
+          targetMonth: currentMonth,
+          paidAmount: paid,
+          billingStart: brand,
+        });
+
+        if (st === 'LUNAS') {
+          lunas += 1;
+        } else if (st === 'DANA_DARURAT') {
+          belumBayar += 1;
+          darurat += 1;
+        } else if (st !== 'KOSONG' && st !== 'PRA_RILIS') {
+          belumBayar += 1;
+        }
+
+        const delinquentMonths = getUnitDelinquentMonths({
+          warga: w,
+          year: TAHUN_AKTIF,
+          paidAmountByKey,
+          pendingKeys,
+          billingStart: brand,
+        });
+        if (delinquentMonths.length >= 1) {
+          menunggak += 1;
+        }
+      }
+
+      return {
+        rumahLunasBulanIni: lunas,
+        rumahBelumBayarBulanIni: belumBayar,
+        rumahDaruratBulanIni: darurat,
+        rumahMenunggakCount: menunggak,
+      };
+    }, [activeWarga, paidAmountByKey, pendingKeys, currentMonth, brand]);
 
   const pemasukanBulanIni = transaksiList
     .filter(
@@ -704,21 +737,46 @@ export function AdminDashboardSlide({
                   const canVerifyQuick =
                     (trx.status_verifikasi === 'Pending' && canAccessBotWa) ||
                     (trx.status_verifikasi === 'ACC Bendahara' && isKetua);
+                  const fType = deriveIplFundType(trx.nominal, trx.bulan_dibayar?.length || 1, trx.fund_type);
+                  const hRole = deriveIplHolderRole(trx.metode_bayar, trx.petugas_penerima, trx.holder_role);
+                  const isDarurat = fType === 'DANA_DARURAT';
+                  const isTitipan = hRole === 'PENGURUS_TITIPAN';
+                  const perMonth = Math.round(
+                    (Number(trx.nominal) || 0) / Math.max(trx.bulan_dibayar?.length || 1, 1)
+                  );
 
                   return (
                     <div
                       key={`quick-queue-${trx.id}`}
-                      className="rounded-2xl border border-[#E6E2D6] bg-[#F6F3EA]/70 px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      className={`rounded-2xl border px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                        isDarurat
+                          ? 'border-purple-300 border-l-4 border-l-purple-600 bg-purple-50/50'
+                          : 'border-[#E6E2D6] bg-[#F6F3EA]/70'
+                      }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
                           aria-hidden="true"
-                          className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0"
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            isDarurat ? 'bg-purple-600' : 'bg-[#D99B26]'
+                          }`}
                         />
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#1F2A1E] truncate">
-                            {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} · {trx.nama_warga}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-sm font-bold text-[#1F2A1E] truncate">
+                              {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} · {trx.nama_warga}
+                            </p>
+                            {isDarurat && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-bold whitespace-nowrap">
+                                {formatDaruratBadgeLabel(perMonth)}
+                              </span>
+                            )}
+                            {isTitipan && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-semibold whitespace-nowrap">
+                                Titipan Pengurus
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-[#6B7168] font-mono tabular-nums truncate">
                             {formatRupiah(trx.nominal)} · {formatDaftarBulan(trx.bulan_dibayar)}
                           </p>
@@ -866,7 +924,9 @@ export function AdminDashboardSlide({
           <p className="text-[11px] text-[#6B7168] mt-1">
             {isBeforeBillingStart(TAHUN_AKTIF, currentMonth, brand)
               ? 'Periode Pra-Rilis (Belum Berlaku)'
-              : 'Unit aktif belum setor'}
+              : rumahDaruratBulanIni > 0
+                ? `${rumahDaruratBulanIni} Dana Darurat (<100rb) · ${rumahMenunggakCount} menunggak`
+                : `Unit aktif belum lunas · ${rumahMenunggakCount} menunggak`}
           </p>
         </div>
 
@@ -941,10 +1001,19 @@ export function AdminDashboardSlide({
             <div className="divide-y divide-[#E6E2D6]">
               {accBendaharaList.map((trx) => {
                 const isBusy = processingId === trx.id;
+                const fType = deriveIplFundType(trx.nominal, trx.bulan_dibayar?.length || 1, trx.fund_type);
+                const hRole = deriveIplHolderRole(trx.metode_bayar, trx.petugas_penerima, trx.holder_role);
+                const isDarurat = fType === 'DANA_DARURAT';
+                const isTitipan = hRole === 'PENGURUS_TITIPAN';
+                const perMonth = Math.round(
+                  (Number(trx.nominal) || 0) / Math.max(trx.bulan_dibayar?.length || 1, 1)
+                );
                 return (
                   <article
                     key={`ketua-ipl-${trx.id}`}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className={`p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      isDarurat ? 'border-l-4 border-l-purple-600 bg-purple-50/40' : ''
+                    }`}
                   >
                     <div className="flex items-start gap-3.5 min-w-0">
                       <button
@@ -966,6 +1035,16 @@ export function AdminDashboardSlide({
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                           <span className="font-bold text-[#243825]">Setoran IPL Warga</span>
+                          {isDarurat && (
+                            <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-bold">
+                              {formatDaruratBadgeLabel(perMonth)}
+                            </span>
+                          )}
+                          {isTitipan && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-semibold">
+                              Titipan Pengurus
+                            </span>
+                          )}
                           <span className="text-[#C6D2BF]">·</span>
                           <span className="font-mono font-bold text-[#1F2A1E]">
                             Blok {formatBlokRumah(trx.blok_rumah) || trx.blok_rumah} ({trx.nama_warga})
@@ -1027,10 +1106,16 @@ export function AdminDashboardSlide({
               {accBendaharaKasList.map((kas) => {
                 const isBusy = processingId === kas.id;
                 const isOut = kas.jenis === 'pengeluaran';
+                const isKasDarurat = deriveKasFundType(kas.kategori, kas.fund_type) === 'DANA_DARURAT';
+                const isKasTitipan = deriveKasHolderRole(kas.holder_role) === 'PENGURUS_TITIPAN';
                 return (
                   <article
                     key={`ketua-kas-${kas.id}`}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#F6F3EA]/40"
+                    className={`p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      isKasDarurat
+                        ? 'border-l-4 border-l-purple-600 bg-purple-50/40'
+                        : 'bg-[#F6F3EA]/40'
+                    }`}
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
@@ -1048,6 +1133,16 @@ export function AdminDashboardSlide({
                         </span>
                         <span className="text-[#C6D2BF]">·</span>
                         <span className="font-semibold text-[#1F2A1E]">{kas.kategori}</span>
+                        {isKasDarurat && (
+                          <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-bold">
+                            Dana Darurat
+                          </span>
+                        )}
+                        {isKasTitipan && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-semibold">
+                            Titipan Pengurus
+                          </span>
+                        )}
                         <span className="text-[#C6D2BF]">·</span>
                         <span className="font-semibold text-[#2B3F29]">
                           ACC Bendahara ({kas.bendahara_approved_by || 'Andriansyah'})
@@ -1208,10 +1303,21 @@ export function AdminDashboardSlide({
                 const isPending = trx.status_verifikasi === 'Pending';
                 const isAccBendahara = trx.status_verifikasi === 'ACC Bendahara';
                 const isVerified = trx.status_verifikasi === 'Terverifikasi';
+                const fType = deriveIplFundType(trx.nominal, trx.bulan_dibayar?.length || 1, trx.fund_type);
+                const hRole = deriveIplHolderRole(trx.metode_bayar, trx.petugas_penerima, trx.holder_role);
+                const isDarurat = fType === 'DANA_DARURAT';
+                const isTitipan = hRole === 'PENGURUS_TITIPAN';
+                const perMonth = Math.round(
+                  (Number(trx.nominal) || 0) / Math.max(trx.bulan_dibayar?.length || 1, 1)
+                );
                 return (
                   <article
                     key={trx.id}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-[#F6F3EA]/50 transition-colors"
+                    className={`p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition-colors ${
+                      isDarurat
+                        ? 'border-l-4 border-l-purple-600 bg-purple-50/40 hover:bg-purple-50/65'
+                        : 'hover:bg-[#F6F3EA]/50'
+                    }`}
                   >
                     <div className="flex items-start gap-4 min-w-0">
                       {/* Thumbnail Bukti Foto */}
@@ -1242,6 +1348,16 @@ export function AdminDashboardSlide({
                           <span className="text-sm font-semibold text-[#1B271B]">
                             {trx.nama_warga}
                           </span>
+                          {isDarurat && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 text-[10.5px] font-bold">
+                              {formatDaruratBadgeLabel(perMonth)}
+                            </span>
+                          )}
+                          {isTitipan && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10.5px] font-semibold">
+                              Titipan Pengurus
+                            </span>
+                          )}
                           <span aria-hidden="true" className="text-[#C6D2BF]">·</span>
                           {isPending ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8A5F16]">

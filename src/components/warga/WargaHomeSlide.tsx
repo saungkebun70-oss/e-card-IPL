@@ -32,6 +32,7 @@ import {
 import {
   buildBillingCellKey,
   buildPaidAmountLookup,
+  formatDaruratBadgeLabel,
   getStatusBadgeStyle,
   resolveUnitMonthBillingStatus,
   type CellStatus,
@@ -60,7 +61,7 @@ function loadReadNotificationIds(blokRumah: string): string[] {
   }
 }
 
-function getMonthCellStyles(status: CellStatus, isPending: boolean) {
+function getMonthCellStyles(status: CellStatus, isPending: boolean, paidAmount = 0) {
   if (
     isPending &&
     status !== 'LUNAS' &&
@@ -89,7 +90,7 @@ function getMonthCellStyles(status: CellStatus, isPending: boolean) {
     case 'DANA_DARURAT':
       return {
         box: 'bg-purple-50 border-purple-300 text-purple-900 hover:border-purple-400',
-        label: badge.label,
+        label: formatDaruratBadgeLabel(paidAmount),
         labelColor: 'text-purple-800',
         icon: ShieldCheck,
       };
@@ -201,7 +202,7 @@ export function WargaHomeSlide({
         }
       : currentCellStatus === 'DANA_DARURAT'
         ? {
-            text: 'ALOKASI DANA DARURAT',
+            text: `ALOKASI DANA DARURAT · ${formatRupiah(currentPaidAmount)}`,
             bg: 'bg-purple-100 text-purple-900 border border-purple-300',
             icon: ShieldCheck,
           }
@@ -559,7 +560,7 @@ export function WargaHomeSlide({
               status !== 'KOSONG' &&
               status !== 'PRA_RILIS' &&
               pendingKeys.has(cellKey);
-            const style = getMonthCellStyles(status, isPending);
+            const style = getMonthCellStyles(status, isPending, paidAmount);
             const CellIcon = style.icon;
             const canClick =
               status !== 'LUNAS' &&
