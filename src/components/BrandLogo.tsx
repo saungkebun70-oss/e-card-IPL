@@ -16,11 +16,11 @@ interface BrandLogoProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
-  xs: 'w-12 h-12 p-1 rounded-xl',
-  sm: 'w-14 h-14 p-1 rounded-xl',
-  md: 'w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] p-1 rounded-2xl',
-  lg: 'w-20 h-20 sm:w-24 sm:h-24 p-1.5 rounded-2xl',
-  xl: 'w-24 h-24 sm:w-32 sm:h-32 p-2 rounded-2xl',
+  xs: 'w-12 h-12',
+  sm: 'w-14 h-14',
+  md: 'w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem]',
+  lg: 'w-20 h-20 sm:w-24 sm:h-24',
+  xl: 'w-24 h-24 sm:w-32 sm:h-32',
 };
 
 /**
@@ -130,22 +130,12 @@ export function BrandLogo({
     setFailed(false);
   }, [rawCustomSrc]);
 
-  const containerGlassClasses = isDarkGlass
-    ? 'bg-white/20 backdrop-blur-md border border-white/35 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.5)]'
-    : 'bg-white/60 backdrop-blur-md border border-[#243825]/15 shadow-sm';
-
   const activeSrc = !failed && rawCustomSrc ? rawCustomSrc : defaultAsset;
 
   return (
     <div
-      className={`relative flex items-center justify-center shrink-0 overflow-hidden ${SIZE_CLASSES[size]} ${containerGlassClasses} ${className}`}
+      className={`relative flex items-center justify-center shrink-0 ${SIZE_CLASSES[size]} ${className}`}
     >
-      {isDarkGlass && (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-white/25"
-        />
-      )}
       <img
         src={activeSrc}
         alt={resolvedAlt}
@@ -154,9 +144,9 @@ export function BrandLogo({
         onError={() => {
           if (!failed) setFailed(true);
         }}
-        className={`relative z-10 w-full h-full object-contain ${
+        className={`w-full h-full object-contain ${
           isDarkGlass
-            ? '[filter:drop-shadow(0_0_4px_rgba(255,255,255,0.88))_drop-shadow(0_2px_6px_rgba(10,22,12,0.32))]'
+            ? '[filter:drop-shadow(0_0_5px_rgba(255,255,255,0.9))_drop-shadow(0_2px_6px_rgba(10,22,12,0.35))]'
             : ''
         }`}
       />
