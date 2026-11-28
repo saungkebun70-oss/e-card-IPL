@@ -502,7 +502,7 @@ export function FloatingChatWidget({
             : { touchAction: 'none' }
         }
         className={`nb2-chat-fab fixed z-[42] h-[52px] w-[52px] sm:h-14 sm:w-14 rounded-full text-[#FFFDF8] flex items-center justify-center select-none touch-none no-print ${
-          pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.35rem)] lg:bottom-6'
+          pos ? '' : 'right-3.5 sm:right-6 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.75rem)] lg:bottom-6'
         } ${
           isDragging
             ? 'scale-110 ring-4 ring-[#E5EEE3] cursor-grabbing transition-none'

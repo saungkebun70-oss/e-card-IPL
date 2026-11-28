@@ -843,8 +843,8 @@ export function AppShell({
         </header>
       </div>
 
-      {/* AREA KONTEN UTAMA (pb-28 agar tidak tertutup Bottom Nav maupun Floating Chat FAB) */}
-      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[6.25rem] pb-28 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
+      {/* AREA KONTEN UTAMA (pb-32 agar tidak tertutup Pop-Out Bottom Nav NP11 maupun Floating Chat FAB) */}
+      <main className="flex-1 lg:pl-72 px-3.5 pt-3.5 sm:px-6 lg:px-8 lg:pt-[6.25rem] pb-32 lg:pb-10 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full min-w-0">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -873,7 +873,7 @@ export function AppShell({
         onToast={onToast}
       />
 
-      {/* FLOATING BOTTOM DOCK — NB2 3D SOFT PORCELAIN (MOBILE & TABLET < lg) */}
+      {/* FLOATING BOTTOM DOCK — NP11 LIQUID PEARL-GLASS + POP-OUT 3D ICONS (MOBILE & TABLET < lg) */}
       <Navbar3D
         items={bottomDockItems}
         activeId={activeTab}

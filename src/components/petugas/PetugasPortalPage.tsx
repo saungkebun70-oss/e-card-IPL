@@ -1442,7 +1442,7 @@ export function PetugasPortalPage({
         </div>
       </header>
 
-      <main className="lg:pl-[260px] pt-[calc(4.85rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="lg:pl-[260px] pt-[calc(4.85rem+env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(8rem+env(safe-area-inset-bottom,0px))] lg:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="max-w-3xl mx-auto px-3 py-3 sm:px-4 space-y-4 w-full min-w-0">
         {loading && !data ? (
           <ContentLoadingState
